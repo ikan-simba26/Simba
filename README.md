@@ -55,6 +55,27 @@ npm install
 npm run dev
 ```
 
+## Running the walking skeleton
+
+Two terminals, from the repo root:
+
+```bash
+cd replicas/registration && python app.py          # the target site
+python -m uvicorn backend.orchestrator.app:app     # the backend, on /ws
+```
+
+The frontend connects to `ws://127.0.0.1:8000/ws`, sends `task.start`, and
+answers each `step.presented` with a `step.response`. With no frontend yet,
+`tools/mock_backend.py` plays the other side of the same conversation.
+
+## Tests
+
+```bash
+python -m pytest        # from the repo root
+```
+
+The tests start the replicas they need, so nothing has to be running first.
+
 ## Conventions
 
 - Python 3.11, type hints everywhere, `ruff` + `black`. Tests in `pytest`.

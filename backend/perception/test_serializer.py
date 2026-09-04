@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Page, sync_playwright
 
-from serializer import Element, serialize
+from backend.perception.serializer import Element, serialize
 
 REPLICA_DIR = Path(__file__).resolve().parents[2] / "replicas" / "registration"
 BASE_URL = "http://127.0.0.1:5001"

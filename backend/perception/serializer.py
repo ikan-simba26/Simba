@@ -20,6 +20,7 @@ where it may inject a secret.
 from dataclasses import dataclass
 from typing import Any
 
+from playwright.async_api import Page as AsyncPage
 from playwright.sync_api import Page
 
 # AX role -> the action the orchestrator can take on the element.
@@ -64,6 +65,19 @@ def serialize(page: Page) -> list[Element]:
         document = cdp.send("DOM.getDocument", {"depth": -1})["root"]
     finally:
         cdp.detach()
+
+    return build_elements(ax_nodes, index_dom(document))
+
+
+async def serialize_async(page: AsyncPage) -> list[Element]:
+    """Async twin of `serialize`, for callers running under an event loop."""
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        await cdp.send("Accessibility.enable")
+        ax_nodes = (await cdp.send("Accessibility.getFullAXTree"))["nodes"]
+        document = (await cdp.send("DOM.getDocument", {"depth": -1}))["root"]
+    finally:
+        await cdp.detach()
 
     return build_elements(ax_nodes, index_dom(document))
 
