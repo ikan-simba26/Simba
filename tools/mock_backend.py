@@ -9,13 +9,13 @@ Run: uvicorn tools.mock_backend:app --port 8000 --app-dir .
 
 import json
 import sys
-import time
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from shared.envelope import envelope  # noqa: E402
 from shared.schema import (  # noqa: E402
     BaseModel,
     LoadUpdated,
@@ -79,18 +79,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
     async def send(msg_type: str, payload: BaseModel) -> None:
         nonlocal seq
         seq += 1
-        await ws.send_text(
-            json.dumps(
-                {
-                    "v": 1,
-                    "type": msg_type,
-                    "task_id": TASK_ID,
-                    "seq": seq,
-                    "ts": int(time.time() * 1000),
-                    "payload": payload.model_dump(),
-                }
-            )
-        )
+        await ws.send_text(json.dumps(envelope(msg_type, TASK_ID, seq, payload)))
 
     async def receive(msg_type: str, step_index: int | None = None) -> None:
         while True:

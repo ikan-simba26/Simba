@@ -23,6 +23,7 @@ from playwright.async_api import Page
 
 from backend.orchestrator.plan import GOAL, Expectation, Operation, PlanStep, Target
 from backend.perception.serializer import Element, serialize_async
+from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
     HelpRequested,
@@ -56,16 +57,7 @@ class Connection:
     async def send(self, message_type: str, payload: BaseModel) -> None:
         self._seq += 1
         await self._websocket.send_text(
-            json.dumps(
-                {
-                    "v": 1,
-                    "type": message_type,
-                    "task_id": self._task_id,
-                    "seq": self._seq,
-                    "ts": int(time.time() * 1000),
-                    "payload": payload.model_dump(),
-                }
-            )
+            json.dumps(envelope(message_type, self._task_id, self._seq, payload))
         )
 
     async def receive(self, message_type: str, step_index: int | None = None) -> dict:

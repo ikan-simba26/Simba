@@ -24,6 +24,10 @@ build/
 # Claude Code local state
 .claude/
 
+# Local scratch space and run logs
+.scratch/
+logs/
+
 # Playwright
 test-results/
 playwright-report/
