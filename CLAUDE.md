@@ -56,6 +56,20 @@ strategy, then hand control to the user. Never assume a click worked.
 - Do not use OpenCV, local LLMs, or text-to-speech. Out of scope.
 - `.env` is never committed.
 
+## Tooling boundaries
+
+Applies to any agent or script working in this repo, not just to people.
+
+- **Never take a full-screen or full-desktop screenshot.** When a visual check
+  is genuinely needed, capture the specific application window and nothing
+  else. A desktop capture sweeps up whatever else the machine is showing.
+- **Never read or write files outside the project directory.** Temporary files
+  belong in the repo's ignored paths, not in the home directory or system
+  temp.
+- **Ask before any action that touches the system rather than the repo** —
+  installing software, changing global configuration, killing processes that
+  aren't ones this work started, or anything that outlives the checkout.
+
 ## Conventions
 
 - Python 3.11, type hints everywhere, `ruff` + `black`. Tests in `pytest`.
