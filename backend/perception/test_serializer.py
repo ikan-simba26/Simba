@@ -89,6 +89,39 @@ def test_login_form_controls(replica: str, page: Page) -> None:
     assert (remember.role, remember.type) == ("checkbox", "check")
 
 
+def test_password_input_is_distinguishable_from_text_input(replica: str, page: Page) -> None:
+    """The AX tree alone cannot tell these apart; the DOM enrichment can."""
+    page.goto(replica + "/")
+    elements = serialize(page)
+
+    username = find(elements, "Student ID or Username")
+    password = find(elements, "Password")
+
+    # Identical to the accessibility tree...
+    assert username.role == password.role == "textbox"
+    assert username.tag == password.tag == "input"
+
+    # ...and separable only by the DOM type attribute.
+    assert username.input_type == "text"
+    assert password.input_type == "password"
+    assert password.is_password
+    assert not username.is_password
+
+
+def test_tag_and_input_type_are_captured(replica: str, page: Page) -> None:
+    page.goto(replica + "/")
+    elements = serialize(page)
+
+    sign_in = find(elements, "Sign In")
+    assert (sign_in.tag, sign_in.input_type) == ("button", "submit")
+
+    remember = find(elements, "Remember this device for 30 days")
+    assert (remember.tag, remember.input_type) == ("input", "checkbox")
+
+    home = find(elements, "Home")
+    assert (home.tag, home.input_type) == ("a", None)
+
+
 def test_labels_come_from_the_accessibility_tree(replica: str, page: Page) -> None:
     """The username input has no inline text; its name comes from <label for>."""
     page.goto(replica + "/")
