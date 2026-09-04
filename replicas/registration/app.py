@@ -5,6 +5,8 @@ Used for repeated benchmark runs against a stable target instead of a
 live site (see CLAUDE.md).
 """
 
+import os
+
 from flask import Flask, redirect, render_template, request, session, url_for
 
 app = Flask(__name__)
@@ -64,4 +66,4 @@ def register():
 
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(port=int(os.environ.get("PORT", "5000")))
