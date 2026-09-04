@@ -37,11 +37,12 @@ after clicking the first link.
 
 ## Notes
 
-- The hidden view is a `WebContentsView` sized the same as the window but
-  hidden with `setVisible(false)`. Sizing it to `0x0` instead breaks
-  Playwright's click actionability check (element permanently reports as
-  "outside of the viewport"), even though reading (title, link text) still
-  works — clicking needs a real, laid-out viewport.
+- The site view is a full-size `WebContentsView` left **visible**, with the
+  overlay view added after it at the same bounds so it covers the site view
+  completely. Hiding the site view with `setVisible(false)` instead makes
+  screenshots flaky (40% of captures time out); sizing it `0x0` or moving it
+  outside the parent collapses its viewport to 0x0 and breaks clicking. See
+  CLAUDE.md's Architecture constraints for the numbers.
 - If `npm start` exits immediately with `Cannot read properties of undefined
   (reading 'commandLine')`, the `ELECTRON_RUN_AS_NODE` environment variable is
   set and is forcing Electron to run as plain Node. Unset it first:

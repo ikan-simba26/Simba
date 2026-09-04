@@ -69,32 +69,41 @@ strategy, then hand control to the user. Never assume a click worked.
 
 Findings from the `spike/` Electron + CDP + Playwright test.
 
-- **The hidden view needs real laid-out bounds plus `setVisible(false)`.**
-  Sizing the `WebContentsView` to `0x0` to hide it breaks Playwright's click
-  actionability check — elements permanently report as "outside of the
-  viewport" and clicks time out, even though reads (title, link text) still
-  work. Giving the view a real size and hiding it with `setVisible(false)`
-  instead fixes this; reads and clicks both work.
+- **Hide the site view by covering it, never by hiding it.** The site view
+  stays `setVisible(true)` at full 1280x800 bounds, and the overlay view is
+  added to the window *after* it, at identical bounds, so it covers the site
+  view completely. Chromium keeps compositing a covered view, so screenshots
+  stay reliable; the user still never sees it. This is the standard approach —
+  `spike/main.js` is the reference.
+
+  The two alternatives both fail, and neither is a free choice:
+
+  | Approach | Viewport | Screenshots | Click |
+  |---|---|---|---|
+  | Covered by overlay, `setVisible(true)` | 1280x800 | **20/20** | works |
+  | `setVisible(false)` | 1280x800 | 2/5 | works |
+  | Positioned outside the parent, `setVisible(true)` | collapses to 0x0 | 0/5 | fails |
+
+- **Never size or position the view outside its parent.** `0x0` bounds, or a
+  position past the parent's edge, collapses the renderer's viewport to 0x0.
+  Reads (title, link text) still work, but every click times out with
+  "element is outside of the viewport", because nothing can ever be inside a
+  zero-size viewport.
 - **Viewport is frozen at 1280x800.** The estimator measures text density per
   visible area, so the viewport must stay constant across runs — changing it
   changes the density numbers independently of anything the page actually
-  did. Confirmed read-and-click still work at 1280x800.
-- **Screenshotting the hidden view is possible but unreliable.** Playwright
-  can screenshot a `setVisible(false)` `WebContentsView`, and the screenshot
-  does reflect the page's current content after navigation (confirmed:
-  content and byte size change to match the new page). But repeated capture
-  calls on the same hidden view are flaky — in testing, roughly every other
-  `page.screenshot()` call timed out waiting for a compositor frame that
-  never arrived, with no navigation or scrolling in between. Chromium appears
-  not to reliably keep repainting a surface that's marked invisible. Anything
-  built on `page.preview` / `trust.requested` needs a retry-with-timeout
-  strategy, or should briefly flip the view visible for the capture and back,
-  rather than assuming a single screenshot call will return promptly.
-- **Lazy-loaded content still fires in a hidden view.** An
-  `IntersectionObserver`-backed lazy load target updated correctly after a
-  programmatic `window.scrollTo(...)` on a `setVisible(false)` view — DOM,
-  layout, and JS execution keep running normally in the hidden view; only
-  the compositor/paint step (screenshotting) is what's flaky.
+  did.
+- **A view hidden with `setVisible(false)` cannot be screenshotted
+  reliably.** Captures alternated pass/fail at 40% (2/5), timing out waiting
+  for a compositor frame that never arrived, with no navigation or scrolling
+  in between — Chromium does not reliably repaint a surface marked invisible.
+  Content itself was correct when a capture did return, including after
+  navigation. Covering the view instead of hiding it takes this to 100%
+  (20/20), which is what `page.preview` / `trust.requested` depends on.
+- **Lazy-loaded content fires normally.** An `IntersectionObserver`-backed
+  target updated correctly after a programmatic `window.scrollTo(...)` even
+  on a `setVisible(false)` view. DOM, layout, and JS execution always keep
+  running; compositing was the only thing at risk.
 
 ## Current phase
 
