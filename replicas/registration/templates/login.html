@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sign In | Fictional State University Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% include '_nav.html' %}
+
+<h1>Student Portal Sign In</h1>
+
+<div class="notice">
+  <strong>Notice:</strong> Multi-factor authentication will be required for all
+  student accounts beginning next term. Enroll a device now through the IT Help
+  Desk to avoid interruption. Accounts inactive for more than 18 months are
+  disabled automatically and must be restored in person with photo ID.
+</div>
+
+<form method="post" action="{{ url_for('login') }}" class="loginform">
+  <label for="username">Student ID or Username</label>
+  <input type="text" id="username" name="username" autocomplete="username">
+
+  <label for="password">Password</label>
+  <input type="password" id="password" name="password" autocomplete="current-password">
+
+  <label class="inline"><input type="checkbox" name="remember"> Remember this device for 30 days</label>
+
+  <button type="submit">Sign In</button>
+</form>
+
+<p class="helplinks">
+  <a href="#">Forgot your password?</a> &middot;
+  <a href="#">Forgot your username?</a> &middot;
+  <a href="#">Activate a new account</a> &middot;
+  <a href="#">Guest access</a> &middot;
+  <a href="#">Parent/Guardian portal</a> &middot;
+  <a href="#">Faculty &amp; staff sign in</a> &middot;
+  <a href="#">Report a problem</a>
+</p>
+
+<p class="fineprint">
+  By signing in you agree to the Acceptable Use Policy. Unauthorized access to
+  this system is prohibited and may result in disciplinary action or referral to
+  law enforcement. This system is monitored. Sessions expire after 20 minutes of
+  inactivity. For assistance, contact the IT Help Desk at extension 4357 between
+  7:00 AM and 9:00 PM on weekdays, or submit a ticket through the service portal.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

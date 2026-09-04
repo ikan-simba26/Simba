@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Registration Confirmed | Fictional State University Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% include '_nav.html' %}
+
+<h1>Registration Confirmed</h1>
+
+<div class="confirmation">
+  <p><strong>{{ username }}</strong>, you are registered for:</p>
+  <table class="summary">
+    <tr><th>Confirmation number</th><td>{{ confirmation_no }}</td></tr>
+    <tr><th>CRN</th><td>{{ course.crn }}</td></tr>
+    <tr><th>Course</th><td>{{ course.subject }}-{{ course.number }} section {{ course.section }}</td></tr>
+    <tr><th>Title</th><td>{{ course.title }}</td></tr>
+    <tr><th>Credit hours</th><td>{{ course.credits }}</td></tr>
+    <tr><th>Meets</th><td>{{ course.days }} {{ course.time }}</td></tr>
+    <tr><th>Instructor</th><td>{{ course.instructor }}</td></tr>
+    <tr><th>Room</th><td>{{ course.room }}</td></tr>
+  </table>
+</div>
+
+<p class="helplinks">
+  <a href="{{ url_for('courses') }}">Back to course search</a> &middot;
+  <a href="#">Print this page</a> &middot;
+  <a href="#">Email me a copy</a> &middot;
+  <a href="#">Add to calendar</a> &middot;
+  <a href="#">View my schedule</a> &middot;
+  <a href="#">Pay tuition</a>
+</p>
+
+<p class="fineprint">
+  Registration is not final until tuition and fees are paid or a payment plan is
+  in place. Students who have not paid by the published deadline may be
+  administratively dropped from all courses. Retain your confirmation number for
+  your records. If this registration was made in error, use the Add/Drop form
+  before the published deadline to avoid a transcript notation.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

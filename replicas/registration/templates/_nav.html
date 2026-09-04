@@ -1,0 +1,52 @@
+<div class="topbar">
+  Fictional State University Portal &mdash; Fall 2026 Registration is now open. Priority deadline: September 18. Late fee of $75 applies after October 1. Contact the Registrar's Office at (555) 019-2837 for exceptions.
+</div>
+<header class="site-header">
+  <div class="brand">FICTIONAL STATE UNIVERSITY</div>
+  <nav class="mainnav">
+    <a href="#">Home</a>
+    <a href="#">Admissions</a>
+    <a href="#">Academics</a>
+    <a href="#">Athletics</a>
+    <a href="#">Library</a>
+    <a href="#">Housing</a>
+    <a href="#">Dining</a>
+    <a href="#">Parking &amp; Transit</a>
+    <a href="#">IT Help Desk</a>
+    <a href="{{ url_for('courses') if 'username' in session else url_for('login') }}">Registrar</a>
+    <a href="#">Financial Aid</a>
+    <a href="#">Health Services</a>
+    <a href="#">Career Center</a>
+    <a href="#">Alumni</a>
+    <a href="#">Give Now</a>
+    <a href="#">Directory</a>
+    <a href="#">Academic Calendar</a>
+    <a href="#">Bookstore</a>
+    <a href="#">Campus Map</a>
+    <a href="#">News</a>
+  </nav>
+</header>
+<div class="page-shell">
+  <aside class="sidebar">
+    <h3>Announcements</h3>
+    <ul>
+      <li>Library hours extended through finals week starting December 8.</li>
+      <li>Shuttle route B is detoured due to construction on Main Quad through the end of the semester.</li>
+      <li>Financial aid disbursements begin the first Friday of the term; check your student account balance.</li>
+      <li>Career Fair sign-ups close next Wednesday at 5:00 PM in the Student Union.</li>
+      <li>Parking permits for Lot C must be renewed online before September 30.</li>
+      <li>Wellness Center flu shot clinic runs all week, no appointment necessary.</li>
+      <li>New printers installed in the Learning Commons on the 2nd floor.</li>
+    </ul>
+    <h3>Quick Links</h3>
+    <ul>
+      <li><a href="#">Tuition &amp; Fees</a></li>
+      <li><a href="#">Transcript Request</a></li>
+      <li><a href="#">Degree Audit</a></li>
+      <li><a href="#">Add/Drop Form</a></li>
+      <li><a href="#">Withdrawal Policy</a></li>
+      <li><a href="#">Academic Advising</a></li>
+      <li><a href="#">Student Handbook</a></li>
+    </ul>
+  </aside>
+  <main class="content">

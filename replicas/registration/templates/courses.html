@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Course Search Results | Fictional State University Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="modal-overlay" id="deadline-modal">
+  <div class="modal">
+    <h2>Registration Alert</h2>
+    <p>
+      The add/drop deadline for Fall 2026 is <strong>Friday at 11:59 PM</strong>.
+      Courses dropped after this date appear on your transcript with a grade of
+      W. A late registration fee of $75 is assessed on all schedule changes made
+      after October 1.
+    </p>
+    <p>
+      Students on academic probation must obtain advisor approval before
+      registering for more than 12 credit hours.
+    </p>
+    <button type="button" id="modal-close" onclick="document.getElementById('deadline-modal').style.display='none'">
+      Close
+    </button>
+  </div>
+</div>
+
+{% include '_nav.html' %}
+
+<h1>Course Search Results &mdash; Fall 2026</h1>
+<p class="crumbs">
+  <a href="#">Portal Home</a> &rsaquo; <a href="#">Registration</a> &rsaquo;
+  <a href="#">Search for Classes</a> &rsaquo; Results
+</p>
+
+<p class="welcome">Signed in as <strong>{{ username }}</strong> &middot;
+  <a href="#">My Schedule</a> &middot;
+  <a href="#">Degree Audit</a> &middot;
+  <a href="#">Holds (0)</a> &middot;
+  <a href="#">Sign out</a>
+</p>
+
+<div class="notice">
+  Showing <strong>{{ courses|length }}</strong> of {{ courses|length }} sections matching your search.
+  Seat counts refresh every 15 minutes and may not reflect registrations in
+  progress. Sections marked with a full seat count may still accept waitlist
+  entries. Restrictions, prerequisites, and corequisites are not shown in this
+  view &mdash; consult the catalog before registering.
+</div>
+
+<table class="courses">
+  <thead>
+    <tr>
+      <th>CRN</th><th>Subj</th><th>Crse</th><th>Sec</th><th>Title</th>
+      <th>Cr</th><th>Days</th><th>Time</th><th>Instructor</th><th>Room</th>
+      <th>Seats</th><th>WL</th><th>Attr</th><th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in courses %}
+    <tr>
+      <td>{{ c.crn }}</td>
+      <td>{{ c.subject }}</td>
+      <td>{{ c.number }}</td>
+      <td>{{ c.section }}</td>
+      <td>{{ c.title }}</td>
+      <td>{{ c.credits }}</td>
+      <td>{{ c.days }}</td>
+      <td>{{ c.time }}</td>
+      <td>{{ c.instructor }}</td>
+      <td>{{ c.room }}</td>
+      <td>{{ c.seats }}</td>
+      <td>{{ c.waitlist }}</td>
+      <td>{{ c.attr }}</td>
+      <td>
+        <form method="post" action="{{ url_for('register') }}">
+          <input type="hidden" name="crn" value="{{ c.crn }}">
+          <button type="submit">Register for {{ c.subject }}-{{ c.number }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="fineprint">
+  Legend: Cr = credit hours; WL = students on waitlist; Attr = course attribute
+  (STEM designates a course satisfying the science and technology requirement,
+  GENED designates a general education requirement). Meeting days are
+  abbreviated M, T, W, Th, F. All times are local. Rooms are subject to change
+  through the first week of the term; check the portal the day before your first
+  class meeting.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>
