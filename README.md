@@ -38,8 +38,14 @@ isn't in the contract.
 cd backend
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt        # runtime
+pip install -r requirements-dev.txt    # runtime + test deps
+playwright install chromium
 ```
+
+`requirements.txt` is what the backend needs to run. `requirements-dev.txt`
+adds pytest plus the replicas' own dependencies, because the tests start the
+local replicas themselves.
 
 ### Frontend (Electron + React + TypeScript)
 

@@ -1,0 +1,7 @@
+-r requirements.txt
+
+pytest
+# The perception and orchestrator tests run against the local replicas,
+# which they start themselves (see replicas/registration/app.py).
+flask
+websockets
