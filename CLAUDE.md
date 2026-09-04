@@ -65,6 +65,37 @@ strategy, then hand control to the user. Never assume a click worked.
 - Every contributor sets `git config user.name` and `user.email` locally so
   commits are attributed correctly even though pushes share one account.
 
+## Architecture constraints
+
+Findings from the `spike/` Electron + CDP + Playwright test.
+
+- **The hidden view needs real laid-out bounds plus `setVisible(false)`.**
+  Sizing the `WebContentsView` to `0x0` to hide it breaks Playwright's click
+  actionability check — elements permanently report as "outside of the
+  viewport" and clicks time out, even though reads (title, link text) still
+  work. Giving the view a real size and hiding it with `setVisible(false)`
+  instead fixes this; reads and clicks both work.
+- **Viewport is frozen at 1280x800.** The estimator measures text density per
+  visible area, so the viewport must stay constant across runs — changing it
+  changes the density numbers independently of anything the page actually
+  did. Confirmed read-and-click still work at 1280x800.
+- **Screenshotting the hidden view is possible but unreliable.** Playwright
+  can screenshot a `setVisible(false)` `WebContentsView`, and the screenshot
+  does reflect the page's current content after navigation (confirmed:
+  content and byte size change to match the new page). But repeated capture
+  calls on the same hidden view are flaky — in testing, roughly every other
+  `page.screenshot()` call timed out waiting for a compositor frame that
+  never arrived, with no navigation or scrolling in between. Chromium appears
+  not to reliably keep repainting a surface that's marked invisible. Anything
+  built on `page.preview` / `trust.requested` needs a retry-with-timeout
+  strategy, or should briefly flip the view visible for the capture and back,
+  rather than assuming a single screenshot call will return promptly.
+- **Lazy-loaded content still fires in a hidden view.** An
+  `IntersectionObserver`-backed lazy load target updated correctly after a
+  programmatic `window.scrollTo(...)` on a `setVisible(false)` view — DOM,
+  layout, and JS execution keep running normally in the hidden view; only
+  the compositor/paint step (screenshotting) is what's flaky.
+
 ## Current phase
 
 September: walking skeleton. One task, one local replica, full loop, fixed
