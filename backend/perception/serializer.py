@@ -50,6 +50,7 @@ class Element:
     type: str
     tag: str
     input_type: str | None
+    name: str | None = None  # the DOM name attribute, for routing vault values
 
     @property
     def is_password(self) -> bool:
@@ -108,6 +109,7 @@ def build_elements(
                 type=action,
                 tag=tag,
                 input_type=attributes.get("type"),
+                name=attributes.get("name"),
             )
         )
     return elements

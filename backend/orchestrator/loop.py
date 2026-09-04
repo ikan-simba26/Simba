@@ -119,10 +119,8 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
         await locator.evaluate("element => element.click()")
 
 
-def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
-    """Return None if the page changed as expected, else why it did not."""
-    if after == before:
-        return "the page did not change at all"
+def mismatch(after: Snapshot, expect: Expectation) -> str | None:
+    """Return None if this page satisfies the expectation, else why it doesn't."""
     if expect.url_contains and expect.url_contains not in after.url:
         return f"expected the URL to contain {expect.url_contains!r}, got {after.url!r}"
     if expect.title_contains and expect.title_contains not in after.title:
@@ -132,6 +130,18 @@ def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
     if expect.label_present and expect.label_present not in after.labels:
         return f"expected {expect.label_present!r} to appear on the page"
     return None
+
+
+def satisfies(after: Snapshot, expect: Expectation) -> bool:
+    """Whether a page is already in the expected state, change or no change."""
+    return mismatch(after, expect) is None
+
+
+def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
+    """Return None if the page changed as expected, else why it did not."""
+    if after == before:
+        return "the page did not change at all"
+    return mismatch(after, expect)
 
 
 async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | None:

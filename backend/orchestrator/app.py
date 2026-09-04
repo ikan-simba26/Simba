@@ -1,4 +1,4 @@
-"""FastAPI entry point for the walking skeleton.
+"""FastAPI entry point for the orchestrator.
 
 Run from the repo root:
 
@@ -6,6 +6,10 @@ Run from the repo root:
 
 The frontend connects to /ws, sends `task.start`, and answers each
 `step.presented` with a `step.response`.
+
+Planning comes from the LLM by default. Set `SIMBA_USE_HARDCODED_PLAN=1` to
+run the hardcoded plan in `plan.py` instead — the A/B comparison, and the
+deterministic fallback for demo day.
 """
 
 import os
@@ -13,6 +17,8 @@ import os
 from fastapi import FastAPI, WebSocket
 from playwright.async_api import async_playwright
 
+from backend.orchestrator.llm import provider_from_env
+from backend.orchestrator.llm_loop import REGISTRATION_GOAL, run_task_llm
 from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN
 
@@ -23,9 +29,13 @@ REPLICA_URL = os.environ.get("SIMBA_REPLICA_URL", "http://127.0.0.1:5000")
 app = FastAPI()
 
 
+def use_hardcoded_plan() -> bool:
+    return os.environ.get("SIMBA_USE_HARDCODED_PLAN", "0").strip().lower() in {"1", "true", "yes"}
+
+
 @app.get("/")
 async def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "planner": "hardcoded" if use_hardcoded_plan() else "llm"}
 
 
 @app.websocket("/ws")
@@ -34,11 +44,16 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     connection = Connection(websocket, task_id="t_skeleton")
     await connection.receive("task.start")
 
+    provider = None if use_hardcoded_plan() else provider_from_env()
+
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         page = await browser.new_page(viewport=VIEWPORT)
         try:
-            await run_task(page, connection, REGISTRATION_PLAN, REPLICA_URL)
+            if provider is None:
+                await run_task(page, connection, REGISTRATION_PLAN, REPLICA_URL)
+            else:
+                await run_task_llm(page, connection, provider, REGISTRATION_GOAL, REPLICA_URL)
         finally:
             await browser.close()
 

@@ -59,7 +59,9 @@ def orchestrator(replica: str) -> Iterator[str]:
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "backend.orchestrator.app:app", "--port", "8011"],
         cwd=REPO_ROOT,
-        env={**os.environ, "SIMBA_REPLICA_URL": replica},
+        # This file covers the deterministic planner; the LLM one is covered
+        # in test_llm_loop.py, which needs no API key.
+        env={**os.environ, "SIMBA_REPLICA_URL": replica, "SIMBA_USE_HARDCODED_PLAN": "1"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -146,7 +148,7 @@ def test_login_step_asks_for_a_password_field(messages: list[dict]) -> None:
 
 
 def test_no_llm_calls(messages: list[dict]) -> None:
-    """The skeleton is hardcoded: no model in the loop yet."""
+    """The hardcoded planner runs with no model in the loop."""
     assert of_type(messages, "task.completed")[0]["payload"]["llm_calls"] == 0
 
 
