@@ -1,0 +1,41 @@
+  </main>
+</div>
+
+<footer class="foot">
+  <a href="#">Disclaimer</a> &middot;
+  <a href="#">Privacy</a> &middot;
+  <a href="#">Sitemap</a> &middot;
+  <a href="#">Accessibility</a> &middot;
+  <a href="#">Feedback</a> &middot;
+  <a href="#">Archive</a>
+  <p class="tiny">
+    This is a fictional portal built for software testing. Consumer names,
+    reference numbers, tariffs and amounts are invented and resemble no real
+    account. &copy; 2026.
+  </p>
+</footer>
+
+<div class="cookie-bar" id="cookie-bar">
+  <span>
+    This site uses cookies to remember your reference number and to measure
+    usage. By continuing you consent to their use under the Consumer Data
+    Policy.
+  </span>
+  <button type="button" id="cookie-accept"
+          onclick="document.getElementById('cookie-bar').style.display='none'">
+    Accept all cookies
+  </button>
+  <button type="button" id="cookie-manage"
+          onclick="document.getElementById('cookie-bar').style.display='none'">
+    Manage preferences
+  </button>
+</div>
+
+<script>
+function toggleAccordion(id, control) {
+  var panel = document.getElementById(id);
+  var open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  control.setAttribute('aria-expanded', open ? 'false' : 'true');
+}
+</script>

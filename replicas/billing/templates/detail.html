@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bill Detail | LESCO Consumer Services Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% with crumb = 'Bill Detail' %}{% include '_chrome.html' %}{% endwith %}
+
+<h1>Bill Detail</h1>
+<p class="lede">
+  Reference No. {{ reference }} &mdash; {{ bill.name }} &mdash; {{ bill.month }}
+</p>
+
+<table class="breakdown">
+  <thead>
+    <tr><th>Particular</th><th>Amount (Rs)</th></tr>
+  </thead>
+  <tbody>
+    {% for particular, amount in breakdown %}
+    <tr><td>{{ particular }}</td><td class="num">{{ amount }}</td></tr>
+    {% endfor %}
+    <tr class="total">
+      <td>Payable within due date</td><td class="num">{{ total }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="actions">
+  <a href="{{ url_for('bill', reference=reference) }}">Back to enquiry result</a> &middot;
+  <a href="#">Print</a> &middot;
+  <a href="#">Download PDF</a>
+</p>
+
+<div class="accordion">
+  <button type="button" class="acc-head" aria-expanded="false"
+          onclick="toggleAccordion('history-panel', this)">
+    Twelve month consumption history
+  </button>
+  <div class="acc-panel" id="history-panel" style="display:none">
+    <p>AUG 412 &middot; JUL 455 &middot; JUN 508 &middot; MAY 431 &middot;
+       APR 302 &middot; MAR 244 &middot; FEB 233 &middot; JAN 251 &middot;
+       DEC 268 &middot; NOV 240 &middot; OCT 289 &middot; SEP 366</p>
+  </div>
+</div>
+
+<p class="tiny">
+  Amounts shown include all taxes, duties and surcharges notified up to the
+  issue date. Arrears, where shown, relate to previously unpaid billing
+  cycles and may attract a late payment surcharge.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

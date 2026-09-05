@@ -1,0 +1,50 @@
+<div class="marquee">
+  NOTICE: Scheduled load management from 02:00 to 04:00 on 08-09-2026 in selected feeders of Gulberg, Model Town and Johar Town divisions. Consumers are advised to clear outstanding dues before the due date to avoid disconnection under SRO 1101(I)/2024.
+</div>
+<header class="masthead">
+  <div class="crest">LAHORE ELECTRIC SUPPLY AUTHORITY</div>
+  <div class="crest-sub">Consumer Services Portal &mdash; Government of Punjab</div>
+</header>
+<nav class="ribbon">
+  <a href="{{ url_for('lookup') }}">Bill Enquiry</a>
+  <a href="#">Duplicate Bill</a>
+  <a href="#">Pay Online</a>
+  <a href="#">New Connection</a>
+  <a href="#">Change of Name</a>
+  <a href="#">Load Extension</a>
+  <a href="#">Tariff Guide</a>
+  <a href="#">Load Shedding Schedule</a>
+  <a href="#">Complaint Registration</a>
+  <a href="#">Track Complaint</a>
+  <a href="#">Meter Reading Schedule</a>
+  <a href="#">Solar Net Metering</a>
+  <a href="#">Downloads</a>
+  <a href="#">Tenders</a>
+  <a href="#">Careers</a>
+  <a href="#">Right to Information</a>
+  <a href="#">Contact Us</a>
+</nav>
+
+<div class="crumbs" aria-label="Breadcrumb">
+  <a href="#">Home</a> &rsaquo;
+  <a href="#">Consumer Services</a> &rsaquo;
+  <a href="{{ url_for('lookup') }}">Bill Enquiry</a>
+  {% if crumb %}&rsaquo; <span class="here">{{ crumb }}</span>{% endif %}
+</div>
+
+<div class="shell">
+  <aside class="rail">
+    <h4>Helpdesk</h4>
+    <p>UAN 111-000-118<br>Fax 042-99204811</p>
+    <h4>Office Hours</h4>
+    <p>Monday to Thursday 08:00&ndash;16:00<br>Friday 08:00&ndash;12:30</p>
+    <h4>Related</h4>
+    <ul>
+      <li><a href="#">Understanding your bill</a></li>
+      <li><a href="#">Deferred payment request</a></li>
+      <li><a href="#">Detection bill policy</a></li>
+      <li><a href="#">Subsidy eligibility</a></li>
+      <li><a href="#">Refund of security deposit</a></li>
+    </ul>
+  </aside>
+  <main class="body">

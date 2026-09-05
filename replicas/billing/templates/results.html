@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bill Enquiry Result | LESCO Consumer Services Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% with crumb = 'Enquiry Result' %}{% include '_chrome.html' %}{% endwith %}
+
+<h1>Bill Enquiry Result</h1>
+<p class="lede">Reference No. {{ reference }} &mdash; billing month {{ bill.month }}</p>
+
+<!-- The number the user came for lives in the sixth cell of this row. The
+     column headings sit in a separate row above it and nothing in the cell
+     itself says what it is. That is how these portals actually look. -->
+<table class="summary">
+  <thead>
+    <tr>
+      <th>REF NO</th><th>MTR NO</th><th>PREV</th><th>CURR</th><th>UNITS</th>
+      <th>P/WITHIN</th><th>P/AFTER</th><th>DUE DT</th><th>ISSUE DT</th><th>ST</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>{{ bill.reference }}</td>
+      <td>{{ bill.meter }}</td>
+      <td>{{ bill.reading_previous }}</td>
+      <td>{{ bill.reading_current }}</td>
+      <td>{{ bill.units }}</td>
+      <td>{{ bill.payable_within }}</td>
+      <td>{{ bill.payable_after }}</td>
+      <td>{{ bill.due_date }}</td>
+      <td>{{ bill.issue_date }}</td>
+      <td>{{ bill.status }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="particulars">
+  <tr><th>Consumer name</th><td>{{ bill.name }}</td>
+      <th>Tariff</th><td>{{ bill.tariff }}</td></tr>
+  <tr><th>Address</th><td>{{ bill.address }}</td>
+      <th>Sanctioned load</th><td>{{ bill.load }}</td></tr>
+  <tr><th>Connection date</th><td>{{ bill.connection_date }}</td>
+      <th>Billing month</th><td>{{ bill.month }}</td></tr>
+</table>
+
+<p class="actions">
+  <a class="cta" href="{{ url_for('detail', reference=reference) }}">View full bill detail</a>
+  <a href="#">Download PDF</a> &middot;
+  <a href="#">Email this bill</a> &middot;
+  <a href="#">Report a discrepancy</a> &middot;
+  <a href="{{ url_for('lookup') }}">Search another reference</a>
+</p>
+
+<div class="accordion">
+  <button type="button" class="acc-head" aria-expanded="false"
+          onclick="toggleAccordion('adjust-panel', this)">
+    Tariff and adjustment details for this bill
+  </button>
+  <div class="acc-panel" id="adjust-panel" style="display:none">
+    <p>Fuel price adjustment for {{ bill.month }} applied at Rs 2.6759 per unit
+      under NEPRA determination 14-08-2026.</p>
+    <p>Quarterly tariff adjustment applied at Rs 1.4854 per unit for the
+      quarter ending 30-06-2026.</p>
+    <a href="#">NEPRA determination notice</a>
+  </div>
+</div>
+
+<h2>Applicable tariff schedule</h2>
+<p class="tiny">
+  Rates below are the notified schedule for the current financial year and are
+  shown for reference. They are not specific to this connection and do not
+  reflect adjustments already included in the amount above.
+</p>
+<table class="tariff">
+  <thead>
+    <tr><th>Code</th><th>Category</th><th>Slab</th><th>Rate (Rs/unit)</th>
+        <th>Class</th><th>FC surcharge</th></tr>
+  </thead>
+  <tbody>
+    {% for code, category, slab, rate, klass, surcharge in slabs %}
+    <tr>
+      <td>{{ code }}</td><td>{{ category }}</td><td>{{ slab }}</td>
+      <td>{{ rate }}</td><td>{{ klass }}</td><td>{{ surcharge }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="tiny">
+  Abbreviations: PREV previous reading; CURR current reading; P/WITHIN payable
+  within due date; P/AFTER payable after due date; DUE DT due date; ST status.
+  All amounts in Pakistani Rupees.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

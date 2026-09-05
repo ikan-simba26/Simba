@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bill Enquiry | LESCO Consumer Services Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% with crumb = None %}{% include '_chrome.html' %}{% endwith %}
+
+<h1>Bill Enquiry</h1>
+
+{% if error %}<div class="warn">{{ error }}</div>{% endif %}
+
+<p class="lede">
+  Enter the 14-digit reference number printed at the top left of your bill.
+  The reference number is not the same as your meter number or your account
+  number. Bills are available for the current month and the preceding eleven
+  billing cycles.
+</p>
+
+<form method="post" action="{{ url_for('bill') }}" class="enquiry">
+  <label for="reference">Reference No.</label>
+  <input type="text" id="reference" name="reference" maxlength="14"
+         inputmode="numeric" autocomplete="off">
+  <button type="submit">Check Bill</button>
+</form>
+
+<div class="accordion">
+  <button type="button" class="acc-head" aria-expanded="false"
+          onclick="toggleAccordion('faq-panel', this)">
+    Frequently asked questions
+  </button>
+  <div class="acc-panel" id="faq-panel" style="display:none">
+    <p><strong>Where is the reference number?</strong> Top left of the bill,
+      directly beneath the consumer name.</p>
+    <p><strong>My bill is not showing.</strong> Bills are uploaded within
+      48 hours of the meter reading date for your feeder.</p>
+    <p><strong>Can I pay here?</strong> Payment is handled by your bank or by
+      any authorised collection agent. This portal is enquiry only.</p>
+    <a href="#">Read the full enquiry guide</a>
+  </div>
+</div>
+
+<div class="accordion">
+  <button type="button" class="acc-head" aria-expanded="false"
+          onclick="toggleAccordion('office-panel', this)">
+    Regional offices and collection points
+  </button>
+  <div class="acc-panel" id="office-panel" style="display:none">
+    <p>Gulberg Sub-Division, 12-A Main Boulevard &mdash; 042-99204800</p>
+    <p>Model Town Sub-Division, Block C &mdash; 042-99204822</p>
+    <p>Johar Town Sub-Division, Sector G1 &mdash; 042-99204877</p>
+    <a href="#">Download the full office list</a>
+  </div>
+</div>
+
+<p class="tiny">
+  Enquiry results are indicative. In the event of a discrepancy between this
+  portal and the printed bill, the printed bill prevails. Late payment
+  surcharge is applied automatically after the due date shown.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

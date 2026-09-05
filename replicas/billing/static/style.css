@@ -1,0 +1,141 @@
+body {
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 12px;
+  margin: 0;
+  background: #f2f4f1;
+  color: #14261a;
+}
+
+.marquee {
+  background: #0b3d1e;
+  color: #d7f0dd;
+  font-size: 11px;
+  padding: 5px 10px;
+  line-height: 1.35;
+}
+
+.masthead { background: #14512b; color: #fff; padding: 8px 10px; }
+.crest { font-size: 17px; font-weight: bold; letter-spacing: 0.5px; }
+.crest-sub { font-size: 11px; color: #bfe3ca; }
+
+.ribbon { background: #1d6b3a; padding: 4px 10px; }
+.ribbon a {
+  color: #eaf7ee;
+  font-size: 11px;
+  margin-right: 10px;
+  text-decoration: none;
+  line-height: 1.9;
+}
+.ribbon a:hover { text-decoration: underline; }
+
+.crumbs {
+  background: #e3e9e4;
+  border-bottom: 1px solid #c3cec6;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.crumbs a { color: #14512b; }
+.crumbs .here { color: #555; }
+
+.shell { display: flex; align-items: flex-start; }
+.rail {
+  width: 190px;
+  flex: 0 0 190px;
+  background: #e9eee9;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.rail h4 { margin: 8px 0 3px; font-size: 11px; }
+.rail p { margin: 0 0 6px; line-height: 1.4; }
+.rail ul { padding-left: 15px; margin: 0; }
+.rail li { margin-bottom: 3px; }
+
+.body { flex: 1; background: #fff; padding: 8px 14px 60px; min-width: 0; }
+
+h1 { font-size: 16px; margin: 6px 0; }
+h2 { font-size: 13px; margin: 14px 0 4px; }
+.lede { font-size: 11px; margin: 4px 0 8px; }
+.warn {
+  background: #fdeaea;
+  border: 1px solid #d99;
+  padding: 5px 8px;
+  font-size: 11px;
+  margin: 6px 0;
+}
+
+.enquiry {
+  border: 1px solid #b9c6bd;
+  background: #f6f9f6;
+  padding: 10px;
+  margin: 8px 0;
+  max-width: 340px;
+}
+.enquiry label { display: block; font-size: 11px; margin-bottom: 3px; }
+.enquiry input { width: 100%; padding: 4px; box-sizing: border-box; }
+.enquiry button { margin-top: 8px; padding: 4px 14px; }
+
+table { border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+table th, table td { border: 1px solid #aab5ad; padding: 2px 5px; text-align: left; }
+table thead th { background: #d5e0d8; }
+
+table.summary { width: 100%; }
+table.summary td { font-family: "Courier New", monospace; }
+table.particulars { width: 100%; }
+table.particulars th { background: #eef2ef; width: 15%; }
+table.tariff { width: 100%; }
+table.tariff tbody tr:nth-child(even) { background: #f6f8f6; }
+table.breakdown { width: 460px; }
+table.breakdown td.num { text-align: right; font-family: "Courier New", monospace; }
+table.breakdown tr.total { font-weight: bold; background: #eef5ef; }
+
+.actions { font-size: 11px; margin: 8px 0; }
+.cta {
+  display: inline-block;
+  background: #14512b;
+  color: #fff;
+  padding: 4px 10px;
+  text-decoration: none;
+  margin-right: 8px;
+}
+
+.accordion { border: 1px solid #c3cec6; margin: 8px 0; max-width: 640px; }
+.acc-head {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #e9eee9;
+  border: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+}
+.acc-panel { padding: 6px 10px; font-size: 11px; line-height: 1.45; }
+.acc-panel p { margin: 0 0 6px; }
+
+.tiny { font-size: 10px; color: #566; line-height: 1.4; margin: 8px 0; }
+
+.foot { background: #14261a; color: #b9c9be; padding: 8px 10px; }
+.foot a { color: #9ecfae; font-size: 11px; margin-right: 6px; }
+.foot .tiny { color: #8fa396; }
+
+/* A bottom strip, not a full-screen backdrop: it covers roughly a tenth of
+   the viewport and only blocks what sits underneath it. */
+.cookie-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: #10261a;
+  color: #e8f2ea;
+  padding: 12px 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-top: 3px solid #3d8f5a;
+}
+.cookie-bar button { padding: 5px 12px; font-size: 11px; white-space: nowrap; }
