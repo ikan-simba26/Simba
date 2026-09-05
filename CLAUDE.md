@@ -76,6 +76,10 @@ Applies to any agent or script working in this repo, not just to people.
 - TypeScript strict mode. No `any`.
 - Tests before implementation for anything in the verification path.
 - Small commits. Branch per feature: `feat/<module>-<thing>`.
+- **Stage with explicit file paths.** `git add path/to/file.py`, never
+  `git add -A` or `git add .`. A broad add sweeps up unrelated edits and
+  quietly bundles two changes into one commit, which is how a reviewable
+  history stops being reviewable.
 - Every contributor sets `git config user.name` and `user.email` locally so
   commits are attributed correctly even though pushes share one account.
 
