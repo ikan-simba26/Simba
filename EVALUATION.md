@@ -101,3 +101,83 @@ Credentials checked absent from every transcript.
 - The hardcoded planner over the same ten runs, as an A/B baseline.
 - Any model other than the one above.
 - Cost per run.
+
+---
+
+## 2026-09-05 — after overlay detection and dead-link flagging
+
+Commit `25324d3`. Same model, same replica, same goal, same harness. The only
+changes are in perception and the prompt: overlays are detected structurally
+and marked, elements behind them are marked occluded, links that go nowhere
+are marked dead, and the prompt tells the model to act on all three.
+
+| Run | Completed | Steps | LLM calls | Seconds |
+|---|---|---|---|---|
+| 1 | yes | 5 | 5 | 11.8 |
+| 2 | yes | 5 | 5 | 25.7 |
+| 3 | yes | 5 | 5 | 18.8 |
+| 4 | yes | 5 | 5 | 25.3 |
+| 5 | yes | 5 | 5 | 19.4 |
+| 6 | yes | 5 | 5 | 13.4 |
+| 7 | yes | 5 | 5 | 14.3 |
+| 8 | yes | 5 | 5 | 13.5 |
+| 9 | yes | 5 | 5 | 14.2 |
+| 10 | yes | 5 | 5 | 15.0 |
+
+**Every run took the same five steps:**
+
+    fill username → fill password → Sign In → Close → Register for CS-401
+
+### Before and after
+
+| | Before (`e1ed61c`) | After (`25324d3`) |
+|---|---|---|
+| Success rate | 10/10 | 10/10 |
+| Steps | 6–10 (median 10) | **5, every run** |
+| Distinct paths | 3 | **1** |
+| Wasted nav clicks | 0–4, in 8 of 10 runs | **0** |
+| Runs that clicked Register before dismissing the modal | **10 of 10** | **0** |
+| Wall clock | 50.2–77.1s, mean 61.3 | **11.8–25.7s, mean 17.1** |
+| LLM calls | 6–10 | **5** |
+
+**The modal timeout is gone.** No run attempted Register while the modal was
+up, so no run ate the ~30s click timeout and no run needed the recovery path.
+That single change accounts for most of the 3.6x speedup; removing the dead
+nav clicks accounts for the rest and for the step count collapsing to a
+constant.
+
+Five steps is the floor for this task — two fields, three clicks — so the
+planner is now optimal on this replica, and the run-to-run variance in the
+path is zero. The remaining spread in wall clock (11.8–25.7s) is API latency,
+not planning.
+
+Worth being clear about what this does and does not show: the model did not
+get better at reasoning. Perception started telling it something true that it
+previously had no way to know, and the prompt told it what to do with that.
+The earlier 10/10 success rate was hiding a wasted step in every single run.
+
+---
+
+## Known limitations
+
+- **These numbers come from a free-tier model.** `gemini-3.1-flash-lite` was
+  chosen because it was the strongest model whose free quota allowed ten runs,
+  not because it is the right model for the project. Treat every figure here
+  as a floor.
+- **The free quota is 20 requests per day, per model.** At 5–10 requests per
+  run that is two to four runs a day. The first attempt at the ten-run
+  benchmark got one run in and then nine consecutive HTTP 429s, which is why
+  the model is a lite one. Plan benchmark sessions around this, or use a paid
+  key.
+- **The final benchmark must be re-run on the demo model.** Whatever model is
+  used on demo day is the one these numbers should describe. Re-run both the
+  before and after configurations on it before quoting any of this in the
+  report — a stronger model may not need the overlay hints at all, which
+  would change what the perception work is worth.
+- **One replica, one task.** Everything here is `replicas/registration` and
+  the CS-401 goal. Nothing has been measured against a second site, a second
+  task, or a page whose overlay is not a full-viewport backdrop.
+- **No cost measurement.** Tokens per run and cost per completed task are not
+  recorded yet.
+- **The hardcoded planner has no benchmark.** The A/B it exists for has not
+  been run, so there is no baseline to compare the LLM against.
