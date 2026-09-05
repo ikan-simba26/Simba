@@ -279,3 +279,34 @@ def test_replay_is_one_step_per_operation(two_runs) -> None:
     first, second = two_runs
     assert _completed(first)["steps_taken"] == 3
     assert _completed(second)["steps_taken"] == 4
+
+
+# --- the goal comes from the frontend ----------------------------------------
+
+
+async def _start_with_goal(ws_url: str, goal: str) -> dict:
+    """Send task.start with this goal, return the task.started payload."""
+    async with websockets.connect(ws_url, max_size=None) as ws:
+        await ws.send(json.dumps({
+            "v": 1, "type": "task.start", "task_id": "t_test", "seq": 1, "ts": 0,
+            "payload": {"goal": goal, "input_mode": "text"},
+        }))
+        while True:
+            message = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+            if message["type"] == "task.started":
+                return message["payload"]
+
+
+def test_the_typed_goal_becomes_the_task(orchestrator: str) -> None:
+    goal = "Check what I owe on reference 04141234567890"
+
+    started = asyncio.run(_start_with_goal(orchestrator, goal))
+
+    assert started["goal"] == goal
+
+
+def test_an_empty_goal_falls_back_to_the_flow(orchestrator: str) -> None:
+    """A frontend that sends nothing still gets a working task."""
+    started = asyncio.run(_start_with_goal(orchestrator, "   "))
+
+    assert started["goal"] == BILLING_TASK.goal

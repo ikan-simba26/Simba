@@ -279,6 +279,24 @@ both views are `about:blank`-ish and detection falls back to the ambiguity
 guard — which fails loudly, but fails. A host-side tag would be more robust
 and is worth revisiting if the arrangement grows a third view.
 
+**Update, 2026-09-06 (`7bb8ebf`).** The guard earned its cost one task later.
+Building the React overlay moved it from a `data:` URL to `file:`, so the
+scheme exclusion stopped matching and both views became plausible
+candidates. Because the rule is *refuse when ambiguous*, every Electron run
+failed immediately with "could not tell which of 2 pages is the site view"
+and the cause was in the error text.
+
+Had it taken the first non-overlay page instead, there was a real chance of
+attaching to the overlay: the backend would have driven the React app,
+`page.goto` would have loaded the replica *into the overlay*, every action
+would have appeared to succeed, and the site view would never have moved.
+That failure is silent, passes its own verification, and would have been
+found by a person noticing the window looked wrong. The loud version cost
+about ten minutes.
+
+Exclusion is now by scheme (`data:`, `file:`, `devtools:`, `chrome:`) with
+`SIMBA_OVERLAY_URL` for a dev-server overlay, which no scheme can rule out.
+
 ---
 
 ## The message log is cleared per connection, not per task
@@ -300,3 +318,34 @@ session that never dropped its connection.
 **Cost.** A session that reconnects loses the earlier log. Fine for a
 harness; the real interface will want the log persisted somewhere if it keeps
 one at all.
+
+---
+
+## `task.start.goal` is honoured, not discarded
+
+**Date:** 2026-09-06 (`CONTRACT.md`, `app.py`)
+
+**Decision.** The goal in `task.start` is the task. `SIMBA_FLOW` still selects
+the site, the replica URL and the hardcoded plan, but the goal text comes
+from the message, falling back to the flow's own goal only when the message
+carries none.
+
+**Alternatives.** Leave it: the backend picks the goal from its configured
+flow and the field is decoration. Remove `goal` from `task.start` and select
+tasks some other way. Add a separate task-selection message.
+
+**Why this.** The field was in `CONTRACT.md`, the frontend sent it, the
+schema typed it, and the backend threw it away — the frontend could start a
+task but not choose one. That is worse than not having the field, because
+every reader of the contract, on both sides, reasonably concluded it worked.
+It was found by typing a goal into the harness and watching a different one
+come back in `task.started`; nothing in the code, the types or the contract
+would have revealed it.
+
+A documented field that silently does nothing is a lie the codebase tells
+its own authors. Either honour it or delete it — leaving it is the one
+option that is not defensible.
+
+**Cost.** The LLM planner now receives a goal the operator did not write, on
+a site chosen by configuration. A goal that does not match the flow's site
+will fail in ways the hardcoded plan never could, which is correct but new.

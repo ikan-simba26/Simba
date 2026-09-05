@@ -110,6 +110,13 @@ Sent only in response to `trust.requested`.
 ```
 `input_mode` is `text` | `voice`.
 
+`goal` is what the task *is*. The backend runs it as sent; it does not
+substitute a goal of its own. Where the backend is configured for a
+particular site, that configuration chooses the site and any pre-written
+plan, never the goal. A `goal` that is empty or whitespace falls back to
+whatever the backend was configured with, so a frontend that omits it still
+gets a working task.
+
 ### `step.response`
 ```json
 { "step_index": 2, "action_id": "confirm",

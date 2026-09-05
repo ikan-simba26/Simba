@@ -9,7 +9,10 @@ The frontend connects to /ws, sends `task.start`, and answers each
 
 Two switches, both environment variables:
 
-- `SIMBA_FLOW` picks the site and task: `registration` (default) or `billing`.
+- `SIMBA_FLOW` picks the site, the replica URL and the hardcoded plan:
+  `registration` (default) or `billing`. The *goal* comes from the
+  frontend's `task.start`; the flow's own goal is only the fallback when the
+  message carries none.
 - `SIMBA_USE_HARDCODED_PLAN=1` runs that flow's hardcoded plan instead of the
   LLM — the A/B comparison, and the deterministic fallback for demo day.
 - `SIMBA_TRACE_MEMORY=1` wraps whichever planner was chosen in `TracePlanner`,
@@ -82,9 +85,17 @@ async def health() -> dict[str, str]:
 async def ws_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     connection = Connection(websocket, task_id="t_skeleton")
-    await connection.receive("task.start")
+    start = await connection.receive("task.start")
 
     _, task, plan, replica_url = selected_flow()
+
+    # The goal comes from the frontend. SIMBA_FLOW still decides which site
+    # to open and which hardcoded plan is available, but what the user typed
+    # is what the task is — a documented field that was quietly discarded is
+    # worse than no field at all (DECISIONS.md).
+    goal = (start.get("payload", {}).get("goal") or "").strip()
+    if goal:
+        task = replace(task, goal=goal)
 
     # The only thing the flag changes is which planner picks the next move —
     # and how many steps it can promise up front, which the hardcoded plan
