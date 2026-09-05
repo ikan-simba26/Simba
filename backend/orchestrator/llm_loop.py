@@ -36,10 +36,14 @@ an XPath, or element text as the id.
 dropdowns.
 - For a password or username field, set value to null. Those are filled from \
 the user's vault, not by you.
-- If a dialog, popup or overlay is on the page, dismiss it before anything \
-else. Its buttons will be near the top of the list.
-- Prefer acting on the form or control that achieves the goal directly over \
-navigating to another page.
+- If any element is marked OVERLAY, something is covering the page. Dismiss \
+it first, using one of the OVERLAY elements, before anything else. Nothing \
+marked OCCLUDED can be clicked until you do.
+- Never choose an element marked OCCLUDED.
+- Never choose an element marked "dead link" — it goes nowhere and wastes a \
+step.
+- When the goal needs the user signed in, fill the sign-in fields on this page \
+rather than navigating. Prefer form fields and buttons over navigation links.
 - Keep reasoning to one short sentence, phrased for the person you are helping.
 """
 
@@ -57,12 +61,32 @@ class _Choice:
 
 
 def render_page(elements: list[Element]) -> str:
-    """The page as the model sees it: ids, roles, labels. Never values."""
+    """The page as the model sees it: ids, roles, labels. Never values.
+
+    Perception's structural flags are spelled out rather than left implicit.
+    A model cannot infer from a list of sixty buttons that one of them belongs
+    to a modal covering the rest.
+    """
+    blocked = any(element.overlay for element in elements)
+
     lines = []
+    if blocked:
+        lines += [
+            "AN OVERLAY IS COVERING THE PAGE. Everything marked OCCLUDED is "
+            "unreachable until it is dismissed, using an OVERLAY element.",
+            "",
+        ]
+
     for element in elements:
         line = f"{element.id}. {element.role} {element.label!r}"
         if element.input_type:
             line += f" [input type={element.input_type}]"
+        if element.overlay:
+            line += "  <- OVERLAY"
+        if element.occluded:
+            line += "  <- OCCLUDED, cannot be clicked"
+        if element.dead_link:
+            line += "  <- dead link, goes nowhere"
         lines.append(line)
     return "\n".join(lines)
 
