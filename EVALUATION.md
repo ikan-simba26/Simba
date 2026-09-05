@@ -228,6 +228,80 @@ failure rather than a silent recovery.
 
 ---
 
+## 2026-09-06 — perception against a second replica
+
+Commit `66b61e9`. The billing replica exists to test whether perception
+generalises or has been fitted to the registration page. Serializer run
+against all three pages, no changes made to the replica to suit it.
+
+| Page | Interactive elements | link | button | textbox | dead links | overlay | occluded |
+|---|---|---|---|---|---|---|---|
+| Bill enquiry | 37 | 31 | 5 | 1 | 29 | 0 | 0 |
+| Enquiry result | 39 | 36 | 3 | 0 | 32 | 0 | 0 |
+| Bill detail | 37 | 34 | 3 | 0 | 31 | 0 | 0 |
+
+**What worked.** Accessible names resolve correctly throughout, including the
+reference-number input, whose name comes from its `<label for>`. Dead-link
+detection generalises unchanged — 29 to 32 of ~37 elements per page are
+placeholder `href="#"` nav, correctly flagged. Every element has a usable
+accessible name; none came back nameless.
+
+**Accordion content is correctly absent before expansion.** Collapsed panels
+are `display:none`, the accessibility tree ignores them, and the serializer
+reports 37 elements on the enquiry page. Expanding the first accordion takes
+it to 38 and the previously hidden "Read the full enquiry guide" link
+appears. This is right — it matches what a user can actually reach — but see
+the second gap below.
+
+### Three gaps, none of them fixed
+
+**1. The cookie banner is not detected, and it really does block things.**
+The banner is `position: fixed`, `z-index: 9999`, 1280x53 at the bottom of
+the viewport — **6.6% coverage**, against `MIN_COVERAGE = 0.30`. So the
+structural rule ignores it.
+
+That is not a harmless miss. Scrolled to the bottom of the enquiry result,
+six real footer links — Disclaimer, Privacy, Sitemap, Accessibility,
+Feedback, Archive — sit underneath the banner and are reported with
+`occluded: false`. A click on any of them would be intercepted exactly the
+way the registration modal intercepted Register, and nothing would warn the
+planner first.
+
+The coverage threshold encodes an assumption that a blocker is modal-shaped.
+A strip that covers a tenth of the screen blocks a tenth of the screen, and
+the right test is whether it covers *the element in question*, not whether it
+covers most of the page. The occlusion test already works per element; only
+the gate deciding what counts as a blocker at all is wrong.
+
+**2. Perception discards the accordion's expanded state, which the
+accessibility tree already knows.** The AX node for the accordion control
+carries `('expanded', False)` — the tree reports it, and `build_elements`
+drops it on the floor. A planner therefore sees `button 'Tariff and
+adjustment details for this bill'` with nothing to say it is collapsed, no
+way to know content is behind it, and no way to tell an expanded accordion
+from a collapsed one after acting. This is information already in hand,
+being thrown away.
+
+**3. The value the task is about is invisible to perception.** The goal of
+this flow is to find the amount due. That amount — `14,382` — is text in a
+table cell. The serializer emits only *interactive* elements, so it does not
+appear in the output at all: `'14,382' in element labels → False`, while
+`'14,382' in page body → True`.
+
+This is the deepest of the three. Every read-only value a user might be
+looking for is currently outside what SIMBA can perceive, which means the
+overlay's `step.presented` can describe what to click but cannot state what
+the answer is. The registration flow hid this because its goal was
+*completing an action*; a lookup flow's goal is *reading a value*, and that
+is a different shape of task the perception layer does not yet serve.
+
+**Also noted:** two distinct links share the label "Bill Enquiry" (the ribbon
+nav and the breadcrumb). `resolve` disambiguates them by ordinal, so
+execution is correct, but a planner choosing between them by label alone
+cannot tell which is which.
+
+---
+
 ## Why success rate alone is insufficient
 
 Across every measurement on this replica so far, **success rate has been
