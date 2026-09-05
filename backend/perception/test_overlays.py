@@ -12,7 +12,7 @@ import pytest
 from playwright.sync_api import Page
 
 from backend.perception.overlays import MIN_STACK_LEVEL, analyse
-from backend.perception.serializer import serialize
+from backend.perception.serializer import is_dead_link, serialize
 from backend.perception.test_serializer import find, labels
 
 VIEWPORT = (1280, 800)
@@ -98,3 +98,38 @@ def test_analyse_survives_an_empty_snapshot() -> None:
 
     assert not report.blocked
     assert report.overlay_ids == set() and report.occluded_ids == set()
+
+
+# --- dead links -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "href,expected",
+    [
+        ("#", True),
+        ("", True),
+        ("javascript:void(0)", True),
+        ("javascript:void(0);", True),
+        ("javascript:;", True),
+        ("/courses", False),
+        ("#section-2", False),
+        ("https://example.com", False),
+    ],
+)
+def test_dead_link_rule(href: str, expected: bool) -> None:
+    assert is_dead_link("a", {"href": href}) is expected
+
+
+def test_a_button_is_never_a_dead_link() -> None:
+    assert is_dead_link("button", {}) is False
+
+
+def test_the_replicas_placeholder_nav_is_flagged(replica: str, page: Page) -> None:
+    page.goto(replica + "/")
+    elements = serialize(page)
+
+    # The nav is href="#" throughout; the Registrar link is a real target.
+    assert find(elements, "Home").dead_link
+    assert find(elements, "Academic Calendar").dead_link
+    assert not find(elements, "Registrar").dead_link
+    assert not find(elements, "Sign In").dead_link  # a button, not a link

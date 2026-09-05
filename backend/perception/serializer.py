@@ -60,6 +60,8 @@ class Element:
     overlay: bool = False
     # Sitting behind something covering the page. A click here cannot land.
     occluded: bool = False
+    # A link that goes nowhere: href="#", javascript:void(0), or no target.
+    dead_link: bool = False
 
     @property
     def is_password(self) -> bool:
@@ -135,9 +137,34 @@ def build_elements(
                 name=attributes.get("name"),
                 overlay=backend_id in report.overlay_ids,
                 occluded=backend_id in report.occluded_ids,
+                dead_link=is_dead_link(tag, attributes),
             )
         )
     return elements
+
+
+def is_dead_link(tag: str, attributes: dict[str, str]) -> bool:
+    """Whether an anchor goes nowhere.
+
+    A cluttered portal's nav is mostly these: placeholder links that look like
+    navigation and do nothing. A planner that cannot tell them apart from real
+    ones spends steps discovering it the slow way, one dead click at a time.
+    """
+    if tag != "a":
+        return False
+
+    href = (attributes.get("href") or "").strip()
+    if not href or href == "#":
+        return True
+
+    lowered = href.lower().replace(" ", "")
+    if lowered.startswith("javascript:"):
+        # javascript:void(0) and friends. A real handler may still be attached,
+        # so this only says the href itself navigates nowhere.
+        return lowered in {"javascript:void(0)", "javascript:void(0);", "javascript:;"}
+
+    # "#section" is a real in-page jump; bare "#" is not.
+    return False
 
 
 def index_dom(root: dict[str, Any]) -> dict[int, tuple[str, dict[str, str]]]:
