@@ -228,3 +228,53 @@ planning: about 13 seconds for five model round trips.
 **Cost.** It means there is currently no honest baseline for the LLM at all.
 The comparison that would give one — both planners against a goal neither has
 seen — has not been run.
+
+---
+
+## The backend detaches from the Electron host, never closes it
+
+**Date:** 2026-09-06 (`c053367`)
+
+**Decision.** With `SIMBA_BROWSER=electron`, `browser.open_page` connects over
+CDP, and on exit calls `browser.close()` — which for a `connect_over_cdp`
+connection detaches the client without touching the browser. The host owns
+its own lifetime.
+
+**Alternatives.** Have the backend launch and own Electron, so one process
+supervises the whole stack. Or leave the connection open for the app's
+lifetime instead of per task.
+
+**Why this.** The window is the user's; a backend crash or a finished task
+must not close it. Verified rather than assumed — the host was checked still
+answering on CDP after a completed run, and there is a test for exactly that
+(`test_the_host_survives_the_backend_detaching`), because the failure mode is
+invisible until it happens in front of someone.
+
+**Cost.** Two processes to start in the right order, and nothing supervises
+the host. If it dies mid-task the backend reports a connection error rather
+than restarting anything.
+
+---
+
+## The site view is identified by origin, and ambiguity is refused
+
+**Date:** 2026-09-06 (`c053367`)
+
+**Decision.** `find_site_page` picks the site view by matching the start
+URL's origin, excludes the overlay by its `data:` URL, and raises when two
+plausible candidates remain rather than choosing one.
+
+**Alternatives.** Take the first non-overlay page. Have the host tag the site
+view somehow — a title, a window name, an injected global. Have the host
+report the target id over a side channel.
+
+**Why this.** Driving the overlay instead of the site is the worst available
+failure: every action would appear to succeed and nothing would happen to the
+real page. Taking the first non-overlay page is one devtools window away from
+doing exactly that. Origin matching is precise and needs nothing from the
+host but the URL it was already given.
+
+**Cost.** It depends on the host being told `SIMBA_START_URL`. Without it,
+both views are `about:blank`-ish and detection falls back to the ambiguity
+guard — which fails loudly, but fails. A host-side tag would be more robust
+and is worth revisiting if the arrangement grows a third view.
