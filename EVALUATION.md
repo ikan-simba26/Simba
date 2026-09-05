@@ -360,6 +360,72 @@ quota-permitting run away.
 
 ---
 
+## When verification passes wrongly
+
+Three times now, something checked whether a thing worked, got "yes", and was
+wrong. None was a bug in the check — each was a check measuring something
+adjacent to what mattered. Collected because the pattern is the same every
+time and the next one will look different again.
+
+### 1. A click that lands and changes nothing
+
+**What matched.** The click was dispatched, Playwright reported success, the
+element was there and enabled.
+
+**What actually happened.** The target was an `href="#"` nav link. The click
+landed on a real element and did nothing. On the first such click the URL
+even changes — it gains the fragment — so a naive "did the page change" test
+passes too.
+
+**What distinguishes them now.** Verification requires the snapshot to differ
+*and* the step's expectation to hold, and `dead_link` marks `href="#"` and
+`javascript:void(0)` in perception so a planner can avoid them. The residual
+case — first click on a fragment link — is caught only by the expectation,
+not by the change test, and that is worth remembering.
+
+### 2. A 10/10 success rate concealing a guaranteed timeout
+
+**What matched.** Ten runs out of ten reached the confirmation page and
+emitted `task.completed`.
+
+**What actually happened.** Every single run first clicked Register while the
+modal still covered the page, waited out a ~30 second click timeout, and only
+then dismissed the modal and retried. The recovery path worked, so the task
+completed, so the headline number was perfect. Mean wall clock was 61.3s
+against a floor of 17.1s and nothing in the success rate hinted at it.
+
+**What distinguishes them now.** Wall clock, step count and path variance are
+recorded beside the success rate for every run, and whether the recovery path
+fired is visible in the step sequence. See "Why success rate alone is
+insufficient" below.
+
+### 3. A stale log entry matching `task.completed`
+
+**What matched.** A verification script checked `text=task.completed` on the
+frontend after driving one step, found it, and reported the run finished.
+
+**What actually happened.** The run had completed one step of three. The
+match came from the *previous* run's entry, still in the message log because
+the log was not cleared on reconnect. The check was looking at the right
+page for the right string and still got a wrong answer.
+
+**What distinguishes them now.** The log is cleared per connection, so a
+stale entry cannot survive into a new run. More usefully: the step count was
+also printed, it read `1 steps`, and that is what exposed it. A single
+boolean assertion would have passed.
+
+### The pattern
+
+Every one of these passed a check that was true but not sufficient: the click
+did land, the task did complete, the string was on the page. What each check
+missed was the *cost* — a wasted step, thirty seconds, an entire run's worth
+of context. The defence is not better assertions but a second, unrelated
+number next to the first: step counts beside completion, wall clock beside
+success, the actual sequence beside the outcome. Two numbers disagreeing is
+how all three of these were found.
+
+---
+
 ## Why success rate alone is insufficient
 
 Across every measurement on this replica so far, **success rate has been
