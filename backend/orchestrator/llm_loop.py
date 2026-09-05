@@ -87,16 +87,21 @@ def render_page(elements: list[Element]) -> str:
 
 
 async def plan_next(
-    provider: Provider, goal: Goal, elements: list[Element]
+    provider: Provider,
+    goal: Goal,
+    elements: list[Element],
+    history: list[str] | None = None,
+    initial_feedback: str | None = None,
 ) -> tuple[Action | None, str | None]:
     """Ask for one action, retrying once with the error fed back."""
-    feedback: str | None = None
     valid_ids = {element.id for element in elements}
+
+    feedback = initial_feedback
 
     for _ in range(2):
         try:
             action = await provider.decide(
-                SYSTEM_PROMPT, render_page(elements), goal.text, feedback
+                SYSTEM_PROMPT, render_page(elements), goal.text, feedback, history
             )
         except LLMError as error:
             feedback = str(error)
@@ -171,6 +176,9 @@ async def run_task_llm(
     llm_calls = 0
     steps_taken = 0
     current_state: str | None = None
+    history: list[str] = []
+    setback: str | None = None  # what went wrong last time, fed to the planner
+    consecutive_setbacks = 0
 
     async def set_state(state: str) -> None:
         nonlocal current_state
@@ -202,8 +210,9 @@ async def run_task_llm(
             break
 
         await set_state("thinking")
-        action, failure = await plan_next(provider, goal, elements)
+        action, failure = await plan_next(provider, goal, elements, history, setback)
         llm_calls += 1 if failure is None else 2
+        setback = None
 
         if action is None:
             await give_up(f"I could not work out the next step: {failure}")
@@ -255,18 +264,32 @@ async def run_task_llm(
         try:
             await apply(page, elements, element, action, value or "")
         except PlaywrightError as error:
-            await give_up(f"{action.action} on {element.label!r} failed: "
-                          f"{str(error).splitlines()[0]}")
-            return
-
-        if action.action == "type":
-            failure = await verify_typed(page, elements, element, value or "")
+            failure = str(error).splitlines()[0]
         else:
-            failure = await verify(page, before, Expectation())
+            if action.action == "type":
+                failure = await verify_typed(page, elements, element, value or "")
+            else:
+                failure = await verify(page, before, Expectation())
 
         if failure is not None:
-            await give_up(f"{describe(action, element)} did not work: {failure}")
-            return
+            # Don't give up on one bad move — tell the planner what happened
+            # and let it choose differently. A click that times out is usually
+            # something covering the page, which is recoverable.
+            consecutive_setbacks += 1
+            if consecutive_setbacks >= 2:
+                await give_up(f"{describe(action, element)} did not work: {failure}")
+                return
+            setback = (
+                f"Your last choice, {action.action} on element {action.element_id} "
+                f"({element.label!r}), did not work: {failure}. Something may be "
+                f"covering the page. Choose a different action."
+            )
+            continue
+
+        consecutive_setbacks = 0
+
+        # Recorded without any typed value: the history goes into the prompt.
+        history.append(f"{action.action} on {element.role} {element.label!r} (id {element.id})")
 
     _, final = await perceive(page)
     if not satisfies(final, goal.success):

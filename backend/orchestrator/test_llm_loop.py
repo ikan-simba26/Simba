@@ -40,9 +40,11 @@ class ScriptedProvider:
     def __init__(self, script: list) -> None:
         self.script = list(script)
         self.prompts: list[tuple[str, str | None]] = []
+        self.histories: list[list[str]] = []
 
-    async def decide(self, system_prompt, page, goal, feedback=None):
+    async def decide(self, system_prompt, page, goal, feedback=None, history=None):
         self.prompts.append((page, feedback))
+        self.histories.append(list(history or []))
         result = self.script.pop(0)
         if isinstance(result, Exception):
             raise result
@@ -61,9 +63,11 @@ class LabelDrivenProvider:
     def __init__(self, script: list[tuple[str, str]]) -> None:
         self.script = list(script)
         self.prompts: list[tuple[str, str | None]] = []
+        self.histories: list[list[str]] = []
 
-    async def decide(self, system_prompt, page, goal, feedback=None):
+    async def decide(self, system_prompt, page, goal, feedback=None, history=None):
         self.prompts.append((page, feedback))
+        self.histories.append(list(history or []))
         kind, label = self.script.pop(0)
 
         for line in page.splitlines():
@@ -152,6 +156,48 @@ def test_two_bad_answers_give_up_rather_than_looping() -> None:
     assert action is None
     assert failure == "still bad"
     assert len(provider.prompts) == 2
+
+
+def test_completed_actions_are_fed_back_so_the_model_cannot_repeat_itself(
+    replica: str,  # noqa: F811
+) -> None:
+    """A live run failed by refilling the username every step: it had no memory.
+
+    Each call must be told what is already done, in order.
+    """
+    provider = LabelDrivenProvider(
+        [
+            ("type", "Student ID or Username"),
+            ("type", "Password"),
+            ("click", "Sign In"),
+            ("click", "Close"),
+            ("click", "Register for CS-401"),
+        ]
+    )
+
+    drive(provider, REGISTRATION_GOAL, replica)
+
+    assert provider.histories[0] == []
+    assert len(provider.histories[1]) == 1
+    assert "Student ID or Username" in provider.histories[1][0]
+    assert len(provider.histories[4]) == 4
+    assert "Sign In" in provider.histories[4][2]
+
+
+def test_history_reaches_the_prompt_text() -> None:
+    from backend.orchestrator.llm import build_user_prompt
+
+    prompt = build_user_prompt("1. button 'Go'", "goal", None, ["type on textbox 'User' (id 3)"])
+
+    assert "Already done, in order:" in prompt
+    assert "1. type on textbox 'User' (id 3)" in prompt
+    assert "Do not repeat any of the above" in prompt
+
+
+def test_first_call_says_nothing_has_been_done() -> None:
+    from backend.orchestrator.llm import build_user_prompt
+
+    assert "Nothing has been done yet" in build_user_prompt("1. button 'Go'", "goal", None, [])
 
 
 # --- credentials ------------------------------------------------------------

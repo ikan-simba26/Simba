@@ -46,14 +46,46 @@ class LLMError(RuntimeError):
     """The provider could not produce a usable action."""
 
 
+ACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action": {"type": "string", "enum": ["click", "type", "select"]},
+        "element_id": {"type": "integer"},
+        "value": {"type": ["string", "null"]},
+        "reasoning": {"type": "string"},
+    },
+    "required": ["action", "element_id", "value", "reasoning"],
+    "additionalProperties": False,
+}
+
+
 class Provider(Protocol):
     async def decide(
-        self, system_prompt: str, page: str, goal: str, feedback: str | None = None
+        self,
+        system_prompt: str,
+        page: str,
+        goal: str,
+        feedback: str | None = None,
+        history: list[str] | None = None,
     ) -> Action: ...
 
 
-def build_user_prompt(page: str, goal: str, feedback: str | None) -> str:
-    parts = [f"Goal: {goal}", "", "Interactive elements on the page:", page]
+def build_user_prompt(
+    page: str, goal: str, feedback: str | None, history: list[str] | None = None
+) -> str:
+    parts = [f"Goal: {goal}", ""]
+
+    # Without this the model has no memory of its own actions and will keep
+    # choosing the step it already completed.
+    if history:
+        parts += ["Already done, in order:"]
+        parts += [f"  {i}. {done}" for i, done in enumerate(history, start=1)]
+        parts += ["", "Choose what comes next. Do not repeat any of the above.", ""]
+    else:
+        parts += ["Nothing has been done yet. This is the first action.", ""]
+
+    parts += ["Interactive elements on the page:", page]
+
     if feedback:
         parts += [
             "",
@@ -99,11 +131,16 @@ class AnthropicProvider:
         self._transcript = transcript or Transcript()
 
     async def decide(
-        self, system_prompt: str, page: str, goal: str, feedback: str | None = None
+        self,
+        system_prompt: str,
+        page: str,
+        goal: str,
+        feedback: str | None = None,
+        history: list[str] | None = None,
     ) -> Action:
         import anthropic
 
-        user_prompt = build_user_prompt(page, goal, feedback)
+        user_prompt = build_user_prompt(page, goal, feedback, history)
         self._transcript.record(
             provider=self.name, model=self._model, system=system_prompt, user=user_prompt
         )
@@ -156,25 +193,37 @@ class OpenAICompatibleProvider:
         self._transcript = transcript or Transcript()
 
     async def decide(
-        self, system_prompt: str, page: str, goal: str, feedback: str | None = None
+        self,
+        system_prompt: str,
+        page: str,
+        goal: str,
+        feedback: str | None = None,
+        history: list[str] | None = None,
     ) -> Action:
         import openai
 
-        user_prompt = build_user_prompt(page, goal, feedback)
+        user_prompt = build_user_prompt(page, goal, feedback, history)
         self._transcript.record(
             provider=self.name, model=self._model, system=system_prompt, user=user_prompt
         )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
+        # A JSON schema pins the shape. Plain json_object only guarantees
+        # valid JSON, and models drift between key names and nest the action
+        # under a wrapper. Not every compatible endpoint accepts a schema, so
+        # fall back rather than fail.
         try:
-            completion = await self._client.chat.completions.create(
-                model=self._model,
-                max_tokens=MAX_TOKENS,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
+            completion = await self._call(messages, self._schema_format())
+        except openai.BadRequestError:
+            self._transcript.record(provider=self.name, note="schema rejected, using json_object")
+            try:
+                completion = await self._call(messages, {"type": "json_object"})
+            except openai.OpenAIError as error:
+                self._transcript.record(provider=self.name, error=str(error))
+                raise LLMError(f"OpenAI-compatible call failed: {error}") from error
         except openai.OpenAIError as error:
             self._transcript.record(provider=self.name, error=str(error))
             raise LLMError(f"OpenAI-compatible call failed: {error}") from error
@@ -189,6 +238,20 @@ class OpenAICompatibleProvider:
 
         self._transcript.record(provider=self.name, response=action.model_dump())
         return action
+
+    def _schema_format(self) -> dict:
+        return {
+            "type": "json_schema",
+            "json_schema": {"name": "action", "strict": True, "schema": ACTION_SCHEMA},
+        }
+
+    async def _call(self, messages: list[dict], response_format: dict):
+        return await self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=MAX_TOKENS,
+            response_format=response_format,
+            messages=messages,
+        )
 
 
 def provider_from_env(transcript: Transcript | None = None) -> Provider:
