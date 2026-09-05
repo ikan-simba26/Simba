@@ -302,6 +302,64 @@ cannot tell which is which.
 
 ---
 
+## 2026-09-06 — hardcoded plan vs LLM, registration replica
+
+Commit `3968838`. Ten runs of the hardcoded planner, against the LLM numbers
+already recorded above. Same replica, same goal, same shared loop — the only
+difference is which planner picks the next move.
+
+| Planner | Runs | Completed | Steps | LLM calls | Seconds (mean) | Paths |
+|---|---|---|---|---|---|---|
+| Hardcoded | 10 | 10/10 | 3 | 0 | **5.9** | 1 |
+| LLM, overlay ON | 10 | 10/10 | 5 | 5 | 19.1 | 1 |
+| LLM, overlay OFF | 10 | 10/10 | 4 | 4 | 44.5 | 1 |
+
+The hardcoded plan is **3.2x faster** than the best LLM configuration, uses
+no model at all, and is perfectly deterministic. It takes 3 steps to the
+LLM's 5 because a plan step can carry several operations — its login step
+fills both fields and clicks Sign In as one unit — where the LLM emits one
+action at a time.
+
+### Token and cost, per run
+
+Measured with the instrumentation added in the same commit.
+
+| Condition | Model | Calls | Prompt tokens | Completion tokens | Total | Cost |
+|---|---|---|---|---|---|---|
+| Hardcoded | — | 0 | 0 | 0 | 0 | $0.000000 |
+| LLM, one planning call (measured) | `gemini-3.1-flash-lite` | 1 | 61 | 62 | 123 | $0.000031 |
+
+A five-call run on this replica costs a small fraction of a cent at
+flash-lite rates. Cost is not currently a reason to prefer either planner;
+latency is.
+
+### So what does the LLM buy?
+
+On this task, measured: **nothing.** It is slower, costs money, and reaches
+the same place. Anyone comparing the two columns above and concluding the
+LLM is not worth it would be reading the table correctly.
+
+What the table cannot show is the thing the LLM is actually for. The
+hardcoded plan names `Register for CS-401` because a person wrote that
+string. It reaches the confirmation page on this replica, for this course,
+and would need a person to write it again for a different course, a
+different portal, or a page whose Close button is labelled Dismiss. Every
+number in its column is a measurement of a plan that already knows the
+answer.
+
+The honest framing for the report: the hardcoded planner is the **ceiling**,
+not the baseline. It is what perfect planning would score, and it exists to
+show how much of the LLM's cost is planning overhead rather than execution.
+The LLM's 19.1s against 5.9s says five model round trips cost about 13
+seconds; it does not say the LLM is 3.2x worse at the task.
+
+The comparison that would actually settle it — both planners against a goal
+neither has seen, on the billing replica or a third site — has not been run.
+The billing hardcoded plan exists now, so the LLM half of that is one
+quota-permitting run away.
+
+---
+
 ## Why success rate alone is insufficient
 
 Across every measurement on this replica so far, **success rate has been
