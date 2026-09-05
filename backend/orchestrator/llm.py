@@ -21,6 +21,7 @@ import asyncio
 import json
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Protocol
@@ -35,6 +36,78 @@ OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 16000
 HISTORY_LIMIT = 10  # actions kept in the prompt; see build_user_prompt
 RATE_LIMIT_RETRIES = 4  # a free tier meters per minute; wait it out
+
+# US dollars per million tokens, (prompt, completion). Rates move and vary by
+# region, so this is a lookup to keep current rather than a source of truth —
+# an unknown model costs nothing rather than guessing, and a run says so.
+RATES_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-opus-5": (5.00, 25.00),
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "gpt-4o-mini": (0.15, 0.60),
+    # Free tier at time of writing; priced here at the published paid rates so
+    # a run reports what it would cost rather than zero.
+    "gemini-3.1-flash-lite": (0.10, 0.40),
+    "gemini-3.8-flash": (0.30, 2.50),
+    "gemini-3.6-flash": (0.30, 2.50),
+}
+
+
+@dataclass
+class Usage:
+    """What one call, or a whole run, consumed."""
+
+    calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost_usd: float = 0.0
+    model: str = ""
+    priced: bool = True
+
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    def add(self, prompt: int, completion: int, model: str) -> "Usage":
+        rate = RATES_PER_MTOK.get(model)
+        self.calls += 1
+        self.prompt_tokens += prompt
+        self.completion_tokens += completion
+        self.model = model
+        if rate is None:
+            self.priced = False
+        else:
+            self.cost_usd += (prompt * rate[0] + completion * rate[1]) / 1_000_000
+        return self
+
+    def as_dict(self) -> dict:
+        return {
+            "model": self.model,
+            "calls": self.calls,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "cost_usd": round(self.cost_usd, 6),
+            "priced": self.priced,
+        }
+
+    def summary_row(self, label: str) -> str:
+        """One line in EVALUATION.md's table format."""
+        # Per-run costs here are fractions of a cent; four places round
+        # them all to $0.0000, which reads as free rather than small.
+        cost = f"${self.cost_usd:.6f}" if self.priced else "unpriced"
+        return (
+            f"| {label} | {self.model} | {self.calls} | {self.prompt_tokens} | "
+            f"{self.completion_tokens} | {self.total_tokens} | {cost} |"
+        )
+
+
+def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float | None:
+    """Dollars for one call, or None if the model has no rate on file."""
+    rate = RATES_PER_MTOK.get(model)
+    if rate is None:
+        return None
+    return (prompt_tokens * rate[0] + completion_tokens * rate[1]) / 1_000_000
 
 
 class Action(BaseModel):
@@ -170,6 +243,7 @@ class AnthropicProvider:
         self._model = model
         self._effort = effort
         self._transcript = transcript or Transcript()
+        self.usage = Usage()
 
     async def decide(
         self,
@@ -211,13 +285,28 @@ class AnthropicProvider:
             self._transcript.record(provider=self.name, raw_response=raw)
             # Validated even though structured outputs should guarantee it.
             action = validate_action(raw)
-            self._transcript.record(
-                provider=self.name, response=action.model_dump(), usage=str(message.usage)
+            self._record_usage(
+                getattr(message.usage, "input_tokens", 0),
+                getattr(message.usage, "output_tokens", 0),
             )
+            self._transcript.record(provider=self.name, response=action.model_dump())
             return action
 
         self._transcript.record(provider=self.name, malformed=str(message.content))
         raise LLMError("no structured action in the response")
+
+    def _record_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
+        before = self.usage.cost_usd
+        self.usage.add(prompt_tokens, completion_tokens, self._model)
+        self._transcript.record(
+            provider=self.name,
+            model=self._model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            call_cost_usd=round(self.usage.cost_usd - before, 6),
+            run_cost_usd=round(self.usage.cost_usd, 6),
+            run_total_tokens=self.usage.total_tokens,
+        )
 
 
 class OpenAICompatibleProvider:
@@ -239,6 +328,7 @@ class OpenAICompatibleProvider:
         self._transcript = transcript or Transcript()
         # Seconds spent waiting out rate limits, excluded from real latency.
         self.throttled_seconds = 0.0
+        self.usage = Usage()
 
     async def decide(
         self,
@@ -279,10 +369,29 @@ class OpenAICompatibleProvider:
         raw = completion.choices[0].message.content or ""
         self._transcript.record(provider=self.name, raw_response=raw)
 
+        counts = getattr(completion, "usage", None)
+        self._record_usage(
+            getattr(counts, "prompt_tokens", 0) or 0,
+            getattr(counts, "completion_tokens", 0) or 0,
+        )
+
         action = validate_action(raw)
 
         self._transcript.record(provider=self.name, response=action.model_dump())
         return action
+
+    def _record_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
+        before = self.usage.cost_usd
+        self.usage.add(prompt_tokens, completion_tokens, self._model)
+        self._transcript.record(
+            provider=self.name,
+            model=self._model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            call_cost_usd=round(self.usage.cost_usd - before, 6),
+            run_cost_usd=round(self.usage.cost_usd, 6),
+            run_total_tokens=self.usage.total_tokens,
+        )
 
     async def _call_with_backoff(self, messages: list[dict], response_format: dict):
         """Wait out rate limits rather than failing the run.

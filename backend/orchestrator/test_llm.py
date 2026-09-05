@@ -9,6 +9,8 @@ from backend.orchestrator.llm import (
     LLMError,
     Transcript,
     build_user_prompt,
+    Usage,
+    estimate_cost,
     provider_from_env,
     validate_action,
 )
@@ -141,3 +143,66 @@ def test_missing_key_names_the_variable(monkeypatch) -> None:
 
     with pytest.raises(LLMError, match="ANTHROPIC_API_KEY is not set"):
         provider_from_env()
+
+
+# --- token and cost accounting ----------------------------------------------
+
+
+def test_usage_accumulates_across_calls() -> None:
+    usage = Usage()
+    usage.add(1000, 200, "claude-opus-5")
+    usage.add(500, 100, "claude-opus-5")
+
+    assert usage.calls == 2
+    assert usage.prompt_tokens == 1500
+    assert usage.completion_tokens == 300
+    assert usage.total_tokens == 1800
+
+
+def test_cost_uses_the_rate_table() -> None:
+    # 1M prompt at $5 plus 1M completion at $25.
+    assert estimate_cost(1_000_000, 1_000_000, "claude-opus-5") == 30.0
+    assert estimate_cost(1000, 0, "claude-opus-5") == 0.005
+
+
+def test_an_unknown_model_is_unpriced_rather_than_free() -> None:
+    assert estimate_cost(1000, 1000, "some-model-we-have-no-rate-for") is None
+
+    usage = Usage()
+    usage.add(1000, 1000, "some-model-we-have-no-rate-for")
+
+    assert usage.priced is False
+    assert usage.cost_usd == 0.0
+    assert "unpriced" in usage.summary_row("run")
+
+
+def test_a_mixed_run_is_marked_unpriced() -> None:
+    """One unrated call makes the whole total untrustworthy, and says so."""
+    usage = Usage()
+    usage.add(1000, 100, "claude-opus-5")
+    usage.add(1000, 100, "mystery-model")
+
+    assert usage.priced is False
+
+
+def test_the_summary_row_is_evaluation_table_format() -> None:
+    usage = Usage()
+    usage.add(2000, 400, "gemini-3.1-flash-lite")
+
+    row = usage.summary_row("registration, LLM")
+
+    assert row == (
+        "| registration, LLM | gemini-3.1-flash-lite | 1 | 2000 | 400 | 2400 | $0.000360 |"
+    )
+
+
+def test_usage_serialises_for_the_run_log() -> None:
+    usage = Usage()
+    usage.add(100, 10, "gpt-4o-mini")
+
+    payload = usage.as_dict()
+
+    assert payload["calls"] == 1
+    assert payload["total_tokens"] == 110
+    assert payload["model"] == "gpt-4o-mini"
+    assert payload["cost_usd"] > 0
