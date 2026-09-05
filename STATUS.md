@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 114 passing, 5 skipped without an Electron host · `c053367`
+**Last updated:** 2026-09-06 · 114 passing, 5 skipped without an Electron host · `fa4a508`
 
 ---
 
@@ -85,21 +85,29 @@ thing, not a task.
 ## Interface — Aly · `frontend/`
 
 **Done**
-- `frontend/main.js`: a host shell owning the two views — the real site,
-  covered by an overlay drawn on top of it — with CDP exposed so the backend
-  can attach. Enough to prove the pipe, and no more.
+- Electron + React + TypeScript + Vite, Tailwind, Zustand. Framer Motion
+  installed, deliberately unused.
+- The window: site view covered by the React overlay at identical bounds,
+  CDP on 9222 for the backend.
+- Contract client over `shared/schema.ts` and `shared/envelope.ts`. Every
+  backend-to-frontend type handled; `task.start`, `step.response` and
+  `task.cancel` sent; per-connection seq tracked with a warning on a gap.
+- A plain harness UI: goal box, state, current step with fields and actions,
+  outcome, and a message log.
+- Verified against `tools/mock_backend.py` end to end, against a throwaway
+  server for the four types the mock never sends, and once against the real
+  backend on the billing flow.
 
 **In progress**
 - Nothing.
 
 **Blocked / open — needs Aly**
-- **The host shell is in Aly's area and needs review.** It is deliberately
-  not the overlay UI: it renders a placeholder panel, has no React, and knows
-  nothing about the contract. Whether the real overlay grows from it or
-  replaces it is Aly's call.
-- The overlay itself is not started. `tools/mock_backend.py` plays a full
-  scripted task over a real WebSocket, so it can be built now with no backend
-  running.
+- **The harness is not the interface and should not be treated as a
+  starting point for the visual design.** It has no detail levels, no trust
+  panel, no motion. The design work is Aly's and unstarted.
+- **`task.start.goal` is ignored by the backend**, which uses its configured
+  `SIMBA_FLOW` task instead. The UI can start a task but cannot choose one.
+  Needs a contract conversation, not a frontend fix.
 - `shared/schema.ts` and `shared/envelope.ts` are current and type-check
   under `--strict`.
 - The three detail levels, trust panel and credential vault are explicitly

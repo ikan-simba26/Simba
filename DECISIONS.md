@@ -278,3 +278,25 @@ host but the URL it was already given.
 both views are `about:blank`-ish and detection falls back to the ambiguity
 guard — which fails loudly, but fails. A host-side tag would be more robust
 and is worth revisiting if the arrangement grows a third view.
+
+---
+
+## The message log is cleared per connection, not per task
+
+**Date:** 2026-09-06 (`fa4a508`)
+
+**Decision.** The frontend harness clears its message log when it reconnects,
+and keeps it across tasks that share a connection.
+
+**Alternatives.** Clear on every task start. Never clear, and let it grow.
+
+**Why this.** `seq` is a per-connection counter (CONTRACT.md), so it restarts
+at 1 on every reconnect. Keeping entries across a reconnect renders two runs
+interleaved with duplicate numbers, which is actively misleading — it made a
+verification check pass falsely during this work before it was caught.
+Clearing per task would instead throw away the history of a multi-task
+session that never dropped its connection.
+
+**Cost.** A session that reconnects loses the earlier log. Fine for a
+harness; the real interface will want the log persisted somewhere if it keeps
+one at all.
