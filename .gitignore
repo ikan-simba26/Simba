@@ -36,3 +36,8 @@ playwright/.cache/
 
 # Trace memory database
 traces.db
+
+# Frontend build output
+frontend/dist/
+frontend/dist-electron/
+*.tsbuildinfo

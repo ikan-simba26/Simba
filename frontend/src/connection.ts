@@ -1,0 +1,127 @@
+/**
+ * The WebSocket to the backend, framed as contract envelopes.
+ *
+ * Every message in and out goes through `shared/envelope.ts`, so the two ends
+ * cannot drift on the wrapper. `seq` is a per-connection monotonic counter,
+ * independent per direction; a gap means a dropped message, which is logged
+ * rather than silently ignored (CONTRACT.md).
+ */
+
+import { envelope } from "@shared/envelope";
+import type {
+  AnyEnvelope,
+  Envelope,
+  MessageType,
+  StepResponse,
+  TaskStart,
+} from "@shared/schema";
+
+export const DEFAULT_WS_URL = "ws://127.0.0.1:8000/ws";
+
+/** Our own task id. The backend stamps its own on messages it sends. */
+const TASK_ID = "t_frontend";
+
+export type ConnectionStatus = "idle" | "connecting" | "open" | "closed" | "error";
+
+export interface Handlers {
+  onStatus: (status: ConnectionStatus, detail?: string) => void;
+  onMessage: (message: AnyEnvelope) => void;
+  onSequenceGap: (expected: number, received: number) => void;
+}
+
+export class BackendConnection {
+  private socket: WebSocket | null = null;
+  private outgoingSeq = 0;
+  private lastIncomingSeq = 0;
+  /** Sends issued while the socket is still opening, flushed on open. */
+  private pending: Array<() => void> = [];
+
+  constructor(private readonly handlers: Handlers) {}
+
+  connect(url: string = DEFAULT_WS_URL): void {
+    this.close();
+    this.outgoingSeq = 0;
+    this.lastIncomingSeq = 0;
+    this.pending = [];
+    this.handlers.onStatus("connecting");
+
+    const socket = new WebSocket(url);
+    this.socket = socket;
+
+    socket.onopen = () => {
+      this.handlers.onStatus("open");
+      const queued = this.pending;
+      this.pending = [];
+      for (const send of queued) send();
+    };
+    socket.onclose = () => this.handlers.onStatus("closed");
+    socket.onerror = () => this.handlers.onStatus("error", `could not reach ${url}`);
+    socket.onmessage = (event) => this.receive(event.data);
+  }
+
+  close(): void {
+    if (this.socket) {
+      this.socket.onclose = null;
+      this.socket.close();
+      this.socket = null;
+    }
+  }
+
+  get isOpen(): boolean {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  // --- sending -------------------------------------------------------------
+
+  startTask(goal: string): void {
+    const payload: TaskStart = { goal, input_mode: "text" };
+    this.send("task.start", payload);
+  }
+
+  respondToStep(response: StepResponse): void {
+    this.send("step.response", response);
+  }
+
+  cancelTask(): void {
+    this.send("task.cancel", {});
+  }
+
+  private send<T>(type: MessageType, payload: T): void {
+    // Starting the backend after the window is the normal order of events, so
+    // a send during connection waits rather than failing.
+    if (this.socket?.readyState === WebSocket.CONNECTING) {
+      this.pending.push(() => this.send(type, payload));
+      return;
+    }
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      this.handlers.onStatus("error", `cannot send ${type}: not connected`);
+      return;
+    }
+    this.outgoingSeq += 1;
+    const message: Envelope<T> = envelope(type, TASK_ID, this.outgoingSeq, payload);
+    this.socket.send(JSON.stringify(message));
+  }
+
+  // --- receiving -----------------------------------------------------------
+
+  private receive(raw: unknown): void {
+    if (typeof raw !== "string") return;
+
+    let message: AnyEnvelope;
+    try {
+      message = JSON.parse(raw) as AnyEnvelope;
+    } catch {
+      this.handlers.onStatus("error", "backend sent something that is not JSON");
+      return;
+    }
+
+    const expected = this.lastIncomingSeq + 1;
+    if (message.seq !== expected) {
+      // A gap means a dropped message. Log it, don't silently continue.
+      this.handlers.onSequenceGap(expected, message.seq);
+    }
+    this.lastIncomingSeq = message.seq;
+
+    this.handlers.onMessage(message);
+  }
+}
