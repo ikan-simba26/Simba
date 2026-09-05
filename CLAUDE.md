@@ -70,6 +70,42 @@ Applies to any agent or script working in this repo, not just to people.
   installing software, changing global configuration, killing processes that
   aren't ones this work started, or anything that outlives the checkout.
 
+## Reporting
+
+Every task ends with a report covering all five of these. A task is not
+finished until it has one.
+
+1. **Files changed.** What was touched, and what each change was for.
+2. **What was measured, with numbers.** Not "it works" — the step count, the
+   wall clock, the token count, the pass rate. If nothing was measured, say
+   that outright rather than implying it was.
+3. **What failed and why.** Including failures that were fixed along the way.
+   A defect found and corrected is the most useful thing in the report; a
+   report with no failures in it is usually an incomplete one.
+4. **Decisions made that weren't asked for.** Anything settled that the task
+   did not specify. Each one also goes in `DECISIONS.md`.
+5. **Flagged for human review.** See below.
+
+Numbers go in `EVALUATION.md`, decisions in `DECISIONS.md`, module state in
+`STATUS.md`. Update `STATUS.md` at the end of every task.
+
+## Flag design questions, don't settle them quietly
+
+When a design question comes up that the task did not ask about, it does not
+get decided in passing and buried in a diff. Raise it under **flagged for
+review** with:
+
+- the question, in one line;
+- the options actually available;
+- a recommendation, and what it costs.
+
+Then either wait, or proceed with the recommendation and say clearly that you
+did. What is not acceptable is a choice that only shows up later as a
+surprise in the code.
+
+This applies hardest where the code already works. A silent decision inside
+something passing its tests is the one nobody reviews.
+
 ## Conventions
 
 - Python 3.11, type hints everywhere, `ruff` + `black`. Tests in `pytest`.
