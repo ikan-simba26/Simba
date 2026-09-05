@@ -1,114 +1,154 @@
 /**
- * A functional harness, not the interface.
+ * The overlay. This is what the person actually sees.
  *
- * Deliberately plain: no styling beyond default Tailwind, no motion, no
- * detail levels. It exists to prove the contract round-trips and to render
- * every message type so the next person can see what the backend actually
- * sends. The interface design comes after this.
+ * One column, one thing at a time, nothing in the corners. Everything the
+ * developer might want — the log, the connection, the raw messages — lives
+ * behind Ctrl+Shift+D and is not on screen otherwise.
+ *
+ * Level 2 only. Levels 1 and 3 slot into `StepView` when they are built.
  */
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-import type { StepPresented } from "@shared/schema";
-
+import { DebugPanel, useDebugShortcut } from "./components/Debug";
+import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
+import { StepView } from "./components/StepView";
 import { useStore } from "./store";
 
-export default function App() {
-  const store = useStore();
+const EASE = [0.22, 0.61, 0.36, 1] as const;
+const TRANSITION = { duration: 0.3, ease: EASE };
 
-  // Connect once on load; the button is there for reconnecting.
+export default function App() {
+  const connect = useStore((state) => state.connect);
+  useDebugShortcut();
+
   useEffect(() => {
-    store.connect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    connect();
+  }, [connect]);
 
   return (
-    <div className="min-h-screen bg-white p-6 text-sm text-gray-900">
-      <header className="mb-4">
-        <h1 className="text-xl font-bold">SIMBA harness</h1>
-        <p className="text-gray-600">
-          connection: <span className="font-mono">{store.status}</span>
-          {store.statusDetail ? ` — ${store.statusDetail}` : ""}
-        </p>
-      </header>
-
-      <Connection />
-      <StartTask />
-      <CurrentState />
-      <CurrentStep />
-      <Outcome />
-      <Log />
+    <div className="flex min-h-full justify-center bg-canvas px-6 py-24">
+      <div className="w-full max-w-[640px]">
+        <Column />
+      </div>
+      <DebugPanel />
     </div>
   );
 }
 
-function Connection() {
-  const { wsUrl, setWsUrl, connect } = useStore();
+function Column() {
+  const { state, step, help, completed, failed, task } = useStore();
+
+  const acting = state === "acting";
+  const thinking = state === "thinking";
+  const stuck = state === "stuck" || Boolean(help);
+
+  // One screen at a time, and only one. The key drives the crossfade.
+  const screen = stuck
+    ? "stuck"
+    : completed
+      ? "completed"
+      : failed
+        ? "failed"
+        : step
+          ? `step-${step.step_index}`
+          : task
+            ? "working"
+            : "idle";
+
   return (
-    <section className="mb-4 flex gap-2">
+    <>
+      <ActingLine active={acting} />
+
+      <ThinkingPulse active={thinking && !step}>
+        {/* Both screens share one grid cell, so the outgoing and incoming
+            ones overlap during the crossfade instead of stacking and
+            shoving the column down. `mode="wait"` would avoid the overlap
+            by serialising them, but it strands the transition here: the
+            exiting child stays mounted at opacity 0 and the next one never
+            arrives, leaving the column blank. */}
+        <div className="grid">
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={screen}
+              /* No `layout` on this element: reflow is done with `layout`
+                 on the blocks inside a step instead. */
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={TRANSITION}
+              className="pt-10 [grid-area:1/1]"
+            >
+              {screen === "idle" && <Idle />}
+              {screen === "working" && <Working />}
+              {screen.startsWith("step-") && <Step />}
+              {screen === "completed" && <Completed />}
+              {screen === "failed" && <Failed />}
+              {screen === "stuck" && (
+                <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </ThinkingPulse>
+    </>
+  );
+}
+
+function Idle() {
+  const startTask = useStore((state) => state.startTask);
+  const [goal, setGoal] = useState("");
+
+  const start = () => {
+    if (goal.trim()) startTask(goal.trim());
+  };
+
+  return (
+    <div className="flex flex-col gap-10">
+      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em]">
+        What would you like me to do?
+      </h1>
+
       <input
-        className="w-96 border p-1 font-mono"
-        value={wsUrl}
-        onChange={(event) => setWsUrl(event.target.value)}
-        aria-label="Backend WebSocket URL"
+        autoFocus
+        className="h-14 rounded-lg border border-line bg-raised px-4 text-[19px] text-ink
+                   outline-none transition-colors duration-300 focus:border-accent"
+        value={goal}
+        onChange={(event) => setGoal(event.target.value)}
+        onKeyDown={(event) => event.key === "Enter" && start()}
+        placeholder="Pay my electricity bill"
+        aria-label="What would you like me to do?"
       />
-      <button className="border px-3 py-1" onClick={() => connect()}>
-        Reconnect
+
+      <button
+        type="button"
+        onClick={start}
+        disabled={!goal.trim()}
+        className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
+                   text-accent-ink transition-all duration-300 hover:brightness-105
+                   disabled:opacity-35"
+      >
+        Start
       </button>
-    </section>
+    </div>
   );
 }
 
-function StartTask() {
-  const { startTask, cancel, task } = useStore();
-  const [goal, setGoal] = useState("Register for CS-401");
-
+/** Between task.started and the first step. Says what it is doing, and waits. */
+function Working() {
+  const task = useStore((state) => state.task);
   return (
-    <section className="mb-4">
-      <div className="flex gap-2">
-        <input
-          className="w-96 border p-1"
-          value={goal}
-          onChange={(event) => setGoal(event.target.value)}
-          aria-label="Goal"
-        />
-        <button className="border px-3 py-1" onClick={() => startTask(goal)}>
-          Start
-        </button>
-        <button className="border px-3 py-1" onClick={cancel}>
-          Cancel task
-        </button>
-      </div>
-      {task ? (
-        <p className="mt-2 text-gray-700">
-          task.started — {task.goal} (about {task.estimated_steps} steps)
-        </p>
-      ) : null}
-    </section>
+    <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-ink/80">
+      {task?.goal ?? "Working on it"}
+    </h1>
   );
 }
 
-function CurrentState() {
-  const { state, load } = useStore();
-  return (
-    <section className="mb-4">
-      <p>
-        state: <span className="font-mono">{state ?? "—"}</span>
-      </p>
-      {load ? (
-        <p className="text-gray-700">
-          load: {load.score} (level {load.level}) — {load.reason}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function CurrentStep() {
-  const { step, respond } = useStore();
+function Step() {
+  const { step, state, level, respond, answered } = useStore();
   const [values, setValues] = useState<Record<string, string>>({});
 
-  // A new step means new fields; start them from whatever the backend sent.
   useEffect(() => {
     if (!step) return;
     const initial: Record<string, string> = {};
@@ -119,116 +159,40 @@ function CurrentStep() {
   if (!step) return null;
 
   return (
-    <section className="mb-4 border p-3">
-      <p className="text-gray-600">
-        step {step.step_index} of {step.step_total}
-      </p>
-      <p className="text-lg font-semibold">{step.instruction}</p>
-      {step.detail ? <p className="text-gray-700">{step.detail}</p> : null}
-
-      {step.fields.map((field) => (
-        <div key={field.id} className="mt-2">
-          <label className="block" htmlFor={`field-${field.id}`}>
-            {field.label}
-          </label>
-          <input
-            id={`field-${field.id}`}
-            className="w-80 border p-1"
-            type={field.type === "password" ? "password" : "text"}
-            value={values[field.id] ?? ""}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, [field.id]: event.target.value }))
-            }
-          />
-        </div>
-      ))}
-
-      <div className="mt-3 flex gap-2">
-        {step.actions.map((action) => (
-          <button
-            key={action.id}
-            className="border px-3 py-1"
-            onClick={() => respond(action.id, values)}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
-
-      {step.requires_confirmation ? (
-        <p className="mt-2 text-gray-600">nothing happens until you choose</p>
-      ) : null}
-    </section>
+    <StepView
+      level={level}
+      step={step}
+      values={values}
+      waiting={isWaiting(state)}
+      answered={answered}
+      onChange={(fieldId, value) =>
+        setValues((current) => ({ ...current, [fieldId]: value }))
+      }
+      onAction={(actionId) => respond(actionId, values)}
+    />
   );
 }
 
-function Outcome() {
-  const { completed, failed, help, error, preview } = useStore();
+function Completed() {
+  const completed = useStore((state) => state.completed);
   return (
-    <section className="mb-4">
-      {completed ? (
-        <p>
-          task.completed — {completed.summary} ({completed.steps_taken} steps,{" "}
-          {completed.llm_calls} model calls, {completed.duration_ms} ms
-          {completed.replayed ? ", replayed" : ""})
-        </p>
-      ) : null}
-      {failed ? (
-        <p>
-          task.failed — {failed.reason}
-          {failed.recoverable ? " (recoverable)" : ""}
-        </p>
-      ) : null}
-      {help ? (
-        <p>
-          help.requested — {help.reason} {help.suggestion}
-        </p>
-      ) : null}
-      {error ? (
-        <p>
-          error — {error.code}: {error.message}
-        </p>
-      ) : null}
-      {preview ? (
-        <div>
-          <p>page.preview — {preview.caption}</p>
-          <img
-            className="max-w-lg border"
-            alt={preview.caption}
-            src={`data:image/png;base64,${preview.screenshot}`}
-          />
-        </div>
-      ) : null}
-    </section>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em]">
+        Done.
+      </h1>
+      <p className="text-[19px] leading-relaxed text-ink/80">{completed?.summary}</p>
+    </div>
   );
 }
 
-function Log() {
-  const log = useStore((state) => state.log);
+function Failed() {
+  const failed = useStore((state) => state.failed);
   return (
-    <section>
-      <h2 className="mb-1 font-semibold">Messages ({log.length})</h2>
-      <ol className="max-h-80 overflow-auto border p-2 font-mono text-xs">
-        {log.map((entry, index) => (
-          <li key={`${entry.seq}-${index}`}>
-            <span className="text-gray-500">#{entry.seq}</span> {entry.type}
-            {entry.note ? ` — ${entry.note}` : ""}{" "}
-            <span className="text-gray-600">{summarise(entry.payload)}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-stuck">
+        That didn&rsquo;t work.
+      </h1>
+      <p className="text-[19px] leading-relaxed text-ink/80">{failed?.reason}</p>
+    </div>
   );
 }
-
-/** Keep the log readable: a base64 screenshot would drown everything else. */
-function summarise(payload: unknown): string {
-  const text = JSON.stringify(payload, (key, value) =>
-    key === "screenshot" && typeof value === "string"
-      ? `<${value.length} bytes of png>`
-      : value,
-  );
-  return text.length > 300 ? `${text.slice(0, 300)}…` : text;
-}
-
-export type { StepPresented };

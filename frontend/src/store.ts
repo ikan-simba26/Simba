@@ -9,6 +9,7 @@ import { create } from "zustand";
 
 import type {
   AnyEnvelope,
+  Level,
   ErrorPayload,
   HelpRequested,
   LoadUpdated,
@@ -48,6 +49,14 @@ interface Store {
 
   log: LogEntry[];
 
+  /** Detail level. Level 2 until the estimator or the user says otherwise. */
+  level: Level;
+  /** The shown step has been answered and is waiting to be replaced. */
+  answered: boolean;
+  /** The development view, off unless someone asks for it by keyboard. */
+  debug: boolean;
+
+  toggleDebug: () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
   startTask: (goal: string) => void;
@@ -59,6 +68,7 @@ const EMPTY = {
   task: null,
   state: null,
   step: null,
+  answered: false,
   load: null,
   preview: null,
   help: null,
@@ -95,7 +105,11 @@ export const useStore = create<Store>((set, get) => {
     status: "idle",
     wsUrl: DEFAULT_WS_URL,
     log: [],
+    level: 2,
+    debug: false,
     ...EMPTY,
+
+    toggleDebug: () => set((current) => ({ debug: !current.debug })),
 
     setWsUrl: (wsUrl) => set({ wsUrl }),
 
@@ -129,8 +143,12 @@ export const useStore = create<Store>((set, get) => {
         input_values: values,
       };
       connection.respondToStep(response);
-      // Clear it so the same step cannot be answered twice.
-      set({ step: null });
+      // Mark it answered rather than clearing it. Clearing would drop the
+      // screen back to the goal for the few milliseconds before the next
+      // message lands, and that flash is both ugly and — with an
+      // AnimatePresence that waits for an exit — enough to strand the
+      // transition and leave the column blank.
+      set({ answered: true });
     },
 
     cancel: () => connection.cancelTask(),
@@ -147,11 +165,14 @@ function apply(message: AnyEnvelope, set: (partial: Partial<Store>) => void): vo
       set({ state: (message.payload as { state: State }).state });
       return;
     case "step.presented":
-      set({ step: message.payload as StepPresented });
+      set({ step: message.payload as StepPresented, answered: false });
       return;
-    case "load.updated":
-      set({ load: message.payload as LoadUpdated });
+    case "load.updated": {
+      const load = message.payload as LoadUpdated;
+      // The estimator drives the level. Nothing sends this yet.
+      set({ load, level: load.level });
       return;
+    }
     case "page.preview":
       set({ preview: message.payload as PagePreview });
       return;

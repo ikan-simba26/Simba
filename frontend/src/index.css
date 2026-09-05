@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+@theme {
+  /* A warm dark canvas. Everything sits on this. */
+  --color-canvas: #17120e;
+  --color-raised: #211a14;
+  --color-line: #33291f;
+
+  --color-ink: #f4ece2;
+  --color-muted: #9b8d7f;
+
+  /* One accent. It is the only saturated colour in normal operation. */
+  --color-accent: #d9a44e;
+  --color-accent-ink: #1a1309;
+
+  /* Stuck is the single exception, and only ever appears when stuck. */
+  --color-stuck: #c2634a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  /* The overlay is the whole window; nothing should ever scroll sideways. */
+  overflow-x: hidden;
+}
