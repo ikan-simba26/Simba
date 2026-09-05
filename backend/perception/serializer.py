@@ -23,7 +23,12 @@ from typing import Any
 from playwright.async_api import Page as AsyncPage
 from playwright.sync_api import Page
 
+from backend.perception.overlays import COMPUTED_STYLES, OverlayReport, analyse
+
 # AX role -> the action the orchestrator can take on the element.
+# Frozen viewport, per CLAUDE.md — coverage is measured against it.
+VIEWPORT = (1280, 800)
+
 INTERACTIVE_ROLES: dict[str, str] = {
     "button": "click",
     "link": "click",
@@ -51,40 +56,56 @@ class Element:
     tag: str
     input_type: str | None
     name: str | None = None  # the DOM name attribute, for routing vault values
+    # Part of something covering the page — use these to dismiss it.
+    overlay: bool = False
+    # Sitting behind something covering the page. A click here cannot land.
+    occluded: bool = False
 
     @property
     def is_password(self) -> bool:
         return self.input_type == "password"
 
 
-def serialize(page: Page) -> list[Element]:
+def serialize(page: Page, viewport: tuple[int, int] = VIEWPORT) -> list[Element]:
     """Return the page's interactive elements, numbered in document order."""
     cdp = page.context.new_cdp_session(page)
     try:
         cdp.send("Accessibility.enable")
         ax_nodes = cdp.send("Accessibility.getFullAXTree")["nodes"]
         document = cdp.send("DOM.getDocument", {"depth": -1})["root"]
+        cdp.send("DOMSnapshot.enable")
+        snapshot = cdp.send(
+            "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
+        )
     finally:
         cdp.detach()
 
-    return build_elements(ax_nodes, index_dom(document))
+    return build_elements(ax_nodes, index_dom(document), analyse(snapshot, viewport))
 
 
-async def serialize_async(page: AsyncPage) -> list[Element]:
+async def serialize_async(
+    page: AsyncPage, viewport: tuple[int, int] = VIEWPORT
+) -> list[Element]:
     """Async twin of `serialize`, for callers running under an event loop."""
     cdp = await page.context.new_cdp_session(page)
     try:
         await cdp.send("Accessibility.enable")
         ax_nodes = (await cdp.send("Accessibility.getFullAXTree"))["nodes"]
         document = (await cdp.send("DOM.getDocument", {"depth": -1}))["root"]
+        await cdp.send("DOMSnapshot.enable")
+        snapshot = await cdp.send(
+            "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
+        )
     finally:
         await cdp.detach()
 
-    return build_elements(ax_nodes, index_dom(document))
+    return build_elements(ax_nodes, index_dom(document), analyse(snapshot, viewport))
 
 
 def build_elements(
-    ax_nodes: list[dict[str, Any]], dom: dict[int, tuple[str, dict[str, str]]]
+    ax_nodes: list[dict[str, Any]],
+    dom: dict[int, tuple[str, dict[str, str]]],
+    overlays: OverlayReport | None = None,
 ) -> list[Element]:
     """Turn AX nodes plus a DOM index into numbered elements. Pure."""
     elements: list[Element] = []
@@ -100,7 +121,9 @@ def build_elements(
         if _property(node, "disabled") is True:
             continue
 
-        tag, attributes = dom.get(node.get("backendDOMNodeId", -1), ("", {}))
+        backend_id = node.get("backendDOMNodeId", -1)
+        tag, attributes = dom.get(backend_id, ("", {}))
+        report = overlays or OverlayReport()
         elements.append(
             Element(
                 id=len(elements) + 1,
@@ -110,6 +133,8 @@ def build_elements(
                 tag=tag,
                 input_type=attributes.get("type"),
                 name=attributes.get("name"),
+                overlay=backend_id in report.overlay_ids,
+                occluded=backend_id in report.occluded_ids,
             )
         )
     return elements
