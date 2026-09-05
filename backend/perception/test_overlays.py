@@ -18,6 +18,12 @@ from backend.perception.test_serializer import find, labels
 VIEWPORT = (1280, 800)
 
 
+@pytest.fixture(autouse=True)
+def detection_on(monkeypatch) -> None:
+    """These assert what detection does, so don't inherit the ablation flag."""
+    monkeypatch.setenv("SIMBA_OVERLAY_DETECTION", "1")
+
+
 @pytest.fixture
 def courses(replica: str, page: Page) -> Iterator[Page]:
     """The course list, with the modal up as it is on load."""
@@ -133,3 +139,15 @@ def test_the_replicas_placeholder_nav_is_flagged(replica: str, page: Page) -> No
     assert find(elements, "Academic Calendar").dead_link
     assert not find(elements, "Registrar").dead_link
     assert not find(elements, "Sign In").dead_link  # a button, not a link
+
+
+def test_the_ablation_switch_turns_detection_off(courses: Page, monkeypatch) -> None:
+    """The A/B arm: same page, same modal, no flags raised."""
+    monkeypatch.setenv("SIMBA_OVERLAY_DETECTION", "0")
+
+    elements = serialize(courses)
+
+    assert not [e for e in elements if e.overlay or e.occluded]
+    # Dead-link flagging is a separate feature and stays on, so the ablation
+    # isolates overlay detection rather than perception as a whole.
+    assert find(elements, "Home").dead_link

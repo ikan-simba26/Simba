@@ -17,6 +17,7 @@ its tag name and `type` attribute. The credential vault needs that to know
 where it may inject a secret.
 """
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,6 +29,19 @@ from backend.perception.overlays import COMPUTED_STYLES, OverlayReport, analyse
 # AX role -> the action the orchestrator can take on the element.
 # Frozen viewport, per CLAUDE.md — coverage is measured against it.
 VIEWPORT = (1280, 800)
+
+
+def overlay_detection_enabled() -> bool:
+    """Ablation switch. On unless SIMBA_OVERLAY_DETECTION says otherwise.
+
+    Read per call rather than at import so a benchmark can flip conditions
+    between processes without reaching into module state.
+    """
+    return os.environ.get("SIMBA_OVERLAY_DETECTION", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
 
 INTERACTIVE_ROLES: dict[str, str] = {
     "button": "click",
@@ -75,14 +89,17 @@ def serialize(page: Page, viewport: tuple[int, int] = VIEWPORT) -> list[Element]
         cdp.send("Accessibility.enable")
         ax_nodes = cdp.send("Accessibility.getFullAXTree")["nodes"]
         document = cdp.send("DOM.getDocument", {"depth": -1})["root"]
-        cdp.send("DOMSnapshot.enable")
-        snapshot = cdp.send(
-            "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
-        )
+        snapshot = None
+        if overlay_detection_enabled():
+            cdp.send("DOMSnapshot.enable")
+            snapshot = cdp.send(
+                "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
+            )
     finally:
         cdp.detach()
 
-    return build_elements(ax_nodes, index_dom(document), analyse(snapshot, viewport))
+    overlays = analyse(snapshot, viewport) if snapshot else None
+    return build_elements(ax_nodes, index_dom(document), overlays)
 
 
 async def serialize_async(
@@ -94,14 +111,17 @@ async def serialize_async(
         await cdp.send("Accessibility.enable")
         ax_nodes = (await cdp.send("Accessibility.getFullAXTree"))["nodes"]
         document = (await cdp.send("DOM.getDocument", {"depth": -1}))["root"]
-        await cdp.send("DOMSnapshot.enable")
-        snapshot = await cdp.send(
-            "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
-        )
+        snapshot = None
+        if overlay_detection_enabled():
+            await cdp.send("DOMSnapshot.enable")
+            snapshot = await cdp.send(
+                "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
+            )
     finally:
         await cdp.detach()
 
-    return build_elements(ax_nodes, index_dom(document), analyse(snapshot, viewport))
+    overlays = analyse(snapshot, viewport) if snapshot else None
+    return build_elements(ax_nodes, index_dom(document), overlays)
 
 
 def build_elements(
