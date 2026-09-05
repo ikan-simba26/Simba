@@ -158,6 +158,105 @@ The earlier 10/10 success rate was hiding a wasted step in every single run.
 
 ---
 
+## 2026-09-05 — ablation: does overlay detection still help on a stronger model?
+
+Commit `9b19206`. Four conditions on the registration replica, same goal.
+The ablated variable is **overlay detection only** — `SIMBA_OVERLAY_DETECTION`
+turns off the DOMSnapshot pass and the `overlay`/`occluded` flags. Dead-link
+flagging stays on in both arms, so this measures overlay detection rather
+than perception as a whole.
+
+| Condition | Model | Runs | Completed | Steps | LLM calls | Seconds (mean) | Paths |
+|---|---|---|---|---|---|---|---|
+| overlay ON | `gemini-3.1-flash-lite` | 10 | 10/10 | 5 | 5 | 19.1 | 1 |
+| overlay OFF | `gemini-3.1-flash-lite` | 10 | 10/10 | 4 | 4 | 44.5 | 1 |
+| overlay ON | `gemini-3.8-flash` | **1** | **0/1** | — | — | — | — |
+| overlay OFF | `gemini-3.8-flash` | **1** | **0/1** | — | — | — | — |
+
+Wall clock excludes time spent waiting out rate limits, which is tracked
+separately.
+
+### The demo-model arm did not run
+
+**One run was attempted per demo condition, and neither completed.** Both
+were stopped by the free tier, in two stages: first
+`GenerateRequestsPerMinutePerProjectPerModel-FreeTier` at **5 requests per
+minute**, which the provider's backoff absorbed at a cost of 400–450 seconds
+of waiting per run, and then
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier` at **20 requests per
+day**, which nothing can absorb. A single run needs 4–5 requests, so the
+daily allowance is roughly four runs, and the earlier per-minute waiting had
+already consumed it.
+
+**So the question this ablation was built to answer is unanswered.** Whether
+a stronger model absorbs the gain is not known, and nothing below should be
+read as evidence either way. It needs a key without a free-tier cap; the
+comparison is cheap to run once one exists.
+
+### What the two complete conditions show
+
+The surprise is that turning detection **off makes the step count go down and
+the time go up**, and that the run still passes:
+
+- **Overlay OFF never dismisses the modal at all.** All ten runs went
+  straight from Sign In to Register, with no Close. They still completed —
+  because the shared retry's second strategy is a JS click, which bypasses
+  hit-testing and punches *through* the overlay.
+- **That costs ~25s per run.** Mean wall clock is 44.5s against 19.1s, and
+  the gap is about one Playwright click timeout: strategy 0 waits out the
+  full timeout on an intercepted click before strategy 1 succeeds.
+- **Fewer steps is worse here, not better.** Four steps beats five only if
+  you count steps. The four-step path works by interacting with a page the
+  user cannot see, past a dialog they were meant to read — which for this
+  project is the wrong behaviour regardless of the timing, and something
+  SIMBA should never do on a real site.
+
+Both conditions were perfectly consistent: one path each, zero variance
+across ten runs, identical step and call counts.
+
+### Read this carefully
+
+The JS-click fallback is doing something here that it was not designed for.
+It exists to recover from a click that silently fails; it turns out to also
+paper over a missing perception signal, and it does so *successfully enough
+to look like a pass*. Without overlay detection the system would ship a
+100% success rate on this task while routinely clicking through modals.
+
+Worth revisiting: whether strategy 1 should refuse to click an element that
+perception knows is occluded, so that clicking through a modal becomes a
+failure rather than a silent recovery.
+
+---
+
+## Why success rate alone is insufficient
+
+Across every measurement on this replica so far, **success rate has been
+10/10 in every condition that ran** — before overlay detection, after it, and
+with it explicitly disabled. It has never once distinguished a good run from
+a bad one.
+
+Everything that mattered showed up in the other columns:
+
+| | Before overlay detection | After | Detection disabled |
+|---|---|---|---|
+| Success rate | 10/10 | 10/10 | 10/10 |
+| Mean wall clock | 61.3s | 17.1s | 44.5s |
+| Steps | 6–10 | 5 | 4 |
+| Modal handled correctly | never | always | never |
+
+Mean time fell **72%** (61.3s to 17.1s) between the first two columns while
+completion rate did not move at all. What the 10/10 was concealing was a
+guaranteed ~30s click timeout in *every single run*, and, in the disabled
+condition, a modal being clicked through rather than dismissed.
+
+For this project, completion rate is a floor check — it catches total
+breakage and nothing else. Report it alongside steps, wall clock, path
+variance, and whether the recovery path had to fire; a run that only
+completes because retry rescued it is not the same as a run that went right,
+and only the other columns can tell them apart.
+
+---
+
 ## Known limitations
 
 - **These numbers come from a free-tier model.** `gemini-3.1-flash-lite` was
@@ -173,7 +272,14 @@ The earlier 10/10 success rate was hiding a wasted step in every single run.
   used on demo day is the one these numbers should describe. Re-run both the
   before and after configurations on it before quoting any of this in the
   report — a stronger model may not need the overlay hints at all, which
-  would change what the perception work is worth.
+  would change what the perception work is worth. The 2026-09-05 ablation
+  tried and could not: `gemini-3.8-flash` allows 20 requests per day, about
+  four runs, and a run needs 4–5. **This is the single biggest gap in the
+  evaluation** and the first thing a paid key should be spent on.
+- **The strongest models the key lists are not usable at all.**
+  `gemini-3.1-pro-preview` and `gemini-pro-latest` return 429 on the first
+  request; `gemini-2.5-pro` returns 404. The "demo model" above is the
+  strongest that actually answers, not the strongest that exists.
 - **One replica, one task.** Everything here is `replicas/registration` and
   the CS-401 goal. Nothing has been measured against a second site, a second
   task, or a page whose overlay is not a full-viewport backdrop.
