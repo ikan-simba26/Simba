@@ -9,9 +9,15 @@ Two sources, one interface:
   `WebContentsView` the user never sees directly.
 
 Picking the site view out of the Electron host needs care: the host has two
-`WebContentsView`s and both appear as ordinary CDP page targets. The overlay
-is a `data:` URL, so it is excluded, and the site view is matched on the URL
-the host was told to load.
+`WebContentsView`s and both appear as ordinary CDP page targets, and driving
+the overlay by mistake would look like every action succeeded while the real
+page never moved.
+
+The site view is matched on the URL the host was told to load. Failing that,
+pages that cannot be a website are excluded — the overlay is served from
+`file:` in a build and `data:` in the old placeholder host, and devtools
+targets show up as `devtools:`. `about:blank` is deliberately *not* excluded,
+since that is what the site view looks like before it navigates.
 """
 
 import os
@@ -24,6 +30,9 @@ from playwright.async_api import Page, async_playwright
 VIEWPORT = {"width": 1280, "height": 800}
 DEFAULT_CDP_URL = "http://127.0.0.1:9222"
 
+# Schemes the site view is never served from. The overlay is one of these.
+NOT_A_WEBSITE = ("data:", "file:", "devtools:", "chrome:", "chrome-extension:")
+
 
 def browser_source() -> str:
     return os.environ.get("SIMBA_BROWSER", "chromium").strip().lower()
@@ -31,6 +40,15 @@ def browser_source() -> str:
 
 def cdp_url() -> str:
     return os.environ.get("SIMBA_CDP_URL", DEFAULT_CDP_URL)
+
+
+def overlay_url() -> str:
+    """Where the overlay is served from, when it cannot be ruled out by scheme.
+
+    Only needed when the overlay runs from a dev server, which looks exactly
+    like a website.
+    """
+    return os.environ.get("SIMBA_OVERLAY_URL", "").strip()
 
 
 class HostNotRunning(RuntimeError):
@@ -57,11 +75,18 @@ def find_site_page(pages: list[Page], start_url: str) -> Page:
             if page.url.startswith(origin):
                 return page
 
-    candidates = [p for p in pages if not p.url.startswith("data:")]
+    overlay = overlay_url()
+    candidates = [
+        p
+        for p in pages
+        if not p.url.startswith(NOT_A_WEBSITE)
+        and not (overlay and p.url.startswith(overlay))
+    ]
     if not candidates:
         raise NoSiteView(
-            "every page the host exposed is a data: URL, so none of them is "
-            "the site view. Is SIMBA_START_URL set on the host?"
+            "every page the host exposed is the overlay or a devtools target, "
+            "so none of them is the site view. Is SIMBA_START_URL set on the "
+            "host?"
         )
     if len(candidates) > 1:
         urls = ", ".join(p.url[:60] for p in candidates)

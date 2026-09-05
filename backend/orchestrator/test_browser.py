@@ -17,6 +17,8 @@ from backend.orchestrator.browser import (
 )
 
 OVERLAY = "data:text/html,<html><body>SIMBA</body></html>"
+BUILT_OVERLAY = "file:///D:/simba/frontend/dist/index.html"
+DEV_OVERLAY = "http://127.0.0.1:5173/"
 SITE = "http://127.0.0.1:5100/"
 
 
@@ -61,8 +63,12 @@ def test_only_the_overlay_names_the_likely_cause() -> None:
 
 
 def test_an_ambiguous_host_refuses_rather_than_guessing() -> None:
-    """Two candidate pages and no origin match: better to stop than pick one."""
-    pages = [FakePage("about:blank"), FakePage("chrome://version")]
+    """Two pages that could each be a website, and no origin match.
+
+    Picking one would mean a chance of driving the wrong page, where every
+    action appears to succeed and nothing happens. Better to stop.
+    """
+    pages = [FakePage("http://127.0.0.1:5100/"), FakePage("http://127.0.0.1:5173/")]
 
     with pytest.raises(NoSiteView, match="could not tell which"):
         find_site_page(pages, "http://elsewhere.invalid")
@@ -80,3 +86,33 @@ def test_the_browser_source_is_case_and_space_tolerant(monkeypatch) -> None:
     monkeypatch.setenv("SIMBA_BROWSER", "  Electron ")
 
     assert browser_source() == "electron"
+
+
+# --- the overlay is a real app now, not a data: URL --------------------------
+
+
+def test_the_built_overlay_is_excluded_by_scheme() -> None:
+    """Regression: the overlay moved from data: to file: and stopped being
+    excluded, so the site view became ambiguous and every Electron run failed."""
+    pages = [FakePage(BUILT_OVERLAY), FakePage("http://127.0.0.1:5100/bill/detail")]
+
+    assert find_site_page(pages, "http://127.0.0.1:5102").url.startswith("http://127.0.0.1:5100")
+
+
+def test_devtools_targets_are_excluded() -> None:
+    pages = [FakePage(BUILT_OVERLAY), FakePage("devtools://devtools/bundled/x.html"),
+             FakePage("about:blank")]
+
+    assert find_site_page(pages, "http://elsewhere.invalid").url == "about:blank"
+
+
+def test_a_dev_server_overlay_needs_to_be_named(monkeypatch) -> None:
+    """A Vite dev server looks exactly like a website, so scheme cannot rule
+    it out. Without SIMBA_OVERLAY_URL it is ambiguous, which is loud."""
+    pages = [FakePage(DEV_OVERLAY), FakePage("about:blank")]
+
+    with pytest.raises(NoSiteView, match="could not tell which"):
+        find_site_page(pages, "http://elsewhere.invalid")
+
+    monkeypatch.setenv("SIMBA_OVERLAY_URL", DEV_OVERLAY)
+    assert find_site_page(pages, "http://elsewhere.invalid").url == "about:blank"
