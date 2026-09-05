@@ -207,3 +207,75 @@ def test_the_flow_switch_selects_billing(messages: list[dict]) -> None:
     started = [m for m in messages if m["type"] == "task.started"][0]
     assert "amount due" in started["payload"]["goal"]
     assert started["payload"]["estimated_steps"] == 3
+
+
+# --- trace memory, through the running server --------------------------------
+
+
+@pytest.fixture(scope="module")
+def replaying_orchestrator(billing_replica: str, tmp_path_factory) -> Iterator[str]:
+    """The same server, with trace memory on and a database of its own."""
+    db = tmp_path_factory.mktemp("traces") / "server.db"
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "backend.orchestrator.app:app", "--port", "8022"],
+        cwd=REPO_ROOT,
+        env={
+            **os.environ,
+            "SIMBA_FLOW": "billing",
+            "SIMBA_USE_HARDCODED_PLAN": "1",
+            "SIMBA_TRACE_MEMORY": "1",
+            "SIMBA_TRACE_DB": str(db),
+            "SIMBA_REPLICA_URL": billing_replica,
+        },
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_for("http://127.0.0.1:8022")
+        yield "ws://127.0.0.1:8022/ws"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
+
+
+@pytest.fixture(scope="module")
+def two_runs(replaying_orchestrator: str) -> tuple[list[dict], list[dict]]:
+    first = asyncio.run(_run_flow(replaying_orchestrator))
+    second = asyncio.run(_run_flow(replaying_orchestrator))
+    return first, second
+
+
+def _completed(messages: list[dict]) -> dict:
+    done = [m for m in messages if m["type"] == "task.completed"]
+    assert done, [m["type"] for m in messages]
+    return done[0]["payload"]
+
+
+def test_the_first_run_is_not_a_replay(two_runs) -> None:
+    first, _ = two_runs
+    assert _completed(first)["replayed"] is False
+
+
+def test_the_second_run_replays_the_first(two_runs) -> None:
+    _, second = two_runs
+    payload = _completed(second)
+
+    assert payload["replayed"] is True
+    assert payload["llm_calls"] == 0
+
+
+def test_both_runs_reach_the_same_page(two_runs) -> None:
+    first, second = two_runs
+    assert "/bill/detail" in _completed(first)["summary"]
+    assert "/bill/detail" in _completed(second)["summary"]
+
+
+def test_replay_is_one_step_per_operation(two_runs) -> None:
+    """A plan step can carry several operations; a trace step carries one.
+
+    The billing plan's lookup step fills the reference and clicks Check Bill
+    as one unit, so replaying it takes two steps where planning took one.
+    """
+    first, second = two_runs
+    assert _completed(first)["steps_taken"] == 3
+    assert _completed(second)["steps_taken"] == 4
