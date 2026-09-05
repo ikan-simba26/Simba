@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 101 tests passing · `12dcc82`
+**Last updated:** 2026-09-06 · 114 passing, 5 skipped without an Electron host · `c053367`
 
 ---
 
@@ -58,8 +58,12 @@ thing, not a task.
 - Rate-limit backoff honouring the server's stated delay.
 - Token and cost instrumentation per call and per run.
 - Trace memory: SQLite, keyed on role and label, replay at zero model calls,
-  self-correcting when a trace no longer fits.
+  self-correcting when a trace no longer fits. Wired into the running server
+  behind `SIMBA_TRACE_MEMORY`.
 - Runs on two sites (`SIMBA_FLOW`), hardcoded plans for both.
+- Drives either its own headless Chromium or a real Electron hidden view
+  (`SIMBA_BROWSER`), with the site view picked by origin and ambiguity
+  refused.
 
 **In progress**
 - Nothing.
@@ -72,24 +76,30 @@ thing, not a task.
   off it does so in 10/10 runs and the run still passes. Whether strategy 1
   should refuse an element perception knows is occluded is an open design
   question — **flagged, not decided**.
-- Trace replay is not wired into `app.py`; `TracePlanner` exists and is
-  tested but nothing constructs it in the running server.
-- Replay, LLM interface hardening beyond one provider pair, and the retry
-  policy for real sites: not started.
+- Replay tuning (when to prefer a trace over fresh planning), LLM interface
+  hardening beyond one provider pair, and the retry policy for real sites:
+  not started.
 
 ---
 
 ## Interface — Aly · `frontend/`
 
 **Done**
-- Nothing. Directory is a placeholder.
+- `frontend/main.js`: a host shell owning the two views — the real site,
+  covered by an overlay drawn on top of it — with CDP exposed so the backend
+  can attach. Enough to prove the pipe, and no more.
 
 **In progress**
 - Nothing.
 
 **Blocked / open — needs Aly**
-- Not started. `tools/mock_backend.py` plays a full scripted task over a real
-  WebSocket, so the overlay can be built now with no backend running.
+- **The host shell is in Aly's area and needs review.** It is deliberately
+  not the overlay UI: it renders a placeholder panel, has no React, and knows
+  nothing about the contract. Whether the real overlay grows from it or
+  replaces it is Aly's call.
+- The overlay itself is not started. `tools/mock_backend.py` plays a full
+  scripted task over a real WebSocket, so it can be built now with no backend
+  running.
 - `shared/schema.ts` and `shared/envelope.ts` are current and type-check
   under `--strict`.
 - The three detail levels, trust panel and credential vault are explicitly
@@ -147,11 +157,17 @@ thing, not a task.
 **Done**
 - Two replicas, structurally different by design.
 - `spike/` proves the Electron + CDP + Playwright architecture.
-- 101 tests, run from the repo root with `python -m pytest`.
+- **The full stack runs end to end**: Electron host up, backend attached over
+  CDP to its hidden site view, a hardcoded billing task completing over the
+  WebSocket in 4.9s with no model and no frontend UI. Repeatable against an
+  already-used host.
+- 114 tests from the repo root with `python -m pytest`; 5 Electron
+  integration tests skip unless a host is running.
 
 **Blocked / open**
-- Electron and the backend have never been connected. The spike drives a
-  hidden view over CDP and the orchestrator drives its own Chromium; nothing
-  yet points the orchestrator at the Electron view. That is the next
-  integration and nobody is on it.
-- No CI. Tests only run when someone runs them.
+- No CI. Tests only run when someone runs them, and the Electron tests skip
+  silently unless a host happens to be up — so a regression there would go
+  unnoticed.
+- Nothing supervises the Electron host. Start order matters (replica, host,
+  backend) and a host that dies mid-task surfaces as a connection error
+  rather than a restart.
