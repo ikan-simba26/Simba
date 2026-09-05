@@ -216,6 +216,7 @@ async def run_task(
     consecutive_setbacks = 0
     steps_taken = 0
     last_failure: str | None = None
+    completed: list[Move] = []
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -305,6 +306,7 @@ async def run_task(
 
         consecutive_setbacks = 0
         last_failure = None
+        completed.append(move)
         history.append(move.instruction)
 
     _, final = await perceive(page)
@@ -317,6 +319,11 @@ async def run_task(
         )
         return
 
+    # A planner that remembers runs gets told what actually worked.
+    remember = getattr(planner, "finished", None)
+    if remember is not None:
+        remember(completed)
+
     await connection.send(
         "task.completed",
         TaskCompleted(
@@ -324,7 +331,7 @@ async def run_task(
             duration_ms=int((time.monotonic() - started) * 1000),
             steps_taken=steps_taken,
             llm_calls=getattr(planner, "calls_made", 0),
-            replayed=False,
+            replayed=getattr(planner, "replayed_steps", 0) > 0,
         ),
     )
 
