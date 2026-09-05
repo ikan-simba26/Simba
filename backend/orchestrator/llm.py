@@ -17,8 +17,10 @@ Every prompt and response is written to `logs/` (gitignored) so a run's
 reasoning can be read back afterwards.
 """
 
+import asyncio
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Protocol
@@ -32,6 +34,7 @@ ANTHROPIC_DEFAULT_MODEL = "claude-opus-5"
 OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 16000
 HISTORY_LIMIT = 10  # actions kept in the prompt; see build_user_prompt
+RATE_LIMIT_RETRIES = 4  # a free tier meters per minute; wait it out
 
 
 class Action(BaseModel):
@@ -234,6 +237,8 @@ class OpenAICompatibleProvider:
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._transcript = transcript or Transcript()
+        # Seconds spent waiting out rate limits, excluded from real latency.
+        self.throttled_seconds = 0.0
 
     async def decide(
         self,
@@ -259,11 +264,11 @@ class OpenAICompatibleProvider:
         # under a wrapper. Not every compatible endpoint accepts a schema, so
         # fall back rather than fail.
         try:
-            completion = await self._call(messages, self._schema_format())
+            completion = await self._call_with_backoff(messages, self._schema_format())
         except openai.BadRequestError:
             self._transcript.record(provider=self.name, note="schema rejected, using json_object")
             try:
-                completion = await self._call(messages, {"type": "json_object"})
+                completion = await self._call_with_backoff(messages, {"type": "json_object"})
             except openai.OpenAIError as error:
                 self._transcript.record(provider=self.name, error=str(error))
                 raise LLMError(f"OpenAI-compatible call failed: {error}") from error
@@ -278,6 +283,32 @@ class OpenAICompatibleProvider:
 
         self._transcript.record(provider=self.name, response=action.model_dump())
         return action
+
+    async def _call_with_backoff(self, messages: list[dict], response_format: dict):
+        """Wait out rate limits rather than failing the run.
+
+        Free tiers meter per minute, so a burst of planning calls trips the
+        limit even when the daily allowance is untouched. The server says how
+        long to wait; honour it. Time spent waiting is accumulated separately
+        so a benchmark can report it apart from real latency.
+        """
+        import openai
+
+        delay = 1.0
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
+            try:
+                return await self._call(messages, response_format)
+            except openai.RateLimitError as error:
+                if attempt == RATE_LIMIT_RETRIES:
+                    raise
+                wait = _retry_after(error) or delay
+                self.throttled_seconds += wait
+                self._transcript.record(
+                    provider=self.name, rate_limited=True, waited_seconds=round(wait, 1)
+                )
+                await asyncio.sleep(wait)
+                delay = min(delay * 2, 60.0)
+        raise AssertionError("unreachable")
 
     def _schema_format(self) -> dict:
         return {
@@ -316,6 +347,22 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
         )
 
     raise LLMError(f"unknown SIMBA_LLM_PROVIDER {choice!r}; expected 'anthropic' or 'openai'")
+
+
+def _retry_after(error: Exception) -> float | None:
+    """Seconds the server asked us to wait, if it said."""
+    headers = getattr(getattr(error, "response", None), "headers", None)
+    if headers:
+        raw = headers.get("retry-after")
+        if raw:
+            try:
+                return float(raw)
+            except ValueError:
+                pass
+    match = re.search(r"retry in ([0-9.]+)s", str(error))
+    if match:
+        return float(match.group(1)) + 1.0
+    return None
 
 
 def _require_key(name: str) -> str:
