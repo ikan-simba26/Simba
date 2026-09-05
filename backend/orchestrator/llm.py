@@ -59,6 +59,27 @@ ACTION_SCHEMA = {
 }
 
 
+def validate_action(raw: object) -> Action:
+    """The one gate every provider's output passes through.
+
+    Structured outputs make a bad shape unlikely on some providers and
+    impossible on none, so nothing is trusted: both paths validate here, and
+    both produce the same error text for the retry to feed back.
+    """
+    try:
+        if isinstance(raw, (str, bytes)):
+            return Action.model_validate_json(raw)
+        return Action.model_validate(raw)
+    except ValidationError as error:
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc']) or 'response'}: {e['msg']}"
+            for e in error.errors()
+        )
+        raise LLMError(f"response did not match the action schema — {problems}") from error
+    except ValueError as error:
+        raise LLMError(f"response was not valid JSON: {error}") from error
+
+
 class Provider(Protocol):
     async def decide(
         self,
@@ -164,11 +185,16 @@ class AnthropicProvider:
 
         for block in message.content:
             parsed = getattr(block, "parsed_output", None)
-            if isinstance(parsed, Action):
-                self._transcript.record(
-                    provider=self.name, response=parsed.model_dump(), usage=str(message.usage)
-                )
-                return parsed
+            if parsed is None:
+                continue
+            raw = parsed.model_dump() if isinstance(parsed, BaseModel) else parsed
+            self._transcript.record(provider=self.name, raw_response=raw)
+            # Validated even though structured outputs should guarantee it.
+            action = validate_action(raw)
+            self._transcript.record(
+                provider=self.name, response=action.model_dump(), usage=str(message.usage)
+            )
+            return action
 
         self._transcript.record(provider=self.name, malformed=str(message.content))
         raise LLMError("no structured action in the response")
@@ -231,10 +257,7 @@ class OpenAICompatibleProvider:
         raw = completion.choices[0].message.content or ""
         self._transcript.record(provider=self.name, raw_response=raw)
 
-        try:
-            action = Action.model_validate_json(raw)
-        except ValidationError as error:
-            raise LLMError(f"response did not match the action schema: {error}") from error
+        action = validate_action(raw)
 
         self._transcript.record(provider=self.name, response=action.model_dump())
         return action
