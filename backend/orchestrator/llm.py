@@ -31,6 +31,7 @@ LOG_DIR = REPO_ROOT / "logs"
 ANTHROPIC_DEFAULT_MODEL = "claude-opus-5"
 OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 16000
+HISTORY_LIMIT = 10  # actions kept in the prompt; see build_user_prompt
 
 
 class Action(BaseModel):
@@ -98,9 +99,25 @@ def build_user_prompt(
 
     # Without this the model has no memory of its own actions and will keep
     # choosing the step it already completed.
+    #
+    # The goal is always carried in full; the action list is capped at the
+    # last HISTORY_LIMIT. This is a deliberate choice, not an oversight. The
+    # two alternatives:
+    #   - Unbounded history. Exact, but the prompt grows without limit, so
+    #     cost and latency climb with every step and a long task eventually
+    #     runs into the context window.
+    #   - Summarise older actions. Keeps some of the dropped context, but
+    #     costs an extra model call per summary and can quietly rewrite what
+    #     actually happened, which is a bad trade in a verification path.
+    # A flat window is predictable and cheap. Revisit if tasks start needing
+    # to recall something from more than HISTORY_LIMIT actions ago.
     if history:
+        recent = history[-HISTORY_LIMIT:]
+        dropped = len(history) - len(recent)
         parts += ["Already done, in order:"]
-        parts += [f"  {i}. {done}" for i, done in enumerate(history, start=1)]
+        if dropped:
+            parts += [f"  (…{dropped} earlier action{'s' if dropped > 1 else ''} omitted)"]
+        parts += [f"  {i}. {done}" for i, done in enumerate(recent, start=dropped + 1)]
         parts += ["", "Choose what comes next. Do not repeat any of the above.", ""]
     else:
         parts += ["Nothing has been done yet. This is the first action.", ""]

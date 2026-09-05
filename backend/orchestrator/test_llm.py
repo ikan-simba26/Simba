@@ -98,6 +98,24 @@ def test_validate_accepts_a_dict_as_well_as_json() -> None:
     assert from_dict.element_id == 7
 
 
+def test_history_is_capped_at_the_limit_but_keeps_the_goal() -> None:
+    history = [f"action {i}" for i in range(1, 26)]
+
+    prompt = build_user_prompt("1. button 'Go'", "Register for CS-401", None, history)
+
+    assert "Register for CS-401" in prompt          # the goal always survives
+    assert "action 25" in prompt and "action 16" in prompt   # the last 10
+    assert "action 15" not in prompt                # and nothing older
+    assert "15 earlier actions omitted" in prompt   # said out loud, not silent
+
+
+def test_history_under_the_limit_is_not_truncated() -> None:
+    prompt = build_user_prompt("1. button 'Go'", "goal", None, ["a", "b", "c"])
+
+    assert "omitted" not in prompt
+    assert "1. a" in prompt and "3. c" in prompt
+
+
 def test_transcript_writes_one_json_line_per_entry(tmp_path) -> None:
     transcript = Transcript(tmp_path / "run.jsonl")
     transcript.record(provider="anthropic", user="pick an element")
