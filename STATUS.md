@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 114 passing, 5 skipped without an Electron host · `fa4a508`
+**Last updated:** 2026-09-06 · 124 passing (5 Electron tests need a host) · `c2efe13`
 
 ---
 
@@ -92,22 +92,26 @@ thing, not a task.
 - Contract client over `shared/schema.ts` and `shared/envelope.ts`. Every
   backend-to-frontend type handled; `task.start`, `step.response` and
   `task.cancel` sent; per-connection seq tracked with a warning on a gap.
-- A plain harness UI: goal box, state, current step with fields and actions,
-  outcome, and a message log.
+- **The overlay, level 2.** One centred column on a warm dark canvas, the
+  four states shown rather than described, 300ms transitions throughout,
+  nothing else on screen. Development view behind Ctrl+Shift+D.
+- `StepView` dispatches by level, so levels 1 and 3 are a component each.
 - Verified against `tools/mock_backend.py` end to end, against a throwaway
-  server for the four types the mock never sends, and once against the real
+  server for the four types the mock never sends, and against the real
   backend on the billing flow.
 
 **In progress**
 - Nothing.
 
 **Blocked / open — needs Aly**
-- **The harness is not the interface and should not be treated as a
-  starting point for the visual design.** It has no detail levels, no trust
-  panel, no motion. The design work is Aly's and unstarted.
-- **`task.start.goal` is ignored by the backend**, which uses its configured
-  `SIMBA_FLOW` task instead. The UI can start a task but cannot choose one.
-  Needs a contract conversation, not a frontend fix.
+- **Levels 1 and 3 are not built.** `StepView` has the slot; level 1 adds
+  the `detail` line, level 3 shows less. Nothing chooses a level yet except
+  `load.updated`, which nothing sends.
+- **No trust panel, no credential vault, no `page.preview` handling beyond
+  rendering the image.** All deferred by `CLAUDE.md` until the skeleton is
+  accepted.
+- The overlay never shows `load.updated`, by design — CONTRACT.md says the
+  reason is for logs and ablation, never for the user.
 - `shared/schema.ts` and `shared/envelope.ts` are current and type-check
   under `--strict`.
 - The three detail levels, trust panel and credential vault are explicitly

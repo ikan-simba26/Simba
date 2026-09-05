@@ -349,3 +349,33 @@ option that is not defensible.
 **Cost.** The LLM planner now receives a goal the operator did not write, on
 a site chosen by configuration. A goal that does not match the flow's site
 will fail in ways the hardcoded plan never could, which is correct but new.
+
+---
+
+## An answered step stays on screen; the overlay crossfades in a shared grid cell
+
+**Date:** 2026-09-06 (`c2efe13`)
+
+**Decision.** Answering a step marks it answered and disables its buttons
+rather than clearing it, and the screens crossfade as two children of one CSS
+grid cell rather than with `AnimatePresence mode="wait"`.
+
+**Alternatives.** Clear the step on answer, which is the obvious way to stop
+it being answered twice. Use `mode="wait"`, which is the documented way to
+avoid two screens overlapping mid-transition.
+
+**Why this.** Both obvious choices were wrong here, and together they broke
+the app. Clearing the step dropped the screen back to the goal for the few
+milliseconds before the next message, which flashed. `mode="wait"` then
+stranded the transition outright: the exiting screen stayed mounted at
+opacity 0 and the next never arrived, so the column went blank and stayed
+blank — no error, no warning, nothing in the console.
+
+Overlapping both screens in one grid cell gives a true crossfade with no
+reflow jump and no serialised exit to get stuck in. Keeping the answered step
+up is better behaviour anyway: the thing you just agreed to stays visible
+while it happens.
+
+**Cost.** The column is as tall as the taller of the two screens during a
+300ms crossfade. Unnoticeable at these sizes; would matter if a step were
+very long.
