@@ -12,15 +12,9 @@ import re
 from playwright.async_api import async_playwright
 
 from backend.orchestrator.llm import Action, LLMError
-from backend.orchestrator.llm_loop import (
-    REGISTRATION_GOAL,
-    Goal,
-    plan_next,
-    render_page,
-    run_task_llm,
-    value_for,
-)
-from backend.orchestrator.plan import Expectation
+from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, render_page
+from backend.orchestrator.loop import Task, resolve_value, run_task
+from backend.orchestrator.plan import Expectation, Operation, Target
 from backend.orchestrator.test_orchestrator import replica  # noqa: F401
 from backend.orchestrator.test_verification import FakeConnection
 from backend.perception.serializer import Element
@@ -83,14 +77,14 @@ class LabelDrivenProvider:
         raise LLMError(f"{label!r} is not on this page")
 
 
-def drive(provider, goal: Goal, start_url: str) -> FakeConnection:
+def drive(provider, task: Task, start_url: str) -> FakeConnection:
     async def go() -> FakeConnection:
         connection = FakeConnection()
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1280, "height": 800})
             try:
-                await run_task_llm(page, connection, provider, goal, start_url)
+                await run_task(page, connection, LLMPlanner(provider, task), task, start_url)
             finally:
                 await browser.close()
         return connection
@@ -125,10 +119,11 @@ def test_nonexistent_id_is_retried_with_the_error_fed_back() -> None:
     )
     elements = [element(id=1), element(id=2)]
 
-    action, failure = asyncio.run(plan_next(provider, REGISTRATION_GOAL, elements))
+    planner = LLMPlanner(provider, REGISTRATION_TASK)
+    move = asyncio.run(planner.next_move(elements, [], None))
 
-    assert failure is None
-    assert action.element_id == 2
+    assert move is not None
+    assert move.operations[0].element_id == 2
     _, feedback = provider.prompts[1]
     assert "element_id 99 is not on the page" in feedback
     assert "Valid ids are 1 to 2" in feedback
@@ -142,19 +137,21 @@ def test_malformed_response_is_retried_with_the_error_fed_back() -> None:
         ]
     )
 
-    action, failure = asyncio.run(plan_next(provider, REGISTRATION_GOAL, [element(id=1)]))
+    planner = LLMPlanner(provider, REGISTRATION_TASK)
+    move = asyncio.run(planner.next_move([element(id=1)], [], None))
 
-    assert failure is None and action.element_id == 1
+    assert move is not None and move.operations[0].element_id == 1
     assert "did not match the action schema" in provider.prompts[1][1]
 
 
 def test_two_bad_answers_give_up_rather_than_looping() -> None:
     provider = ScriptedProvider([LLMError("bad"), LLMError("still bad")])
 
-    action, failure = asyncio.run(plan_next(provider, REGISTRATION_GOAL, [element(id=1)]))
+    planner = LLMPlanner(provider, REGISTRATION_TASK)
+    move = asyncio.run(planner.next_move([element(id=1)], [], None))
 
-    assert action is None
-    assert failure == "still bad"
+    assert move is None
+    assert "still bad" in planner.stuck_reason
     assert len(provider.prompts) == 2
 
 
@@ -175,7 +172,7 @@ def test_completed_actions_are_fed_back_so_the_model_cannot_repeat_itself(
         ]
     )
 
-    drive(provider, REGISTRATION_GOAL, replica)
+    drive(provider, REGISTRATION_TASK, replica)
 
     assert provider.histories[0] == []
     assert len(provider.histories[1]) == 1
@@ -206,9 +203,10 @@ def test_first_call_says_nothing_has_been_done() -> None:
 def test_vault_value_beats_whatever_the_model_wrote() -> None:
     field = element(id=1, role="textbox", label="Password", tag="input",
                     input_type="password", name="password")
-    action = Action(action="type", element_id=1, value="guessed-password", reasoning="")
+    operation = Operation("fill", Target("textbox", "Password"), element_id=1,
+                          value="guessed-password")
 
-    value, refusal = value_for(field, action, CREDENTIALS)
+    value, refusal = resolve_value(field, operation, CREDENTIALS)
 
     assert value == "hunter2"
     assert refusal is None
@@ -217,20 +215,21 @@ def test_vault_value_beats_whatever_the_model_wrote() -> None:
 def test_model_may_not_invent_a_password() -> None:
     field = element(id=1, role="textbox", label="Password", tag="input",
                     input_type="password", name="password")
-    action = Action(action="type", element_id=1, value="invented", reasoning="")
+    operation = Operation("fill", Target("textbox", "Password"), element_id=1,
+                          value="invented")
 
-    value, refusal = value_for(field, action, {})
+    value, refusal = resolve_value(field, operation, {})
 
-    assert value is None
-    assert "may not invent one" in refusal
+    assert value == ""
+    assert "never filled from anything a planner supplied" in refusal
 
 
 def test_model_value_is_used_for_an_ordinary_field() -> None:
     field = element(id=1, role="textbox", label="Search", tag="input",
                     input_type="text", name="q")
-    action = Action(action="type", element_id=1, value="CS-401", reasoning="")
+    operation = Operation("fill", Target("textbox", "Search"), element_id=1, value="CS-401")
 
-    assert value_for(field, action, {}) == ("CS-401", None)
+    assert resolve_value(field, operation, {}) == ("CS-401", None)
 
 
 # --- end to end against the replica -----------------------------------------
@@ -248,7 +247,7 @@ def test_a_scripted_model_completes_the_registration(replica: str) -> None:  # n
         ]
     )
 
-    connection = drive(provider, REGISTRATION_GOAL, replica)
+    connection = drive(provider, REGISTRATION_TASK, replica)
 
     assert "help.requested" not in connection.types(), connection.sent[-1]
     completed = connection.payload_of("task.completed")
@@ -259,7 +258,7 @@ def test_a_scripted_model_completes_the_registration(replica: str) -> None:  # n
 def test_giving_up_when_the_model_cannot_answer(replica: str) -> None:  # noqa: F811
     provider = ScriptedProvider([LLMError("upstream is down"), LLMError("still down")])
 
-    connection = drive(provider, REGISTRATION_GOAL, replica)
+    connection = drive(provider, REGISTRATION_TASK, replica)
 
     assert "task.completed" not in connection.types()
     assert "upstream" in connection.payload_of("help.requested")["reason"] or "still down" in (
@@ -271,7 +270,7 @@ def test_giving_up_when_the_model_cannot_answer(replica: str) -> None:  # noqa: 
 def test_goal_already_satisfied_completes_without_calling_the_model(replica: str) -> None:  # noqa: F811
     """If the page already meets the goal, no model call is made at all."""
     provider = ScriptedProvider([])
-    goal = Goal(text="Be on the login page.",
+    goal = Task(goal="Be on the login page.",
                 success=Expectation(title_contains="Sign In"),
                 estimated_steps=1)
 

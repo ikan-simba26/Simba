@@ -17,17 +17,20 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass
+from typing import Protocol
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
-from backend.orchestrator.plan import GOAL, Expectation, Operation, PlanStep, Target
+from backend.orchestrator.plan import Expectation, Operation, Target
 from backend.perception.serializer import Element, serialize_async
 from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
     HelpRequested,
     StateChanged,
+    StepAction,
+    StepField,
     StepPresented,
     TaskCompleted,
     TaskFailed,
@@ -157,33 +160,62 @@ async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | Non
     return failure
 
 
-async def attempt(page: Page, step: PlanStep, input_values: dict[str, str], strategy: int,
-                  before: Snapshot) -> str | None:
-    """Run one step's operations, then verify. Returns None on success."""
-    for operation in step.operations:
-        # Perceive fresh each time: the previous operation may have navigated.
-        elements, _ = await perceive(page)
-
-        element_id = pick(elements, operation.target)
-        if element_id is None:
-            return f"could not find {operation.target.label!r} on the page"
-
-        value = input_values.get(operation.value_key, "") if operation.value_key else ""
-        try:
-            await act(page, elements, element_id, operation, value, strategy)
-        except PlaywrightError as error:
-            first_line = str(error).split("\n")[0]
-            return f"{operation.kind} on {operation.target.label!r} failed: {first_line}"
-
-    return await verify(page, before, step.expect)
+# --- one execution and recovery path, shared by every planner ----------------
 
 
-async def run_task(page: Page, connection: Connection, plan: list[PlanStep],
-                   start_url: str) -> None:
+@dataclass(frozen=True)
+class Move:
+    """One unit of work: what to show the user, what to do, what must follow.
+
+    Both planners produce these. Everything downstream — presenting, acting,
+    verifying, retrying, giving up — is the same code for both, so the only
+    thing that differs between a hardcoded plan and an LLM is which Move comes
+    next.
+    """
+
+    instruction: str
+    detail: str
+    operations: list[Operation]
+    expect: Expectation
+    fields: list[StepField]
+    actions: list[StepAction]
+
+
+class Planner(Protocol):
+    calls_made: int
+
+    async def next_move(
+        self, elements: list[Element], history: list[str], setback: str | None
+    ) -> Move | None:
+        """The next Move, or None when there is nothing left to do."""
+        ...
+
+
+@dataclass(frozen=True)
+class Task:
+    goal: str
+    estimated_steps: int
+    success: Expectation | None = None
+
+
+MAX_STEPS = 12
+
+
+async def run_task(
+    page: Page,
+    connection: Connection,
+    planner: Planner,
+    task: Task,
+    start_url: str,
+) -> None:
+    """Perceive, decide, present, act, verify, recover. Planner-agnostic."""
     started = time.monotonic()
-    await connection.send("task.started", TaskStarted(goal=GOAL, estimated_steps=len(plan)))
-
     current_state: str | None = None
+    history: list[str] = []
+    setback: str | None = None
+    consecutive_setbacks = 0
+    steps_taken = 0
+    last_failure: str | None = None
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -192,27 +224,54 @@ async def run_task(page: Page, connection: Connection, plan: list[PlanStep],
             current_state = state
             await connection.send("state.changed", StateChanged(state=state))
 
+    async def give_up(reason: str) -> None:
+        await set_state("stuck")
+        await connection.send(
+            "help.requested",
+            HelpRequested(
+                reason=reason,
+                suggestion="Can you take it from here? I'll carry on afterwards.",
+            ),
+        )
+
+    await connection.send(
+        "task.started", TaskStarted(goal=task.goal, estimated_steps=task.estimated_steps)
+    )
     await set_state("thinking")
     await page.goto(start_url)
 
-    for index, step in enumerate(plan, start=1):
+    for _ in range(MAX_STEPS):
         await set_state("thinking")
-        _, before = await perceive(page)
+        elements, before = await perceive(page)
 
+        if task.success is not None and satisfies(before, task.success):
+            break
+
+        move = await planner.next_move(elements, history, setback)
+        setback = None
+
+        if move is None:
+            reason = getattr(planner, "stuck_reason", None)
+            if reason:
+                await give_up(reason)
+                return
+            break
+
+        steps_taken += 1
         await set_state("waiting")
         await connection.send(
             "step.presented",
             StepPresented(
-                step_index=index,
-                step_total=len(plan),
-                instruction=step.instruction,
-                detail=step.detail,
-                fields=step.fields,
-                actions=step.actions,
+                step_index=steps_taken,
+                step_total=max(task.estimated_steps, steps_taken),
+                instruction=move.instruction,
+                detail=move.detail,
+                fields=move.fields,
+                actions=move.actions,
                 requires_confirmation=True,
             ),
         )
-        response = await connection.receive("step.response", step_index=index)
+        response = await connection.receive("step.response", step_index=steps_taken)
         payload = response.get("payload", {})
 
         if payload.get("action_id") != "confirm":
@@ -225,30 +284,123 @@ async def run_task(page: Page, connection: Connection, plan: list[PlanStep],
         await set_state("acting")
         input_values = payload.get("input_values", {})
 
-        failure = await attempt(page, step, input_values, strategy=0, before=before)
+        # The retry: same move, different strategy. Identical for every planner.
+        failure = await attempt_move(page, move, input_values, strategy=0, before=before)
         if failure is not None:
-            # Re-perceive: the failed attempt may have changed the page anyway.
-            _, before = await perceive(page)
-            failure = await attempt(page, step, input_values, strategy=1, before=before)
+            _, before_retry = await perceive(page)
+            failure = await attempt_move(page, move, input_values, 1, before_retry)
 
         if failure is not None:
-            await set_state("stuck")
-            await connection.send(
-                "help.requested",
-                HelpRequested(
-                    reason=f"Step {index} did not work: {failure}",
-                    suggestion="Can you do this step for me? I'll carry on from there.",
-                ),
+            consecutive_setbacks += 1
+            if consecutive_setbacks >= 2:
+                await give_up(f"{move.instruction} did not work: {failure}")
+                return
+            # Tell the planner what went wrong; it may choose differently.
+            last_failure = f"{move.instruction} did not work: {failure}"
+            setback = (
+                f"Your last choice — {move.instruction} — did not work: {failure}. "
+                f"Something may be covering the page. Choose a different action."
             )
-            return
+            continue
+
+        consecutive_setbacks = 0
+        last_failure = None
+        history.append(move.instruction)
+
+    _, final = await perceive(page)
+    if task.success is not None and not satisfies(final, task.success):
+        # Prefer the concrete reason the last move failed over the generic
+        # "ran out of steps", which says nothing a user could act on.
+        await give_up(
+            last_failure
+            or f"I ran out of steps before finishing. {mismatch(final, task.success)}"
+        )
+        return
 
     await connection.send(
         "task.completed",
         TaskCompleted(
-            summary=f"Registered for CS-401. {page.url}",
+            summary=f"{task.goal} {page.url}",
             duration_ms=int((time.monotonic() - started) * 1000),
-            steps_taken=len(plan),
-            llm_calls=0,
+            steps_taken=steps_taken,
+            llm_calls=getattr(planner, "calls_made", 0),
             replayed=False,
         ),
     )
+
+
+async def attempt_move(
+    page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot
+) -> str | None:
+    """Run a Move's operations, then verify. None on success."""
+    for operation in move.operations:
+        # Perceive fresh each time: the previous operation may have navigated.
+        elements, _ = await perceive(page)
+
+        element_id = (
+            operation.element_id
+            if operation.element_id is not None
+            else pick(elements, operation.target)
+        )
+        if element_id is None or not any(e.id == element_id for e in elements):
+            return f"could not find {operation.target.label!r} on the page"
+
+        element = next(e for e in elements if e.id == element_id)
+        value, refusal = resolve_value(element, operation, input_values)
+        if refusal is not None:
+            return refusal
+
+        try:
+            await act(page, elements, element_id, operation, value, strategy)
+        except PlaywrightError as error:
+            first_line = str(error).split("\n")[0]
+            return f"{operation.kind} on {operation.target.label!r} failed: {first_line}"
+
+        if operation.kind == "fill":
+            typed = await verify_typed(page, element_id, element, value)
+            if typed is not None:
+                return typed
+
+    # Typing changes no URL, title or label, so a fill-only move is verified
+    # by the read-back above and nothing else. Demanding a page change here
+    # would fail every correctly typed field. A move that clicks, or that
+    # states an expectation of its own, still has to prove it on the page.
+    only_filled = all(operation.kind == "fill" for operation in move.operations)
+    if only_filled and move.expect == Expectation():
+        return None
+
+    return await verify(page, before, move.expect)
+
+
+def resolve_value(
+    element: Element, operation: Operation, input_values: dict[str, str]
+) -> tuple[str, str | None]:
+    """Vault values beat anything a planner supplied. Returns (value, refusal)."""
+    if operation.kind != "fill":
+        return "", None
+
+    key = operation.value_key or element.name
+    if key and key in input_values:
+        return input_values[key], None
+    if element.is_password:
+        return "", (
+            f"no vault value for {element.label!r}, and a password is never "
+            f"filled from anything a planner supplied"
+        )
+    return operation.value or "", None
+
+
+async def verify_typed(
+    page: Page, element_id: int, element: Element, expected: str
+) -> str | None:
+    """A typed value is verified by reading it back, not by assuming."""
+    elements, _ = await perceive(page)
+    if not any(e.id == element_id for e in elements):
+        return None  # the page moved on; the page-level check will judge that
+    actual = await resolve(page, elements, element_id).input_value()
+    if actual == expected:
+        return None
+    if element.is_password:
+        # Never put a secret, or a near-miss of one, into a message or a log.
+        return "the password field did not take the value"
+    return f"expected the field to hold {expected!r}, it holds {actual!r}"

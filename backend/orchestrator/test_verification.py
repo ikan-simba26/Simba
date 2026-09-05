@@ -15,12 +15,14 @@ from backend.orchestrator.loop import (
     VERIFY_TIMEOUT_S,
     Connection,
     Snapshot,
+    Task,
     check,
     run_task,
 )
 from backend.orchestrator.plan import (
     REGISTRATION_PLAN,
     Expectation,
+    HardcodedPlanner,
     Operation,
     PlanStep,
     Target,
@@ -32,6 +34,12 @@ CREDENTIALS = {"username": "raham", "password": "hunter2"}
 CONFIRM = [StepAction(id="confirm", label="Go", kind="primary")]
 
 BEFORE = Snapshot(url="http://x/a", title="A", labels=("one", "two"))
+
+TASK = Task(
+    goal="Register for the course CS-401.",
+    estimated_steps=3,
+    success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+)
 
 
 class FakeConnection(Connection):
@@ -59,6 +67,9 @@ class FakeConnection(Connection):
     def payload_of(self, message_type: str) -> dict:
         return next(payload for name, payload in self.sent if name == message_type)
 
+    def of(self, message_type: str) -> list[dict]:
+        return [payload for name, payload in self.sent if name == message_type]
+
 
 def drive(plan: list[PlanStep], start_url: str) -> FakeConnection:
     """Run the real loop against a real browser and replica."""
@@ -69,7 +80,7 @@ def drive(plan: list[PlanStep], start_url: str) -> FakeConnection:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1280, "height": 800})
             try:
-                await run_task(page, connection, plan, start_url)
+                await run_task(page, connection, HardcodedPlanner(plan), TASK, start_url)
             finally:
                 await browser.close()
         return connection

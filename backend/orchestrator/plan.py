@@ -25,9 +25,13 @@ class Target:
 
 @dataclass(frozen=True)
 class Operation:
-    kind: Literal["fill", "click"]
+    kind: Literal["fill", "click", "select"]
     target: Target
     value_key: str | None = None  # which step.response input_value to type
+    # A planner that already knows the id (the LLM does) sets it here; one
+    # that matches by role and label (the hardcoded plan) leaves it None.
+    element_id: int | None = None
+    value: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,3 +92,31 @@ REGISTRATION_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
     ),
 ]
+
+
+class HardcodedPlanner:
+    """Walks REGISTRATION_PLAN. The deterministic A/B arm and demo fallback."""
+
+    calls_made = 0
+    stuck_reason: str | None = None
+
+    def __init__(self, steps: list[PlanStep]) -> None:
+        self._steps = list(steps)
+        self._index = 0
+
+    async def next_move(self, elements, history, setback):
+        from backend.orchestrator.loop import Move
+
+        if self._index >= len(self._steps):
+            return None
+
+        step = self._steps[self._index]
+        self._index += 1
+        return Move(
+            instruction=step.instruction,
+            detail=step.detail,
+            operations=step.operations,
+            expect=step.expect,
+            fields=step.fields,
+            actions=step.actions,
+        )

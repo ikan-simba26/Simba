@@ -1,46 +1,26 @@
-"""The runtime loop, planned one action at a time by the LLM.
+"""The LLM planner.
 
-Same shape as the hardcoded loop — perceive, decide, present, act, verify —
-but the decision comes from a model instead of `plan.py`. The model sees the
-serialized page and the goal, and answers with an integer element id. It
-never sees a selector, and it never sees a credential: values for named
-fields come from the vault after the model has chosen, and a password field
-is never filled from anything the model wrote.
+This module decides *which* action comes next and nothing else. Presenting,
+acting, verifying, retrying and giving up all live in `loop.py` and are the
+same code the hardcoded planner runs, so an A/B between the two compares
+planning and only planning.
 
-The model has no "done" verb, by design — its schema is only click/type/
-select — so completion is decided here, by checking the goal's success
-condition against the page after every step.
+The model never sees a selector — it answers with an integer element id from
+the list it was shown — and it never sees a credential: the page it is given
+carries labels, never values, and vault values are substituted at execution
+time by `loop.resolve_value`.
+
+Its schema has no "done" verb, by design, so completion is decided by the
+task's success condition rather than by the model claiming to be finished.
 """
 
-import time
 from dataclasses import dataclass
 
-from playwright.async_api import Error as PlaywrightError
-from playwright.async_api import Page
-
 from backend.orchestrator.llm import Action, LLMError, Provider
-from backend.orchestrator.loop import (
-    Connection,
-    mismatch,
-    perceive,
-    resolve,
-    satisfies,
-    verify,
-)
-from backend.orchestrator.plan import Expectation
+from backend.orchestrator.loop import Move, Task
+from backend.orchestrator.plan import Expectation, Operation, Target
 from backend.perception.serializer import Element
-from shared.schema import (
-    HelpRequested,
-    StateChanged,
-    StepAction,
-    StepField,
-    StepPresented,
-    TaskCompleted,
-    TaskFailed,
-    TaskStarted,
-)
-
-MAX_STEPS = 10
+from shared.schema import StepAction, StepField
 
 SYSTEM_PROMPT = """You operate a web page on behalf of someone who finds \
 cluttered interfaces overwhelming.
@@ -56,23 +36,24 @@ an XPath, or element text as the id.
 dropdowns.
 - For a password or username field, set value to null. Those are filled from \
 the user's vault, not by you.
-- If a dialog or overlay is covering the page, dismiss it before anything else.
+- If a dialog, popup or overlay is on the page, dismiss it before anything \
+else. Its buttons will be near the top of the list.
+- Prefer acting on the form or control that achieves the goal directly over \
+navigating to another page.
 - Keep reasoning to one short sentence, phrased for the person you are helping.
 """
 
+REGISTRATION_TASK = Task(
+    goal="Register for the course CS-401.",
+    estimated_steps=4,
+    success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+)
+
 
 @dataclass(frozen=True)
-class Goal:
-    text: str
-    success: Expectation
-    estimated_steps: int
-
-
-REGISTRATION_GOAL = Goal(
-    text="Register for the course CS-401.",
-    success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
-    estimated_steps=4,
-)
+class _Choice:
+    action: Action
+    element: Element
 
 
 def render_page(elements: list[Element]) -> str:
@@ -86,50 +67,6 @@ def render_page(elements: list[Element]) -> str:
     return "\n".join(lines)
 
 
-async def plan_next(
-    provider: Provider,
-    goal: Goal,
-    elements: list[Element],
-    history: list[str] | None = None,
-    initial_feedback: str | None = None,
-) -> tuple[Action | None, str | None]:
-    """Ask for one action, retrying once with the error fed back."""
-    valid_ids = {element.id for element in elements}
-
-    feedback = initial_feedback
-
-    for _ in range(2):
-        try:
-            action = await provider.decide(
-                SYSTEM_PROMPT, render_page(elements), goal.text, feedback, history
-            )
-        except LLMError as error:
-            feedback = str(error)
-            continue
-
-        if action.element_id not in valid_ids:
-            feedback = (
-                f"element_id {action.element_id} is not on the page. "
-                f"Valid ids are 1 to {len(elements)}."
-            )
-            continue
-
-        return action, None
-
-    return None, feedback
-
-
-def value_for(
-    element: Element, action: Action, vault: dict[str, str]
-) -> tuple[str | None, str | None]:
-    """Decide what to type. Returns (value, refusal). Vault beats the model."""
-    if element.name and element.name in vault:
-        return vault[element.name], None
-    if element.is_password:
-        return None, "no vault value for this password field, and the model may not invent one"
-    return action.value or "", None
-
-
 def describe(action: Action, element: Element) -> str:
     """The action as a sentence for the person being helped."""
     label = element.label or f"element {element.id}"
@@ -140,171 +77,85 @@ def describe(action: Action, element: Element) -> str:
     return f"Click {label}."
 
 
-async def apply(
-    page: Page, elements: list[Element], element: Element, action: Action, value: str
-) -> None:
-    locator = resolve(page, elements, element.id)
-    if action.action == "type":
-        await locator.fill(value)
-    elif action.action == "select":
-        await locator.select_option(value)
-    else:
-        await locator.click()
+class LLMPlanner:
+    """Asks the model for one action and shapes it into a Move."""
 
+    def __init__(self, provider: Provider, task: Task) -> None:
+        self._provider = provider
+        self._task = task
+        self.calls_made = 0
+        self.stuck_reason: str | None = None
 
-async def verify_typed(
-    page: Page, elements: list[Element], element: Element, expected: str
-) -> str | None:
-    """A typed value is verified by reading it back, not by assuming."""
-    actual = await resolve(page, elements, element.id).input_value()
-    if actual == expected:
-        return None
-    if element.is_password:
-        # Never put a secret, or a near-miss of one, into a message or log.
-        return "the password field did not take the value"
-    return f"expected the field to hold {expected!r}, it holds {actual!r}"
+    async def next_move(
+        self, elements: list[Element], history: list[str], setback: str | None
+    ) -> Move | None:
+        choice = await self._choose(elements, history, setback)
+        if choice is None:
+            return None
 
-
-async def run_task_llm(
-    page: Page,
-    connection: Connection,
-    provider: Provider,
-    goal: Goal,
-    start_url: str,
-) -> None:
-    started = time.monotonic()
-    llm_calls = 0
-    steps_taken = 0
-    current_state: str | None = None
-    history: list[str] = []
-    setback: str | None = None  # what went wrong last time, fed to the planner
-    consecutive_setbacks = 0
-
-    async def set_state(state: str) -> None:
-        nonlocal current_state
-        if state != current_state:
-            current_state = state
-            await connection.send("state.changed", StateChanged(state=state))
-
-    async def give_up(reason: str) -> None:
-        await set_state("stuck")
-        await connection.send(
-            "help.requested",
-            HelpRequested(
-                reason=reason,
-                suggestion="Can you take it from here? I'll carry on afterwards.",
-            ),
+        action, element = choice.action, choice.element
+        operation = Operation(
+            kind="fill" if action.action == "type" else action.action,
+            target=Target(role=element.role, label=element.label),
+            element_id=element.id,
+            value=action.value,
         )
 
-    await connection.send(
-        "task.started", TaskStarted(goal=goal.text, estimated_steps=goal.estimated_steps)
-    )
-
-    await set_state("thinking")
-    await page.goto(start_url)
-
-    for _ in range(MAX_STEPS):
-        elements, before = await perceive(page)
-
-        if satisfies(before, goal.success):
-            break
-
-        await set_state("thinking")
-        action, failure = await plan_next(provider, goal, elements, history, setback)
-        llm_calls += 1 if failure is None else 2
-        setback = None
-
-        if action is None:
-            await give_up(f"I could not work out the next step: {failure}")
-            return
-
-        element = next(e for e in elements if e.id == action.element_id)
-
+        # Only offer a field when the user could reasonably fill it. A password
+        # is never round-tripped through the step, it comes from the vault.
         fields = (
-            [StepField(id=element.name or str(element.id), label=element.label,
-                       type=element.input_type or "text", value="")]
+            [
+                StepField(
+                    id=element.name or str(element.id),
+                    label=element.label,
+                    type=element.input_type or "text",
+                    value="",
+                )
+            ]
             if action.action == "type" and not element.is_password
             else []
         )
 
-        steps_taken += 1
-        await set_state("waiting")
-        await connection.send(
-            "step.presented",
-            StepPresented(
-                step_index=steps_taken,
-                step_total=max(goal.estimated_steps, steps_taken),
-                instruction=describe(action, element),
-                detail=action.reasoning,
-                fields=fields,
-                actions=[
-                    StepAction(id="confirm", label="Yes, do that", kind="primary"),
-                    StepAction(id="cancel", label="Not now", kind="secondary"),
-                ],
-                requires_confirmation=True,
-            ),
+        return Move(
+            instruction=describe(action, element),
+            detail=action.reasoning,
+            operations=[operation],
+            # The model declares no expectation, so the bar is the general one:
+            # the page must actually have changed. A typed value is checked by
+            # reading the field back, in loop.attempt_move.
+            expect=Expectation(),
+            fields=fields,
+            actions=[
+                StepAction(id="confirm", label="Yes, do that", kind="primary"),
+                StepAction(id="cancel", label="Not now", kind="secondary"),
+            ],
         )
-        response = await connection.receive("step.response", step_index=steps_taken)
-        payload = response.get("payload", {})
 
-        if payload.get("action_id") != "confirm":
-            await connection.send(
-                "task.failed",
-                TaskFailed(reason="The user chose not to continue.", recoverable=True),
-            )
-            return
+    async def _choose(
+        self, elements: list[Element], history: list[str], setback: str | None
+    ) -> _Choice | None:
+        """One action, retried once with the specific error fed back."""
+        feedback = setback
+        valid = {element.id: element for element in elements}
 
-        # The user's values win over anything the model wrote.
-        value, refusal = value_for(element, action, payload.get("input_values", {}))
-        if refusal is not None:
-            await give_up(f"I stopped before filling {element.label!r}: {refusal}")
-            return
+        for _ in range(2):
+            self.calls_made += 1
+            try:
+                action = await self._provider.decide(
+                    SYSTEM_PROMPT, render_page(elements), self._task.goal, feedback, history
+                )
+            except LLMError as error:
+                feedback = str(error)
+                continue
 
-        await set_state("acting")
-        try:
-            await apply(page, elements, element, action, value or "")
-        except PlaywrightError as error:
-            failure = str(error).splitlines()[0]
-        else:
-            if action.action == "type":
-                failure = await verify_typed(page, elements, element, value or "")
-            else:
-                failure = await verify(page, before, Expectation())
+            if action.element_id not in valid:
+                feedback = (
+                    f"element_id {action.element_id} is not on the page. "
+                    f"Valid ids are 1 to {len(elements)}."
+                )
+                continue
 
-        if failure is not None:
-            # Don't give up on one bad move — tell the planner what happened
-            # and let it choose differently. A click that times out is usually
-            # something covering the page, which is recoverable.
-            consecutive_setbacks += 1
-            if consecutive_setbacks >= 2:
-                await give_up(f"{describe(action, element)} did not work: {failure}")
-                return
-            setback = (
-                f"Your last choice, {action.action} on element {action.element_id} "
-                f"({element.label!r}), did not work: {failure}. Something may be "
-                f"covering the page. Choose a different action."
-            )
-            continue
+            return _Choice(action=action, element=valid[action.element_id])
 
-        consecutive_setbacks = 0
-
-        # Recorded without any typed value: the history goes into the prompt.
-        history.append(f"{action.action} on {element.role} {element.label!r} (id {element.id})")
-
-    _, final = await perceive(page)
-    if not satisfies(final, goal.success):
-        await give_up(f"I ran out of steps before finishing. {mismatch(final, goal.success)}")
-        return
-
-    await connection.send(
-        "task.completed",
-        TaskCompleted(
-            summary=f"Registered for CS-401. {page.url}",
-            duration_ms=int((time.monotonic() - started) * 1000),
-            steps_taken=steps_taken,
-            llm_calls=llm_calls,
-            replayed=False,
-        ),
-    )
-
-
+        self.stuck_reason = f"I could not work out the next step: {feedback}"
+        return None

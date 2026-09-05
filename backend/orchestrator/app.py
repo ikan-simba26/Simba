@@ -13,14 +13,15 @@ deterministic fallback for demo day.
 """
 
 import os
+from dataclasses import replace
 
 from fastapi import FastAPI, WebSocket
 from playwright.async_api import async_playwright
 
 from backend.orchestrator.llm import provider_from_env
-from backend.orchestrator.llm_loop import REGISTRATION_GOAL, run_task_llm
+from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.orchestrator.loop import Connection, run_task
-from backend.orchestrator.plan import REGISTRATION_PLAN
+from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 
 # 1280x800 is frozen — see CLAUDE.md's architecture constraints.
 VIEWPORT = {"width": 1280, "height": 800}
@@ -44,16 +45,21 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     connection = Connection(websocket, task_id="t_skeleton")
     await connection.receive("task.start")
 
-    provider = None if use_hardcoded_plan() else provider_from_env()
+    # The only thing the flag changes is which planner picks the next move —
+    # and how many steps it can promise up front, which the hardcoded plan
+    # knows exactly and the LLM can only estimate.
+    if use_hardcoded_plan():
+        task = replace(REGISTRATION_TASK, estimated_steps=len(REGISTRATION_PLAN))
+        planner = HardcodedPlanner(REGISTRATION_PLAN)
+    else:
+        task = REGISTRATION_TASK
+        planner = LLMPlanner(provider_from_env(), task)
 
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         page = await browser.new_page(viewport=VIEWPORT)
         try:
-            if provider is None:
-                await run_task(page, connection, REGISTRATION_PLAN, REPLICA_URL)
-            else:
-                await run_task_llm(page, connection, provider, REGISTRATION_GOAL, REPLICA_URL)
+            await run_task(page, connection, planner, task, REPLICA_URL)
         finally:
             await browser.close()
 
