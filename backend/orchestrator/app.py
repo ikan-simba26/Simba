@@ -15,6 +15,9 @@ Two switches, both environment variables:
 - `SIMBA_TRACE_MEMORY=1` wraps whichever planner was chosen in `TracePlanner`,
   so a goal already done on this site replays from SQLite instead of being
   planned again.
+- `SIMBA_BROWSER` is `chromium` (default, launches its own headless browser)
+  or `electron` (attaches over CDP to a running host and drives its hidden
+  site view). See `browser.py`.
 """
 
 import os
@@ -22,18 +25,15 @@ from dataclasses import replace
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
-from playwright.async_api import async_playwright
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
+from backend.orchestrator.browser import browser_source, open_page
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.replay import TracePlanner
 from backend.orchestrator.traces import TraceStore, site_of
-
-# 1280x800 is frozen — see CLAUDE.md's architecture constraints.
-VIEWPORT = {"width": 1280, "height": 800}
 
 DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
 
@@ -73,6 +73,7 @@ async def health() -> dict[str, str]:
         "flow": name,
         "planner": "hardcoded" if use_hardcoded_plan() else "llm",
         "trace_memory": "on" if use_trace_memory() else "off",
+        "browser": browser_source(),
         "replica": url,
     }
 
@@ -100,12 +101,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         store = TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB))
         planner = TracePlanner(store, task, site_of(replica_url), planner)
 
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch()
-        page = await browser.new_page(viewport=VIEWPORT)
-        try:
-            await run_task(page, connection, planner, task, replica_url)
-        finally:
-            await browser.close()
+    async with open_page(replica_url) as page:
+        await run_task(page, connection, planner, task, replica_url)
 
     await websocket.close()
