@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 124 passing (5 Electron tests need a host) · `c2efe13`
+**Last updated:** 2026-09-06 · 124 passing (5 Electron tests need a host) · `7d7dc0e`
 
 ---
 
@@ -92,10 +92,17 @@ thing, not a task.
 - Contract client over `shared/schema.ts` and `shared/envelope.ts`. Every
   backend-to-frontend type handled; `task.start`, `step.response` and
   `task.cancel` sent; per-connection seq tracked with a warning on a gap.
-- **The overlay, level 2.** One centred column on a warm dark canvas, the
-  four states shown rather than described, 300ms transitions throughout,
-  nothing else on screen. Development view behind Ctrl+Shift+D.
-- `StepView` dispatches by level, so levels 1 and 3 are a component each.
+- **The overlay, all three levels.** One centred column on a warm dark
+  canvas, the four states shown rather than described, nothing else on
+  screen. Development view behind Ctrl+Shift+D.
+- Level 1 compact card, level 2 the open column, level 3 one sentence and
+  one action — structurally different, described as data in `levels.ts`.
+- The level change folds: optional regions collapse their own height over
+  350ms while what remains slides up, with arrivals delayed 120ms so the
+  column never grows on its way down.
+- Manual level control with `level.override`, a lock that `load.updated`
+  respects, and a dismissible notice on any change the user did not make.
+- Overflow drops a level rather than growing a scrollbar.
 - Verified against `tools/mock_backend.py` end to end, against a throwaway
   server for the four types the mock never sends, and against the real
   backend on the billing flow.
@@ -104,9 +111,15 @@ thing, not a task.
 - Nothing.
 
 **Blocked / open — needs Aly**
-- **Levels 1 and 3 are not built.** `StepView` has the slot; level 1 adds
-  the `detail` line, level 3 shows less. Nothing chooses a level yet except
-  `load.updated`, which nothing sends.
+- **Nothing chooses a level automatically yet** except `load.updated`, which
+  only the mock sends. The real backend has no estimator, so every real run
+  sits at level 2 unless the user moves it.
+- **The overflow guard overrides a locked level.** Deliberate — a scrollbar
+  hides part of the decision — but it means a user who locks level 3 on a
+  long step is pulled back to level 1. See DECISIONS.md.
+- **Level 2 has no progress indicator**, so "progress hidden at level 3"
+  currently distinguishes level 3 from level 1 only. Say if level 2 should
+  have one.
 - **No trust panel, no credential vault, no `page.preview` handling beyond
   rendering the image.** All deferred by `CLAUDE.md` until the skeleton is
   accepted.
