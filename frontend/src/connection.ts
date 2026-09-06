@@ -11,6 +11,8 @@ import { envelope } from "@shared/envelope";
 import type {
   AnyEnvelope,
   Envelope,
+  Level,
+  LevelOverride,
   MessageType,
   StepResponse,
   TaskStart,
@@ -84,6 +86,12 @@ export class BackendConnection {
 
   cancelTask(): void {
     this.send("task.cancel", {});
+  }
+
+  /** Tell the backend the user has taken the level into their own hands. */
+  overrideLevel(level: Level, locked: boolean): void {
+    const payload: LevelOverride = { level, locked };
+    this.send("level.override", payload);
   }
 
   private send<T>(type: MessageType, payload: T): void {

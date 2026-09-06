@@ -51,12 +51,26 @@ interface Store {
 
   /** Detail level. Level 2 until the estimator or the user says otherwise. */
   level: Level;
+  /** Set by the user. While true, load.updated must not change the level. */
+  levelLocked: boolean;
+  /**
+   * Set when something other than the user changed the level, so the
+   * interface can say so. The interface never reshapes silently.
+   */
+  levelNotice: { from: Level; to: Level; because: string } | null;
   /** The shown step has been answered and is waiting to be replaced. */
   answered: boolean;
   /** The development view, off unless someone asks for it by keyboard. */
   debug: boolean;
 
   toggleDebug: () => void;
+  /** The user picking a level, which also locks it. */
+  chooseLevel: (level: Level) => void;
+  /** Give the level back to the estimator. */
+  unlockLevel: () => void;
+  /** Drop a level because the step does not fit. Overrides the lock. */
+  simplifyForOverflow: (to: Level) => void;
+  dismissLevelNotice: () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
   startTask: (goal: string) => void;
@@ -106,10 +120,34 @@ export const useStore = create<Store>((set, get) => {
     wsUrl: DEFAULT_WS_URL,
     log: [],
     level: 2,
+    levelLocked: false,
+    levelNotice: null,
     debug: false,
     ...EMPTY,
 
     toggleDebug: () => set((current) => ({ debug: !current.debug })),
+
+    chooseLevel: (level) => {
+      // The user's own choice needs no notice: they are looking at it.
+      set({ level, levelLocked: true, levelNotice: null });
+      connection.overrideLevel(level, true);
+    },
+
+    unlockLevel: () => {
+      set({ levelLocked: false, levelNotice: null });
+      connection.overrideLevel(get().level, false);
+    },
+
+    simplifyForOverflow: (to) => {
+      const from = get().level;
+      if (from === to) return;
+      set({
+        level: to,
+        levelNotice: { from, to, because: "this step was too long to fit" },
+      });
+    },
+
+    dismissLevelNotice: () => set({ levelNotice: null }),
 
     setWsUrl: (wsUrl) => set({ wsUrl }),
 
@@ -156,7 +194,12 @@ export const useStore = create<Store>((set, get) => {
 });
 
 /** Apply one backend message. Every type in CONTRACT.md, explicitly. */
-function apply(message: AnyEnvelope, set: (partial: Partial<Store>) => void): void {
+type SetStore = {
+  (partial: Partial<Store>): void;
+  (updater: (current: Store) => Partial<Store>): void;
+};
+
+function apply(message: AnyEnvelope, set: SetStore): void {
   switch (message.type) {
     case "task.started":
       set({ task: message.payload as TaskStarted, completed: null, failed: null });
@@ -169,8 +212,25 @@ function apply(message: AnyEnvelope, set: (partial: Partial<Store>) => void): vo
       return;
     case "load.updated": {
       const load = message.payload as LoadUpdated;
-      // The estimator drives the level. Nothing sends this yet.
-      set({ load, level: load.level });
+      // The estimator proposes; a locked level refuses. `reason` is for logs
+      // and ablation only and is never shown to the user (CONTRACT.md).
+      set((current) => {
+        if (current.levelLocked || current.level === load.level) {
+          return { load };
+        }
+        return {
+          load,
+          level: load.level,
+          levelNotice: {
+            from: current.level,
+            to: load.level,
+            because:
+              load.level > current.level
+                ? "I'm showing less for a moment"
+                : "I'm showing a bit more again",
+          },
+        };
+      });
       return;
     }
     case "page.preview":
