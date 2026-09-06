@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 124 passing (5 Electron tests need a host) · `7d7dc0e`
+**Last updated:** 2026-09-06 · 130 passing, 5 skipped without an Electron host · `1833a65`
 
 ---
 
@@ -60,6 +60,9 @@ thing, not a task.
 - Trace memory: SQLite, keyed on role and label, replay at zero model calls,
   self-correcting when a trace no longer fits. Wired into the running server
   behind `SIMBA_TRACE_MEMORY`.
+- `page.preview` on demand: screenshot of the covered site view plus the
+  bounds of the element the current move targets. First real use of that
+  capture path outside the spike.
 - Runs on two sites (`SIMBA_FLOW`), hardcoded plans for both.
 - Drives either its own headless Chromium or a real Electron hidden view
   (`SIMBA_BROWSER`), with the site view picked by origin and ambiguity
@@ -102,7 +105,14 @@ thing, not a task.
   column never grows on its way down.
 - Manual level control with `level.override`, a lock that `load.updated`
   respects, and a dismissible notice on any change the user did not make.
-- Overflow drops a level rather than growing a scrollbar.
+- Overflow drops one level rather than growing a scrollbar; if it still
+  does not fit it scrolls and says so.
+- Level heights are monotonic where it matters: level 3 is never the tallest,
+  measured across a short, medium and long step in `frontend/test_levels.py`.
+- **The trust panel.** "What are you doing?" sends `trust.requested`; the
+  backend screenshots the covered site view, resolves the targeted element
+  and returns `page.preview`; the overlay slides away to show the real page
+  dimmed with that element ringed and named.
 - Verified against `tools/mock_backend.py` end to end, against a throwaway
   server for the four types the mock never sends, and against the real
   backend on the billing flow.
@@ -117,9 +127,13 @@ thing, not a task.
 - **The overflow guard overrides a locked level.** Deliberate — a scrollbar
   hides part of the decision — but it means a user who locks level 3 on a
   long step is pulled back to level 1. See DECISIONS.md.
-- **Level 2 has no progress indicator**, so "progress hidden at level 3"
-  currently distinguishes level 3 from level 1 only. Say if level 2 should
-  have one.
+- **`height(level 2) <= height(level 1)` is not achievable** and is not
+  asserted: level 1 is the compact layout and is consistently the shortest
+  (241/341/539 against level 2's 253/418/771). See `frontend/test_levels.py`.
+- **The trust panel shows a screenshot, not the live view.** That is what
+  `page.preview` carries, and showing the live page would hand the user the
+  cluttered interface this exists to spare them. Worth confirming that is
+  what "reveal the site view underneath" meant.
 - **No trust panel, no credential vault, no `page.preview` handling beyond
   rendering the image.** All deferred by `CLAUDE.md` until the skeleton is
   accepted.
