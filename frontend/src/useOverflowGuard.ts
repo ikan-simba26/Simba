@@ -6,8 +6,11 @@
  * struggling to go looking for it. Dropping a level removes the least
  * important region instead, which is the same trade the levels exist to make.
  *
- * Only ever moves one way, so it cannot oscillate: a step can go from level
- * 3 to 2 to 1 and then stops.
+ * One hop per step, and one only. An earlier version kept going until it
+ * fitted or ran out of levels, which meant a long step visibly reshaped
+ * itself twice inside a second — worse than the scrollbar it was avoiding.
+ * If it still does not fit after one move, it scrolls and says so in the
+ * console.
  */
 
 import { useEffect, type RefObject } from "react";
@@ -42,9 +45,19 @@ export function useOverflowGuard(
       // only the step and concluded a scrolling page fitted.
       const overflowing =
         document.documentElement.scrollHeight > window.innerHeight + 2;
-      if (overflowing && element.isConnected) {
-        simplifyForOverflow(next);
+      if (!overflowing || !element.isConnected) return;
+
+      if (useStore.getState().overflowHopped) {
+        // Already moved once for this step and it still does not fit. Let it
+        // scroll rather than reshaping again, and say so where a developer
+        // will see it.
+        console.warn(
+          `[simba] step still overflows at level ${level} after one hop; ` +
+            "allowing the page to scroll",
+        );
+        return;
       }
+      simplifyForOverflow(next);
     };
 
     // Measure once the fold has settled, otherwise the height read is

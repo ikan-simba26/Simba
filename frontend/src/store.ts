@@ -70,6 +70,8 @@ interface Store {
   unlockLevel: () => void;
   /** Drop a level because the step does not fit. Overrides the lock. */
   simplifyForOverflow: (to: Level) => void;
+  /** True once this step has already been moved for overflow. One hop only. */
+  overflowHopped: boolean;
   dismissLevelNotice: () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
@@ -122,6 +124,7 @@ export const useStore = create<Store>((set, get) => {
     level: 2,
     levelLocked: false,
     levelNotice: null,
+    overflowHopped: false,
     debug: false,
     ...EMPTY,
 
@@ -139,10 +142,15 @@ export const useStore = create<Store>((set, get) => {
     },
 
     simplifyForOverflow: (to) => {
-      const from = get().level;
+      const { level: from, overflowHopped } = get();
       if (from === to) return;
+      // One hop per step, then stop. Watching the interface reshape itself
+      // twice in a second is worse than scrolling, and a guard that keeps
+      // moving is indistinguishable from one that is broken.
+      if (overflowHopped) return;
       set({
         level: to,
+        overflowHopped: true,
         levelNotice: { from, to, because: "this step was too long to fit" },
       });
     },
@@ -208,7 +216,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set({ state: (message.payload as { state: State }).state });
       return;
     case "step.presented":
-      set({ step: message.payload as StepPresented, answered: false });
+      // A new step gets its own chance to be moved for overflow.
+      set({ step: message.payload as StepPresented, answered: false, overflowHopped: false });
       return;
     case "load.updated": {
       const load = message.payload as LoadUpdated;
