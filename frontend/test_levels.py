@@ -38,7 +38,7 @@ from pathlib import Path
 
 import pytest
 import websockets
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page, Playwright
 
 FRONTEND = Path(__file__).resolve().parent
 DIST = FRONTEND / "dist"
@@ -162,12 +162,13 @@ class Backend:
 
 
 @pytest.fixture(scope="module")
-def browser_page() -> Iterator[Page]:
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
-        page = browser.new_page(viewport=VIEWPORT)
-        yield page
-        browser.close()
+def browser_page(playwright_instance: Playwright) -> Iterator[Page]:
+    # Shared session-wide: a second sync_playwright() in the same process
+    # fails with "Sync API inside the asyncio loop". See the root conftest.
+    browser = playwright_instance.chromium.launch()
+    page = browser.new_page(viewport=VIEWPORT)
+    yield page
+    browser.close()
 
 
 @pytest.fixture(scope="module")

@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page, Playwright
 
 REPLICA_DIR = Path(__file__).resolve().parents[2] / "replicas" / "registration"
 BASE_URL = "http://127.0.0.1:5001"
@@ -50,9 +50,9 @@ def _wait_for(url: str, timeout_s: float = 20.0) -> None:
 
 
 @pytest.fixture(scope="session")
-def page() -> Iterator[Page]:
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
-        page = browser.new_page(viewport={"width": 1280, "height": 800})
-        yield page
-        browser.close()
+def page(playwright_instance: Playwright) -> Iterator[Page]:
+    # The Playwright instance is shared session-wide; see the root conftest.
+    browser = playwright_instance.chromium.launch()
+    page = browser.new_page(viewport={"width": 1280, "height": 800})
+    yield page
+    browser.close()
