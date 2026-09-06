@@ -51,7 +51,12 @@ class FakeConnection(Connection):
     async def send(self, message_type: str, payload) -> None:
         self.sent.append((message_type, payload.model_dump()))
 
-    async def receive(self, message_type: str, step_index: int | None = None) -> dict:
+    async def receive(
+        self,
+        message_type: str,
+        step_index: int | None = None,
+        on_other=None,  # noqa: ARG002 — the loop may offer to answer questions
+    ) -> dict:
         return {
             "type": "step.response",
             "payload": {

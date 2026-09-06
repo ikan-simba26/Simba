@@ -14,8 +14,10 @@ the estimator is not built until the skeleton runs end to end.
 """
 
 import asyncio
+import base64
 import json
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -28,9 +30,12 @@ from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
     HelpRequested,
+    Highlight,
+    PagePreview,
     StateChanged,
     StepAction,
     StepField,
+    ErrorPayload,
     StepPresented,
     TaskCompleted,
     TaskFailed,
@@ -63,11 +68,20 @@ class Connection:
             json.dumps(envelope(message_type, self._task_id, self._seq, payload))
         )
 
-    async def receive(self, message_type: str, step_index: int | None = None) -> dict:
+    async def receive(
+        self,
+        message_type: str,
+        step_index: int | None = None,
+        on_other: Callable[[dict], Awaitable[None]] | None = None,
+    ) -> dict:
         while True:
             message = json.loads(await self._websocket.receive_text())
             if message.get("type") != message_type:
-                continue  # unknown types are ignored, never fatal
+                # Not what we are waiting for, but not necessarily noise: the
+                # user can ask what is happening while a step is on screen.
+                if on_other is not None:
+                    await on_other(message)
+                continue
             if step_index is not None:
                 if message.get("payload", {}).get("step_index") != step_index:
                     continue
@@ -201,6 +215,68 @@ class Task:
 MAX_STEPS = 12
 
 
+def caption_for(move: "Move") -> str:
+    """Plain words for what is about to happen. Never the value being typed."""
+    operation = move.operations[0] if move.operations else None
+    if operation is None:
+        return move.instruction
+    where = operation.target.label or "this"
+    if operation.kind == "fill":
+        return f"I'm about to type your {where} in here."
+    if operation.kind == "select":
+        return f"I'm about to choose an option in {where}."
+    return f"I'm about to click {where}."
+
+
+async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
+    """Answer trust.requested: a picture of the real page, and what is next.
+
+    The site view is covered rather than hidden precisely so this works — a
+    view Chromium believes is invisible stops repainting and the capture
+    times out about half the time (CLAUDE.md, architecture constraints).
+    """
+    highlight = Highlight(x=0, y=0, w=0, h=0)
+    caption = "This is the page I'm working on."
+
+    if move is not None and move.operations:
+        caption = caption_for(move)
+        elements, _ = await perceive(page)
+        operation = move.operations[0]
+        element_id = (
+            operation.element_id
+            if operation.element_id is not None
+            else pick(elements, operation.target)
+        )
+        if element_id is not None and any(e.id == element_id for e in elements):
+            try:
+                box = await resolve(page, elements, element_id).bounding_box()
+            except PlaywrightError:
+                box = None
+            if box:
+                highlight = Highlight(
+                    x=int(box["x"]), y=int(box["y"]),
+                    w=int(box["width"]), h=int(box["height"]),
+                )
+
+    try:
+        shot = await page.screenshot()
+    except PlaywrightError as error:
+        await connection.send(
+            "error",
+            ErrorPayload(code="PREVIEW_FAILED", message=str(error).splitlines()[0]),
+        )
+        return
+
+    await connection.send(
+        "page.preview",
+        PagePreview(
+            screenshot=base64.b64encode(shot).decode("ascii"),
+            highlight=highlight,
+            caption=caption,
+        ),
+    )
+
+
 async def run_task(
     page: Page,
     connection: Connection,
@@ -272,7 +348,13 @@ async def run_task(
                 requires_confirmation=True,
             ),
         )
-        response = await connection.receive("step.response", step_index=steps_taken)
+        async def answer_questions(message: dict) -> None:
+            if message.get("type") == "trust.requested":
+                await send_preview(page, connection, move)
+
+        response = await connection.receive(
+            "step.response", step_index=steps_taken, on_other=answer_questions
+        )
         payload = response.get("payload", {})
 
         if payload.get("action_id") != "confirm":
