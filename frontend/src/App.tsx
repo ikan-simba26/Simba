@@ -5,16 +5,19 @@
  * developer might want — the log, the connection, the raw messages — lives
  * behind Ctrl+Shift+D and is not on screen otherwise.
  *
- * Level 2 only. Levels 1 and 3 slot into `StepView` when they are built.
+ * All three levels, with the change between them animated as a fold rather
+ * than a swap — see `StepShell`.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
+import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
 import { StepView } from "./components/StepView";
 import { useStore } from "./store";
+import { useOverflowGuard } from "./useOverflowGuard";
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
 const TRANSITION = { duration: 0.3, ease: EASE };
@@ -30,6 +33,7 @@ export default function App() {
   return (
     <div className="flex min-h-full justify-center bg-canvas px-6 py-24">
       <div className="w-full max-w-[640px]">
+        <LevelNotice />
         <Column />
       </div>
       <DebugPanel />
@@ -148,6 +152,7 @@ function Working() {
 function Step() {
   const { step, state, level, respond, answered } = useStore();
   const [values, setValues] = useState<Record<string, string>>({});
+  const measured = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!step) return;
@@ -156,20 +161,26 @@ function Step() {
     setValues(initial);
   }, [step]);
 
+  // A step that will not fit drops a level instead of growing a scrollbar.
+  useOverflowGuard(measured, { level, active: Boolean(step) });
+
   if (!step) return null;
 
   return (
-    <StepView
-      level={level}
-      step={step}
-      values={values}
-      waiting={isWaiting(state)}
-      answered={answered}
-      onChange={(fieldId, value) =>
-        setValues((current) => ({ ...current, [fieldId]: value }))
-      }
-      onAction={(actionId) => respond(actionId, values)}
-    />
+    <div ref={measured}>
+      <StepView
+        level={level}
+        step={step}
+        values={values}
+        waiting={isWaiting(state)}
+        answered={answered}
+        onChange={(fieldId, value) =>
+          setValues((current) => ({ ...current, [fieldId]: value }))
+        }
+        onAction={(actionId) => respond(actionId, values)}
+      />
+      <LevelControl />
+    </div>
   );
 }
 
