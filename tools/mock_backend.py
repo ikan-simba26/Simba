@@ -7,6 +7,7 @@ demo-day fallback (see CONTRACT.md). Keep this in sync with CONTRACT.md.
 Run: uvicorn tools.mock_backend:app --port 8000 --app-dir .
 """
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -21,6 +22,7 @@ from shared.schema import (  # noqa: E402
     LoadUpdated,
     StateChanged,
     StepAction,
+    StepField,
     StepPresented,
     TaskCompleted,
     TaskStarted,
@@ -28,6 +30,17 @@ from shared.schema import (  # noqa: E402
 
 TASK_ID = "t_demo01"
 GOAL = "Register for CS-401"
+
+# The level the frontend should be at when each step is presented. The
+# estimator does not exist yet, so this is scripted: two steps at the default,
+# one at level 3, then back. It is here so the level change — the fold from
+# one level to the next — can be demoed and worked on without one.
+LEVEL_BEFORE_STEP = {3: 3, 4: 2}
+
+LOAD_REASONS = {
+    3: "long hesitation, two backtracks",
+    4: "recovered, acting quickly again",
+}
 
 STEPS = [
     StepPresented(
@@ -56,7 +69,25 @@ STEPS = [
     ),
     StepPresented(
         step_index=3,
-        step_total=3,
+        step_total=4,
+        # Two sentences, so level 3 trimming to the first one is visible.
+        instruction=(
+            "Confirm your place on CS-401. This uses one of your four "
+            "elective slots for the year."
+        ),
+        detail="Advanced Widget Design, 3 credit hours, Dr. Aslam.",
+        fields=[
+            StepField(id="student_id", label="Student ID", type="text", value=""),
+        ],
+        actions=[
+            StepAction(id="confirm", label="Confirm my place", kind="primary"),
+            StepAction(id="cancel", label="Not now", kind="secondary"),
+        ],
+        requires_confirmation=True,
+    ),
+    StepPresented(
+        step_index=4,
+        step_total=4,
         instruction="Submit your registration for CS-401.",
         detail="This finalizes your schedule for the term.",
         fields=[],
@@ -98,16 +129,25 @@ async def ws_endpoint(ws: WebSocket) -> None:
     await send("task.started", TaskStarted(goal=GOAL, estimated_steps=len(STEPS)))
     await send("state.changed", StateChanged(state="thinking"))
 
-    for i, step in enumerate(STEPS):
-        await send("state.changed", StateChanged(state="acting"))
-        await send("step.presented", step)
-        await receive("step.response", step.step_index)
-
-        if i == 0:
+    for step in STEPS:
+        # A level change lands before the step it applies to, so the fold and
+        # the new step do not arrive in the same frame.
+        level = LEVEL_BEFORE_STEP.get(step.step_index)
+        if level is not None:
             await send(
                 "load.updated",
-                LoadUpdated(score=0.35, level=1, reason="first step, low element count"),
+                LoadUpdated(
+                    score=0.72 if level == 3 else 0.31,
+                    level=level,
+                    reason=LOAD_REASONS[step.step_index],
+                ),
             )
+            await asyncio.sleep(0.6)
+
+        await send("state.changed", StateChanged(state="acting"))
+        await send("state.changed", StateChanged(state="waiting"))
+        await send("step.presented", step)
+        await receive("step.response", step.step_index)
 
         await send("state.changed", StateChanged(state="thinking"))
 
