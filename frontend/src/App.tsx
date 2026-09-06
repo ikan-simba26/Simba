@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
+import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
 import { StepView } from "./components/StepView";
 import { useStore } from "./store";
@@ -36,13 +37,14 @@ export default function App() {
         <LevelNotice />
         <Column />
       </div>
+      <TrustPanel />
       <DebugPanel />
     </div>
   );
 }
 
 function Column() {
-  const { state, step, help, completed, failed, task } = useStore();
+  const { state, step, help, completed, failed, task, trustOpen } = useStore();
 
   const acting = state === "acting";
   const thinking = state === "thinking";
@@ -62,7 +64,12 @@ function Column() {
             : "idle";
 
   return (
-    <>
+    <motion.div
+      // Out of the way while the real page is being shown.
+      animate={{ y: trustOpen ? -28 : 0, opacity: trustOpen ? 0 : 1 }}
+      transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+      style={{ pointerEvents: trustOpen ? "none" : "auto" }}
+    >
       <ActingLine active={acting} />
 
       <ThinkingPulse active={thinking && !step}>
@@ -96,7 +103,7 @@ function Column() {
           </AnimatePresence>
         </div>
       </ThinkingPulse>
-    </>
+    </motion.div>
   );
 }
 
@@ -180,6 +187,7 @@ function Step() {
         onAction={(actionId) => respond(actionId, values)}
       />
       <LevelControl />
+      <TrustControl />
     </div>
   );
 }

@@ -62,8 +62,13 @@ interface Store {
   answered: boolean;
   /** The development view, off unless someone asks for it by keyboard. */
   debug: boolean;
+  /** The trust panel: the user has asked to see the real page. */
+  trustOpen: boolean;
 
   toggleDebug: () => void;
+  /** Send trust.requested and open the panel when the preview lands. */
+  askWhat: () => void;
+  closeTrust: () => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -126,9 +131,19 @@ export const useStore = create<Store>((set, get) => {
     levelNotice: null,
     overflowHopped: false,
     debug: false,
+    trustOpen: false,
     ...EMPTY,
 
     toggleDebug: () => set((current) => ({ debug: !current.debug })),
+
+    askWhat: () => {
+      // Open immediately; the panel waits for the picture rather than the
+      // press feeling like it did nothing.
+      set({ trustOpen: true });
+      connection.askWhat();
+    },
+
+    closeTrust: () => set({ trustOpen: false, preview: null }),
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
@@ -217,7 +232,14 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     case "step.presented":
       // A new step gets its own chance to be moved for overflow.
-      set({ step: message.payload as StepPresented, answered: false, overflowHopped: false });
+      set({
+        step: message.payload as StepPresented,
+        answered: false,
+        overflowHopped: false,
+        // The picture was of the previous step; it is stale now.
+        preview: null,
+        trustOpen: false,
+      });
       return;
     case "load.updated": {
       const load = message.payload as LoadUpdated;

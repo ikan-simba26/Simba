@@ -102,6 +102,11 @@ export class BackendConnection {
     this.send("task.cancel", {});
   }
 
+  /** Ask the backend what it is doing. It answers with page.preview. */
+  askWhat(): void {
+    this.send("trust.requested", {});
+  }
+
   /** Tell the backend the user has taken the level into their own hands. */
   overrideLevel(level: Level, locked: boolean): void {
     const payload: LevelOverride = { level, locked };
