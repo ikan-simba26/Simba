@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
 
 import type { Level, StepAction, StepField } from "@shared/schema";
 
-import { LEVELS, firstSentence } from "../levels";
+import { LEVELS, firstSentence, typeSize } from "../levels";
 import type { StepRendererProps } from "./StepView";
 
 /**
@@ -118,11 +118,14 @@ export function StepShell({
         <Fold show={spec.progress !== "none"} gap={0}>
           <motion.p
             animate={{
-              fontSize: spec.progress === "full" ? "14px" : "13px",
-              opacity: spec.progress === "full" ? 0.9 : 0.55,
+              // Level 1 states it; level 2 murmurs it. A step counter is
+              // reassurance for someone coping and pressure for someone who
+              // is not, which is why level 3 has none at all.
+              fontSize: spec.progress === "full" ? "14px" : "12px",
+              opacity: spec.progress === "full" ? 0.9 : 0.4,
             }}
             transition={FOLD}
-            className="text-muted"
+            className="text-muted tracking-wide"
           >
             Step {step.step_index} of {step.step_total}
           </motion.p>
@@ -136,7 +139,7 @@ export function StepShell({
           animate={{
             // Units are required: Framer silently ignores a bare number
             // for fontSize, where it appends px for height and padding.
-            fontSize: `${spec.instructionSize}px`,
+            fontSize: `${typeSize(level, instruction)}px`,
             opacity: waiting ? 0.55 : 1,
             paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
             // Grow after the collapse, for the same reason as UNFOLD.
@@ -168,7 +171,7 @@ export function StepShell({
         <Fold show gap={spec.gap}>
           <motion.div
             transition={FOLD}
-            className={spec.shell === "card" ? "flex flex-row gap-3" : "flex flex-col gap-3"}
+            className={spec.actionLayout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}
           >
             <ActionButton
               action={primary}
@@ -176,7 +179,7 @@ export function StepShell({
               answered={answered}
               waiting={waiting}
               onAction={onAction}
-              grow={spec.shell === "card"}
+              grow={spec.actionLayout === "row"}
             />
 
             {/* Level 3 demotes the second choice to plain text. The button
@@ -190,7 +193,7 @@ export function StepShell({
                 answered={answered}
                 waiting={waiting}
                 onAction={onAction}
-                grow={spec.shell === "card"}
+                grow={spec.actionLayout === "row"}
                 quiet
               />
             )}

@@ -31,7 +31,11 @@ export interface LevelSpec {
   instruction: "full" | "first-sentence";
   /** A bordered card at level 1; bare canvas at 2 and 3. */
   shell: "card" | "bare";
+  /** Side by side reads as denser, but it also makes level 1 the *shortest*
+   *  layout, which breaks the height ordering the levels depend on. */
+  actionLayout: "row" | "stacked";
 
+  /** Type size for a short instruction. Long ones are capped — see `typeSize`. */
   instructionSize: number;
   gap: number;
   fieldHeight: number;
@@ -48,10 +52,11 @@ export const LEVELS: Record<Level, LevelSpec> = {
     secondary: "button",
     instruction: "full",
     shell: "card",
+    actionLayout: "stacked",
     instructionSize: 22,
-    gap: 16,
-    fieldHeight: 44,
-    actionHeight: 48,
+    gap: 26,
+    fieldHeight: 46,
+    actionHeight: 56,
   },
   // The default.
   2: {
@@ -62,6 +67,7 @@ export const LEVELS: Record<Level, LevelSpec> = {
     secondary: "button",
     instruction: "full",
     shell: "bare",
+    actionLayout: "stacked",
     instructionSize: 30,
     gap: 40,
     fieldHeight: 56,
@@ -76,12 +82,31 @@ export const LEVELS: Record<Level, LevelSpec> = {
     secondary: "text",
     instruction: "first-sentence",
     shell: "bare",
+    actionLayout: "stacked",
     instructionSize: 40,
-    gap: 48,
-    fieldHeight: 56,
+    gap: 24,
+    fieldHeight: 52,
     actionHeight: 64,
   },
 };
+
+/**
+ * How big the instruction is allowed to be at this level.
+ *
+ * Level 3 is meant to be the largest type, but a fixed 40px on a long
+ * instruction made level 3 nearly twice the height of level 2 — simplifying
+ * pushed content off the screen, which is the opposite of the point. So the
+ * size is capped by how much there is to read: a short sentence gets the full
+ * 40px, a long one gets less. Levels 1 and 2 have fixed sizes; their content
+ * is denser to begin with and they never won the height contest.
+ */
+export function typeSize(level: Level, instruction: string): number {
+  const base = LEVELS[level].instructionSize;
+  if (level !== 3) return base;
+  if (instruction.length <= 70) return base;
+  if (instruction.length <= 150) return 30;
+  return 24;
+}
 
 /** The first sentence, or the whole thing if it is already one. */
 export function firstSentence(text: string): string {

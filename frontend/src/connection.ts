@@ -18,7 +18,21 @@ import type {
   TaskStart,
 } from "@shared/schema";
 
-export const DEFAULT_WS_URL = "ws://127.0.0.1:8000/ws";
+const FALLBACK_WS_URL = "ws://127.0.0.1:8000/ws";
+
+/**
+ * Where the backend is. Overridable with `?ws=` on the overlay's own URL so
+ * a test or a second backend can be pointed at without a rebuild — the
+ * overlay has no address bar and no settings, by design.
+ */
+export const DEFAULT_WS_URL = (() => {
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get("ws");
+    return fromQuery || FALLBACK_WS_URL;
+  } catch {
+    return FALLBACK_WS_URL;
+  }
+})();
 
 /** Our own task id. The backend stamps its own on messages it sends. */
 const TASK_ID = "t_frontend";
