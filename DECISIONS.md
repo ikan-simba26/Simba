@@ -437,3 +437,48 @@ notice says why it happened.
 **Cost.** A user who deliberately locks level 3 on a long step will watch it
 pulled back to level 1 twice in a second. That is abrupt, and if it turns out
 to matter more than the scrollbar does, this is the decision to revisit.
+
+---
+
+## Practice: measure the rendered result, not the declared intent
+
+**Date:** 2026-09-06
+
+**Decision.** Anything visual is verified by measuring what the browser
+actually produced — computed styles, bounding boxes, per-frame samples — not
+by reading the code that was supposed to produce it. Where the result is a
+number, it goes in a test.
+
+**Alternatives.** Read the diff and trust it. Look at a screenshot and judge
+by eye. Trust the library to do what its API says.
+
+**Why this.** Building the three levels turned up four defects in one
+sitting, and not one of them would have been caught by reading the code,
+because in every case the code said the right thing:
+
+1. **`layout` fought `fontSize`.** Framer projects a laid-out element's box
+   with a transform, which distorts any animation that changes layout. The
+   heading was declared at 40px and rendered at roughly 16. Found by reading
+   `getComputedStyle`, not the JSX.
+2. **Framer silently dropped a unitless `fontSize`.** It appends `px` to
+   numbers for `height` and `padding` but not for `fontSize`, so
+   `fontSize: 40` did nothing at all — no error, no warning. The inline style
+   showed the other two properties applied and this one simply absent. It
+   needs `"40px"`.
+3. **The easing read as a snap.** `[0.32, 0.72, 0, 1]` is a legitimate curve
+   over a legitimate 350ms, and the code declaring it looks correct.
+   Sampling per animation frame showed 72% of the movement landing in the
+   first third, which is not a fold. Only the frame timeline showed it.
+4. **The overflow guard moved the wrong way.** It dropped towards level 3 to
+   make content fit, which is sound if you assume simpler means shorter.
+   Measured, level 3 was 851px against level 1's 449px on the same step. The
+   code was self-consistent and the assumption underneath it was false.
+
+The common shape: the declaration was right and the rendered result was not,
+so anything that only inspected the declaration agreed with itself. Two of
+the four were silent — no error, no warning, no console output — and would
+have shipped.
+
+**Cost.** Measuring needs a real browser, which means the visual tests are
+slower than unit tests and need the frontend built first. That is why
+`test_levels.py` skips rather than fails when `dist/` is missing.
