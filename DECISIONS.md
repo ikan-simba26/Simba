@@ -379,3 +379,61 @@ while it happens.
 **Cost.** The column is as tall as the taller of the two screens during a
 300ms crossfade. Unnoticeable at these sizes; would matter if a step were
 very long.
+
+---
+
+## The three levels are one tree described by data, not three components
+
+**Date:** 2026-09-06 (`b177bf2`)
+
+**Decision.** `levels.ts` describes each level as a set of regions and
+densities; `StepShell` renders that description. The dispatch table of one
+component per level, added a task earlier, is gone.
+
+**Alternatives.** Keep three components and crossfade between them. Keep
+three components and morph the shared elements with Framer's `layoutId`.
+
+**Why this.** The level change has to read as the interface folding down, and
+a swap between two trees cannot do that: both trees exist only for the
+duration of the crossfade, so nothing collapses, it just dissolves. A
+collapse needs the surviving elements to stay mounted while the departing
+ones animate their height to zero. `layoutId` morphing was the other option
+and would have kept three files, but it puts two mounted copies of every
+shared element on screen mid-transition and is markedly harder to reason
+about when it goes wrong — which, on this codebase's record with Framer, it
+would have.
+
+**Cost.** The differences between levels are now adjacent in one file rather
+than isolated per level, so a change to level 1 is a change to the file that
+also draws levels 2 and 3. Worth it for an animation this central, and the
+seam at `StepView` is still there if the levels ever diverge beyond what a
+spec can express.
+
+---
+
+## Overflow moves towards level 1, not away from it
+
+**Date:** 2026-09-06 (`55823b3`)
+
+**Decision.** When a step will not fit, the level goes *down* the numbers —
+3 to 2 to 1 — and level 1 is the floor. It overrides a locked level.
+
+**Alternatives.** Move towards level 3, on the reading that "drop a level"
+means show less. Respect the lock and allow a scrollbar. Shrink the type
+instead.
+
+**Why this.** The first version did move towards level 3 and made things
+worse: measured on a step with three fields and three actions, level 1 is
+449px and level 3 is 851px. Level 3 is the *roomiest* — 40px type, generous
+gaps — while level 1 packs the same content into a compact card with inline
+fields. Fitting and simplifying pull in opposite directions, and only one of
+them is about height.
+
+Overriding the lock is the uncomfortable half. The alternative is a scrollbar
+on an interface whose whole premise is one visible decision at a time, and a
+decision the user cannot see is worse than a level they did not pick. The
+notice says why it happened.
+
+**Cost.** A user who deliberately locks level 3 on a long step will watch it
+pulled back to level 1 twice in a second. That is abrupt, and if it turns out
+to matter more than the scrollbar does, this is the decision to revisit.
