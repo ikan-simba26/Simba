@@ -1,20 +1,20 @@
 /**
- * Which renderer draws a step, by detail level.
+ * How a step is drawn, at whichever level is current.
  *
- * The three levels in CONTRACT.md differ in how much of a step is shown, not
- * in what a step *is*. So every level takes the same props and returns the
- * same shape, and adding level 1 or 3 later means writing one component and
- * adding one line to RENDERERS — no change to App, the store, or level 2.
+ * The three levels used to be a table of components keyed by level, on the
+ * assumption that they would be independent trees. Building the level change
+ * showed that they cannot be: swapping one tree for another can only
+ * crossfade, and the change has to read as the interface folding down. So
+ * the levels are now one persistent tree in `StepShell`, described by the
+ * data in `levels.ts`.
  *
- * Only level 2 exists today. `CLAUDE.md` defers the other two until the
- * skeleton runs end to end, and it does not yet.
+ * This file stays as the seam. Everything upstream passes a level and a step
+ * and does not care how either is drawn.
  */
-
-import type { ComponentType } from "react";
 
 import type { Level, StepPresented } from "@shared/schema";
 
-import { Level2Step } from "./Level2Step";
+import { StepShell } from "./StepShell";
 
 export interface StepRendererProps {
   step: StepPresented;
@@ -27,19 +27,6 @@ export interface StepRendererProps {
   answered: boolean;
 }
 
-export type StepRenderer = ComponentType<StepRendererProps>;
-
-/**
- * Level 1 shows more (the `detail` line, per CONTRACT.md). Level 3 shows
- * less. Both slot in here.
- */
-const RENDERERS: Partial<Record<Level, StepRenderer>> = {
-  2: Level2Step,
-};
-
-const FALLBACK: StepRenderer = Level2Step;
-
 export function StepView({ level, ...props }: StepRendererProps & { level: Level }) {
-  const Renderer = RENDERERS[level] ?? FALLBACK;
-  return <Renderer {...props} />;
+  return <StepShell level={level} {...props} />;
 }
