@@ -1,8 +1,8 @@
-"""Serialize a page's interactive elements from the accessibility tree.
+"""Serialize a page into the two things a planner can use.
 
-Perception assigns every interactive element an integer id. The orchestrator
-and the LLM refer to elements only by that id (`click(14)`), never by
-selector (see CLAUDE.md).
+**Interactive elements.** Perception assigns every one an integer id. The
+orchestrator and the LLM refer to elements only by that id (`click(14)`),
+never by selector (see CLAUDE.md).
 
 Structure comes from Chromium's accessibility tree over CDP rather than raw
 HTML. The AX tree already computes each element's accessible name — a
@@ -10,25 +10,62 @@ HTML. The AX tree already computes each element's accessible name — a
 into one `name` — and it drops elements that are hidden from users, neither
 of which comes free from parsing markup.
 
-The AX tree alone is not enough to act safely, though: a password input and a
-text input are both role `textbox` with identical AX properties. So each
-element is also matched back to its DOM node (one `DOM.getDocument` call) for
-its tag name and `type` attribute. The credential vault needs that to know
-where it may inject a secret.
+The AX tree alone is not enough to act safely, though, in two separate ways.
+
+  A password input and a text input are both role `textbox` with identical AX
+  properties, so each element is also matched back to its DOM node (one
+  `DOM.getDocument` call) for its tag name and `type` attribute. The
+  credential vault needs that to know where it may inject a secret.
+
+  And the AX tree does not know a control is a control when a framework
+  renders it as a plain `li` or `div` with no role — it carries those as
+  `StaticText`, indistinguishable from a paragraph. `interactivity.py` finds
+  them from layout instead, and they arrive flagged `inferred` so nothing
+  downstream mistakes a guess for a declaration.
+
+**Readable content.** Headings, table rows paired with their column headers,
+label/value pairs and prominent values, from `content.py`. Interactive
+elements are what the page *offers*; content is what it *says*, and a task
+whose goal is to read a number needs the second one. It travels as a separate
+channel so a planner can never confuse the two.
+
+All three readers work from one `DOMSnapshot.captureSnapshot`, parsed once.
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from playwright.async_api import Page as AsyncPage
 from playwright.sync_api import Page
 
-from backend.perception.overlays import COMPUTED_STYLES, OverlayReport, analyse
+from backend.perception.content import Content, extract
+from backend.perception.interactivity import (
+    Inferred,
+    find_inferred,
+    inference_enabled,
+)
+from backend.perception.overlays import OverlayReport, analyse
+from backend.perception.snapshot import COMPUTED_STYLES, Document, Rect, parse
 
-# AX role -> the action the orchestrator can take on the element.
 # Frozen viewport, per CLAUDE.md — coverage is measured against it.
 VIEWPORT = (1280, 800)
+
+__all__ = [
+    "COMPUTED_STYLES",
+    "VIEWPORT",
+    "Element",
+    "PageView",
+    "serialize",
+    "serialize_async",
+    "read_async",
+    "read_content_async",
+    "blockers_for_target_async",
+    "build_elements",
+    "index_dom",
+    "is_dead_link",
+    "overlay_detection_enabled",
+]
 
 
 def overlay_detection_enabled() -> bool:
@@ -42,6 +79,7 @@ def overlay_detection_enabled() -> bool:
         "false",
         "no",
     }
+
 
 INTERACTIVE_ROLES: dict[str, str] = {
     "button": "click",
@@ -76,21 +114,56 @@ class Element:
     occluded: bool = False
     # A link that goes nowhere: href="#", javascript:void(0), or no target.
     dead_link: bool = False
+    # The role was guessed from layout, not read from the page. A planner and
+    # a log can tell the difference, which matters: a declared `option` is
+    # what the author said it is, an inferred one is what it looks like.
+    inferred: bool = False
+    # Which rule fired — "cursor" or "group". Only set when inferred.
+    inferred_from: str | None = None
+    # What the field currently holds, for an input. Empty for everything else.
+    # A form with values in it is not the same page as an empty one, and
+    # without this perception cannot tell them apart.
+    value: str = ""
+    # Where the element is, in CSS pixels. Needed to ask whether something is
+    # covering this particular element.
+    rect: Rect | None = None
+    backend_node_id: int = -1
+    # How the backend gets from this id back to something it can act on, for
+    # elements `get_by_role` cannot reach. Internal: never crosses to a
+    # planner, never leaves the process.
+    locator_hint: str | None = None
 
     @property
     def is_password(self) -> bool:
         return self.input_type == "password"
 
 
+@dataclass
+class PageView:
+    """One read of a page: what it offers, and what it says."""
+
+    elements: list[Element] = field(default_factory=list)
+    content: Content = field(default_factory=Content)
+
+
+def _wants_snapshot() -> bool:
+    return overlay_detection_enabled() or inference_enabled()
+
+
 def serialize(page: Page, viewport: tuple[int, int] = VIEWPORT) -> list[Element]:
     """Return the page's interactive elements, numbered in document order."""
+    return read(page, viewport).elements
+
+
+def read(page: Page, viewport: tuple[int, int] = VIEWPORT) -> PageView:
+    """Elements and content in one pass. The sync twin of `read_async`."""
     cdp = page.context.new_cdp_session(page)
     try:
         cdp.send("Accessibility.enable")
         ax_nodes = cdp.send("Accessibility.getFullAXTree")["nodes"]
         document = cdp.send("DOM.getDocument", {"depth": -1})["root"]
         snapshot = None
-        if overlay_detection_enabled():
+        if _wants_snapshot():
             cdp.send("DOMSnapshot.enable")
             snapshot = cdp.send(
                 "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
@@ -98,21 +171,27 @@ def serialize(page: Page, viewport: tuple[int, int] = VIEWPORT) -> list[Element]
     finally:
         cdp.detach()
 
-    overlays = analyse(snapshot, viewport) if snapshot else None
-    return build_elements(ax_nodes, index_dom(document), overlays)
+    return _assemble(ax_nodes, document, snapshot, viewport)
 
 
 async def serialize_async(
     page: AsyncPage, viewport: tuple[int, int] = VIEWPORT
 ) -> list[Element]:
     """Async twin of `serialize`, for callers running under an event loop."""
+    return (await read_async(page, viewport)).elements
+
+
+async def read_async(
+    page: AsyncPage, viewport: tuple[int, int] = VIEWPORT
+) -> PageView:
+    """Elements and content from one set of CDP calls."""
     cdp = await page.context.new_cdp_session(page)
     try:
         await cdp.send("Accessibility.enable")
         ax_nodes = (await cdp.send("Accessibility.getFullAXTree"))["nodes"]
         document = (await cdp.send("DOM.getDocument", {"depth": -1}))["root"]
         snapshot = None
-        if overlay_detection_enabled():
+        if _wants_snapshot():
             await cdp.send("DOMSnapshot.enable")
             snapshot = await cdp.send(
                 "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
@@ -120,17 +199,69 @@ async def serialize_async(
     finally:
         await cdp.detach()
 
-    overlays = analyse(snapshot, viewport) if snapshot else None
-    return build_elements(ax_nodes, index_dom(document), overlays)
+    return _assemble(ax_nodes, document, snapshot, viewport)
+
+
+async def read_content_async(
+    page: AsyncPage, viewport: tuple[int, int] = VIEWPORT
+) -> Content:
+    """Just the readable content, for a caller that does not need elements."""
+    return (await read_async(page, viewport)).content
+
+
+async def blockers_for_target_async(
+    page: AsyncPage, element: Element, viewport: tuple[int, int] = VIEWPORT
+) -> OverlayReport:
+    """What, if anything, is covering this specific element right now.
+
+    Deliberately a fresh capture rather than a reuse of the last one. The
+    thing this catches — a dropdown the previous step opened — appears
+    *between* perceiving and acting, so a cached snapshot would be a snapshot
+    from before the problem existed.
+    """
+    if not overlay_detection_enabled() or element.backend_node_id < 0:
+        return OverlayReport()
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        await cdp.send("DOMSnapshot.enable")
+        snapshot = await cdp.send(
+            "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
+        )
+    finally:
+        await cdp.detach()
+    return analyse(snapshot, viewport, target=element.backend_node_id)
+
+
+def _assemble(
+    ax_nodes: list[dict[str, Any]],
+    document: dict[str, Any],
+    snapshot: dict[str, Any] | None,
+    viewport: tuple[int, int],
+) -> PageView:
+    parsed = parse(snapshot) if snapshot else None
+    overlays = analyse(parsed, viewport) if parsed and overlay_detection_enabled() else None
+
+    elements = build_elements(ax_nodes, index_dom(document), overlays, parsed)
+    content = extract(parsed) if parsed else Content()
+    return PageView(elements=elements, content=content)
 
 
 def build_elements(
     ax_nodes: list[dict[str, Any]],
     dom: dict[int, tuple[str, dict[str, str]]],
     overlays: OverlayReport | None = None,
+    parsed: Document | None = None,
 ) -> list[Element]:
-    """Turn AX nodes plus a DOM index into numbered elements. Pure."""
-    elements: list[Element] = []
+    """Turn AX nodes, a DOM index and a parsed snapshot into numbered elements.
+
+    Pure. Ids are assigned last, over the merged and ordered list, so an
+    inferred element is numbered in the same sequence as a declared one and
+    nothing downstream has to know which kind it got.
+    """
+    report = overlays or OverlayReport()
+    declared: list[tuple[int, Element]] = []
+    known: set[int] = set()
+
     for node in ax_nodes:
         if node.get("ignored"):
             continue
@@ -145,22 +276,69 @@ def build_elements(
 
         backend_id = node.get("backendDOMNodeId", -1)
         tag, attributes = dom.get(backend_id, ("", {}))
-        report = overlays or OverlayReport()
-        elements.append(
-            Element(
-                id=len(elements) + 1,
-                role=role,
-                label=node.get("name", {}).get("value", "").strip(),
-                type=action,
-                tag=tag,
-                input_type=attributes.get("type"),
-                name=attributes.get("name"),
-                overlay=backend_id in report.overlay_ids,
-                occluded=backend_id in report.occluded_ids,
-                dead_link=is_dead_link(tag, attributes),
+        known.add(backend_id)
+        node_index = (
+            parsed.index_of_backend_id.get(backend_id, len(declared))
+            if parsed
+            else len(declared)
+        )
+        declared.append(
+            (
+                node_index,
+                Element(
+                    id=0,
+                    role=role,
+                    label=node.get("name", {}).get("value", "").strip(),
+                    type=action,
+                    tag=tag,
+                    input_type=attributes.get("type"),
+                    name=attributes.get("name"),
+                    overlay=backend_id in report.overlay_ids,
+                    occluded=backend_id in report.occluded_ids,
+                    dead_link=is_dead_link(tag, attributes),
+                    value=parsed.input_values.get(node_index, "") if parsed else "",
+                    rect=parsed.bounds.get(node_index) if parsed else None,
+                    backend_node_id=backend_id,
+                ),
             )
         )
+
+    merged = declared
+    if parsed is not None and inference_enabled():
+        viewport_size = (VIEWPORT[0], VIEWPORT[1])
+        for found in find_inferred(parsed, viewport_size, known):
+            merged.append((found.node_index, _from_inferred(found, report)))
+
+    # Document order, so an inferred option lands among the elements it sits
+    # between rather than in a block at the end. Stable, so declared elements
+    # keep accessibility-tree order wherever the snapshot cannot place them.
+    merged.sort(key=lambda pair: pair[0])
+
+    elements: list[Element] = []
+    for _, element in merged:
+        element.id = len(elements) + 1
+        elements.append(element)
     return elements
+
+
+def _from_inferred(found: Inferred, report: OverlayReport) -> Element:
+    return Element(
+        id=0,
+        role=found.role,
+        label=found.label,
+        type=found.action,
+        tag=found.tag,
+        input_type=None,
+        name=None,
+        overlay=found.backend_node_id in report.overlay_ids,
+        occluded=found.backend_node_id in report.occluded_ids,
+        dead_link=False,
+        inferred=True,
+        inferred_from=found.signal,
+        rect=found.rect,
+        backend_node_id=found.backend_node_id,
+        locator_hint=found.css_path,
+    )
 
 
 def is_dead_link(tag: str, attributes: dict[str, str]) -> bool:

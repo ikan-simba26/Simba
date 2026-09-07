@@ -11,7 +11,12 @@ from collections.abc import Iterator
 import pytest
 from playwright.sync_api import Page
 
-from backend.perception.overlays import MIN_STACK_LEVEL, analyse
+from backend.perception.overlays import (
+    COMPUTED_STYLES,
+    MIN_COVERAGE,
+    MIN_STACK_LEVEL,
+    analyse,
+)
 from backend.perception.serializer import is_dead_link, serialize
 from backend.perception.test_serializer import find, labels
 
@@ -151,3 +156,98 @@ def test_the_ablation_switch_turns_detection_off(courses: Page, monkeypatch) -> 
     # Dead-link flagging is a separate feature and stays on, so the ablation
     # isolates overlay detection rather than perception as a whole.
     assert find(elements, "Home").dead_link
+
+
+# --- the target-scoped rule -------------------------------------------------
+#
+# `MIN_COVERAGE` asks "is the page unusable". That is the right question for a
+# modal and the wrong one for a strip along the bottom of the screen, which is
+# why the billing replica's cookie bar went undetected for a fortnight while
+# sitting on top of six live links. The second rule asks the question that
+# actually decides whether a step can work: is anything on top of *this*
+# element.
+
+
+def snapshot_of(page: Page) -> dict:
+    cdp = page.context.new_cdp_session(page)
+    cdp.send("DOMSnapshot.enable")
+    snapshot = cdp.send("DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES})
+    cdp.detach()
+    return snapshot
+
+
+@pytest.fixture
+def bill(billing: str, page: Page) -> Page:
+    """The enquiry result, scrolled to the footer, cookie bar still up.
+
+    Scrolled deliberately. The page is 896px in an 800px viewport, so at the
+    top the footer links sit below the fold and the bar covers nothing — the
+    conflict only exists once someone has scrolled down to reach the links,
+    which is the moment they would try to use them. Testing at scroll zero
+    would assert against a page where the problem is not yet happening.
+    """
+    page.goto(f"{billing}/bill?reference=04141234567890")
+    page.mouse.wheel(0, 2000)
+    page.wait_for_timeout(300)
+    return page
+
+
+def test_the_cookie_bar_is_invisible_to_the_page_level_rule(bill: Page) -> None:
+    """Not a bug in the page-level rule — the page genuinely is usable."""
+    report = analyse(snapshot_of(bill), VIEWPORT)
+
+    assert not report.blocked
+
+
+def test_the_cookie_bar_blocks_the_footer_link_it_is_sitting_on(bill: Page) -> None:
+    elements = serialize(bill)
+    disclaimer = find(elements, "Disclaimer")
+
+    report = analyse(snapshot_of(bill), VIEWPORT, target=disclaimer.backend_node_id)
+
+    assert report.blocked, "a link under the cookie bar was reported as clickable"
+    blocker = report.target_blockers[0]
+    assert blocker.scoped_to_target
+    assert blocker.coverage < MIN_COVERAGE, "this is the case coverage cannot see"
+    assert "overlapping the element this step needs" in blocker.reason
+    # And the link is behind it, not merely near it.
+    assert disclaimer.backend_node_id in report.occluded_ids
+
+
+def test_an_element_nowhere_near_the_bar_is_not_blocked(bill: Page) -> None:
+    elements = serialize(bill)
+    enquiry = [e for e in elements if e.label == "Bill Enquiry"][0]
+
+    report = analyse(snapshot_of(bill), VIEWPORT, target=enquiry.backend_node_id)
+
+    assert not report.blocked
+
+
+def test_the_bars_own_button_is_not_blocked_by_the_bar(bill: Page) -> None:
+    """Otherwise the one control that dismisses it would be unreachable."""
+    elements = serialize(bill)
+    accept = find(elements, "Accept all cookies")
+
+    report = analyse(snapshot_of(bill), VIEWPORT, target=accept.backend_node_id)
+
+    assert accept.backend_node_id not in report.occluded_ids
+
+
+def test_naming_a_target_does_not_lose_the_page_level_blocker(courses: Page) -> None:
+    """Both rules at once: the modal is still found when a target is named."""
+    elements = serialize(courses)
+    register = find(elements, "Register for CS-401")
+
+    report = analyse(snapshot_of(courses), VIEWPORT, target=register.backend_node_id)
+
+    assert report.blocked
+    assert any(not b.scoped_to_target for b in report.blockers), "lost the modal"
+    assert register.backend_node_id in report.occluded_ids
+
+
+def test_no_target_behaves_exactly_as_before(bill: Page) -> None:
+    """The default path is untouched, so nothing already passing changed."""
+    snapshot = snapshot_of(bill)
+
+    assert analyse(snapshot, VIEWPORT).blockers == []
+    assert analyse(snapshot, VIEWPORT, target=None).blockers == []

@@ -7,36 +7,65 @@ is how a run ends up clicking something underneath a modal and waiting for a
 click that can never land.
 
 So this ignores ARIA entirely and works from layout: an element that is
-positioned, stacked above the page, and big enough to matter is treated as
-blocking, and anything whose centre falls inside it is occluded.
+positioned and stacked above the page is a candidate, and anything whose
+centre falls inside it is occluded.
 
-Input is one `DOMSnapshot.captureSnapshot` — bounds, computed styles and
-backend node ids for the whole document in a single CDP round trip.
+There are two rules for *how big a candidate has to be*, because there are
+two different questions being asked.
+
+  **Page-level.** `MIN_COVERAGE` — is the page as a whole unusable? A modal
+  backdrop covers most of the viewport; a toast covers a sliver. This is the
+  rule that answers "is there a dialog in the way", and it stays as it was.
+
+  **Target-scoped.** Pass a `target` and size stops mattering: anything
+  stacked above the page that *overlaps the element the next move is about
+  to touch* is blocking that move, at any size. A 220x180 dropdown is 2% of
+  the viewport and 100% of the reason the click fails.
+
+The second rule exists because the first one missed both real cases we have:
+the billing replica's cookie bar (6.6% of the viewport, sitting on six live
+links) and the live railways dropdown (~2%, sitting on the field the next
+step needed). Coverage was never the right question for those — it was
+whether the thing in the way is in the way *of what we are doing*.
 """
 
 from dataclasses import dataclass, field
 
-# The styles requested from CDP, in this order. Index-matched to layout.styles.
-COMPUTED_STYLES = ["position", "z-index", "display", "visibility", "opacity"]
+from backend.perception.snapshot import (
+    COMPUTED_STYLES,
+    Document,
+    Rect,
+    centre_inside,
+    overlaps,
+    parse,
+    visible,
+)
+
+__all__ = ["COMPUTED_STYLES", "Blocker", "OverlayReport", "MIN_COVERAGE",
+           "MIN_STACK_LEVEL", "STACKED_POSITIONS", "analyse"]
 
 STACKED_POSITIONS = {"fixed", "absolute"}
 # A z-index this far above the page is a deliberate "put me on top".
 MIN_STACK_LEVEL = 5
-# Fraction of the viewport an element must cover before it counts as blocking.
-# A cookie banner or a toast covers little and blocks little; a modal backdrop
-# covers most of the screen.
+# Fraction of the viewport an element must cover before it counts as blocking
+# the page as a whole. Not used at all when a target is named.
 MIN_COVERAGE = 0.30
 
 
 @dataclass
 class Blocker:
-    """One element that is covering the page."""
+    """One element that is covering the page, or covering the target."""
 
     backend_node_id: int
-    rect: tuple[float, float, float, float]
+    rect: Rect
     z_index: int
     coverage: float
     reason: str
+    # True when this was found by overlapping the named target rather than by
+    # covering enough of the viewport. Kept apart so a log can say which rule
+    # fired, and so the page-level meaning of `blocked` does not quietly
+    # change into something broader.
+    scoped_to_target: bool = False
 
 
 @dataclass
@@ -52,38 +81,44 @@ class OverlayReport:
     def blocked(self) -> bool:
         return bool(self.blockers)
 
+    @property
+    def target_blockers(self) -> list[Blocker]:
+        return [b for b in self.blockers if b.scoped_to_target]
 
-def analyse(snapshot: dict, viewport: tuple[int, int]) -> OverlayReport:
-    """Work out what is covering the page, and what is stuck behind it."""
-    documents = snapshot.get("documents") or []
-    if not documents:
+
+def analyse(
+    snapshot: dict | Document | None,
+    viewport: tuple[int, int],
+    target: int | None = None,
+) -> OverlayReport:
+    """Work out what is covering the page, and what is stuck behind it.
+
+    `target` is the backend node id of the element a move is about to act on.
+    Give it one and the target-scoped rule applies as well: anything stacked
+    above the page and overlapping that element is reported, however small.
+    Leave it None and this behaves exactly as it always did.
+    """
+    document = snapshot if isinstance(snapshot, Document) else parse(snapshot)
+    if document is None:
         return OverlayReport()
-
-    strings = snapshot.get("strings", [])
-    document = documents[0]
-    nodes = document.get("nodes", {})
-    layout = document.get("layout", {})
-
-    parents = nodes.get("parentIndex", [])
-    backend_ids = nodes.get("backendNodeId", [])
-    node_indexes = layout.get("nodeIndex", [])
-    all_bounds = layout.get("bounds", [])
-    all_styles = layout.get("styles", [])
 
     viewport_area = float(viewport[0] * viewport[1]) or 1.0
 
-    boxes: dict[int, tuple[tuple[float, float, float, float], list[str]]] = {}
-    for position, node_index in enumerate(node_indexes):
-        bounds = tuple(all_bounds[position])
-        styles = [_text(strings, s) for s in all_styles[position]]
-        boxes[node_index] = (bounds, styles)
+    target_index = (
+        document.index_of_backend_id.get(target) if target is not None else None
+    )
+    target_rect = document.bounds.get(target_index) if target_index is not None else None
+    # A container the target lives inside is not covering it. Without this the
+    # positioned dropdown panel would be reported as blocking its own options.
+    target_lineage: set[int] = set()
+    if target_index is not None:
+        target_lineage = {target_index, *document.ancestors(target_index)}
 
     blockers: list[Blocker] = []
     blocker_indexes: list[int] = []
 
-    for node_index, (bounds, styles) in boxes.items():
-        style = dict(zip(COMPUTED_STYLES, styles))
-        if not _visible(style):
+    for node_index, style in document.styles.items():
+        if not visible(style):
             continue
         if style.get("position") not in STACKED_POSITIONS:
             continue
@@ -92,111 +127,97 @@ def analyse(snapshot: dict, viewport: tuple[int, int]) -> OverlayReport:
         if z_index is None or z_index < MIN_STACK_LEVEL:
             continue
 
+        bounds = document.bounds.get(node_index)
+        if bounds is None:
+            continue
         _, _, width, height = bounds
         coverage = (width * height) / viewport_area
-        if coverage < MIN_COVERAGE:
+
+        covers_page = coverage >= MIN_COVERAGE
+        covers_target = (
+            target_rect is not None
+            and node_index not in target_lineage
+            and overlaps(bounds, target_rect)
+        )
+        if not covers_page and not covers_target:
             continue
 
         blocker_indexes.append(node_index)
+        if covers_page:
+            reason = (
+                f"{style['position']} at z-index {z_index}, "
+                f"covering {round(coverage * 100)}% of the viewport"
+            )
+        else:
+            reason = (
+                f"{style['position']} at z-index {z_index}, overlapping the "
+                f"element this step needs (only {round(coverage * 100)}% of "
+                f"the viewport, so the page-level rule does not see it)"
+            )
         blockers.append(
             Blocker(
-                backend_node_id=_backend_id(backend_ids, node_index),
+                backend_node_id=document.backend_id(node_index),
                 rect=bounds,
                 z_index=z_index,
                 coverage=round(coverage, 3),
-                reason=(
-                    f"{style['position']} at z-index {z_index}, "
-                    f"covering {round(coverage * 100)}% of the viewport"
-                ),
+                reason=reason,
+                scoped_to_target=not covers_page,
             )
         )
 
     if not blockers:
         return OverlayReport()
 
-    # Anything inside a blocker belongs to the overlay. So does a sibling that
-    # is stacked at least as high — the common backdrop-plus-dialog pair, where
-    # the dialog is not a child of the backdrop.
-    children = _children_of(parents)
-    overlay_indexes: set[int] = set()
+    return OverlayReport(
+        blockers=blockers,
+        overlay_ids={
+            document.backend_id(i) for i in _overlay_indexes(document, blocker_indexes)
+        },
+        occluded_ids={
+            document.backend_id(i)
+            for i in _occluded_indexes(document, blockers, blocker_indexes)
+        },
+    )
+
+
+def _overlay_indexes(document: Document, blocker_indexes: list[int]) -> set[int]:
+    """Everything belonging to a blocker — its subtree, and stacked siblings.
+
+    The sibling case is the common backdrop-plus-dialog pair, where the dialog
+    is not a child of the backdrop but of the same parent.
+    """
+    overlay: set[int] = set()
     for blocker_index in blocker_indexes:
-        overlay_indexes |= _subtree(children, blocker_index)
-        for sibling in _siblings(parents, children, blocker_index):
-            sibling_box = boxes.get(sibling)
-            if sibling_box is None:
+        overlay |= document.subtree(blocker_index)
+        parent = document.parents[blocker_index]
+        for sibling in document.children.get(parent, ()):
+            if sibling == blocker_index:
                 continue
-            style = dict(zip(COMPUTED_STYLES, sibling_box[1]))
+            style = document.styles.get(sibling)
+            if style is None:
+                continue
             sibling_z = _int_or_none(style.get("z-index"))
             if (
-                _visible(style)
+                visible(style)
                 and style.get("position") in STACKED_POSITIONS
                 and sibling_z is not None
                 and sibling_z >= MIN_STACK_LEVEL
             ):
-                overlay_indexes |= _subtree(children, sibling)
+                overlay |= document.subtree(sibling)
+    return overlay
 
-    occluded_indexes: set[int] = set()
-    for node_index, (bounds, _styles) in boxes.items():
-        if node_index in overlay_indexes:
+
+def _occluded_indexes(
+    document: Document, blockers: list[Blocker], blocker_indexes: list[int]
+) -> set[int]:
+    overlay = _overlay_indexes(document, blocker_indexes)
+    occluded: set[int] = set()
+    for node_index, bounds in document.bounds.items():
+        if node_index in overlay:
             continue
-        if any(_centre_inside(bounds, blocker.rect) for blocker in blockers):
-            occluded_indexes.add(node_index)
-
-    return OverlayReport(
-        blockers=blockers,
-        overlay_ids={_backend_id(backend_ids, i) for i in overlay_indexes},
-        occluded_ids={_backend_id(backend_ids, i) for i in occluded_indexes},
-    )
-
-
-def _visible(style: dict[str, str]) -> bool:
-    if style.get("display") == "none" or style.get("visibility") == "hidden":
-        return False
-    opacity = style.get("opacity")
-    if opacity is not None:
-        try:
-            if float(opacity) == 0.0:
-                return False
-        except ValueError:
-            pass
-    return True
-
-
-def _centre_inside(
-    inner: tuple[float, float, float, float], outer: tuple[float, float, float, float]
-) -> bool:
-    """Occlusion by the standard a click cares about: is the middle covered."""
-    x, y, width, height = inner
-    if width <= 0 or height <= 0:
-        return False
-    cx, cy = x + width / 2, y + height / 2
-    ox, oy, ow, oh = outer
-    return ox <= cx <= ox + ow and oy <= cy <= oy + oh
-
-
-def _children_of(parents: list[int]) -> dict[int, list[int]]:
-    children: dict[int, list[int]] = {}
-    for index, parent in enumerate(parents):
-        children.setdefault(parent, []).append(index)
-    return children
-
-
-def _subtree(children: dict[int, list[int]], root: int) -> set[int]:
-    """The node plus everything under it."""
-    found = {root}
-    queue = [root]
-    while queue:
-        for child in children.get(queue.pop(), ()):
-            if child not in found:
-                found.add(child)
-                queue.append(child)
-    return found
-
-
-def _siblings(parents: list[int], children: dict[int, list[int]], node_index: int) -> list[int]:
-    if node_index >= len(parents):
-        return []
-    return [i for i in children.get(parents[node_index], ()) if i != node_index]
+        if any(centre_inside(bounds, blocker.rect) for blocker in blockers):
+            occluded.add(node_index)
+    return occluded
 
 
 def _int_or_none(value: str | None) -> int | None:
@@ -204,11 +225,3 @@ def _int_or_none(value: str | None) -> int | None:
         return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
-
-
-def _text(strings: list[str], index: int) -> str:
-    return strings[index] if 0 <= index < len(strings) else ""
-
-
-def _backend_id(backend_ids: list[int], node_index: int) -> int:
-    return backend_ids[node_index] if 0 <= node_index < len(backend_ids) else -1
