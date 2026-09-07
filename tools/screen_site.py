@@ -8,6 +8,10 @@ and whether perception stands a chance:
   * does the page load at all, and how long does it take
   * how many interactive elements are there, and how many of them have a
     usable accessible name rather than an id ASP.NET generated
+  * how many controls only perception's layout inference can see — a high
+    count means the site is built out of `div`s the accessibility tree calls
+    text, and the flow will depend on inference being right
+  * how much readable content there is to work with
   * is anything covering the page
   * how many links go nowhere
 
@@ -32,7 +36,7 @@ from urllib.robotparser import RobotFileParser
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.perception.overlays import COMPUTED_STYLES, analyse  # noqa: E402
-from backend.perception.serializer import serialize_async  # noqa: E402
+from backend.perception.serializer import read_async  # noqa: E402
 
 # Identify honestly. A site owner reading their logs should be able to tell
 # what this was and stop it if they want to.
@@ -56,9 +60,12 @@ class PageReport:
     named: int = 0
     unnamed: int = 0
     generated_names: int = 0
+    inferred: int = 0
     dead_links: int = 0
     overlay: int = 0
     occluded: int = 0
+    headings: int = 0
+    rows: int = 0
     roles: dict[str, int] = field(default_factory=dict)
     samples: list[str] = field(default_factory=list)
 
@@ -153,8 +160,12 @@ async def screen(base: str, paths: list[str]) -> list[PageReport]:
                 reports.append(report)
                 continue
 
-            elements = await serialize_async(page)
+            view = await read_async(page)
+            elements = view.elements
             report.elements = len(elements)
+            report.inferred = sum(1 for e in elements if e.inferred)
+            report.headings = len(view.content.headings)
+            report.rows = sum(len(t.rows) for t in view.content.tables)
             report.unnamed = sum(1 for e in elements if not e.label)
             report.generated_names = sum(1 for e in elements if looks_generated(e.label))
             report.named = report.elements - report.unnamed - report.generated_names
@@ -186,15 +197,18 @@ async def screen(base: str, paths: list[str]) -> list[PageReport]:
 
 
 def render(reports: list[PageReport]) -> None:
-    print("| page | robots | status | load | elements | named | unnamed | generated | dead links | overlay/occluded |")
-    print("|---|---|---|---|---|---|---|---|---|---|")
+    print(
+        "| page | robots | status | load | elements | named | unnamed | generated "
+        "| inferred | dead links | overlay/occluded | headings | rows |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in reports:
         path = urlsplit(r.url).path or "/"
         robots = "allowed" if r.allowed else "**DISALLOWED**"
         print(
             f"| `{path}` | {robots} | {r.status} | {r.load_ms}ms | {r.elements} | "
-            f"{r.named} | {r.unnamed} | {r.generated_names} | {r.dead_links} | "
-            f"{r.overlay}/{r.occluded} |"
+            f"{r.named} | {r.unnamed} | {r.generated_names} | {r.inferred} | "
+            f"{r.dead_links} | {r.overlay}/{r.occluded} | {r.headings} | {r.rows} |"
         )
 
     for r in reports:
