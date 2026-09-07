@@ -482,3 +482,84 @@ have shipped.
 **Cost.** Measuring needs a real browser, which means the visual tests are
 slower than unit tests and need the frontend built first. That is why
 `test_levels.py` skips rather than fails when `dist/` is missing.
+
+---
+
+## The trust panel shows an annotated still, not the live site view
+
+**Date:** 2026-09-07 (`1833a65`)
+
+**Decision.** "What are you doing?" answers with a screenshot of the covered
+site view, dimmed, with the element about to be touched ringed and named in
+plain words. It does not reveal the live `WebContentsView` underneath.
+
+**Alternatives.** Slide the overlay view aside in the Electron main process
+so the real page is genuinely visible. Show the live view in an embedded
+frame. Show nothing but a sentence describing the action.
+
+**Why this.** The panel exists to answer a fair question — *how do I know
+what you are about to do to my account?* — and a still with the target ringed
+answers it completely: this page, that button, now. Revealing the live view
+answers it too, and in the same movement hands the user the cluttered
+interface the entire system exists to remove. Someone who finds a
+sixty-element government portal overwhelming does not stop finding it
+overwhelming because they asked a question.
+
+It also matches the contract, which was written this way: `page.preview`
+carries `screenshot`, `highlight` and `caption`, and is "sent only in
+response to `trust.requested`". The image is the mechanism the protocol
+already provides.
+
+A still is additionally *safer to look at*: it cannot change under the user
+mid-read, cannot start an animation, and cannot be clicked by accident.
+
+**Cost.** It is a picture, so it is a moment old, and someone who wants to
+verify with their own eyes on the live page cannot. If that turns out to
+matter, the honest escalation is an explicit "open the real page" that hands
+over control entirely, not a peek.
+
+---
+
+## Levels vary by density, not by height
+
+**Date:** 2026-09-07
+
+**Decision.** The levels are ordered by **how much is on screen and how many
+decisions it asks for**, not by how tall they are. Both of those are
+monotonic: level 1 shows the progress counter, the detail line, every field
+and both actions as buttons; level 2 drops the detail line and quietens the
+counter; level 3 drops the counter entirely, trims the instruction to its
+first sentence, keeps only fields it cannot proceed without, and leaves one
+button with the second choice demoted to text.
+
+Total height is **not** monotonic and is not claimed to be. The only height
+guarantee is that **level 3 is never the tallest**.
+
+**Alternatives.** Order by height and force `h3 <= h2 <= h1`. Leave the
+ordering undefined.
+
+**Why this.** Forcing the height chain is not achievable without destroying
+level 1. Level 1 is the *compact* layout — smaller type, tighter spacing,
+fields laid out inline beside their labels rather than stacked above them —
+so it is consistently the **shortest**, measured at the same viewport:
+
+| step | level 1 | level 2 | level 3 |
+|---|---|---|---|
+| short | 241 | 253 | 174 |
+| medium | 341 | 418 | 384 |
+| long | 539 | 771 | 542 |
+
+Inline fields cost roughly half the height of stacked ones, so the gap widens
+as content grows. Making level 1 the tallest would mean abandoning inline
+fields or giving it level 2's type and spacing — which is its whole brief.
+
+Height was never the property that mattered. What a struggling user needs is
+fewer things to read and fewer choices to make, and that is exactly what the
+ordering delivers. The one height claim worth enforcing is the one that
+prevents the original bug: simplifying must never push content off the
+screen, so level 3 must never be the tallest.
+
+**Cost.** "Drop a level" is ambiguous in a way the team has to keep straight:
+towards level 3 is *simpler*, towards level 1 is *shorter*. The overflow
+guard moves towards level 1 for exactly that reason, and got it backwards on
+the first attempt.
