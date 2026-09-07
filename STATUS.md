@@ -6,7 +6,19 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-06 · 130 passing, 5 skipped without an Electron host · `1833a65`
+**Last updated:** 2026-09-07 · 127 passing, 5 skipped without an Electron host · `97f2891`
+
+---
+
+## Where the project actually is
+
+The walking skeleton runs end to end: Electron window up, backend attached to
+its hidden site view over CDP, a task driven from the overlay through the
+contract to a real page and back. It does that on **three** flows — two
+replicas we wrote, and one live public site.
+
+The live site is where it stops working, and that is now the most important
+thing on this page. See **Perception**, and EVALUATION.md 2026-09-07.
 
 ---
 
@@ -16,29 +28,37 @@ thing, not a task.
 - `serialize` / `serialize_async`: page to numbered `Element` list, from the
   accessibility tree plus a DOM join for tag, `type` and `name`.
 - Password inputs distinguishable from text inputs.
-- Structural overlay detection (`overlays.py`) — no ARIA dependency. Modal
-  detected on the registration replica; elements behind it flagged
-  `occluded`.
+- Structural overlay detection (`overlays.py`), no ARIA dependency.
 - Dead-link flagging (`href="#"`, `javascript:void(0)`).
 - `SIMBA_OVERLAY_DETECTION` ablation switch.
-- Verified against a second, structurally different replica (billing).
+- Verified against two structurally different replicas.
 
 **In progress**
 - Nothing.
 
-**Blocked / open — needs Nahail's call**
-- **Cookie-banner-shaped blockers are missed.** `MIN_COVERAGE = 0.30`
-  assumes a modal. The billing banner covers 6.6% and blocks six real footer
-  links, reported as not occluded. Fix is in the gate, not the occlusion
-  test.
-- **Accordion expanded state is discarded.** The AX tree reports
-  `expanded: False`; `build_elements` drops it. A planner cannot tell a
-  collapsed section from an expanded one.
-- **Read-only values are not perceivable.** Only interactive elements are
-  serialized, so the amount due on the billing replica — the thing that flow
-  exists to find — never reaches a planner. Blocks any lookup-shaped task.
-- Page-side load features for the estimator: not started, and correctly so
-  (see Current phase in `CLAUDE.md`).
+**Blocked / open — needs Nahail's call.** In rough order of how much they
+matter, which changed after the live-site run:
+
+1. **Choices that are not controls are invisible.** On the live railways
+   search, six station options are on screen and perception reports zero: they
+   are Element UI `li`/`span` with no role, no tabindex and no aria, reaching
+   the accessibility tree only as `StaticText`. `INTERACTIVE_ROLES` cannot
+   match them. **This alone makes the flow impossible** and the pattern is
+   common across enterprise SPAs.
+2. **Read-only values are not perceivable.** Only interactive elements are
+   serialized, so the amount due on the billing replica — and every train in a
+   results table — never reaches a planner. Blocks lookup-shaped tasks and
+   makes success conditions inexpressible.
+3. **Small blockers are missed.** `MIN_COVERAGE = 0.30` assumes a modal. It
+   misses the billing replica's cookie banner (6.6% of the viewport, blocking
+   six real links) and the railways dropdown (~220x180) that intercepted a
+   fill and timed the loop out.
+4. **Elements with no accessible name are unaddressable.** The railways search
+   button has none; `Target("button", "")` matches every unnamed button on the
+   page and is disambiguated only by ordinal.
+5. **Accordion expanded state is discarded.** The AX tree reports
+   `expanded: False` and `build_elements` drops it.
+6. Page-side load features for the estimator: not started, correctly so.
 
 ---
 
@@ -49,100 +69,70 @@ thing, not a task.
   a different strategy, setback re-plan, `help.requested`.
 - Verification proven to have teeth — unit tests per failure mode plus
   end-to-end cases that cannot succeed.
-- `HardcodedPlanner` and `LLMPlanner` behind one execution path, asserted
-  identical under injected failure.
-- LLM provider interface: Anthropic and any OpenAI-compatible endpoint,
-  chosen by env var, key from `.env`.
-- Response validation on both provider paths, retry-once with the error fed
-  back, then `help.requested`.
-- Rate-limit backoff honouring the server's stated delay.
-- Token and cost instrumentation per call and per run.
-- Trace memory: SQLite, keyed on role and label, replay at zero model calls,
-  self-correcting when a trace no longer fits. Wired into the running server
-  behind `SIMBA_TRACE_MEMORY`.
-- `page.preview` on demand: screenshot of the covered site view plus the
-  bounds of the element the current move targets. First real use of that
-  capture path outside the spike.
-- Runs on two sites (`SIMBA_FLOW`), hardcoded plans for both.
-- Drives either its own headless Chromium or a real Electron hidden view
-  (`SIMBA_BROWSER`), with the site view picked by origin and ambiguity
-  refused.
+- `HardcodedPlanner`, `LLMPlanner` and `TracePlanner` behind one execution
+  path, asserted identical under injected failure.
+- LLM provider interface: Anthropic and any OpenAI-compatible endpoint, key
+  from `.env`, response validated, retry-once with the error fed back,
+  rate-limit backoff, token and cost accounting.
+- Trace memory in SQLite, keyed on role and label, replaying at zero model
+  calls and correcting itself when a trace no longer fits.
+- `page.preview` on demand: capture of the covered site view plus the bounds
+  of the element the current move targets.
+- Three flows via `SIMBA_FLOW`: `registration`, `billing`, `railways`.
+- Drives its own headless Chromium or a real Electron hidden view.
 
 **In progress**
 - Nothing.
 
 **Blocked / open**
-- **Trace memory has never run against a live model.** Replay itself needs no
-  model and is covered, but the record-then-replay cycle on a real run is
-  unproven. Blocked on API quota.
+- **Verification checks the moment, not the outcome.** On the live site a
+  fill was read straight back, verified, and had evaporated one step later,
+  because the widget clears itself on blur. The loop has no notion of a value
+  that must still be there when it is used. Fourth recorded case of
+  verification passing wrongly.
+- **No way to express "press a key".** `Operation` is fill, click or select.
+  Keyboard selection is the only route through several real widgets.
+- **Trace memory has never run against a live model.** Replay needs none and
+  is covered; the record-then-replay cycle on a real run is not. Blocked on
+  API quota.
 - **The JS-click fallback can click through a modal.** With overlay detection
-  off it does so in 10/10 runs and the run still passes. Whether strategy 1
-  should refuse an element perception knows is occluded is an open design
-  question — **flagged, not decided**.
-- Replay tuning (when to prefer a trace over fresh planning), LLM interface
-  hardening beyond one provider pair, and the retry policy for real sites:
-  not started.
+  off it does so in 10/10 runs and the run still passes — open question,
+  flagged rather than decided.
+- Replay tuning (when to prefer a trace over fresh planning) and the retry
+  policy for real sites: not started.
 
 ---
 
 ## Interface — Aly · `frontend/`
 
 **Done**
-- Electron + React + TypeScript + Vite, Tailwind, Zustand. Framer Motion
-  installed, deliberately unused.
+- Electron + React + TypeScript + Vite, Tailwind, Zustand, Framer Motion.
 - The window: site view covered by the React overlay at identical bounds,
   CDP on 9222 for the backend.
 - Contract client over `shared/schema.ts` and `shared/envelope.ts`. Every
-  backend-to-frontend type handled; `task.start`, `step.response` and
-  `task.cancel` sent; per-connection seq tracked with a warning on a gap.
-- **The overlay, all three levels.** One centred column on a warm dark
-  canvas, the four states shown rather than described, nothing else on
-  screen. Development view behind Ctrl+Shift+D.
-- Level 1 compact card, level 2 the open column, level 3 one sentence and
-  one action — structurally different, described as data in `levels.ts`.
-- The level change folds: optional regions collapse their own height over
-  350ms while what remains slides up, with arrivals delayed 120ms so the
-  column never grows on its way down.
-- Manual level control with `level.override`, a lock that `load.updated`
-  respects, and a dismissible notice on any change the user did not make.
-- Overflow drops one level rather than growing a scrollbar; if it still
-  does not fit it scrolls and says so.
-- Level heights are monotonic where it matters: level 3 is never the tallest,
-  measured across a short, medium and long step in `frontend/test_levels.py`.
-- **The trust panel.** "What are you doing?" sends `trust.requested`; the
-  backend screenshots the covered site view, resolves the targeted element
-  and returns `page.preview`; the overlay slides away to show the real page
-  dimmed with that element ringed and named.
-- Verified against `tools/mock_backend.py` end to end, against a throwaway
-  server for the four types the mock never sends, and against the real
-  backend on the billing flow.
+  backend-to-frontend type handled; `task.start`, `step.response`,
+  `level.override` and `trust.requested` sent; per-connection `seq` tracked
+  with a warning on a gap.
+- The overlay: one centred column, the four states shown rather than
+  described, nothing else on screen. Development view behind Ctrl+Shift+D.
+- All three detail levels, described as data in `levels.ts`, with the change
+  between them animated as a fold. Ordered by density, not height.
+- Manual level control with a lock that `load.updated` respects, and a notice
+  on any change the user did not make.
+- Overflow drops one level rather than growing a scrollbar.
+- The trust panel: an annotated still of the real page with the target ringed.
 
 **In progress**
 - Nothing.
 
 **Blocked / open — needs Aly**
-- **Nothing chooses a level automatically yet** except `load.updated`, which
-  only the mock sends. The real backend has no estimator, so every real run
-  sits at level 2 unless the user moves it.
-- **The overflow guard overrides a locked level.** Deliberate — a scrollbar
-  hides part of the decision — but it means a user who locks level 3 on a
-  long step is pulled back to level 1. See DECISIONS.md.
-- **`height(level 2) <= height(level 1)` is not achievable** and is not
-  asserted: level 1 is the compact layout and is consistently the shortest
-  (241/341/539 against level 2's 253/418/771). See `frontend/test_levels.py`.
-- **The trust panel shows a screenshot, not the live view.** That is what
-  `page.preview` carries, and showing the live page would hand the user the
-  cluttered interface this exists to spare them. Worth confirming that is
-  what "reveal the site view underneath" meant.
-- **No trust panel, no credential vault, no `page.preview` handling beyond
-  rendering the image.** All deferred by `CLAUDE.md` until the skeleton is
-  accepted.
-- The overlay never shows `load.updated`, by design — CONTRACT.md says the
-  reason is for logs and ablation, never for the user.
-- `shared/schema.ts` and `shared/envelope.ts` are current and type-check
-  under `--strict`.
-- The three detail levels, trust panel and credential vault are explicitly
-  deferred until the skeleton runs end to end (`CLAUDE.md`).
+- **Nothing chooses a level automatically** except `load.updated`, which only
+  the mock sends. Every real run sits at level 2 unless the user moves it.
+- **The credential vault is not built.** Values arrive in `step.response`
+  rather than from a store the model cannot see, though `resolve_value`
+  already refuses to fill a password from anything a planner supplied.
+- Voice input (`input_mode: "voice"`) is in the contract and unimplemented.
+- `frontend/electron/main.ts` and the window layout are Aly's to review.
 
 ---
 
@@ -150,63 +140,62 @@ thing, not a task.
 
 **Done**
 - Nothing, deliberately. `CLAUDE.md` defers it until the skeleton runs end to
-  end.
+  end. It now does, so this is unblocked as of this entry.
 
 **Blocked / open**
-- Waiting on the walking skeleton being accepted as complete. The loop does
-  not emit `load.updated` and should not yet.
-- Depends on perception's page-side load features, also not started.
+- Depends on perception's page-side load features, not started.
+- The frontend already honours `load.updated` and the level lock, so the
+  estimator has a working consumer waiting for it.
 
 ---
 
 ## Shared contract — all three owners · `shared/`, `CONTRACT.md`
 
 **Done**
-- `schema.py` and `schema.ts` mirror every message in `CONTRACT.md`.
-- `envelope.py` / `.ts` build the envelope in one place, used by the
-  orchestrator and the mock backend.
+- `schema.py` and `schema.ts` mirror every message; `envelope.py` / `.ts`
+  build the envelope in one place.
+- `task.start.goal` is honoured rather than discarded, and `CONTRACT.md` says
+  so explicitly.
 
 **Blocked / open**
-- `CONTRACT.md` is still marked **DRAFT**. It has never been ratified in a
-  session with all three owners, which `CONTRACT.md` itself requires before
-  it is treated as frozen. **Blocked on Nahail, Raham and Aly together.**
+- `CONTRACT.md` is still marked **DRAFT** and has never been ratified in a
+  session with all three owners, which it requires before being treated as
+  frozen. **Blocked on Nahail, Raham and Aly together.**
+- `telemetry` is specified and nothing sends it. It is the estimator's other
+  input channel.
 
 ---
 
 ## Evaluation · `EVALUATION.md`
 
 **Done**
-- Ten-run benchmarks before and after overlay detection.
-- Hardcoded vs LLM A/B on the registration replica.
-- Token and cost figures.
+- Ten-run benchmarks before and after overlay detection; the overlay ablation;
+  hardcoded vs LLM A/B; token and cost figures; four recorded cases of
+  verification passing wrongly; the live-site screening and run.
 
 **Blocked / open**
 - **The demo-model ablation could not run.** Free tier allows 20 requests a
-  day against 4–5 per run. One run attempted per demo condition, neither
-  completed. Whether a stronger model absorbs the overlay-detection gain is
-  unknown. **Blocked on a paid API key.** This is the largest gap in the
-  evaluation.
-- No baseline for the LLM against an unseen goal.
-- No second-site LLM run (billing), same quota block.
+  day against 4–5 per run. **Blocked on a paid API key.** Still the largest
+  gap in the evaluation.
+- No LLM run against the billing or railways flows, same quota block.
+- No baseline for the LLM against a goal it has not seen.
 
 ---
 
 ## Infrastructure
 
 **Done**
-- Two replicas, structurally different by design.
-- `spike/` proves the Electron + CDP + Playwright architecture.
-- **The full stack runs end to end**: Electron host up, backend attached over
-  CDP to its hidden site view, a hardcoded billing task completing over the
-  WebSocket in 4.9s with no model and no frontend UI. Repeatable against an
-  already-used host.
-- 114 tests from the repo root with `python -m pytest`; 5 Electron
+- Two replicas, structurally different by design, plus one live read-only
+  flow.
+- `tools/screen_site.py` — screen a site before pointing anything at it.
+- `spike/` proves the Electron + CDP + Playwright arrangement.
+- 132 tests from the repo root with `python -m pytest`; 5 Electron
   integration tests skip unless a host is running.
 
 **Blocked / open**
-- No CI. Tests only run when someone runs them, and the Electron tests skip
-  silently unless a host happens to be up — so a regression there would go
-  unnoticed.
-- Nothing supervises the Electron host. Start order matters (replica, host,
-  backend) and a host that dies mid-task surfaces as a connection error
-  rather than a restart.
+- No CI. Tests run when someone runs them, and the Electron tests skip
+  silently without a host, so a regression there would go unnoticed.
+- Nothing supervises the Electron host. Start order matters — replica, host,
+  backend — and a host that dies mid-task surfaces as a connection error.
+- `frontend/test_levels.py` needs `npm run build` first and skips otherwise,
+  so a stale `dist/` is measured rather than the current source.
