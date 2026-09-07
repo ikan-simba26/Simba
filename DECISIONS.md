@@ -563,3 +563,153 @@ screen, so level 3 must never be the tallest.
 towards level 3 is *simpler*, towards level 1 is *shorter*. The overflow
 guard moves towards level 1 for exactly that reason, and got it backwards on
 the first attempt.
+
+---
+
+## An inferred role is reported as inferred, and is never silently a declared one
+
+**Decision.** Elements found from layout carry `inferred=True` and
+`inferred_from` naming the rule that fired. They are numbered in the same
+sequence as everything else and a plan targets them the same way, but the
+distinction is never erased.
+
+**Alternatives.** Merge them in indistinguishably, so nothing downstream has
+to care. Keep them in a separate list a planner has to ask for.
+
+**Why this.** A declared `option` is what the page's author said it is. An
+inferred one is what it looks like from a mouse cursor. Those deserve
+different amounts of trust, and the moment a run goes wrong the first
+question is which kind was clicked. Merging them would erase exactly the
+uncertainty worth surfacing; separating them entirely would mean every
+planner needs a second code path for what is, at the point of use, the same
+thing — an element with an id you can click.
+
+**Cost.** One more field on `Element` and one more thing a planner may ignore.
+Nothing currently reads it except logs and tests, which is the point: it costs
+nothing until something goes wrong.
+
+---
+
+## An inferred element's role is decided by position, never by its neighbours
+
+**Decision.** Inside a floating panel, everything is an `option`. Elsewhere a
+list item is a `menuitem` and anything else is a `button`. The sibling-group
+signal decides *whether* an element is a control, never *what kind*.
+
+**Alternatives.** Use group membership as evidence for `option` (what the
+first version did). Give everything the same role and let the label
+disambiguate.
+
+**Why this.** The first version was unstable in a way that took an hour-long
+failing run to find. Element UI gives calendar cells classes like
+`available`, `prev-month available` and `today available`, so how many
+siblings share a cell's class depends on where in the month the day falls.
+The 15th of October came out `option` and the 15th of another month
+`button` — from identical markup. A plan has to name the role it aims at, so
+a role that moves with the calendar is not usable at all.
+
+Predictable beats nuanced when the value is part of an addressing scheme.
+
+**Cost.** A `li` inside an absolutely-positioned container that really is a
+menu item is called an `option`. Nothing can currently tell those apart from
+layout, and pretending otherwise is what caused the problem.
+
+---
+
+## Content extraction stops at a floating panel
+
+**Decision.** Anything inside an absolutely or fixed positioned container
+stacked above the page is excluded from readable content. It stays fully
+available through the interactive channel.
+
+**Alternatives.** Read everything and let callers filter. Exclude only
+elements that are also flagged as an overlay.
+
+**Why this.** A date picker is a control, not something the page says. The
+live railways picker is a properly built `<table>` with `Sun`..`Sat` headers
+and six rows of days, and with it included the run **reported success after
+three steps** — "the page has at least one row of results" was satisfied by
+opening a calendar. A success condition a date picker can satisfy is not a
+success condition.
+
+The same test the other two snapshot readers already use, so all three agree
+on what a floating panel is.
+
+**Cost.** Real content inside a modal is skipped too, and nothing yet
+distinguishes a dialog from a dropdown. This is a live limitation, recorded in
+STATUS.md. It is tolerable for now because a modal's content is also blocking
+content, and the loop's job with one of those is to dismiss it — but the first
+task that needs to read a modal will have to make the distinction properly.
+
+---
+
+## The retry strategy for a fill clicks before it types
+
+**Decision.** Strategy 1 for a fill is now click, select-all, type — not
+`clear()` then type.
+
+**Alternatives.** Leave it. Add a separate "unlock" operation to the plan
+vocabulary.
+
+**Why this.** `fill` and `clear` both require an element to be *editable*, and
+a component-framework combobox ships its input `readonly` until you click it,
+removing the attribute in its own handler. Playwright never gets that far: it
+waits for editable, the attribute never clears, and the step fails after a
+long timeout on a field nothing was blocking. Both station inputs on the live
+railways search are like this, and it is what actually defeated the first run.
+
+A click is not subject to the editable check, so this route works where the
+direct one cannot — and the retry slot is exactly where "a different way of
+achieving the same thing" belongs. Putting it in the plan instead would make
+every plan carry a workaround for a widget library.
+
+**Cost.** The retry is slightly more invasive: it focuses the element, which
+can trigger handlers a bare `fill` would not.
+
+---
+
+## A value that stops being there ends the run rather than being retried
+
+**Decision.** Durable verification hands control back immediately. It does not
+retry, and it does not count towards the two-setback budget.
+
+**Alternatives.** Treat it as an ordinary setback. Re-run the step that filled
+the field.
+
+**Why this.** Every other failure here is an action that did not take effect,
+and a different strategy is a real chance at a different outcome. A value the
+page took back is not that: the typing worked, and something undid it
+afterwards. Repeating the same keystrokes invites the same undoing, while
+every further step would be acting on a form that does not contain what the
+user was shown being entered.
+
+Tolerating it is not neutral. Before this, a lapsed value was absorbed as a
+first setback and the run continued to `task.completed` on an empty form —
+which is the exact class of silent wrongness verification exists to prevent.
+
+**Cost.** A planner that *could* recover — an LLM told "type it again, but
+commit the choice this time" — never gets the chance. Worth revisiting when
+the LLM path is exercised against a live site; flagged rather than settled.
+
+---
+
+## An action gets ten seconds, not thirty
+
+**Decision.** `ACTION_TIMEOUT_MS = 10_000` on every Playwright action the loop
+performs.
+
+**Alternatives.** Keep Playwright's 30s default. Make it configurable per
+step.
+
+**Why this.** Thirty seconds is the right default for a test suite and the
+wrong one twice over here. A person is watching the step happen, and half a
+minute of nothing is not a wait, it is a hang. And the loop retries: at 30s, a
+step that fails both strategies costs over a minute before anyone is told
+anything. A live run that could not find its target spent **sixty-two
+minutes** failing.
+
+A click that has not landed in ten seconds is not going to.
+
+**Cost.** A genuinely slow page could have an action fail that would have
+succeeded at twenty seconds. The retry absorbs some of that, and no run so far
+has an action between 10s and 30s that later succeeded.

@@ -68,19 +68,49 @@ three CDP calls in one session:
 | `DOMSnapshot.captureSnapshot` | bounds and computed styles for the whole document |
 
 `serializer.build_elements` joins them into a numbered list of `Element`s —
-`id`, `role`, `label`, `type`, `tag`, `input_type`, `name`, plus the flags
-`overlay`, `occluded` and `dead_link`. Structure comes from the accessibility
-tree because it already resolves an accessible name from a `<label for>`, an
-`aria-label` or the element's own text, and already drops what a user cannot
-see.
+`id`, `role`, `label`, `type`, `tag`, `input_type`, `name`, `value`, `rect`,
+plus the flags `overlay`, `occluded`, `dead_link` and `inferred`. Structure
+comes from the accessibility tree because it already resolves an accessible
+name from a `<label for>`, an `aria-label` or the element's own text, and
+already drops what a user cannot see.
 
-`perception/overlays.py:analyse` supplies the two overlay flags. It ignores
-ARIA entirely and works from layout: an element that is positioned, stacked
-above the page, and covering enough of the viewport is a blocker, and
-anything whose centre falls inside it is occluded.
+The snapshot is parsed once by `perception/snapshot.py:parse` and read by
+three modules, so all three agree on what the page looks like:
 
-`perceive` also builds a `Snapshot` — url, title, and the tuple of element
-labels. That is the "before" picture the verification step compares against.
+| Module | Reads | For |
+|---|---|---|
+| `overlays.py` | position, z-index, bounds | what is covering the page, or covering one element |
+| `interactivity.py` | `cursor`, sibling structure | controls the accessibility tree calls text |
+| `content.py` | text, tables, `font-size` | what the page *says* |
+
+**`interactivity.py` is why a real site works at all.** A component framework
+renders a dropdown option as `<li class="...__item"><span>LAHORE CANTT</span>`
+— no role, no tabindex, no aria — and the accessibility tree carries it as
+`StaticText`, indistinguishable from a paragraph. So this ignores semantics
+and reads layout: an element with a computed `cursor: pointer` is something a
+person is being told they can click, and three or more same-class siblings
+inside a floating panel are a list of choices. What it finds is flagged
+`inferred`, because a role the page declared and a role we guessed at deserve
+different amounts of trust.
+
+Those elements have no role to look up, so `serialize` also computes a
+structural path for each one and the backend uses it in `loop.resolve`. A
+planner still only ever says `click(14)`.
+
+**`content.py` is the second output channel.** Interactive elements are what
+the page offers; content is what it says — headings with their level, table
+rows paired to their column headers, label/value pairs, and text set
+noticeably larger than the page's own baseline. A task whose goal is to read
+a number needs it: `14,382` alone is a number, and `("P/WITHIN", "14,382")`
+is an answer. It travels separately so nothing can confuse "the page says
+14,382" with "there is a button called 14,382". Content stops at a floating
+panel — a date picker is a control, not something the page says.
+
+`perceive` also builds a `Snapshot` — url, title, the tuple of element labels,
+the tuple of field **values**, and the content. That is the "before" picture
+verification compares against. Values are in it because a form that has been
+filled is not the same page as an empty one, and without them a step that
+typed a station name into a combobox changed nothing the loop could see.
 
 ### 3. Decide
 
@@ -141,20 +171,49 @@ Nothing acts on the page before the user confirms. A response whose
 Never assumed, always checked.
 
 - A **fill** is verified by reading the field back (`loop.verify_typed`).
-  Typing changes no URL, title or label, so a fill-only move is not also
-  required to change the page.
+  Typing changes no URL, title or label, so a move of fills and key presses
+  is not also required to change the page. A move of presses alone is, since
+  it has no read-back to stand on.
 - Anything else must change the page. `loop.verify` polls `perceive` for up
   to `VERIFY_TIMEOUT_S` and compares before against after with `loop.check`,
   which requires both that the snapshot changed at all and that the move's
   `Expectation` holds.
+- And **durably**: `loop.durability_failure` re-checks, at every later
+  perceive, that each value this run typed is still there. Read-back proves
+  the keystrokes arrived; it does not prove the value stays, and a
+  component-framework combobox clears its own input on blur unless a choice
+  was committed. A lapse ends the run rather than being retried — the typing
+  worked, something undid it, and repeating the keystrokes invites the same
+  undoing while every later step acts on a form that is not filled.
+
+An `Expectation` can be about the URL, the title, a label appearing or
+going — or about **content**: `content_says` and `rows_at_least`. Those exist
+because a single-page app finishes a search without changing its URL, its
+title or one interactive label, and until content was readable such a task
+had no expressible success condition at all.
+
+What none of this catches: **the DOM is not the application's state.** A live
+date input read back `2026-10-15` at every check while the framework's own
+model held `""`, and the search went out empty. Every signal available here
+agrees with the DOM and is wrong together. See `EVALUATION.md`.
 
 ### 7. Recover
 
 Identical code for every planner:
 
 1. The move is retried once with **a different strategy** — a real click
-   becomes a JS click, a `fill` becomes clear-then-type. This is the
-   `strategy` argument threaded through `attempt_move` and `act`.
+   becomes a JS click, and a `fill` becomes click-then-select-all-then-type.
+   This is the `strategy` argument threaded through `attempt_move` and `act`.
+
+   The fill fallback clicks first because `fill` and `clear` both wait for an
+   element to be *editable*, and a framework combobox ships its input
+   `readonly` until clicked, removing the attribute in its own handler. The
+   direct route times out on a field nothing is blocking; a click is not
+   subject to that check.
+
+Every action is capped at `ACTION_TIMEOUT_MS` (10s) rather than Playwright's
+30s default. A person is watching the step, and the loop retries — at 30s a
+step that fails both strategies costs over a minute before anyone is told.
 2. Still failing, the failure is handed back to the planner as a `setback` on
    the next iteration, and it may choose differently.
 3. Two consecutive setbacks and the run stops: `state.changed: stuck`, then
@@ -225,11 +284,16 @@ the ratio first, and must not assume it is 1.
 
 | Path | What it is |
 |---|---|
-| `backend/perception/serializer.py` | Page to numbered `Element` list |
-| `backend/perception/overlays.py` | Structural blocker and occlusion detection |
+| `backend/perception/serializer.py` | Page to numbered `Element` list, and the content channel |
+| `backend/perception/snapshot.py` | One parse of the CDP snapshot, shared by the three readers |
+| `backend/perception/overlays.py` | Structural blocker and occlusion detection, page-level and target-scoped |
+| `backend/perception/interactivity.py` | Controls the accessibility tree calls text |
+| `backend/perception/content.py` | What the page says: headings, tables, pairs, values |
 | `backend/orchestrator/loop.py` | The shared loop: perceive, present, act, verify, recover |
 | `backend/orchestrator/plan.py` | `PlanStep`/`Operation` types, registration plan, `HardcodedPlanner` |
 | `backend/orchestrator/billing_plan.py` | The billing flow's plan and task |
+| `backend/orchestrator/railways_plan.py` | The live read-only train search |
+| `tools/screen_site.py` | Screen a site before pointing anything at it |
 | `backend/orchestrator/browser.py` | Headless Chromium, or attach to the Electron host |
 | `backend/orchestrator/llm_loop.py` | `LLMPlanner`, the system prompt, `render_page` |
 | `backend/orchestrator/llm.py` | Provider interface, validation, token and cost accounting |

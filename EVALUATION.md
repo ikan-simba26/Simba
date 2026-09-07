@@ -438,19 +438,41 @@ number of enterprise and government single-page apps.
 Final state: **both fields empty**, page showing "Please enter search
 criteria". 124s.
 
-Two distinct failures, and the first is the more interesting:
+> **Corrected 2026-09-08.** The account first written here was wrong in
+> both of its parts, and the correction is more interesting than the error.
+> It is kept visible rather than quietly rewritten, because how the wrong
+> reading survived is itself the finding: the run's output was consistent
+> with it, and nothing was measured that would have contradicted it.
 
-1. **Step 1 passed verification and still did nothing.** `verify_typed` read
-   `LAHORE CANTT` back out of the From input immediately after filling it, so
-   the step was correct at the moment it was checked. Element UI clears the
-   input when it loses focus without a selection having been made from the
-   dropdown - and the selection is impossible, because the dropdown is
-   invisible to perception. The value evaporated one step later.
-2. **Step 2 could not reach its field.** The dropdown opened by step 1 covers
-   the To input, so both the fill and the clear-then-type retry timed out
-   against an intercepted element. `overlays.py` did not flag it: at roughly
-   220x180 it is far under `MIN_COVERAGE`, the same cookie-banner-shaped
-   blind spot already recorded on the billing replica.
+**What was written here first.** That step 1 filled the From field, verified
+it by reading it back, and had the value evaporate on blur; and that step 2
+timed out because the dropdown step 1 opened was covering the To input.
+
+**What actually happened**, established by reproducing it directly:
+
+1. **Step 1 never filled anything.** Both station inputs are `readonly` on
+   load - Element UI removes the attribute in its own click handler.
+   Playwright's `fill` waits for an element to be *editable*, which never
+   becomes true, so it timed out on a field nothing was blocking. No value
+   was ever typed, so `verify_typed` never ran and nothing was verified. The
+   step failed.
+2. **Nothing was covering the To input.** Measured: the From dropdown opens
+   at x 312-527, the To field sits at x 548-765. They do not overlap. Step 2
+   failed for the same reason step 1 did - `readonly` - and `Locator.clear`
+   is simply where the retry strategy happened to hit it.
+
+**Why step 1 looked like it had succeeded.** It did not; the loop did not
+say so. A first failed step increments `consecutive_setbacks`, records a
+setback for the planner, and `continue`s - with no message to the frontend
+at all. `HardcodedPlanner` ignores setbacks, so it served step 2, and the
+user saw `step 1` then `step 2` exactly as if the first had worked. The
+observable trace of a silently skipped step is identical to a successful
+one. **That is a defect in its own right and it is still open** - see
+STATUS.md.
+
+The original reading was reached by inference from a plausible mechanism
+(Element UI really does clear on blur) rather than from evidence. The
+evidence needed was two lines: the `readonly` attribute, and two rectangles.
 
 ### Two things the flow could not even express
 
@@ -463,6 +485,7 @@ Two distinct failures, and the first is the more interesting:
   interactive. A `Snapshot` is url, title and interactive labels, so there is
   nothing to assert against. `RAILWAYS_TASK.success` is `None`, and the run
   ends when the plan runs out rather than when the goal is met.
+  *(Fixed 2026-09-08: content extraction, and `Expectation.rows_at_least`.)*
 
 ### The gap between the replicas and a real site
 
@@ -487,6 +510,112 @@ here at once.
 The honest summary: **the walking skeleton works on pages built the way we
 build them, and does not yet work on a page we did not write.** Nothing in
 the loop is wrong. The gap is entirely in what perception can see.
+
+---
+
+## 2026-09-08 - the live flow completes
+
+Second pass at the railways flow, after five changes to perception and the
+loop. Same site, same read-only scope, same hardcoded plan, no LLM.
+
+### The run
+
+    step 1/5  Choose where you are travelling from.        ok
+    step 2/5  Choose where you are travelling to.          ok
+    step 3/5  Open the calendar and go to the right month. ok
+    step 4/5  Pick the day you want to travel.             ok
+    step 5/5  Search for trains.                           ok
+    task.completed - 5 steps, 46.1s, 0 model calls
+
+Final form state, read from the page: `From = 'LAHORE CANTT'`,
+`To = 'KARACHI CANTT'`, `Departure Date = '15-10-2026'`. One search request,
+fully populated:
+
+    {"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":"2026-10-15"}
+
+And the results, read back through the content channel:
+
+| Train No. | From/To | Time | Duration |
+|---|---|---|---|
+| 2DN | LAHORE CANTT KARACHI CANTT | 08:04 06:20 | 22 h 16 min |
+
+| | first run (2026-09-07) | this run |
+|---|---|---|
+| Steps reached | 2 of 4 | **5 of 5** |
+| Outcome | `help.requested` | `task.completed` |
+| Wall clock | 124s | **46s** |
+| Fields set at the end | none | all three |
+| Search request | never sent | sent, fully populated |
+| Results read | none possible | 1 row, headed |
+| Model calls | 0 | 0 |
+
+### What perception now sees that it could not
+
+Measured on the live page, same viewport, same user agent:
+
+| | before | after |
+|---|---|---|
+| Elements, search page idle | 18 | 18 |
+| Elements, after typing `LAH` | 18 | **24** |
+| Station options | 0 | **6** |
+| Elements, calendar open | 18 | **66** |
+| Day cells addressable | 0 | **42** |
+| Content: tables / rows after a search | - | 2 / 2 |
+| Form values visible to the loop | no | yes |
+
+The six stations are `li.el-select-dropdown__item` with no role, no
+tabindex and no aria, reaching the accessibility tree as `StaticText`. The
+day cells are `td`s with the same nothing. Both are found by computed
+`cursor: pointer` and nothing else. **The page was not modified.**
+
+Cost of looking: one `DOMSnapshot.captureSnapshot` that was already being
+fetched. Profiled on the live page - 2,374 DOM nodes idle, 2,690 with the
+calendar open:
+
+| | idle | calendar open |
+|---|---|---|
+| Whole `read()` | 0.19s | 0.22s |
+| of which captureSnapshot | 0.03s | 0.05s |
+| of which inference | 0.02s | 0.02s |
+| of which content extraction | 0.02s | 0.02s |
+
+### The wrong turn on the way, and what it cost
+
+The plan reached all five steps two runs before it completed, and took
+**3,704 seconds** - sixty-two minutes - to fail. Two causes, both worth
+recording:
+
+1. **A role that moved.** Inferred roles were partly decided by how many
+   same-class siblings an element had. Element UI gives calendar cells
+   classes like `available`, `prev-month available`, `today available`, so
+   the size of a cell's class-group depends on where in the month it falls:
+   the 15th came out `option` in one month and `button` in another, from
+   identical markup. The plan named `button`, found nothing, and every step
+   after it thrashed. Roles are now decided by position alone - inside a
+   floating panel, everything is an `option`.
+2. **Thirty-second timeouts.** Playwright's default. With two strategies per
+   step and several operations per strategy, a plan that cannot find its
+   target spends minutes doing nothing before anyone is told. `act` now caps
+   an action at 10s. The same failing plan would now cost roughly a fifth as
+   long, and a step a person is watching cannot hang for half a minute.
+
+A third, smaller one: with `rows_at_least=1` as the success condition, the
+run **reported success after three steps**. The open date picker is a
+well-formed `<table>` with `Sun`..`Sat` headers and six rows of days, so
+"the page has at least one row of results" was satisfied by opening a
+calendar. Content extraction now skips floating panels - a date picker is a
+control, not something the page says.
+
+### Still open after this
+
+- **The DOM is not the application's state.** Case 4 below, in full. The date
+  is the instance we found; there is no reason to think it is the only one.
+- **An unnamed submit button is addressed by ordinal.** It worked here only
+  because the page happens to have exactly one unnamed button.
+- **A single failed step is invisible to the user.** Unchanged, and it is how
+  the first run's diagnosis went wrong.
+- **A modal's content is skipped along with the date picker's**, because both
+  are floating panels and nothing yet tells them apart.
 
 ---
 
@@ -544,19 +673,51 @@ stale entry cannot survive into a new run. More usefully: the step count was
 also printed, it read `1 steps`, and that is what exposed it. A single
 boolean assertion would have passed.
 
-### 4. A field that was filled, verified, and then emptied itself
+### 4. A field that reads back correctly and is empty to the application
 
-**What matched.** `verify_typed` read `LAHORE CANTT` straight back out of the
-input immediately after filling it. The value was genuinely there.
+**Withdrawn and replaced, 2026-09-08.** This entry originally described a
+field that was filled, verified by read-back, and then emptied itself on
+blur. That is a real Element UI behaviour, but it is not what happened in the
+run cited: the field was never filled at all, because the input is `readonly`
+until clicked. See the correction in the 2026-09-07 entry.
 
-**What actually happened.** The live site's select clears its own input on
-blur unless an option was chosen from the dropdown, and the dropdown is
-invisible to perception. One step later the field was empty, and the run
-ended with both fields blank on a page reading "Please enter search criteria".
+The replacement is the same *class* of failure with evidence behind it, and
+it is worse than the withdrawn version.
 
-**What distinguishes them now.** Nothing does. Read-back verifies the moment,
-not the outcome, and the loop has no notion of a value that has to still be
-there later. Recorded rather than fixed - see the 2026-09-07 live-site entry.
+**What matched.** The Departure Date field was filled with `2026-10-15` and
+read straight back as `2026-10-15`. It still read `2026-10-15` at the next
+perceive, and the one after. By every check the loop had, and by anything
+visible on the screen, the date was set.
+
+**What actually happened.** It was not set. Element UI's date picker updates
+its bound model when a day is *picked*, not when text is typed into the
+input, and the two are not connected. The outgoing search request said:
+
+    {"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":""}
+
+The DOM said `2026-10-15`. The application said `""`. The search returned
+`{"msg":"E0117","code":500}` and the page showed its empty state, which reads
+as "no trains found" and means "you sent me no date".
+
+**What distinguishes them now.** Nothing does, and nothing in this design
+can. Read-back verifies the DOM, and **the DOM is not the application's
+state**. A framework keeps its truth in JavaScript that perception cannot
+reach and would have no business reaching. Every check available here -
+read-back, durable re-check, a screenshot in the trust panel - agrees with
+the DOM and is wrong together.
+
+The only defence found is indirect: drive the widget the way a person must,
+so the framework's own handlers run. The railways plan now picks the day from
+the calendar instead of typing it, and the request goes out populated. That
+is not verification, it is avoidance, and it works only because we knew to
+look. **Recorded as open.**
+
+**Durable verification was still worth building.** It does not catch this
+one, but it catches the blur case the withdrawn entry described - which is
+real, just not what happened here - and it is now under test
+(`test_durability.py`). What it changed: a value that stops being there ends
+the run and says so, instead of the loop carrying on with a form it believes
+is filled.
 
 ### The pattern
 
