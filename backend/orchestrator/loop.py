@@ -18,14 +18,19 @@ import base64
 import json
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
 from backend.orchestrator.plan import Expectation, Operation, Target
-from backend.perception.serializer import Element, serialize_async
+from backend.perception.content import Content
+from backend.perception.serializer import (
+    Element,
+    blockers_for_target_async,
+    read_async,
+)
 from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
@@ -44,14 +49,38 @@ from shared.schema import (
 
 VERIFY_TIMEOUT_S = 5.0
 
+# How long one action may take before it counts as not having worked.
+#
+# Playwright's own default is 30 seconds, which is the right default for a
+# test suite and the wrong one here twice over. A person is watching this
+# step happen, and half a minute of nothing is not a wait, it is a hang. And
+# the loop's whole design is to fail and try something else — at 30s a step
+# that retries once costs a minute before anyone is told, and the live
+# railways run spent most of an hour that way. A click that has not landed in
+# ten seconds is not going to.
+ACTION_TIMEOUT_MS = 10_000
+
 
 @dataclass(frozen=True)
 class Snapshot:
-    """Enough of the page's state to tell whether an action changed it."""
+    """Enough of the page's state to tell whether an action changed it.
+
+    `content` is what the page says, and it is part of the comparison as much
+    as the URL is: a search that fills a results table changes nothing else
+    about the page, and a snapshot blind to it would report that nothing
+    happened.
+    """
 
     url: str
     title: str
     labels: tuple[str, ...]
+    content: Content = field(default_factory=Content)
+    # What the form holds. A page whose fields have been filled is not the
+    # same page as one whose fields are empty, and until this was here the
+    # loop could not tell: a step that typed a station name into a combobox
+    # changed no URL, no title and no label, so `check` reported that the
+    # page "did not change at all" about a step that had just worked.
+    values: tuple[str, ...] = ()
 
 
 class Connection:
@@ -89,13 +118,15 @@ class Connection:
 
 
 async def perceive(page: Page) -> tuple[list[Element], Snapshot]:
-    elements = await serialize_async(page)
+    view = await read_async(page)
     snapshot = Snapshot(
         url=page.url,
         title=await page.title(),
-        labels=tuple(element.label for element in elements),
+        labels=tuple(element.label for element in view.elements),
+        content=view.content,
+        values=tuple(element.value for element in view.elements),
     )
-    return elements, snapshot
+    return view.elements, snapshot
 
 
 def pick(elements: list[Element], target: Target) -> int | None:
@@ -107,8 +138,19 @@ def pick(elements: list[Element], target: Target) -> int | None:
 
 
 def resolve(page: Page, elements: list[Element], element_id: int):
-    """Resolve an integer id back to something clickable."""
+    """Resolve an integer id back to something clickable.
+
+    Two routes, because there are two kinds of element. One the accessibility
+    tree named, and `get_by_role` finds it by that name. One perception
+    inferred from layout, which by definition has no role to look up — for
+    those, perception computed a structural path at the same moment it read
+    the page, and that path is what turns the id back into a handle. Either
+    way the resolution happens here, inside the backend, from an integer: no
+    planner ever sees or emits a selector (CLAUDE.md).
+    """
     element = next(e for e in elements if e.id == element_id)
+    if element.locator_hint:
+        return page.locator(element.locator_hint)
     twins = [e for e in elements if e.role == element.role and e.label == element.label]
     return page.get_by_role(element.role, name=element.label, exact=True).nth(
         twins.index(element)
@@ -120,16 +162,32 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
     """Perform one operation. `strategy` 1 is a different route to the same end."""
     locator = resolve(page, elements, element_id)
 
+    if operation.kind == "press":
+        await locator.press(value, timeout=ACTION_TIMEOUT_MS)
+        return
+
     if operation.kind == "fill":
         if strategy == 0:
-            await locator.fill(value)
+            await locator.fill(value, timeout=ACTION_TIMEOUT_MS)
         else:
-            await locator.clear()
-            await locator.press_sequentially(value)
+            # Click first, and edit with the keyboard rather than `clear`.
+            #
+            # `fill` and `clear` both require the element to be *editable*,
+            # and a component-framework combobox ships its input `readonly`
+            # until you click it — the framework removes the attribute in its
+            # own focus handler. Playwright never gets that far: it waits for
+            # editable, the attribute never clears, and thirty seconds later
+            # the step fails on a field that was never actually blocked. Both
+            # station inputs on the live railways search behave this way.
+            # A click is not subject to the editable check, so this route
+            # works where the direct one cannot.
+            await locator.click(timeout=ACTION_TIMEOUT_MS)
+            await locator.press("Control+a", timeout=ACTION_TIMEOUT_MS)
+            await locator.press_sequentially(value, timeout=ACTION_TIMEOUT_MS)
         return
 
     if strategy == 0:
-        await locator.click()
+        await locator.click(timeout=ACTION_TIMEOUT_MS)
     else:
         # Bypasses hit-testing and actionability, which is the usual reason
         # a click silently does nothing.
@@ -146,6 +204,15 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected {expect.label_gone!r} to be gone from the page"
     if expect.label_present and expect.label_present not in after.labels:
         return f"expected {expect.label_present!r} to appear on the page"
+    if expect.content_says and not after.content.says(expect.content_says):
+        return f"expected the page to say {expect.content_says!r}"
+    if expect.rows_at_least is not None:
+        rows = sum(len(table.rows) for table in after.content.tables)
+        if rows < expect.rows_at_least:
+            return (
+                f"expected at least {expect.rows_at_least} row(s) of results, "
+                f"the page has {rows}"
+            )
     return None
 
 
@@ -215,6 +282,18 @@ class Task:
 MAX_STEPS = 12
 
 
+# Keys, said the way a person would say them. "ArrowDown" is a thing the
+# keyboard has; "move down the list" is the thing that is about to happen, and
+# the trust panel is where someone decides whether to let it.
+KEY_CAPTIONS = {
+    "ArrowDown": "move down the list",
+    "ArrowUp": "move up the list",
+    "Enter": "choose what's highlighted",
+    "Escape": "close this without choosing",
+    "Tab": "move to the next field",
+}
+
+
 def caption_for(move: "Move") -> str:
     """Plain words for what is about to happen. Never the value being typed."""
     operation = move.operations[0] if move.operations else None
@@ -225,6 +304,9 @@ def caption_for(move: "Move") -> str:
         return f"I'm about to type your {where} in here."
     if operation.kind == "select":
         return f"I'm about to choose an option in {where}."
+    if operation.kind == "press":
+        key = operation.value or ""
+        return f"I'm about to {KEY_CAPTIONS.get(key, f'press {key}')} on {where}."
     return f"I'm about to click {where}."
 
 
@@ -293,6 +375,7 @@ async def run_task(
     steps_taken = 0
     last_failure: str | None = None
     completed: list[Move] = []
+    filled: list[FilledValue] = []
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -320,6 +403,25 @@ async def run_task(
     for _ in range(MAX_STEPS):
         await set_state("thinking")
         elements, before = await perceive(page)
+
+        # Durable verification: everything typed so far has to *still* be
+        # there, not merely have been there when it was typed.
+        #
+        # This hands control back rather than retrying, which is a departure
+        # from how every other failure is handled here, and deliberate. A
+        # retry exists for an action that did not take effect — a click that
+        # missed, a strategy that did not suit the widget — and a different
+        # strategy is a real chance at a different outcome. A value the page
+        # took back is not that. The typing worked; something on the page
+        # undid it afterwards, and repeating the same keystrokes invites the
+        # same undoing. Meanwhile every further step would be acting on a
+        # form that does not contain what the user was shown being entered,
+        # which is the exact class of silent wrongness the whole verification
+        # design exists to prevent. So: stop, and say so.
+        lapsed = await durability_failure(page, filled)
+        if lapsed is not None:
+            await give_up(lapsed)
+            return
 
         if task.success is not None and satisfies(before, task.success):
             break
@@ -390,6 +492,9 @@ async def run_task(
         last_failure = None
         completed.append(move)
         history.append(move.instruction)
+        # Anything typed on a page we have since left is not ours to police.
+        filled = [f for f in filled if f.url == page.url]
+        filled += await record_fills(page, move)
 
     _, final = await perceive(page)
     if task.success is not None and not satisfies(final, task.success):
@@ -439,6 +544,10 @@ async def attempt_move(
         if refusal is not None:
             return refusal
 
+        covered = await covering(page, element)
+        if covered is not None:
+            return covered
+
         try:
             await act(page, elements, element_id, operation, value, strategy)
         except PlaywrightError as error:
@@ -450,21 +559,130 @@ async def attempt_move(
             if typed is not None:
                 return typed
 
-    # Typing changes no URL, title or label, so a fill-only move is verified
-    # by the read-back above and nothing else. Demanding a page change here
-    # would fail every correctly typed field. A move that clicks, or that
-    # states an expectation of its own, still has to prove it on the page.
-    only_filled = all(operation.kind == "fill" for operation in move.operations)
-    if only_filled and move.expect == Expectation():
+    # Typing and key presses change no URL, title or label, so a move made
+    # only of those is verified by the read-back above and nothing else.
+    # Demanding a page change here would fail every correctly typed field. A
+    # move that clicks, or that states an expectation of its own, still has to
+    # prove it on the page — and so does a move of presses alone, which has no
+    # read-back to stand on.
+    kinds = {operation.kind for operation in move.operations}
+    only_input = kinds <= {"fill", "press"} and "fill" in kinds
+    if only_input and move.expect == Expectation():
         return None
 
     return await verify(page, before, move.expect)
+
+
+async def covering(page: Page, element: Element) -> str | None:
+    """Refuse to act on an element something is sitting on top of.
+
+    Asked per element and per attempt, because the thing this catches appears
+    *between* perceiving and acting: a dropdown the previous operation opened
+    is not in the perceive that chose this element.
+
+    The refusal is narrower than the detection deliberately. `analyse` reports
+    anything overlapping the target at all, however slightly; this only stops
+    the move when the blocker covers the point a click would actually land on.
+    An overlap at the edge of a bounding box does not stop a click, and
+    refusing there would fail moves that would have worked.
+    """
+    report = await blockers_for_target_async(page, element)
+    if not report.blockers:
+        return None
+    if element.backend_node_id not in report.occluded_ids:
+        return None
+    blocker = report.target_blockers[0] if report.target_blockers else report.blockers[0]
+    return (
+        f"{element.label or 'the element'} is covered by something else "
+        f"({blocker.reason}), so a click there cannot land"
+    )
+
+
+@dataclass(frozen=True)
+class FilledValue:
+    """A value this run put into a field, and where it put it."""
+
+    role: str
+    label: str
+    value: str
+    url: str
+
+
+async def record_fills(page: Page, move: Move) -> list[FilledValue]:
+    """What the fields a move filled actually hold, now that it has finished.
+
+    Read from the page rather than taken from the plan: the point is to
+    capture what is really there at the end of a successful step, so that the
+    next step can be told if it stopped being there.
+    """
+    fills = [o for o in move.operations if o.kind == "fill"]
+    if not fills:
+        return []
+    elements, _ = await perceive(page)
+    recorded: list[FilledValue] = []
+    for operation in fills:
+        element_id = pick(elements, operation.target)
+        if element_id is None:
+            continue
+        element = next(e for e in elements if e.id == element_id)
+        if element.is_password:
+            continue  # never hold a secret in run state, not even to check it
+        try:
+            actual = await resolve(page, elements, element_id).input_value()
+        except PlaywrightError:
+            continue
+        if actual:
+            recorded.append(
+                FilledValue(
+                    role=element.role, label=element.label, value=actual, url=page.url
+                )
+            )
+    return recorded
+
+
+async def durability_failure(
+    page: Page, recorded: list[FilledValue]
+) -> str | None:
+    """Whether a value this run typed has since stopped being there.
+
+    Reading a field back the instant after typing proves the keystrokes
+    arrived. It does not prove the value *stays*, and on a real page that is a
+    different question: a component-framework combobox clears its own input on
+    blur unless a choice was committed, so a field can verify correctly and be
+    empty by the time the step that depends on it runs. Verification that only
+    ever looks at the moment of typing cannot see that. This looks again at
+    the next perceive.
+
+    A field that has gone from the page entirely is not a failure — the page
+    navigated, which is the page-level check's business, not this one.
+    """
+    for record in recorded:
+        if record.url != page.url:
+            continue
+        elements, _ = await perceive(page)
+        element_id = pick(elements, Target(record.role, record.label))
+        if element_id is None:
+            continue
+        try:
+            actual = await resolve(page, elements, element_id).input_value()
+        except PlaywrightError:
+            continue
+        if actual != record.value:
+            return (
+                f"{record.label!r} no longer holds what I put in it — it held "
+                f"{record.value!r} and now holds {actual!r}"
+            )
+    return None
 
 
 def resolve_value(
     element: Element, operation: Operation, input_values: dict[str, str]
 ) -> tuple[str, str | None]:
     """Vault values beat anything a planner supplied. Returns (value, refusal)."""
+    if operation.kind == "press":
+        # A key name, not data. It never comes from the vault and never comes
+        # from the user's answers — "Enter" is part of the plan, not an input.
+        return operation.value or "", None
     if operation.kind != "fill":
         return "", None
 

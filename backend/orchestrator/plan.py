@@ -25,7 +25,19 @@ class Target:
 
 @dataclass(frozen=True)
 class Operation:
-    kind: Literal["fill", "click", "select"]
+    """One thing to do to one element.
+
+    `press` sends a key — "ArrowDown", "Enter", "Escape", "Control+a". It is
+    here because several real widgets have no other way through: a combobox
+    whose options are `li`s with no role can be driven by the keyboard even
+    when clicking is awkward, and a value the mouse cannot commit sometimes
+    commits on Enter. `value` carries the key name.
+
+    Additive: nothing crosses the frontend boundary that changed, so
+    `CONTRACT.md` and both schema files are untouched.
+    """
+
+    kind: Literal["fill", "click", "select", "press"]
     target: Target
     value_key: str | None = None  # which step.response input_value to type
     # A planner that already knows the id (the LLM does) sets it here; one
@@ -36,12 +48,26 @@ class Operation:
 
 @dataclass(frozen=True)
 class Expectation:
-    """What must be true of the page after a step, for it to count as done."""
+    """What must be true of the page after a step, for it to count as done.
+
+    The first four ask about the page's *chrome* — where you are and what you
+    can press. They are all a single-page app leaves you, and for a task whose
+    goal is to read something they are not enough: the railways search finishes
+    without the URL, the title or a single interactive label changing, so
+    nothing in this class could describe its success and `success` was left
+    `None` outright.
+
+    The last two ask about what the page *says*, which is what such a task was
+    always actually about.
+    """
 
     url_contains: str | None = None
     title_contains: str | None = None
     label_gone: str | None = None
     label_present: str | None = None
+    # Readable content, from perception's second channel.
+    content_says: str | None = None
+    rows_at_least: int | None = None
 
 
 @dataclass(frozen=True)

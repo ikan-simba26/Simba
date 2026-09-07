@@ -1,0 +1,310 @@
+"""Durable verification, and the keyboard.
+
+Reading a field back the instant after typing proves the keystrokes arrived.
+It does not prove the value is still there when the step that depends on it
+runs, and on a real page those are different questions: a component-framework
+combobox clears its own input on blur unless a choice was committed. A field
+can verify correctly and be empty two seconds later.
+
+The replicas do not behave that way, so the blur handler is attached here, in
+the test, to a page that is otherwise untouched. The replicas stay as they
+are — they are evidence, and editing them to suit the loop would spend the
+evidence (CLAUDE.md, and the standing instruction not to fix a replica to
+suit perception).
+"""
+
+import asyncio
+
+from playwright.async_api import async_playwright
+
+from backend.orchestrator.loop import (
+    Connection,
+    Move,
+    Task,
+    durability_failure,
+    record_fills,
+    run_task,
+)
+from backend.orchestrator.plan import (
+    Expectation,
+    HardcodedPlanner,
+    Operation,
+    PlanStep,
+    Target,
+)
+from backend.orchestrator.test_orchestrator import REPLICA_URL, replica  # noqa: F401
+from backend.orchestrator.test_verification import FakeConnection
+from shared.schema import StepAction, StepField
+
+CONFIRM = [StepAction(id="confirm", label="Go", kind="primary")]
+USERNAME = Target("textbox", "Student ID or Username")
+
+FILL_USERNAME = Move(
+    instruction="Type the username.",
+    detail="",
+    operations=[Operation("fill", USERNAME, "username")],
+    expect=Expectation(),
+    fields=[],
+    actions=[],
+)
+
+# Element UI's own behaviour, in one line: the input clears itself when it
+# loses focus unless a choice was committed from the dropdown. Attached on
+# DOMContentLoaded because an init script runs before the document exists.
+CLEAR_ON_BLUR = """
+    document.addEventListener('DOMContentLoaded', function () {
+        var field = document.getElementById('username');
+        if (field) {
+            field.addEventListener('blur', function () { this.value = ''; });
+        }
+    });
+"""
+
+
+def on_login(body, *, script: str | None = None):
+    """Run `body(page)` against the replica's login page. Returns its result."""
+
+    async def go():
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            try:
+                await page.goto(REPLICA_URL + "/")
+                if script:
+                    await page.evaluate(script)
+                return await body(page)
+            finally:
+                await browser.close()
+
+    return asyncio.run(go())
+
+
+# --- what was typed is remembered from the page, not from the plan ----------
+
+
+def test_a_fill_is_recorded_as_what_the_field_actually_holds(replica: str) -> None:  # noqa: F811
+    async def body(page):
+        await page.fill("#username", "raham")
+        return await record_fills(page, FILL_USERNAME)
+
+    recorded = on_login(body)
+
+    assert len(recorded) == 1
+    assert recorded[0].label == "Student ID or Username"
+    assert recorded[0].value == "raham"
+
+
+def test_a_password_is_never_held_in_run_state(replica: str) -> None:  # noqa: F811
+    """Not even to check it later. The vault rule has no verification exemption."""
+    move = Move(
+        instruction="Type the password.",
+        detail="",
+        operations=[Operation("fill", Target("textbox", "Password"), "password")],
+        expect=Expectation(),
+        fields=[],
+        actions=[],
+    )
+
+    async def body(page):
+        await page.fill("#password", "hunter2")
+        return await record_fills(page, move)
+
+    assert on_login(body, script=None) == []
+
+
+# --- the check itself -------------------------------------------------------
+
+
+def test_a_value_that_is_still_there_is_not_a_failure(replica: str) -> None:  # noqa: F811
+    async def body(page):
+        await page.fill("#username", "raham")
+        recorded = await record_fills(page, FILL_USERNAME)
+        return await durability_failure(page, recorded)
+
+    assert on_login(body) is None
+
+
+def test_a_value_that_vanished_is_caught_at_the_next_look(replica: str) -> None:  # noqa: F811
+    """The case read-back cannot see, because read-back already passed."""
+
+    async def body(page):
+        await page.fill("#username", "raham")
+        recorded = await record_fills(page, FILL_USERNAME)
+        # The page takes it back, the way the live railways select does.
+        await page.evaluate("document.getElementById('username').value = ''")
+        return await durability_failure(page, recorded)
+
+    failure = on_login(body)
+
+    assert failure is not None
+    assert "no longer holds" in failure
+    assert "'raham'" in failure and "''" in failure
+
+
+def test_a_field_that_left_with_the_page_is_not_a_failure(replica: str) -> None:  # noqa: F811
+    """Navigation is the page-level check's business, not this one's."""
+
+    async def body(page):
+        await page.fill("#username", "raham")
+        recorded = await record_fills(page, FILL_USERNAME)
+        await page.goto(REPLICA_URL + "/help")
+        return await durability_failure(page, recorded)
+
+    assert on_login(body) is None
+
+
+def test_nothing_recorded_means_nothing_to_check(replica: str) -> None:  # noqa: F811
+    assert on_login(lambda page: durability_failure(page, [])) is None
+
+
+# --- and in the loop --------------------------------------------------------
+
+
+def drive(plan: list[PlanStep], task: Task, script: str | None = None) -> FakeConnection:
+    async def go() -> FakeConnection:
+        connection = FakeConnection()
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            if script:
+                await page.add_init_script(script)
+            try:
+                await run_task(
+                    page, connection, HardcodedPlanner(plan), task, REPLICA_URL + "/"
+                )
+            finally:
+                await browser.close()
+        return connection
+
+    return asyncio.run(go())
+
+
+TWO_FILLS = [
+    PlanStep(
+        instruction="Type your username.",
+        detail="",
+        fields=[StepField(id="username", label="Username", type="text", value="")],
+        actions=CONFIRM,
+        operations=[Operation("fill", USERNAME, "username")],
+        expect=Expectation(),
+    ),
+    PlanStep(
+        instruction="Type your password.",
+        detail="",
+        fields=[StepField(id="password", label="Password", type="password", value="")],
+        actions=CONFIRM,
+        operations=[Operation("fill", Target("textbox", "Password"), "password")],
+        expect=Expectation(),
+    ),
+    PlanStep(
+        instruction="Sign in.",
+        detail="",
+        actions=CONFIRM,
+        operations=[Operation("click", Target("button", "Sign In"))],
+        expect=Expectation(url_contains="/courses"),
+    ),
+]
+
+SIGN_IN = Task(goal="Sign in.", estimated_steps=3,
+               success=Expectation(url_contains="/courses"))
+
+
+def test_the_loop_notices_a_field_that_emptied_itself(replica: str) -> None:  # noqa: F811
+    """The live-site failure, reproduced where it can be asserted on.
+
+    Step one types the username and verifies it by reading it back — which
+    passes, because at that instant the value is genuinely there. Step two
+    moves to the password field, the username blurs, and the page takes the
+    value back. Nothing in the run so far is capable of noticing.
+    """
+    connection = drive(TWO_FILLS, SIGN_IN, script=CLEAR_ON_BLUR)
+
+    help_requested = connection.of("help.requested")
+    assert help_requested, connection.types()
+    reason = help_requested[0]["reason"]
+    assert "Student ID or Username" in reason
+    assert "no longer holds" in reason
+
+
+def test_the_same_plan_finishes_when_the_page_behaves(replica: str) -> None:  # noqa: F811
+    """The control: without the blur handler the run completes as before."""
+    connection = drive(TWO_FILLS, SIGN_IN)
+
+    assert not connection.of("help.requested"), connection.types()
+    assert connection.of("task.completed")
+
+
+# --- the keyboard -----------------------------------------------------------
+
+
+PRESS_TO_SUBMIT = [
+    PlanStep(
+        instruction="Type your username.",
+        detail="",
+        actions=CONFIRM,
+        operations=[Operation("fill", USERNAME, "username")],
+        expect=Expectation(),
+    ),
+    PlanStep(
+        instruction="Type your password and send the form.",
+        detail="",
+        actions=CONFIRM,
+        operations=[
+            Operation("fill", Target("textbox", "Password"), "password"),
+            Operation("press", Target("textbox", "Password"), value="Enter"),
+        ],
+        expect=Expectation(url_contains="/courses"),
+    ),
+]
+
+
+def test_a_press_reaches_the_page(replica: str) -> None:  # noqa: F811
+    """Enter submits the form. No button is clicked anywhere in this plan.
+
+    `press` exists because several real widgets have no other route through —
+    a combobox whose options carry no role can still be driven by the
+    keyboard — and this proves the key actually arrives.
+    """
+    connection = drive(PRESS_TO_SUBMIT, SIGN_IN)
+
+    assert not connection.of("help.requested"), connection.types()
+    completed = connection.of("task.completed")
+    assert completed and "/courses" in completed[0]["summary"]
+
+
+def test_a_move_of_presses_alone_still_has_to_prove_itself(replica: str) -> None:  # noqa: F811
+    """A press has no read-back, so it cannot skip the page-level check.
+
+    Escape on the username field changes nothing, and a move that verifies
+    nothing must not be allowed to report success.
+    """
+    plan = [
+        PlanStep(
+            instruction="Press escape, which does nothing here.",
+            detail="",
+            actions=CONFIRM,
+            operations=[Operation("press", USERNAME, value="Escape")],
+            expect=Expectation(),
+        )
+    ]
+
+    connection = drive(plan, Task(goal="Press escape.", estimated_steps=1,
+                                  success=Expectation(url_contains="/courses")))
+
+    assert connection.of("help.requested"), connection.types()
+
+
+def test_the_caption_says_what_a_key_does_not_what_it_is_called() -> None:
+    """The trust panel is where someone decides to allow this."""
+    from backend.orchestrator.loop import caption_for
+
+    move = Move(
+        instruction="Choose a station.",
+        detail="",
+        operations=[Operation("press", Target("textbox", "From"), value="ArrowDown")],
+        expect=Expectation(),
+        fields=[],
+        actions=[],
+    )
+
+    assert caption_for(move) == "I'm about to move down the list on From."
