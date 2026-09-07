@@ -360,6 +360,136 @@ quota-permitting run away.
 
 ---
 
+## 2026-09-07 - a live site: Pakistan Railways train search
+
+Flow in `backend/orchestrator/railways_plan.py`. Read-only throughout: fill
+origin, destination and date, submit the search, read the results. Nothing
+booked, no login, no registration. One full loop run and about five page
+loads in total, spaced out - this is someone's public service.
+
+### Screening, before building anything
+
+`tools/screen_site.py`, which fetches robots.txt, loads each page and
+serializes it without ever filling or clicking.
+
+| page | robots | status | load | elements | named | unnamed | generated | dead links | overlay/occluded |
+|---|---|---|---|---|---|---|---|---|---|
+| `pakrail.gov.pk/` | no robots.txt (404) | 200 | 5421ms | 100 | 76 | 24 | 0 | 20 | 0/0 |
+| `pakrailways.gov.pk/train` | no robots.txt (HTML returned) | 200 | 2625ms | 18 | 14 | 4 | 0 | 3 | 0/0 |
+
+**The requested site does not have the requested feature.**
+`pakrail.gov.pk` is Pakistan Railways' informational site: ASP.NET `.aspx`
+pages, 100 interactive elements on the homepage, 98 of them links, and **no
+train search form anywhere on it**. Its own "Train Timings" link points at a
+different domain. The public search lives at `pakrailways.gov.pk/train` and
+is a **Vue single-page app** called RABTA - so the ASP.NET page the brief
+expected to test perception against is not the page the search is on.
+
+Neither domain serves a robots.txt: one 404s, the other returns its SPA's
+`index.html` for every path including that one. Nothing is disallowed, so a
+read-only search is fair game - but HTTP 200 was not enough to conclude that,
+and the screener now says so rather than parsing HTML as rules.
+
+### What perception sees on the real search page
+
+18 elements: 12 links, 3 buttons, 3 textboxes.
+
+| | count | note |
+|---|---|---|
+| Usefully named | 14 | From, To, Departure Date, Log in, Train Timings ... |
+| Empty accessible name | 4 | three links and **the search button** |
+| ASP.NET-style generated names | 0 | none - it is a SPA, not WebForms |
+| Overlays detected | 0 | correct; there is no modal or cookie banner |
+
+**No `ctl00$...` names at all.** The generated-name problem the brief
+anticipated did not appear, because the search is not a WebForms page. What
+appeared instead is worse.
+
+### The blocking finding: the dropdown does not exist
+
+Typing `LAH` into **From** opens a list of six stations - DERA ALLAHYAR,
+LAHORE JN., LAHORE CANTT, TANDO ALLAH YAR, KILLAABDULLAH, KOT NAJIBULLAH.
+They are plainly on screen.
+
+**The serializer sees none of them.** Element count before typing: 18. After
+typing: 18.
+
+The reason, from the DOM and the accessibility tree:
+
+    <li class="el-select-dropdown__item"><span>LAHORE CANTT</span></li>
+        role: none   tabindex: none   aria-label: none
+    AX: role StaticText (not ignored), plus InlineTextBox.
+        No option. No menuitem.
+
+Element UI renders its options as plain `li`/`span` with no ARIA and nothing
+focusable. They reach the accessibility tree only as text. `INTERACTIVE_ROLES`
+has no entry that can match them, so perception reports an empty dropdown on
+a page showing six choices.
+
+This is not exotic. Element UI and its successors sit behind a very large
+number of enterprise and government single-page apps.
+
+### What the loop did
+
+    step 1/4  Choose where you are travelling from.   verified, moved on
+    step 2/4  Choose where you are travelling to.     failed
+    help.requested - fill on 'To' failed: Locator.clear: Timeout 30000ms
+
+Final state: **both fields empty**, page showing "Please enter search
+criteria". 124s.
+
+Two distinct failures, and the first is the more interesting:
+
+1. **Step 1 passed verification and still did nothing.** `verify_typed` read
+   `LAHORE CANTT` back out of the From input immediately after filling it, so
+   the step was correct at the moment it was checked. Element UI clears the
+   input when it loses focus without a selection having been made from the
+   dropdown - and the selection is impossible, because the dropdown is
+   invisible to perception. The value evaporated one step later.
+2. **Step 2 could not reach its field.** The dropdown opened by step 1 covers
+   the To input, so both the fill and the clear-then-type retry timed out
+   against an intercepted element. `overlays.py` did not flag it: at roughly
+   220x180 it is far under `MIN_COVERAGE`, the same cookie-banner-shaped
+   blind spot already recorded on the billing replica.
+
+### Two things the flow could not even express
+
+- **The search button has no name.** `Target("button", "")` is the honest
+  description of what perception offers, and it matches every unnamed button
+  on the page. `resolve` would disambiguate by ordinal, which is
+  order-dependent and would break silently on a layout change.
+- **There is no success condition.** Results are a table of static text in a
+  SPA: the URL does not change, the title does not change, and no row is
+  interactive. A `Snapshot` is url, title and interactive labels, so there is
+  nothing to assert against. `RAILWAYS_TASK.success` is `None`, and the run
+  ends when the plan runs out rather than when the goal is met.
+
+### The gap between the replicas and a real site
+
+The replicas were built to be cluttered, and they are - 66 elements, a modal,
+a cookie banner, twenty dead nav links. What they were not built to be is
+*semantically poor*, and that turns out to be the difference that matters.
+
+| | replicas | live site |
+|---|---|---|
+| Every control has an accessible name | yes | 4 of 18 do not, including the submit |
+| Choices are real controls | button, a, input | li/span with no role |
+| A filled field stays filled | yes | only if a dropdown item was selected |
+| Blocking chrome is detectable | full-viewport modal | 220x180 dropdown, under threshold |
+| Success is observable | URL and title change | neither changes; results are static text |
+
+Every replica was written by someone who knew what perception reads. A real
+page is written by someone who has never heard of it, and the assumptions
+that went unexamined for three weeks - that a choice is a control, that a
+filled field stays filled, that finishing changes the URL - are all false
+here at once.
+
+The honest summary: **the walking skeleton works on pages built the way we
+build them, and does not yet work on a page we did not write.** Nothing in
+the loop is wrong. The gap is entirely in what perception can see.
+
+---
+
 ## When verification passes wrongly
 
 Three times now, something checked whether a thing worked, got "yes", and was
@@ -413,6 +543,20 @@ page for the right string and still got a wrong answer.
 stale entry cannot survive into a new run. More usefully: the step count was
 also printed, it read `1 steps`, and that is what exposed it. A single
 boolean assertion would have passed.
+
+### 4. A field that was filled, verified, and then emptied itself
+
+**What matched.** `verify_typed` read `LAHORE CANTT` straight back out of the
+input immediately after filling it. The value was genuinely there.
+
+**What actually happened.** The live site's select clears its own input on
+blur unless an option was chosen from the dropdown, and the dropdown is
+invisible to perception. One step later the field was empty, and the run
+ended with both fields blank on a page reading "Please enter search criteria".
+
+**What distinguishes them now.** Nothing does. Read-back verifies the moment,
+not the outcome, and the loop has no notion of a value that has to still be
+there later. Recorded rather than fixed - see the 2026-09-07 live-site entry.
 
 ### The pattern
 

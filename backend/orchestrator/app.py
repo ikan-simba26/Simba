@@ -35,6 +35,7 @@ from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
+from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
 from backend.orchestrator.traces import TraceStore, site_of
 
@@ -43,6 +44,8 @@ DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
 FLOWS = {
     "registration": (REGISTRATION_TASK, REGISTRATION_PLAN, "http://127.0.0.1:5000"),
     "billing": (BILLING_TASK, BILLING_PLAN, "http://127.0.0.1:5100"),
+    # The only flow that is not a replica we wrote. Read-only.
+    "railways": (RAILWAYS_TASK, RAILWAYS_PLAN, RAILWAYS_URL),
 }
 
 app = FastAPI()
