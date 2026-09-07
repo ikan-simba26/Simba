@@ -1,25 +1,26 @@
-"""Level 3 must never be the tallest layout.
+"""The levels are ordered by density, and level 3 is never the tallest.
 
-Level 3 exists for someone who is struggling. If it renders *taller* than the
-others for the same step, simplifying has made the page bigger, which is the
-opposite of the point and pushes content off screen. That happened: on a
-short step level 3 measured 208px against level 2's 176px, because the type
-grew faster than the removed regions shrank.
+**Levels vary by density, not by height** (DECISIONS.md). What decreases from
+level 1 to level 3 is how much is on screen and how many decisions it asks
+for: the progress counter, the detail line, the number of fields, and whether
+the second choice is a button or a line of text. Those are monotonic.
 
-**The full chain `h3 <= h2 <= h1` is not achievable and is not asserted.**
-Level 1 is the *compact* layout — smaller type, tighter spacing, and fields
-laid out inline with their labels rather than stacked above them — so it is
-consistently the shortest, not the tallest. Measured, at the same viewport:
+Total height is not, and is not asserted to be. Level 1 is the *compact*
+layout — smaller type, tighter spacing, fields inline beside their labels
+rather than stacked above them — so it is consistently the **shortest**:
 
     short step   L1 241   L2 253   L3 174
     medium step  L1 341   L2 418   L3 384
     long step    L1 539   L2 771   L3 542
 
-The gap widens with content because inline fields cost roughly half the
-height of stacked ones. Making level 1 the tallest would mean abandoning
-inline fields or giving it level 2's type and spacing, which is its entire
-brief. So what is enforced here is the invariant that actually prevents the
-bug: level 3 is never taller than either of the others.
+Inline fields cost roughly half the height of stacked ones, so the gap widens
+with content. Making level 1 the tallest would mean abandoning inline fields
+or giving it level 2's spacing, which is its whole brief.
+
+The one height claim worth enforcing is the one that prevents the original
+bug — simplifying must never push content off the screen — so level 3 must
+never be the tallest. It once was: 208px against level 2's 176px on a short
+step, because its type grew faster than its removed regions shrank.
 
 Measured in a real browser against the built overlay, because the thing under
 test is layout — jsdom would report zero for all of it.
@@ -212,31 +213,31 @@ def long_step(browser_page: Page, static_site: str, backend: Backend) -> dict[in
 
 
 @pytest.mark.parametrize("case", ["short", "medium", "long_step"])
-def test_level_3_is_never_taller_than_level_2(case: str, request) -> None:
-    """The bug this file exists for."""
+def test_simplifying_never_makes_the_step_taller(case: str, request) -> None:
+    """The one height guarantee: level 3 is never the tallest.
+
+    This is the bug the file exists for. Everything else about the levels is
+    a density claim, tested below.
+    """
     heights = request.getfixturevalue(case)
+    assert heights[3] <= max(heights[1], heights[2]), heights
     assert heights[3] <= heights[2], heights
 
 
 @pytest.mark.parametrize("case", ["short", "medium", "long_step"])
-def test_level_3_is_never_the_tallest(case: str, request) -> None:
-    heights = request.getfixturevalue(case)
-    assert heights[3] <= max(heights[1], heights[2]), heights
+def test_height_is_not_the_ordering_and_is_not_claimed_to_be(case: str, request) -> None:
+    """Level 1 is compact, so it is the shortest. Deliberate, not a drift.
 
-
-@pytest.mark.parametrize("case", ["short", "medium", "long_step"])
-def test_level_1_is_the_shortest_because_it_is_compact(case: str, request) -> None:
-    """Not a requirement — a consequence, asserted so it stays deliberate.
-
-    If this starts failing, level 1 has stopped being compact. That may be
-    the right call, but it should be a decision rather than a drift.
+    Asserted so that if someone later "fixes" level 1 into being the tallest,
+    this fails and points them at the decision rather than letting the
+    layout quietly change character.
     """
     heights = request.getfixturevalue(case)
     assert heights[1] <= heights[2], heights
 
 
 def test_the_levels_are_actually_different(medium: dict[int, int]) -> None:
-    """Monotonic is easy to satisfy by making them identical. They are not."""
+    """Any height claim is easy to satisfy by making them identical."""
     assert len({medium[1], medium[2], medium[3]}) == 3, medium
 
 
