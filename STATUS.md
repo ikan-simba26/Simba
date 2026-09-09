@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-08 · 169 passing, 6 skipped (5 need an Electron host, 1 needs `SIMBA_LIVE_TESTS=1`)
+**Last updated:** 2026-09-09 · 186 passing, 6 skipped (5 need an Electron host, 1 needs `SIMBA_LIVE_TESTS=1`)
 
 ---
 
@@ -17,14 +17,21 @@ its hidden site view over CDP, a task driven from the overlay through the
 contract to a real page and back. It does that on **three** flows — two
 replicas we wrote, and one live public site.
 
-It now *completes* on the live one: five steps, forty-six seconds, no model,
-choosing two stations from a dropdown and a date from a calendar that the
-accessibility tree does not know exist.
+It now *completes* on the live one with the hardcoded plan: five steps,
+forty-six seconds, no model, choosing two stations from a dropdown and a date
+from a calendar that the accessibility tree does not know exist.
 
-What it cannot do is trust the result. The one live case examined closely had
-a field reading back correctly while the application's own state was empty,
-and perception has no way to see that. See **Perception**, item 1, and
-EVALUATION.md 2026-09-08.
+**With the LLM it gets four of six steps** and stops on the fifth because it
+picked the 15th of the wrong month. It committed both stations from the
+inferred options unprompted, so the elements reach a model and a model can
+use them — see EVALUATION.md 2026-09-09 for what it took to get there and
+what perception still does not give it.
+
+What the system cannot do is trust its own result. A field can read back
+correctly at every check while the application submits something else, and no
+DOM-level observation catches it. That is a boundary of the approach rather
+than a bug in it, and it is now stated as one — EVALUATION.md, *"The DOM is
+not the application's state"*.
 
 ---
 
@@ -76,14 +83,23 @@ top three items from the previous entry are now done.
    ordinal, and worked only because that page has exactly one unnamed button.
    Inference deliberately drops unlabelled candidates for the same reason, so
    an icon-only control found by cursor is still not reportable.
-4. **Inference is confined to the first document.** Iframes arrive as further
+4. **An inferred label can be ambiguous, and nothing says so.** The live date
+   picker emits 42 day cells of which twelve are duplicate numbers: `option
+   '30'` appears twice, `option '1'` through `option '10'` twice each, because
+   the grid carries trailing days of the previous month and leading days of
+   the next. Element UI marks those `prev-month` / `next-month` in the class
+   attribute and `interactivity.py` discards it, so **"the 15th of October" is
+   not expressible in what a planner is given** — only "the 15th". The LLM run
+   picked the wrong month partly for this reason. Fixing it means letting an
+   inferred element carry a qualifier beyond its text.
+5. **Inference is confined to the first document.** Iframes arrive as further
    entries in the snapshot's `documents` and are not read.
-5. **Accordion expanded state is discarded.** The AX tree reports
+6. **Accordion expanded state is discarded.** The AX tree reports
    `expanded: False` and `build_elements` drops it.
-6. **`css_path` is positional.** An inferred element is addressed by an
+7. **`css_path` is positional.** An inferred element is addressed by an
    `nth-of-type` chain recomputed on every perceive, so staleness is bounded
    by the gap between perceiving and acting — but it is not zero.
-7. Page-side load features for the estimator: not started, correctly so.
+8. Page-side load features for the estimator: not started, correctly so.
 
 ---
 
@@ -113,32 +129,33 @@ top three items from the previous entry are now done.
   `rows_at_least`, so a task whose goal is to read something can say when it
   is done.
 - Refuses to act on an element something is sitting on top of.
+- **`step.failed`**: a step that failed and was carried past says so. The loop
+  no longer absorbs a setback in silence.
 - `ACTION_TIMEOUT_MS = 10s` rather than Playwright's 30s.
+- The railways date is computed from today, so the flow does not expire.
 - Drives its own headless Chromium or a real Electron hidden view.
 
 **In progress**
 - Nothing.
 
 **Blocked / open**
-- **A single failed step is invisible to the user.** The first setback
-  increments a counter, records a note for the planner and continues, with no
-  message to the frontend at all. `HardcodedPlanner` ignores setbacks, so the
-  step is silently skipped and the trace is indistinguishable from success.
-  This is how the first railways run was misdiagnosed for a day. **Needs a
-  contract decision** — probably an `error` or a step-level outcome — so it is
-  Raham's to propose and all three owners' to agree.
-- **A durability lapse gives up rather than letting a planner recover.**
-  Correct for the hardcoded path; an LLM told "commit the choice this time"
-  might genuinely fix it. Revisit when the LLM path runs against a live site.
+- **A durability lapse gives up rather than letting a planner recover.** It
+  has now fired twice on the live site with the LLM driving — once on a
+  station that emptied itself, once on a date set to the wrong month — and
+  both times stopping was right. But an LLM told "that value did not stick,
+  commit the choice this time" might genuinely fix it, and it never gets the
+  chance. Revisit; the evidence for either side now exists.
+- **The model cannot navigate a calendar.** It clicked the 15th of the month
+  the picker happened to open on, with `button 'Next Month'` in its list and
+  October in its goal. Partly perception's fault (see Perception item 4) and
+  partly a lite model's. Needs re-testing on the demo model before anything
+  is concluded.
 - **Trace memory has never run against a live model.** Replay needs none and
   is covered; the record-then-replay cycle on a real run is not. Blocked on
   API quota.
 - **The JS-click fallback can click through a modal.** With overlay detection
   off it does so in 10/10 runs and the run still passes — open question,
   flagged rather than decided.
-- **The railways plan is anchored to one date.** `MONTHS_AHEAD = 1` is only
-  true while today is in September 2026. That is what a hardcoded plan is, but
-  it means the flow expires.
 - Replay tuning (when to prefer a trace over fresh planning): not started.
 
 ---
@@ -161,6 +178,10 @@ top three items from the previous entry are now done.
   on any change the user did not make.
 - Overflow drops one level rather than growing a scrollbar.
 - The trust panel: an annotated still of the real page with the target ringed.
+- A quiet notice when a step failed and the run carried on past it
+  (`step.failed`). The muted card the level notice uses, not the stuck screen:
+  the run is still going, and dressing a recovered setback up as a failure
+  would teach people to distrust a system that is working.
 
 **In progress**
 - Nothing.
@@ -196,6 +217,8 @@ top three items from the previous entry are now done.
   build the envelope in one place.
 - `task.start.goal` is honoured rather than discarded, and `CONTRACT.md` says
   so explicitly.
+- **`step.failed`** added 2026-09-09 — additive, no rename, no removal. Both
+  schema files and CONTRACT.md carry it.
 
 **Blocked / open**
 - `CONTRACT.md` is still marked **DRAFT** and has never been ratified in a
@@ -219,9 +242,10 @@ top three items from the previous entry are now done.
 
 **Blocked / open**
 - **The demo-model ablation could not run.** Free tier allows 20 requests a
-  day against 4–5 per run. **Blocked on a paid API key.** Still the largest
-  gap in the evaluation.
-- No LLM run against the billing or railways flows, same quota block.
+  day against 4–6 per run. **Blocked on a paid API key.** Still the largest
+  gap in the evaluation, and now larger: the calendar failure is exactly the
+  kind of thing a stronger model may simply not have.
+- No LLM run against the billing flow, same quota block.
 - No baseline for the LLM against a goal it has not seen.
 
 ---
@@ -233,7 +257,7 @@ top three items from the previous entry are now done.
   flow.
 - `tools/screen_site.py` — screen a site before pointing anything at it.
 - `spike/` proves the Electron + CDP + Playwright arrangement.
-- 175 tests from the repo root with `python -m pytest`; 5 Electron integration
+- 192 tests from the repo root with `python -m pytest`; 5 Electron integration
   tests skip unless a host is running, and the live-site test needs
   `SIMBA_LIVE_TESTS=1`.
 

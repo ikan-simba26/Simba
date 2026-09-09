@@ -619,6 +619,152 @@ control, not something the page says.
 
 ---
 
+## 2026-09-09 - the model meets an element the page never declared
+
+First LLM run on a live site, and the first time a model has been shown
+elements whose role perception guessed at. `gemini-3.1-flash-lite`, same
+railways flow, same read-only scope. Two runs and one single-call probe: nine
+requests against a 20-a-day quota.
+
+### Run 1 - the model was told, and did it anyway
+
+    step 1/5  Fill in From.    "entering the departure station into the 'From' field"
+    step 2/5  Fill in To.      "enter the destination station to proceed"
+    help.requested - 'From' no longer holds what I put in it, it held
+                     'LAHORE CANTT' and now holds ''
+
+Two model calls, 48.9s. What makes this worth recording is that the model
+**was shown the option and the rule, and chose neither.** Its second prompt
+ended:
+
+    19. option 'LAHORE CANTT'  <- INFERRED (role worked out from layout, not declared)
+
+and the system prompt carried, among nine rules:
+
+    - A dropdown option only counts as chosen when you click it. Typing text
+      into the field above it is not choosing; many pages will discard what
+      you typed. If you have typed into a field and INFERRED options have
+      appeared, click the one you want before doing anything else.
+
+It answered:
+
+    {"action": "type", "element_id": 11, "value": "KARACHI CANTT",
+     "reasoning": "I will now enter the destination station to proceed with
+                   your train search."}
+
+From where the model sits this is reasonable: it typed `LAHORE CANTT` into
+From, the history line says `1. Fill in From.`, and the field is done. The
+page disagrees, and says so only by silently emptying the field once focus
+moves. That is the same mistake a person makes on this site.
+
+**Durable verification caught it**, and this is the first time it has fired on
+something real rather than on a blur handler attached in a test. The withdrawn
+case 4 described exactly this behaviour on the wrong evidence; here it is on
+the right evidence, from the live page, ending the run instead of submitting
+an empty search.
+
+### The fix: a banner, not a rule
+
+The failure is one this module had already solved once. `render_page` does not
+list a modal's buttons and hope the model notices — it prints a banner above
+the list, because a rule among nine is not read at the moment it matters. The
+same move now applies to open choices:
+
+    A LIST OF CHOICES IS OPEN, with N option(s) marked INFERRED below. Nothing
+    is chosen yet. Typing the text is not choosing: click the option you want
+    NOW, before touching any other field, or what you typed will be discarded.
+
+Re-asking the one decision that failed, same page state, one model call:
+
+    {"action": "click", "element_id": 19, "value": null,
+     "reasoning": "Clicking the inferred 'LAHORE CANTT' option confirms your
+                   origin selection."}
+
+### Run 2 - with the banner
+
+    step 1/5  Fill in From.
+    step 2/5  Click LAHORE CANTT.          <- inferred option
+    step 3/5  Fill in To.
+    step 4/5  Click KARACHI CANTT.         <- inferred option
+    step 5/5  Fill in Departure Date.
+    step 6/6  Click 15.                    <- inferred calendar cell
+    help.requested - 'Departure Date' no longer holds what I put in it, it
+                     held '2026-10-15' and now holds '15-09-2026'
+
+Six model calls, 73.4s, 4,808 tokens, $0.00058. Final state: `From = 'LAHORE
+CANTT'`, `To = 'KARACHI CANTT'`, both committed correctly.
+
+**Both questions answered.** The model picks a station from the inferred
+options, by exact name, twice. And it understands the marking: asked again at
+the decision it had failed, it wrote *"clicking the inferred 'LAHORE CANTT'
+option"* - it read the flag, used the word, and treated the element as a real
+control rather than as something suspect. Nothing about `inferred` needed
+explaining beyond one sentence.
+
+### The step it got wrong
+
+Call 6. The goal says **2026-10-15**. The listing it was given:
+
+    A LIST OF CHOICES IS OPEN, with 42 option(s) marked INFERRED below. ...
+    22. button 'September'
+    24. button 'Next Month' [input type=button]
+    25. option '30'   <- INFERRED
+    26. option '31'   <- INFERRED
+    27. option '1'    <- INFERRED
+    ...
+    41. option '15'   <- INFERRED
+    ...
+    56. option '30'   <- INFERRED
+    57. option '1'    <- INFERRED
+    ...
+
+Its answer:
+
+    {"action": "click", "element_id": 41, "value": null,
+     "reasoning": "I am selecting the 15th of the month from the date picker
+                   to finalize the departure date."}
+
+Element 41 is the 15th **of September**. The picker opens on the current
+month; the goal is next month; `24. button 'Next Month'` was right there and
+the model did not press it. The field became `15-09-2026`, durable
+verification saw the value it had typed replaced by a different one, and the
+run stopped rather than searching for the wrong date.
+
+Two separate faults, and only one of them is the model's:
+
+1. **The model did not reason about the month.** It had `button 'September'`
+   in the list and a goal naming October. This is a planning failure and a
+   fair one to attribute to a lite model.
+2. **Perception gave it no way to be right even if it had.** Look at the
+   list: `option '30'` appears at 25 *and* 56. `option '1'` at 27 *and* 57.
+   The calendar's trailing days from August and leading days from October are
+   emitted identically to September's own. Element UI marks them
+   `prev-month` and `next-month` in the class attribute and
+   `interactivity.py` discards it. A day cell's label is a bare number with
+   no month attached, so **"the 15th of October" is not expressible in what a
+   planner is given**. Here 15 happened to be unique and the model still had
+   to infer the month from a separate button. This is perception's fault, not
+   the model's, and it is now an open item.
+
+### What this says about inferred elements generally
+
+| Question | Answer |
+|---|---|
+| Do inferred elements reach the model? | Yes, numbered like any other |
+| Can it choose one? | Yes - two stations and a calendar day, unprompted after the banner |
+| Does it understand the role is a guess? | Yes, and says so in its reasoning |
+| Does the marking make it hesitant? | No. It clicked without hedging |
+| Is a rule in the prompt list enough? | **No.** A banner is |
+| Are the labels sufficient to choose correctly? | **Not for a calendar.** 42 options, 12 of them duplicate numbers |
+
+The headline is the last two rows. Perception now surfaces the controls, and
+a small model can drive them - but only when told at the moment of the
+decision rather than in a list of standing rules, and only when the labels
+carry enough to tell one option from another. A dropdown of station names
+satisfies that. A month of numbered days does not.
+
+---
+
 ## When verification passes wrongly
 
 Three times now, something checked whether a thing worked, got "yes", and was
@@ -719,6 +865,44 @@ real, just not what happened here - and it is now under test
 the run and says so, instead of the loop carrying on with a form it believes
 is filled.
 
+### 5. A step that failed, was skipped, and left no trace of either
+
+**What matched.** A run that reached every step and reported
+`task.completed`. Read as a message stream: `step.presented(1)`,
+`step.presented(2)`, `task.completed`. Nothing anywhere said otherwise.
+
+**What actually happened.** Step 1 failed both strategies. The loop is built
+to absorb a first failure — it increments `consecutive_setbacks`, hands the
+reason to the planner as a `setback`, and continues, which is the right
+design: a planner that can re-plan should get the chance. But
+`HardcodedPlanner` ignores setbacks by construction, so it simply served step
+2, and **nothing at all was sent to the frontend**. The emitted trace of a
+silently skipped step was byte-for-byte identical to the trace of a completed
+one.
+
+**What it cost.** A day. The first live railways run (2026-09-07) was read as
+"step 1 filled the From field, verified it, and the value evaporated on blur"
+— a coherent story, consistent with every message the run emitted, and wrong.
+Step 1 had never filled anything; the input was `readonly`. The whole
+published account of that run had to be withdrawn and rewritten, and the
+mechanism it blamed was not present on the page. The wrong reading survived
+because **nothing that was recorded could have contradicted it**.
+
+**What distinguishes them now.** `step.failed` (CONTRACT.md, 2026-09-09),
+carrying the step index, the instruction in the words the user was shown, the
+reason, and how many strategies were tried. The overlay shows it briefly and
+quietly — the run is still going, and dressing a recovered setback up as a
+failure would teach people to distrust a system that is working — but it is
+never silent. Four tests pin it down, including that a run where nothing
+fails stays quiet, and that giving up does not also report a skip.
+
+**The general lesson, which is not about this bug.** The other four cases here
+were all found by putting a second number next to the first. This one could
+not be, because the second number did not exist. An agent that recovers from
+its own errors must emit the fact that it recovered, or its successes and its
+near-misses are the same observation — and the person debugging it, or the
+person using it, has no way to tell which one they are looking at.
+
 ### The pattern
 
 Every one of these passed a check that was true but not sufficient: the click
@@ -757,6 +941,72 @@ breakage and nothing else. Report it alongside steps, wall clock, path
 variance, and whether the recovery path had to fire; a run that only
 completes because retry rescued it is not the same as a run that went right,
 and only the other columns can tell them apart.
+
+---
+
+## The DOM is not the application's state
+
+A boundary of this approach rather than a defect in it, and worth stating
+plainly because everything perception does sits inside it.
+
+Perception reads the accessibility tree, the DOM and computed layout. Between
+them those describe what a page *is showing*. They do not describe what the
+application running the page *believes*, and on a single-page app those are
+two different things that can disagree without any visible sign.
+
+**The evidence.** The live railways date field, 2026-09-08:
+
+| Observation | Value |
+|---|---|
+| `input.value`, read back immediately after typing | `2026-10-15` |
+| `input.value`, at the next perceive | `2026-10-15` |
+| `input.value`, at every perceive after that | `2026-10-15` |
+| What the screenshot in the trust panel showed | `2026-10-15` |
+| **What the application submitted** | **`"travelDate":""`** |
+
+The outgoing request was
+`{"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":""}`. The
+server answered `{"msg":"E0117","code":500}` and the page showed its empty
+state, which reads as "no trains found" and means "you sent me no date".
+
+Element UI's date picker updates its bound model when a day is *picked*. Text
+typed into the input updates the input and nothing else. The two are simply
+not connected, and no amount of looking at the input can reveal that.
+
+**Why no DOM-level observation would have caught it.** Every signal available
+to this design is downstream of the DOM:
+
+- **Read-back** reads `input.value`. Correct.
+- **Durable verification** reads `input.value` again, later. Still correct —
+  the value never went anywhere.
+- **The `Snapshot` diff** compares URL, title, labels, form values and
+  content. All consistent, all describing a filled form.
+- **The trust panel** screenshots the rendered page. The user would have seen
+  the right date and approved.
+
+All four agree, and all four are wrong together, because they are four views
+of one source. Adding a fifth DOM-level check would add a fifth agreeing
+wrong answer. This is not a gap that more careful reading closes.
+
+**What would actually close it**, none of it currently in scope:
+
+1. **Watch the network.** The request body is the application's state, stated
+   by the application. It is also the only signal here that was *right*. CDP
+   gives it for free via `Network.requestWillBeSent`. This is the strongest
+   option and the one to try first.
+2. **Read the framework's model directly** — Vue's `__vue__`, React's fibre.
+   Per-framework, version-fragile, and it would put SIMBA inside the page in
+   a way the rest of the design carefully avoids.
+3. **Drive every widget the way a person must** and never type into anything
+   that looks like a picker. This is what the railways plan does now, and it
+   works — but it is avoidance, not verification. It only worked because we
+   already knew to look, which is exactly the knowledge a real user does not
+   have.
+
+**The honest summary.** SIMBA can verify that a page *looks* the way a step
+intended. It cannot currently verify that the application *agrees*, and on
+framework-driven sites those come apart quietly. Every claim this project
+makes about verification should be read with that boundary attached.
 
 ---
 
