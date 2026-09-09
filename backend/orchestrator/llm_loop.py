@@ -65,15 +65,32 @@ def render_page(elements: list[Element]) -> str:
 
     Perception's structural flags are spelled out rather than left implicit.
     A model cannot infer from a list of sixty buttons that one of them belongs
-    to a modal covering the rest.
+    to a modal covering the rest — nor that six of them appeared a moment ago
+    because someone started typing, and are the only way to commit a choice.
     """
     blocked = any(element.overlay for element in elements)
+    choices = [e for e in elements if e.inferred and e.role == "option"]
 
     lines = []
     if blocked:
         lines += [
             "AN OVERLAY IS COVERING THE PAGE. Everything marked OCCLUDED is "
             "unreachable until it is dismissed, using an OVERLAY element.",
+            "",
+        ]
+    if choices:
+        # A banner, not a rule in the list. The same move the OVERLAY case
+        # makes, for the same reason and on the same evidence: told as one
+        # rule among nine, a model reads it and proceeds anyway. The first
+        # live LLM run was shown `option 'LAHORE CANTT'` and the rule saying
+        # to click it, and typed into the next field instead — because from
+        # where it sits, having typed the station name, the field is done.
+        # The page disagrees, and says so only by silently emptying it.
+        lines += [
+            f"A LIST OF CHOICES IS OPEN, with {len(choices)} option(s) marked "
+            "INFERRED below. Nothing is chosen yet. Typing the text is not "
+            "choosing: click the option you want NOW, before touching any "
+            "other field, or what you typed will be discarded.",
             "",
         ]
 
@@ -87,6 +104,13 @@ def render_page(elements: list[Element]) -> str:
             line += "  <- OCCLUDED, cannot be clicked"
         if element.dead_link:
             line += "  <- dead link, goes nowhere"
+        if element.inferred:
+            # Say that the role is a guess. The model is choosing partly on
+            # the strength of the role word, and "option" read from the page
+            # and "option" worked out from a mouse cursor are not the same
+            # claim. Collapsing them would hide the uncertainty in exactly
+            # the place it matters.
+            line += "  <- INFERRED (role worked out from layout, not declared)"
         lines.append(line)
     return "\n".join(lines)
 
