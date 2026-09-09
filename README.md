@@ -55,26 +55,111 @@ npm install
 npm run dev
 ```
 
-## Running the walking skeleton
+## Running it
 
-Two terminals, from the repo root:
+Three ways, in order of how much has to be running. Start at the top: if the
+tests pass, most of the system is already proven, and the later steps mainly
+prove the *wiring*.
 
-```bash
-cd replicas/registration && python app.py          # the target site
-python -m uvicorn backend.orchestrator.app:app     # the backend, on /ws
-```
-
-The frontend connects to `ws://127.0.0.1:8000/ws`, sends `task.start`, and
-answers each `step.presented` with a `step.response`. With no frontend yet,
-`tools/mock_backend.py` plays the other side of the same conversation.
-
-## Tests
+### 1. The tests — nothing has to be running
 
 ```bash
 python -m pytest        # from the repo root
 ```
 
-The tests start the replicas they need, so nothing has to be running first.
+The tests start the replicas they need. 214 pass; 7 skip, and the skips are
+deliberate — 5 want a live Electron host (see 3 below) and 2 want
+`SIMBA_LIVE_TESTS=1`, which points at a real public website.
+
+```bash
+SIMBA_LIVE_TESTS=1 python -m pytest -k live     # hits pakrailways.gov.pk
+```
+
+### 2. One flow, headless — no frontend, no Electron
+
+The backend can drive its own Chromium. This is the fastest way to watch the
+loop work end to end.
+
+```bash
+# terminal 1 — the target site (skip for the railways flow, which is live)
+python replicas/registration/app.py                      # port 5000
+python replicas/billing/app.py                           # port 5100
+
+# terminal 2 — the backend
+SIMBA_FLOW=registration SIMBA_USE_HARDCODED_PLAN=1 \
+  python -m uvicorn backend.orchestrator.app:app --port 8000
+```
+
+`curl http://127.0.0.1:8000/` reports what it is configured to do. Nothing
+happens until something connects to `/ws` and sends `task.start` — either the
+overlay (3 below) or a script.
+
+### 3. The whole stack — Electron host, overlay, hidden site view
+
+Three terminals, in this order. Order matters: the backend attaches to the
+host, so the host has to exist first.
+
+```bash
+# 1. the target site
+python replicas/registration/app.py
+
+# 2. the Electron host: the window, the overlay, and the hidden site view
+cd frontend && npm install
+SIMBA_START_URL=http://127.0.0.1:5000 npm start
+
+# 3. the backend, attached to the host over CDP
+SIMBA_FLOW=registration SIMBA_USE_HARDCODED_PLAN=1 SIMBA_BROWSER=electron \
+  python -m uvicorn backend.orchestrator.app:app --port 8000
+```
+
+Type a goal in the window and press Start. The overlay talks to
+`ws://127.0.0.1:8000/ws`; the backend drives the site view the window is
+hiding. `http://127.0.0.1:9222/json/list` should show two targets — the
+overlay (`dist/index.html`) and the site.
+
+With the host up, the 5 skipped tests run:
+
+```bash
+python -m pytest backend/orchestrator/test_electron_stack.py
+```
+
+**If the Electron window never appears**, check `ELECTRON_RUN_AS_NODE`:
+
+```bash
+env | grep ELECTRON_RUN_AS_NODE        # PowerShell: $env:ELECTRON_RUN_AS_NODE
+```
+
+If it is set, the Electron binary runs as plain Node — no window, no CDP, and
+an error naming your entry point rather than the real cause. Some editors set
+it in their integrated terminal. Start the host from a terminal where it is
+unset, or clear it for the one command.
+
+### The overlay on its own
+
+The overlay is a plain web page, so it can be driven without Electron at all:
+build it, serve `frontend/dist`, and point it at the mock backend, which
+plays the backend's side of the whole conversation.
+
+```bash
+python -m uvicorn tools.mock_backend:app --port 8000
+```
+
+## Switches
+
+All environment variables, all read at the backend.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SIMBA_FLOW` | `registration` | `registration`, `billing`, or `railways` (live, read-only) |
+| `SIMBA_USE_HARDCODED_PLAN` | off | Run the flow's written plan instead of the LLM |
+| `SIMBA_BROWSER` | `chromium` | `electron` attaches to a running host over CDP |
+| `SIMBA_TRACE_MEMORY` | off | Replay a goal already done on this site from SQLite |
+| `SIMBA_REPLICA_URL` | per flow | Override the site the flow opens |
+| `SIMBA_OVERLAY_DETECTION` | on | Ablation switch for structural blocker detection |
+| `SIMBA_INFERRED_ROLES` | on | Ablation switch for non-semantic control detection |
+| `SIMBA_LIVE_TESTS` | off | Let the two tests that hit a real website run |
+
+The LLM path needs `.env` — see `CLAUDE.md`. It is never committed.
 
 ## Conventions
 
