@@ -18,8 +18,10 @@ contract to a real page and back. It does that on **three** flows — two
 replicas we wrote, and one live public site.
 
 It now *completes* on the live one with the hardcoded plan: five steps,
-forty-six seconds, no model, choosing two stations from a dropdown and a date
-from a calendar that the accessibility tree does not know exist.
+fifty-four seconds, no model, choosing two stations from a dropdown and a date
+from a calendar that the accessibility tree does not know exist. Re-verified
+2026-09-09 against the stricter success condition — `Departure Date` holding
+`15-10-2026`, `travelDate: "2026-10-15"` on the wire, one train back.
 
 **With the LLM it produced a wrong answer, and that has been closed off.** It
 commits both stations from the inferred options unprompted, then set the date
@@ -35,7 +37,11 @@ button. The third — continuing past a durability lapse — was a change made
 that morning and reverted the same evening. **A lapse ends the run again.**
 
 What remains unmeasured is whether any of it changes what the model does.
-That needs a live run and the day's quota is spent.
+**The confirming LLM run has not been made**: 17 of the day's 20 requests were
+already spent on the runs that found the problem, and a run needs 6–7. Not
+started rather than started and abandoned — a partial run would burn the quota
+without answering anything. See *Waiting on quota* below for the three
+questions it settles and what to look for.
 
 What the system cannot do is trust its own result. A field can read back
 correctly at every check while the application submits something else, and no
@@ -44,6 +50,35 @@ than a bug in it, and it is now stated as one — EVALUATION.md, *"The DOM is
 not the application's state"*.
 
 ---
+
+## Waiting on quota
+
+Three changes are verified everywhere they can be without a model and have
+never been through a whole task with one. This is the single outstanding
+piece of evidence in the project right now, and it is one run.
+
+| Question | Known | Unknown |
+|---|---|---|
+| Does the **promoted setback** change a run, not just one decision? | One call, same page state, same words moved above the element list: the model went from clicking search to addressing the date | Whether it holds across a run, and whether the model then does something that *works* rather than re-typing |
+| Does **stating the visible month** change what the model picks? | The banner reads `IT IS SHOWING: 2026 September`, and `2026 October` after `Next Month`. Live-tested | Nothing. No model has seen it |
+| Does **`value_is`** make a real run fail rather than complete? | The exact failing snapshot fails in `test_success_conditions.py`; a correct hardcoded run still completes with it | Whether a live LLM run on a wrong date ends in `help.requested` |
+
+**The run to make.** Railways, LLM planner, one run, when 8+ requests are
+free. `.scratch/rail_llm.py` drives it.
+
+**What each outcome means.**
+
+- `help.requested` naming the departure date — the intended result. `value_is`
+  did its job on a real run.
+- `task.completed` **on the goal's date** — also a pass, and a better one: the
+  model navigated the calendar, which it has never done.
+- `task.completed` on any other date — **`value_is` is not wired the way the
+  tests believe**, and the unit tests are testing a snapshot the loop does not
+  actually build. That would be the most important thing to find.
+
+Quota is 20 requests a day for `gemini-3.1-flash-lite`, which is 2–3 runs.
+Counting what has been spent: `python -c "..."` over `logs/llm-<date>-*.jsonl`,
+one request per record carrying a `user` key.
 
 ## Perception — Nahail · `backend/perception/`
 
@@ -142,7 +177,8 @@ top three items from the previous entry are now done.
 - **`Expectation.value_is`**: a success condition can require a named field to
   hold a given value, read from the values `Snapshot` already carries. The
   railways task uses it, so the run that searched the wrong date would now
-  fail instead of completing.
+  fail instead of completing. Confirmed not to reject a *correct* run: the
+  hardcoded flow still completes with it (2026-09-09, 5/5, 54s).
 - **`press`** as a fourth operation — arrow keys, Enter, Escape. Additive;
   `CONTRACT.md` and both schema files untouched.
 - **Content-based success conditions**: `Expectation.content_says` and
@@ -173,7 +209,8 @@ top three items from the previous entry are now done.
 - **Three changes are unverified end to end.** The promoted setback, the
   panel heading, and `value_is` in a live run. All three are tested at the
   unit and page level; none has been through a whole task with a model.
-  **Blocked on quota.**
+  **Blocked on quota** — see *Waiting on quota* at the top for the run to
+  make and what each outcome would mean.
 - **Trace memory has never run against a live model.** Replay needs none and
   is covered; the record-then-replay cycle on a real run is not. Blocked on
   API quota.
