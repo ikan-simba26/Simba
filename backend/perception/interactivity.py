@@ -79,6 +79,16 @@ INFERRED_ACTIONS = {"option": "click", "menuitem": "click", "button": "click"}
 # attribute in the wild is mostly styling and would drown a planner in noise.
 # Order matters: the first match wins, so the two that change *which element
 # this is* come before the two that merely describe its state.
+# Class fragments that mark the part of a floating panel which says what the
+# panel is showing. A date picker's header holds the month and year; a
+# dropdown has none, and needs none, because its options name themselves.
+#
+# Substring matches rather than whole tokens, because libraries compose these
+# — `el-date-picker__header`, `mat-calendar-header`, `DayPicker-Caption`.
+HEADING_CLASS_HINTS = ("header", "heading", "title", "caption")
+# A heading is a few words. Anything longer is the panel's contents.
+MAX_HEADING = 80
+
 QUALIFIER_TOKENS: tuple[tuple[frozenset[str], str], ...] = (
     (frozenset({"prev-month", "prev", "previous-month", "other-month--prev"}),
      "previous month"),
@@ -105,6 +115,12 @@ class Inferred:
     # calendar grid it is what marks a day as belonging to the month on
     # screen rather than to the one either side of it.
     qualifier: str = ""
+    # What the floating panel this element sits in says it is showing —
+    # "2026 September" for a date picker. Empty for a panel with no heading,
+    # which is most of them: a station list needs none because its options
+    # name themselves. A calendar does, because every month looks alike and
+    # the difference between them is stated once, at the top.
+    panel: str = ""
 
     @property
     def action(self) -> str:
@@ -177,6 +193,10 @@ def find_inferred(
         if any(d != node_index and d in remaining for d in document.subtree(node_index))
     }
 
+    # One heading per panel, not one per option: a 42-cell calendar would
+    # otherwise walk the same subtree 42 times.
+    headings: dict[int, str] = {}
+
     found: list[Inferred] = []
     for node_index in surviving:
         if node_index in contains_another:
@@ -210,6 +230,7 @@ def find_inferred(
                 signal="cursor" if node_index in pointer else "group",
                 css_path=document.css_path(node_index),
                 qualifier=_qualifier_for(document, node_index),
+                panel=_panel_of(document, node_index, headings),
             )
         )
     return found
@@ -264,8 +285,8 @@ def _group_nodes(document: Document) -> set[int]:
     return found
 
 
-def _floats(document: Document, node_index: int) -> bool:
-    """Whether the node sits inside an out-of-flow positioned container.
+def _floating_ancestor(document: Document, node_index: int) -> int | None:
+    """The out-of-flow positioned container this node sits in, if any.
 
     `relative` deliberately does not count. Half the page is relatively
     positioned on a typical layout, and treating that as a floating panel
@@ -274,8 +295,51 @@ def _floats(document: Document, node_index: int) -> bool:
     for ancestor in document.ancestors(node_index):
         position = (document.styles.get(ancestor) or {}).get("position")
         if position in {"absolute", "fixed"}:
-            return True
-    return False
+            return ancestor
+    return None
+
+
+def _floats(document: Document, node_index: int) -> bool:
+    return _floating_ancestor(document, node_index) is not None
+
+
+def _panel_heading(document: Document, panel_index: int) -> str:
+    """What a floating panel says it is showing.
+
+    Breadth-first, so the panel's own header wins over any nested one, and
+    the first match is returned rather than the deepest.
+
+    This exists because a month grid is not self-describing. Forty-two day
+    cells look the same in every month, and which month they belong to is
+    stated once, in a header, in text a planner had no reason to read: on the
+    live site it is `2026 September` sitting beside two arrow buttons. Both
+    LLM runs clicked the 15th without ever comparing that to the goal.
+    """
+    queue = [panel_index]
+    seen = {panel_index}
+    while queue:
+        current = queue.pop(0)
+        for child in document.children.get(current, ()):
+            if child in seen or not document.is_element(child):
+                continue
+            seen.add(child)
+            classes = document.attribute(child, "class").lower()
+            if classes and any(hint in classes for hint in HEADING_CLASS_HINTS):
+                text = document.text_of(child, limit=MAX_HEADING + 1)
+                if text and len(text) <= MAX_HEADING:
+                    return text
+            queue.append(child)
+    return ""
+
+
+def _panel_of(document: Document, node_index: int, cache: dict[int, str]) -> str:
+    """The heading of the floating panel this element belongs to."""
+    panel = _floating_ancestor(document, node_index)
+    if panel is None:
+        return ""
+    if panel not in cache:
+        cache[panel] = _panel_heading(document, panel)
+    return cache[panel]
 
 
 def _qualifier_for(document: Document, node_index: int) -> str:

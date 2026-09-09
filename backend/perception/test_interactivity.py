@@ -248,6 +248,31 @@ def test_a_row_of_cells_yields_the_cells_not_the_row() -> None:
 # --- qualifiers: what the label cannot carry --------------------------------
 
 
+def calendar_with_header(month: str = "2026 September") -> dict:
+    """A picker panel with a header, the way a real one is built.
+
+    The header sits beside the arrow buttons and says which month the grid
+    below belongs to. Every month's grid looks the same without it.
+    """
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", attrs={"class": "el-picker-panel el-date-picker"},
+                   style=FLOATING, rect=(790, 218, 324, 343))
+    header = b.node(panel, "div", attrs={"class": "el-date-picker__header"},
+                    rect=(790, 218, 324, 40))
+    b.node(header, "span", attrs={"class": "el-date-picker__header-label"},
+           rect=(830, 222, 60, 30), text=month)
+    table = b.node(panel, "table", attrs={"class": "el-date-table"})
+    for index, (day, classes) in enumerate((("14", "available"), ("15", "available"),
+                                            ("16", "available"))):
+        cell = b.node(table, "td", attrs={"class": classes}, style=POINTER,
+                      rect=(800 + index * 30, 300, 28, 28))
+        b.node(cell, "span", style=POINTER, rect=(802 + index * 30, 302, 24, 24),
+               text=day)
+    return b.build()
+
+
 def calendar(today_index: int = 4) -> dict:
     """A month grid the way a picker builds one.
 
@@ -367,6 +392,76 @@ def test_styling_classes_are_not_treated_as_qualifiers() -> None:
     found = infer(b.build())
 
     assert found[0].qualifier == ""
+
+
+# --- panel headings: which month is this ------------------------------------
+
+
+def test_a_picker_says_which_month_it_is_showing() -> None:
+    """The fact that decides whether a day cell is the right one.
+
+    Forty-two cells look the same in every month. Which month is on screen is
+    stated once, at the top, in text a planner had no reason to single out —
+    and both live LLM runs clicked the 15th without ever comparing it to the
+    goal.
+    """
+    found = infer(calendar_with_header())
+
+    assert [f.label for f in found] == ["14", "15", "16"]
+    assert all(f.panel == "2026 September" for f in found)
+
+
+def test_the_heading_follows_the_month_on_screen() -> None:
+    found = infer(calendar_with_header("2026 October"))
+
+    assert all(f.panel == "2026 October" for f in found)
+
+
+def test_a_dropdown_with_no_heading_carries_none() -> None:
+    """Station names describe themselves. Nothing is invented for them."""
+    found = infer(dropdown())
+
+    assert all(f.panel == "" for f in found)
+
+
+def test_the_panels_own_header_wins_over_a_nested_one() -> None:
+    """Breadth-first, so a sub-header inside the grid cannot shadow it."""
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", attrs={"class": "picker"}, style=FLOATING,
+                   rect=(0, 0, 300, 300))
+    header = b.node(panel, "div", attrs={"class": "picker__header"}, rect=(0, 0, 300, 40))
+    b.node(header, "span", rect=(0, 0, 100, 30), text="2026 October")
+    grid = b.node(panel, "div", attrs={"class": "grid"})
+    inner = b.node(grid, "div", attrs={"class": "column-title"}, rect=(0, 40, 300, 20))
+    b.node(inner, "span", rect=(0, 40, 40, 20), text="Sun Mon Tue")
+    for index in range(MIN_GROUP):
+        cell = b.node(grid, "td", attrs={"class": "day"}, style=POINTER,
+                      rect=(index * 30, 60, 28, 28))
+        b.node(cell, "span", style=POINTER, rect=(index * 30, 60, 24, 24),
+               text=str(index + 1))
+
+    found = infer(b.build())
+
+    assert found and all(f.panel == "2026 October" for f in found)
+
+
+def test_a_heading_that_is_really_the_contents_is_not_used() -> None:
+    """A long "heading" is the panel's body wearing a header class."""
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", style=FLOATING, rect=(0, 0, 300, 300))
+    header = b.node(panel, "div", attrs={"class": "header"}, rect=(0, 0, 300, 40))
+    b.node(header, "span", rect=(0, 0, 300, 30), text="x" * 200)
+    for index in range(MIN_GROUP):
+        cell = b.node(panel, "li", attrs={"class": "item"}, style=POINTER,
+                      rect=(0, 60 + index * 30, 200, 28))
+        b.node(cell, "span", style=POINTER, rect=(0, 60 + index * 30, 190, 24),
+               text=f"choice {index}")
+
+    assert all(f.panel == "" for f in infer(b.build()))
 
 
 # --- against the replicas: the cost of being wrong --------------------------
@@ -502,6 +597,11 @@ def test_the_live_calendar_tells_its_duplicate_days_apart(playwright_instance) -
         days = [e for e in read(page).elements if e.inferred and e.role == "option"]
         assert len(days) > 28, f"the grid should be a month of days, got {len(days)}"
 
+        # Which month the grid belongs to, stated rather than implied.
+        assert days[0].panel, "the picker's heading did not reach the elements"
+        assert all(d.panel == days[0].panel for d in days)
+        opened_on = days[0].panel
+
         # The case the brief names: two cells, one number, told apart.
         thirtieths = [d for d in days if d.label == "30"]
         assert len(thirtieths) == 2, [d.label for d in days]
@@ -528,6 +628,19 @@ def test_the_live_calendar_tells_its_duplicate_days_apart(playwright_instance) -
         assert chosen is not None, "the 15th of the month on screen was not found"
         element = next(e for e in elements if e.id == chosen)
         assert element.qualifier == ""
+
+        # The heading moved with the month, so a planner can tell it changed.
+        moved = [e for e in elements if e.inferred and e.role == "option"]
+        assert moved[0].panel != opened_on, (
+            f"the heading still reads {opened_on!r} after Next Month"
+        )
+
+        # And the model would be told, above the list rather than inside it.
+        from backend.orchestrator.llm_loop import render_page
+
+        banner = render_page(elements).splitlines()[1]
+        assert banner.startswith("IT IS SHOWING:")
+        assert moved[0].panel in banner
 
         page.locator(element.locator_hint).click()
         page.wait_for_timeout(900)

@@ -90,9 +90,27 @@ def render_page(elements: list[Element]) -> str:
             f"A LIST OF CHOICES IS OPEN, with {len(choices)} option(s) marked "
             "INFERRED below. Nothing is chosen yet. Typing the text is not "
             "choosing: click the option you want NOW, before touching any "
-            "other field, or what you typed will be discarded.",
-            "",
+            "other field, or what you typed will be discarded."
         ]
+
+        # And say what it is showing, if it says so itself.
+        #
+        # A month of day cells is not self-describing: every month has a 15th,
+        # and which month is on screen is stated once, in a header, in text a
+        # planner had no reason to single out. Both live LLM runs clicked the
+        # 15th of the month the picker happened to open on, with the goal
+        # naming a different one and `button 'September'` sitting unremarked
+        # in a list of eighteen. Promoted here for the same reason the overlay
+        # banner is promoted: a fact that changes which element is correct
+        # belongs above the list, not in it.
+        showing = _headings_of(choices)
+        if showing:
+            lines += [
+                f"IT IS SHOWING: {showing}. Check that against the goal before "
+                "picking anything. If it is the wrong one, the controls that "
+                "change it are in the list below — use them first.",
+            ]
+        lines += [""]
 
     for element in elements:
         line = f"{element.id}. {element.role} {element.label!r}"
@@ -117,6 +135,19 @@ def render_page(elements: list[Element]) -> str:
             line += "  <- INFERRED (role worked out from layout, not declared)"
         lines.append(line)
     return "\n".join(lines)
+
+
+def _headings_of(choices: list[Element]) -> str:
+    """What the open panels say they are showing, in the order they appear.
+
+    Distinct, because forty-two day cells share one heading and repeating it
+    forty-two times is how a banner stops being read.
+    """
+    seen: list[str] = []
+    for element in choices:
+        if element.panel and element.panel not in seen:
+            seen.append(element.panel)
+    return "; ".join(seen)
 
 
 def describe(action: Action, element: Element) -> str:

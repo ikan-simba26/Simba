@@ -124,6 +124,10 @@ class Element:
     # for an ordinary element, and the emptiness is meaningful — in a calendar
     # grid it is what marks a day as belonging to the month on screen.
     qualifier: str = ""
+    # What the floating panel this element sits in says it is showing —
+    # "2026 September" for a date picker, empty for a dropdown that needs no
+    # heading because its options name themselves.
+    panel: str = ""
     # What the field currently holds, for an input. Empty for everything else.
     # A form with values in it is not the same page as an empty one, and
     # without this perception cannot tell them apart.
@@ -340,6 +344,7 @@ def _from_inferred(found: Inferred, report: OverlayReport) -> Element:
         inferred=True,
         inferred_from=found.signal,
         qualifier=found.qualifier,
+        panel=found.panel,
         rect=found.rect,
         backend_node_id=found.backend_node_id,
         locator_hint=found.css_path,
