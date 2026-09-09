@@ -57,6 +57,20 @@ class Operation:
 
 
 @dataclass(frozen=True)
+class FieldValue:
+    """A field on the page, and what it has to hold.
+
+    `equals` is what the **page shows**, not what was typed. Those come apart
+    on exactly the widgets this matters for: the live railways picker accepts
+    `2026-10-15` and commits it as `15-10-2026`, and a plan that asserted the
+    typed string would fail the moment the value became real.
+    """
+
+    label: str
+    equals: str
+
+
+@dataclass(frozen=True)
 class Expectation:
     """What must be true of the page after a step, for it to count as done.
 
@@ -78,6 +92,19 @@ class Expectation:
     # Readable content, from perception's second channel.
     content_says: str | None = None
     rows_at_least: int | None = None
+    # A form field, and what it must hold.
+    #
+    # This exists because of a specific failure. The railways task's success
+    # was `rows_at_least=1`, the run searched for the wrong date, two real
+    # trains came back, and it reported `task.completed` — a well-formed
+    # answer to a question nobody asked. "Results appeared" is satisfied by a
+    # search for any date at all. The goal names a date and nothing checked
+    # it: the results table has no date column, so content cannot see it, and
+    # the only place it appears is the field the user watched being filled.
+    #
+    # `Snapshot` has carried form values since 2026-09-08 and until now no
+    # expectation could read them. See EVALUATION.md, case 6.
+    value_is: FieldValue | None = None
 
 
 @dataclass(frozen=True)

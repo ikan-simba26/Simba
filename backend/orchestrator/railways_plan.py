@@ -43,7 +43,13 @@ bug and is not.
 from datetime import date
 
 from backend.orchestrator.loop import Task
-from backend.orchestrator.plan import Expectation, Operation, PlanStep, Target
+from backend.orchestrator.plan import (
+    Expectation,
+    FieldValue,
+    Operation,
+    PlanStep,
+    Target,
+)
 from shared.schema import StepAction, StepField
 
 RAILWAYS_URL = "https://www.pakrailways.gov.pk/train"
@@ -92,6 +98,11 @@ def departure_date(today: date | None = None) -> date:
 
 DEPARTURE = departure_date().isoformat()
 DEPARTURE_DAY = str(DEPARTURE_DAY_OF_MONTH)
+# What the site puts in the field once a date is actually committed. Not the
+# same string that gets typed: the picker accepts `2026-10-15` and writes back
+# `15-10-2026`, and the difference is the whole point — the typed value proves
+# nothing, the committed one is the application agreeing.
+DEPARTURE_AS_SHOWN = departure_date().strftime("%d-%m-%Y")
 
 GOAL = f"Find trains from {ORIGIN} to {DESTINATION} on {DEPARTURE}."
 
@@ -106,15 +117,27 @@ def _confirm(label: str) -> list[StepAction]:
 RAILWAYS_TASK = Task(
     goal=GOAL,
     estimated_steps=5,
-    # A success condition, at last.
+    # Results appeared, *and* they are results for the date that was asked
+    # for.
     #
-    # This was `None` until perception could read content. The results of this
-    # search are static text in a single-page app: the URL does not change,
-    # the title does not change, and no row is interactive, so nothing in the
-    # url/title/label vocabulary could describe having finished. "At least one
-    # row of results exists" is the goal stated in the only terms that were
-    # ever true of it.
-    success=Expectation(rows_at_least=1),
+    # `rows_at_least` alone was the whole condition until 2026-09-09, and it
+    # let a run finish wrongly: the LLM set the date to the month the picker
+    # opened on, searched, got two real trains, and reported `task.completed`
+    # against a goal naming a different month. "Results appeared" is satisfied
+    # by a search for any date at all.
+    #
+    # The date cannot be checked in the results — the table has `Train No.`,
+    # `From/To`, `Time` and `Duration`, and no date column — so the only place
+    # it can be checked is the field the user watched being filled. That is
+    # what `value_is` reads.
+    #
+    # Both halves are needed. `value_is` alone would pass on a filled form
+    # nobody had searched with; `rows_at_least` alone passed on the wrong
+    # search.
+    success=Expectation(
+        rows_at_least=1,
+        value_is=FieldValue("Departure Date", DEPARTURE_AS_SHOWN),
+    ),
 )
 
 RAILWAYS_PLAN: list[PlanStep] = [
