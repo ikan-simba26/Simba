@@ -765,6 +765,295 @@ satisfies that. A month of numbered days does not.
 
 ---
 
+## 2026-09-09b - a qualifier, one more chance, and a worse outcome
+
+Three changes since the run above: inferred elements carry a qualifier, a
+durability lapse is handed to the planner once before the run ends, and the
+railways date is computed from today. One LLM run, seven calls. Quota after
+it: about three requests left of twenty, which is not enough for another run,
+so nothing further was attempted.
+
+### The run
+
+    step 1/5  Fill in From.
+    step 2/5  Click LAHORE CANTT.              <- inferred option
+    step 3/5  Fill in To.
+    step 4/5  Click KARACHI CANTT.             <- inferred option
+    step 5/5  Fill in Departure Date.
+    step 6/6  Click 15.                        <- inferred, September's
+    STEP FAILED 6: 'Departure Date' no longer holds what I put in it — it
+                   held '2026-10-15' and now holds '15-09-2026'
+    step 7/7  Click element 13.                <- the search button
+    task.completed - 7 steps, 66.9s, 7 calls, $0.00066
+
+    {"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":"2026-09-15"}
+
+| Train No. | From/To | Time | Duration |
+|---|---|---|---|
+| 2DN | LAHORE CANTT KARACHI CANTT | 08:04 06:20 | 22 h 16 min |
+| 14DN | LAHORE CANTT KARACHI CANTT | 19:09 19:25 | 24 h 16 min |
+
+**It did not reach a correct October date, and it reported success anyway.**
+The goal says `2026-10-15`. The search went out for `2026-09-15`, returned two
+real trains, satisfied `rows_at_least=1`, and the run ended `task.completed`.
+
+That is worse than the run before it, and the change that made it worse is the
+one asked for. Previously a lapse ended the run: no search was sent, and the
+user was told the system was stuck. Now the run continues, and a person is
+handed a timetable for a date they did not ask for, labelled as done. **A
+plausible, well-formed, wrong answer is the worst thing this system can
+produce**, and this is the first time it has produced one.
+
+Three separate failures line up to allow it, and they are worth separating
+because they have different fixes.
+
+### 1. The setback reached the model and the model ignored it
+
+The mechanism worked. The lapse was caught, `step.failed` was emitted, the
+record was dropped, and the setback was passed to the planner. Call 7's prompt
+ended:
+
+    Your previous answer was rejected. Do not repeat it.
+    Problem: 'Departure Date' no longer holds what I put in it — it held
+    '2026-10-15' and now holds '15-09-2026'. Typing a value is not always
+    choosing it — a list or a calendar may need the choice committed by
+    clicking the option itself. Put it back, and commit it this time.
+
+It answered:
+
+    {"action": "click", "element_id": 13,
+     "reasoning": "Click the button to confirm your search selection after
+                   setting the route and date."}
+
+Eighteen element lines sat between the instruction and the end of the prompt.
+This is the prompt-prominence finding for a third time, in a channel where it
+had not been applied: the setback was appended *after* the page. Moved above
+the element list and stated in the imperative, the same decision, same page
+state, one call:
+
+    {"action": "type", "element_id": 12,
+     "reasoning": "I am re-entering the correct date into the field to ensure
+                   it is processed accurately this time."}
+
+**Attention, not competence.** It now engages with the date instead of moving
+on — and it chooses to *re-type* it, which is exactly what this widget
+discards, having just been told so in the sentence it was responding to.
+Prominence buys the model's attention; it does not supply the knowledge that
+this particular calendar has to be navigated. The end-to-end effect of the
+promotion is **unverified**: it needs a full run and the quota is spent.
+
+### 2. Qualifiers work, and nothing used them
+
+The qualifier change did what it was built to do. On the live calendar every
+duplicate number is now separated:
+
+| label | cells | qualifiers |
+|---|---|---|
+| `30` | 2 | `previous month`, `` |
+| `1`–`10` | 2 each | ``, `next month` |
+| `9` (September) | — | `today` |
+
+`pick(Target("option", "15", qualifier=""))` resolves to exactly one cell and
+clicking it sets `15-10-2026`. "The 15th of October" is expressible now, and
+the hardcoded plan says it.
+
+The model was shown the qualifiers — `option '15'`, `option '30' (previous
+month)` — and still clicked the 15th of September. It never pressed
+`Next Month`, which was in the list as a named button. The qualifier tells you
+*which* cell is which within a grid; it does not tell you the grid is showing
+the wrong month, and `button 'October'` versus `button 'September'` is a
+comparison the model did not make either time. **The missing input was
+necessary and not sufficient.**
+
+### 3. The success condition cannot see the thing that went wrong
+
+`RAILWAYS_TASK.success` is `rows_at_least=1`. Two trains came back, so the
+task was satisfied. It would have been satisfied by a search for any date.
+
+The goal names a date and no available check reads it. The results table has
+`Train No.`, `From/To`, `Time` and `Duration` — no date column — so
+`content_says` cannot test it either. The only place the requested date
+appears is the *input field*, and `Expectation` has no vocabulary for a form
+value even though `Snapshot` has carried them since 2026-09-08.
+
+This is the cheapest of the three to fix and the one that would have caught
+it: a task whose goal names a value should be able to require that the form
+still holds it at the end. **Not implemented** — it is a change to the
+`Expectation` vocabulary and there is no quota left to test it against the
+case that motivated it.
+
+### What the three changes are actually worth
+
+| Change | Did it do what it was for? | Did it help this run? |
+|---|---|---|
+| Qualifiers on inferred elements | Yes — every duplicate separated, October expressible, live-tested | No. The model did not use them |
+| One chance before giving up | Yes — setback delivered, planner re-planned | **No. It turned a safe stop into an unsafe success** |
+| Date computed from today | Yes — no longer expires | Neutral |
+
+The middle row is the one to sit with. Handing a failure back to a planner is
+right when the planner can act on it, and the evidence that this one can is
+now weaker than it looked: given a clear, well-placed correction it re-tried
+the approach that had already failed. Until the LLM path can demonstrably
+recover from a lapse, the safety of the old behaviour — stop, and say so —
+was worth more than the flexibility that replaced it.
+
+---
+
+## Durable verification, justified
+
+Added 2026-09-08 on the strength of a mechanism that was real but had not
+actually been observed — the withdrawn case 4 described a field clearing
+itself on blur, which Element UI genuinely does, in a run where it had not
+happened. It was carried for a day as a check with a test behind it and no
+incident behind it.
+
+It has now fired twice on the live site, both times with the LLM driving, and
+both times stopping was correct.
+
+| | what was typed | what the field held at the next look | why |
+|---|---|---|---|
+| Run 1, 2026-09-09 | `LAHORE CANTT` in **From** | `''` | Element UI clears a filterable select on blur unless an option was committed. The model typed the name and moved to the next field without clicking the option. |
+| Run 2, 2026-09-09 | `2026-10-15` in **Departure Date** | `15-09-2026` | The model clicked the 15th of the month the picker opened on. The date was set, to the wrong month. |
+
+Neither is a case any other check here can see:
+
+- **Read-back** passed both times. The keystrokes arrived; the value was
+  genuinely in the field at the moment it was checked.
+- **The page-level `Expectation`** passed both times. The URL, the title and
+  the labels were all exactly as a working step leaves them.
+- **`step.failed`** would not have fired: the steps' own actions succeeded.
+- **The trust panel** would have shown a screenshot with the value in place.
+
+What each stopped is worth being concrete about. Run 1 would have gone on to
+submit a search with an empty origin. Run 2 would have submitted a search for
+**the wrong date** and returned a timetable — a plausible, well-formed,
+wrong answer, which is the worst outcome this system can produce and the only
+one a user has no way to catch. The search request in run 2 was never sent.
+
+Two further things this establishes:
+
+- **The failure mode is not exotic.** Two instances in two runs on one page,
+  from a widget library that sits behind a large number of government and
+  enterprise sites. It was not a corner case worth a defensive check; it was
+  the normal behaviour of the page.
+- **Ending the run was too blunt**, and the evidence for that is in the same
+  two rows. Both lapses are recoverable by *choosing differently* rather than
+  by trying harder — commit the option; press Next Month first. The check now
+  hands the failure back to the planner once before giving up (2026-09-09).
+  The keystrokes should not be repeated; the plan should be reconsidered, and
+  those are not the same thing.
+
+---
+
+## Where information sits is a perception decision
+
+Three times now the same thing has been true, and it is worth stating as a
+finding rather than rediscovering: **what perception knows is not what a
+planner uses. Where it puts it decides that.** The model is not reasoning over
+a database it can query. It is reading a page of text, once, and the position
+of a sentence in that page changes whether the sentence has any effect.
+
+The cleanest measurement is the inferred-option case, because only one thing
+changed and it changed nothing about the information.
+
+### The experiment
+
+Same model (`gemini-3.1-flash-lite`), same live page, same page state — the
+From field filled with `LAHORE CANTT` and its dropdown open — and the same
+instruction, in two positions.
+
+**As a rule in the system prompt**, seventh of nine:
+
+    - A dropdown option only counts as chosen when you click it. Typing text
+      into the field above it is not choosing; many pages will discard what
+      you typed. If you have typed into a field and INFERRED options have
+      appeared, click the one you want before doing anything else.
+
+The element was in the list it was shown:
+
+    19. option 'LAHORE CANTT'  <- INFERRED (role worked out from layout, not declared)
+
+It answered:
+
+    {"action": "type", "element_id": 11, "value": "KARACHI CANTT",
+     "reasoning": "I will now enter the destination station to proceed with
+                   your train search."}
+
+**As a banner above the element list**, same words in substance:
+
+    A LIST OF CHOICES IS OPEN, with 1 option(s) marked INFERRED below. Nothing
+    is chosen yet. Typing the text is not choosing: click the option you want
+    NOW, before touching any other field, or what you typed will be discarded.
+
+It answered:
+
+    {"action": "click", "element_id": 19, "value": null,
+     "reasoning": "Clicking the inferred 'LAHORE CANTT' option confirms your
+                   origin selection."}
+
+| | rule in the prompt | banner above the list |
+|---|---|---|
+| Information present | yes | yes |
+| Element present and marked | yes | yes |
+| Model | same | same |
+| Page state | same | same |
+| Chose the option | **no** | **yes** |
+| Calls to establish | 2 (a whole run) | 1 |
+
+One call to fix, and the fix was moving a sentence.
+
+### Why this is a perception finding and not a prompting trick
+
+Because the same result has now happened three times, in three different
+mechanisms, and only the first was ever framed as prompting:
+
+1. **Overlays.** A modal's buttons in a list of sixty are just more buttons.
+   `render_page` prints `AN OVERLAY IS COVERING THE PAGE` above the list and
+   marks the elements `OVERLAY` and `OCCLUDED`. Without it, a run clicks
+   underneath a modal and waits for a click that can never land — measured at
+   10/10 (2026-09-05).
+2. **Inferred options.** This section.
+3. **Calendar days.** The model was given 42 day cells, eleven of the numbers
+   appearing twice, with nothing separating a day of the month on screen from
+   a day of the month either side. It picked the 15th of the wrong month. No
+   prompt could have fixed that, because *the distinction was not in the
+   input at all*. The fix was a qualifier on the element (2026-09-09), which
+   is a change to what perception emits.
+
+Case 3 is the one that settles the argument. Prompting can only rank what is
+present. Case 1 and case 2 are the same problem one step earlier: the
+information was present but positioned where it did not survive being read.
+A rule in a standing list competes with eight other rules and a page of
+elements; a banner is read at the moment the decision is made.
+
+So the design rule, stated plainly:
+
+> Anything a planner must act on **at this step** goes above the element
+> list, in the imperative, naming the elements it applies to. Anything that
+> is background belongs in the standing rules. And anything that
+> distinguishes one element from another has to be **on the element**,
+> because no amount of instruction can separate two lines of text that are
+> identical.
+
+That is a perception responsibility, not a prompt-engineering one. It says
+what `serialize` must emit, what `render_page` must promote, and — as the
+calendar showed — when neither is enough and the element itself has to carry
+more.
+
+### The cost of the alternative
+
+Both banners were added *after* a run failed, and each failure was expensive
+to read: the overlay case took a ten-run benchmark to see, the option case
+took a full live run plus a transcript, and the calendar case took a live run
+plus a hand-driven probe of the DOM. A model that ignores a rule looks
+exactly like a model that is not clever enough, and the two have completely
+different fixes. **A cheap way to tell them apart would be worth having and
+does not exist here**: the only method used so far is to re-ask the identical
+decision with the information moved, which costs one call and requires
+already suspecting the answer.
+
+---
+
 ## When verification passes wrongly
 
 Three times now, something checked whether a thing worked, got "yes", and was

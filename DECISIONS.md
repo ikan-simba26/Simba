@@ -713,3 +713,110 @@ A click that has not landed in ten seconds is not going to.
 **Cost.** A genuinely slow page could have an action fail that would have
 succeeded at twenty seconds. The retry absorbs some of that, and no run so far
 has an action between 10s and 30s that later succeeded.
+
+---
+
+## An inferred element carries a short qualifier from a curated class list
+
+**Decision.** Four class tokens become a human qualifier on an inferred
+element: `prev-month` → "previous month", `next-month` → "next month",
+`disabled`, `today`. Everything else in the class attribute is still
+discarded. An empty qualifier is a value, not an absence: in a calendar it is
+what marks a day as belonging to the month on screen.
+
+**Alternatives.** Emit the whole class attribute. Emit nothing and
+disambiguate by position in the group. Encode it into the label
+("15 (previous month)").
+
+**Why this.** A month grid has two cells labelled `30` and eleven duplicate
+numbers in all, and emitting them identically meant "the 15th of October" was
+not expressible in what a planner is given. The live LLM run clicked the 15th
+of the wrong month and could not have done better.
+
+The whole class attribute is mostly styling and would drown a planner in
+noise — `el-date-table__row`, `hover`, `is-active` — and would make the
+matching brittle against a library's next release. Position in the group is
+stable but meaningless to a model and unreadable in a log. Folding it into
+the label breaks every existing `Target` and makes two different things — the
+name of a thing and a fact about it — into one string.
+
+Four tokens, because these four are stable across component libraries and
+mean the same thing everywhere.
+
+**Cost.** A library that marks its adjacent-month cells some other way gets
+no qualifier and the ambiguity returns silently. The list will need
+extending, and the only way to find out is a page where it fails.
+
+---
+
+## A disabled inferred element is surfaced, not dropped
+
+**Decision.** An inferred element carrying `disabled` is emitted with that
+qualifier rather than filtered out — unlike an accessibility-tree element,
+which `build_elements` drops when the AX tree says `disabled`.
+
+**Alternatives.** Drop it, for consistency with the AX path.
+
+**Why this.** "This date exists and you cannot pick it" and "this date does
+not exist" are different claims, and only the first is true. A planner that
+sees the option missing will hunt for it; one that sees it disabled can say
+so to the user. The inconsistency with the AX path is real and is the lesser
+problem — that path drops elements the page itself declared unusable, where
+this one is a guess from a class name.
+
+**Cost.** Element counts include things that cannot be clicked, and a planner
+that ignores the qualifier will waste a step discovering it.
+
+---
+
+## A durability lapse gets one chance with the planner, and it made things worse
+
+**Decision.** A lapsed value is handed back to the planner as a setback
+before the run ends, rather than ending it immediately. A second lapse still
+ends the run. Requested explicitly; recorded here with what it cost.
+
+**Alternatives.** Keep the immediate give-up. Re-run the step that filled the
+value automatically.
+
+**Why this.** Both live lapses are recoverable by *choosing differently*
+rather than trying harder — commit the option; press Next Month first — and a
+planner that can re-plan should get to. Repeating the keystrokes invites the
+same undoing; reconsidering the plan does not.
+
+**Cost, measured rather than predicted.** In the live LLM run it converted a
+safe stop into an unsafe success: the model was told the date was wrong,
+re-planned, clicked search anyway, and the run reported `task.completed` on a
+timetable for a date nobody asked for. Before the change no search went out
+and the user was told the system was stuck.
+
+That is the worst outcome this system can produce, and it is now reachable.
+The mitigation is not to revert — the reasoning above still holds — but to
+close the other two holes it depends on: a setback the model actually acts
+on, and a success condition that can see the value the goal names. Both are
+open in STATUS.md, and neither is verified, because the day's quota went on
+finding this out.
+
+---
+
+## A setback goes above the element list, not after it
+
+**Decision.** `build_user_prompt` puts feedback immediately after the goal,
+in the imperative, above both the history and the element list.
+
+**Alternatives.** Leave it appended after the page, where it was.
+
+**Why this.** The third instance of one finding. A live run's model was told
+in plain words that the date it had set was the wrong month and that the
+choice needed committing, and it clicked search anyway — with the setback
+eighteen element lines below the thing it was about. Re-asked with the same
+words moved above the list, same page state, one call, it addressed the date
+instead of moving on.
+
+This matches what the overlay banner and the open-choices banner already do,
+and EVALUATION.md now states the rule the three of them share: anything a
+planner must act on at *this* step sits above the list.
+
+**Cost.** It buys attention, not competence — given the correction, the model
+re-typed the date, which is exactly what the widget discards. And the
+end-to-end effect is unverified: it changed one decision under test and has
+not been run through a whole task, because the quota ran out.
