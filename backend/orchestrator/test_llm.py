@@ -40,13 +40,29 @@ def test_prompt_carries_the_goal_and_page() -> None:
     prompt = build_user_prompt("1. button 'Sign In'", "Register for CS-401", None)
     assert "Register for CS-401" in prompt
     assert "button 'Sign In'" in prompt
-    assert "rejected" not in prompt
+    assert "SOMETHING WENT WRONG" not in prompt
 
 
 def test_feedback_is_fed_back_into_the_prompt() -> None:
     prompt = build_user_prompt("1. button 'Sign In'", "goal", "element_id 99 does not exist")
     assert "element_id 99 does not exist" in prompt
-    assert "Do not repeat it" in prompt
+    assert "SOMETHING WENT WRONG" in prompt
+
+
+def test_feedback_sits_above_the_element_list() -> None:
+    """Position, not presence. A live run proved presence is not enough.
+
+    The model was told at the end of its prompt that the date it had set was
+    the wrong month, with the setback eighteen element lines below the thing
+    it was about, and clicked search anyway. Same lesson as the overlay
+    banner: anything a planner must act on at this step goes above the list.
+    """
+    prompt = build_user_prompt(
+        "1. button 'Search'", "goal", "the date is wrong", ["Fill in Departure Date."]
+    )
+
+    assert prompt.index("the date is wrong") < prompt.index("Already done")
+    assert prompt.index("the date is wrong") < prompt.index("Interactive elements")
 
 
 def test_validate_rejects_the_shape_a_real_model_actually_returned() -> None:

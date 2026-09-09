@@ -173,6 +173,26 @@ def build_user_prompt(
 ) -> str:
     parts = [f"Goal: {goal}", ""]
 
+    # Feedback goes first, in the imperative, above the history and above the
+    # element list.
+    #
+    # It used to be appended after the page, and a live run showed what that
+    # costs. The model was told in plain words that the date it had set was
+    # the wrong one and that the choice needed committing — and it clicked
+    # search anyway, because the setback was sitting eighteen element lines
+    # below the thing it was about. Same lesson as the overlay banner and the
+    # open-choices banner, in a third place: anything a planner must act on
+    # *at this step* sits above the list, or it competes with the list and
+    # loses. See EVALUATION.md, "Where information sits is a perception
+    # decision".
+    if feedback:
+        parts += [
+            "SOMETHING WENT WRONG WITH YOUR LAST ANSWER. Put it right before "
+            "anything else — do not move on to another part of the task.",
+            f"Problem: {feedback}",
+            "",
+        ]
+
     # Without this the model has no memory of its own actions and will keep
     # choosing the step it already completed.
     #
@@ -199,13 +219,6 @@ def build_user_prompt(
         parts += ["Nothing has been done yet. This is the first action.", ""]
 
     parts += ["Interactive elements on the page:", page]
-
-    if feedback:
-        parts += [
-            "",
-            "Your previous answer was rejected. Do not repeat it.",
-            f"Problem: {feedback}",
-        ]
     return "\n".join(parts)
 
 

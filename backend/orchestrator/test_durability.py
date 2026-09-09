@@ -215,15 +215,77 @@ def test_the_loop_notices_a_field_that_emptied_itself(replica: str) -> None:  # 
     Step one types the username and verifies it by reading it back — which
     passes, because at that instant the value is genuinely there. Step two
     moves to the password field, the username blurs, and the page takes the
-    value back. Nothing in the run so far is capable of noticing.
+    value back. Nothing before durable verification was capable of noticing.
+
+    The run is not ended by it: the planner is told first. `HardcodedPlanner`
+    ignores setbacks, so here the run carries on and the notice is the only
+    trace — which is exactly why the notice has to exist.
     """
     connection = drive(TWO_FILLS, SIGN_IN, script=CLEAR_ON_BLUR)
 
+    failures = connection.of("step.failed")
+    assert failures, connection.types()
+    reported = failures[-1]
+    assert "Student ID or Username" in reported["reason"]
+    assert "no longer holds" in reported["reason"]
+    # Nothing was retried; the step's own actions all succeeded.
+    assert reported["strategies_tried"] == 0
+
+
+def test_a_lapse_is_handed_to_the_planner_before_the_run_ends(
+    replica: str,  # noqa: F811
+) -> None:
+    """One chance to put it back, then give up.
+
+    A planner that can re-plan should get to: both live cases were
+    recoverable by choosing differently rather than trying harder. The
+    setback says so in words a planner can act on.
+    """
+    seen: list[str | None] = []
+
+    class Watching(HardcodedPlanner):
+        async def next_move(self, elements, history, setback):
+            seen.append(setback)
+            return await super().next_move(elements, history, setback)
+
+    async def go() -> FakeConnection:
+        connection = FakeConnection()
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            await page.add_init_script(CLEAR_ON_BLUR)
+            try:
+                await run_task(
+                    page, connection, Watching(TWO_FILLS), SIGN_IN, REPLICA_URL + "/"
+                )
+            finally:
+                await browser.close()
+        return connection
+
+    asyncio.run(go())
+
+    told = [s for s in seen if s and "no longer holds" in s]
+    assert told, seen
+    assert "commit it this time" in told[0]
+
+
+def test_a_second_lapse_ends_the_run(replica: str) -> None:  # noqa: F811
+    """The re-plan did not work either, so stop.
+
+    Four fills: the username is typed, blurred away by the password, typed
+    again, and blurred away again. The first lapse is a setback; the second
+    is the end.
+    """
+    plan = [TWO_FILLS[0], TWO_FILLS[1], TWO_FILLS[0], TWO_FILLS[1], TWO_FILLS[2]]
+
+    connection = drive(plan, SIGN_IN, script=CLEAR_ON_BLUR)
+
     help_requested = connection.of("help.requested")
     assert help_requested, connection.types()
-    reason = help_requested[0]["reason"]
-    assert "Student ID or Username" in reason
-    assert "no longer holds" in reason
+    assert "no longer holds" in help_requested[0]["reason"]
+    # One reported and survived, one ended the run.
+    assert len(connection.of("step.failed")) == 1, connection.types()
+    assert not connection.of("task.completed")
 
 
 def test_the_same_plan_finishes_when_the_page_behaves(replica: str) -> None:  # noqa: F811
