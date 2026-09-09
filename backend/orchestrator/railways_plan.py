@@ -32,10 +32,15 @@ something the first run got wrong, and none of it is arbitrary:
     the day from the calendar — and the day cells are `td`s with no role,
     inferred exactly like the station options.
 
-The plan is anchored to a specific date and therefore to a specific month of
-calendar navigation. That is what a hardcoded plan is; an LLM planner reading
-the same elements would not need the anchoring.
+The departure date is computed from today rather than written down. A
+hardcoded plan is allowed to be specific; it is not allowed to expire. The
+first version said `2026-10-15` with `MONTHS_AHEAD = 1`, which was true for
+about three weeks and would then have started clicking "Next Month" once to
+land in the wrong month — the kind of failure that looks like a perception
+bug and is not.
 """
+
+from datetime import date
 
 from backend.orchestrator.loop import Task
 from backend.orchestrator.plan import Expectation, Operation, PlanStep, Target
@@ -50,12 +55,43 @@ DESTINATION = "KARACHI CANTT"
 ORIGIN_QUERY = "LAH"
 DESTINATION_QUERY = "KARACHI"
 
-# Far enough ahead to be a real timetable query rather than a same-day edge.
-# The month matters to the plan: the picker opens on the current month, so a
-# date in the next one costs exactly one "Next Month".
-DEPARTURE = "2026-10-15"
-DEPARTURE_DAY = "15"
+# Far enough ahead to be a real timetable query rather than a same-day edge,
+# and computed so the flow does not expire.
+#
+# The 15th of next month, always. Two properties the plan depends on, and
+# both are why it is the 15th of *next* month rather than "today plus 30
+# days":
+#
+#   * The day number is unambiguous in the calendar grid. Element UI's picker
+#     shows trailing days from the previous month and leading days from the
+#     next, so a low day number can appear twice — the 1st shows up as both
+#     "1 October" and the greyed "1 November". Every month has a 15th, and
+#     the 15th only ever appears once in a month's grid.
+#   * The number of "Next Month" clicks is exactly one, whatever today is.
+#     The picker opens on the current month, and next month is one press
+#     away regardless of how near the end of this one we are.
 MONTHS_AHEAD = 1
+DEPARTURE_DAY_OF_MONTH = 15
+
+
+def departure_date(today: date | None = None) -> date:
+    """The date this plan books for, relative to when it runs.
+
+    Takes `today` so a test can ask what the plan would do on any date
+    without waiting for it to be that date.
+    """
+    anchor = today or date.today()
+    # Month arithmetic by hand rather than adding a dependency for one line
+    # (CLAUDE.md). Safe for any day-of-month <= 28, which 15 is: no month is
+    # short of a 15th, so this never has to clamp.
+    month = anchor.month + MONTHS_AHEAD
+    year = anchor.year + (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    return date(year, month, DEPARTURE_DAY_OF_MONTH)
+
+
+DEPARTURE = departure_date().isoformat()
+DEPARTURE_DAY = str(DEPARTURE_DAY_OF_MONTH)
 
 GOAL = f"Find trains from {ORIGIN} to {DESTINATION} on {DEPARTURE}."
 
