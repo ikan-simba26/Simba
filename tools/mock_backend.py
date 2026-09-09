@@ -22,6 +22,7 @@ from shared.schema import (  # noqa: E402
     LoadUpdated,
     StateChanged,
     StepAction,
+    StepFailed,
     StepField,
     StepPresented,
     TaskCompleted,
@@ -33,6 +34,10 @@ GOAL = "Register for CS-401"
 
 # The level the frontend should be at when each step is presented. The
 # estimator does not exist yet, so this is scripted: two steps at the default,
+# The step the mock reports as skipped. Third, so there is a step before it
+# to have "failed" and a step after it for the notice to sit above.
+FAILED_BEFORE_STEP = 3
+
 # one at level 3, then back. It is here so the level change — the fold from
 # one level to the next — can be demoed and worked on without one.
 LEVEL_BEFORE_STEP = {3: 3, 4: 2}
@@ -130,6 +135,23 @@ async def ws_endpoint(ws: WebSocket) -> None:
     await send("state.changed", StateChanged(state="thinking"))
 
     for step in STEPS:
+        # One step is reported as having failed and been carried past, so the
+        # quiet notice can be seen without waiting for a real page to break.
+        if step.step_index == FAILED_BEFORE_STEP:
+            await send(
+                "step.failed",
+                StepFailed(
+                    step_index=step.step_index - 1,
+                    instruction="Close the registration alert.",
+                    reason=(
+                        "click on 'Close' failed: Locator.click: Timeout "
+                        "10000ms exceeded"
+                    ),
+                    strategies_tried=2,
+                ),
+            )
+            await asyncio.sleep(0.4)
+
         # A level change lands before the step it applies to, so the fold and
         # the new step do not arrive in the same frame.
         level = LEVEL_BEFORE_STEP.get(step.step_index)

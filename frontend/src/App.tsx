@@ -16,6 +16,7 @@ import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
+import { StepFailureNotice } from "./components/StepNotice";
 import { StepView } from "./components/StepView";
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
@@ -35,6 +36,7 @@ export default function App() {
     <div className="flex min-h-full justify-center bg-canvas px-6 py-24">
       <div className="w-full max-w-[640px]">
         <LevelNotice />
+        <StepFailureNotice />
         <Column />
       </div>
       <TrustPanel />

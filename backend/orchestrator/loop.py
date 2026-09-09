@@ -39,6 +39,7 @@ from shared.schema import (
     PagePreview,
     StateChanged,
     StepAction,
+    StepFailed,
     StepField,
     ErrorPayload,
     StepPresented,
@@ -480,7 +481,22 @@ async def run_task(
             if consecutive_setbacks >= 2:
                 await give_up(f"{move.instruction} did not work: {failure}")
                 return
-            # Tell the planner what went wrong; it may choose differently.
+            # Say so. The planner is told and may choose differently, and the
+            # *user* is told too — which for a long time it was not. A step
+            # that failed and was absorbed produced no message at all, so the
+            # trace of a skipped step was identical to the trace of a
+            # completed one, in the interface and in the transcript alike.
+            # That is how the first live railways run was read wrongly for a
+            # day. Quiet, not silent.
+            await connection.send(
+                "step.failed",
+                StepFailed(
+                    step_index=steps_taken,
+                    instruction=move.instruction,
+                    reason=failure,
+                    strategies_tried=2,
+                ),
+            )
             last_failure = f"{move.instruction} did not work: {failure}"
             setback = (
                 f"Your last choice — {move.instruction} — did not work: {failure}. "

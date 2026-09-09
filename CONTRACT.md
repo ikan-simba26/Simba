@@ -61,6 +61,35 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+### `step.failed`
+Added 2026-09-09. A step did not work and the run is **carrying on past it**.
+```json
+{
+  "step_index": 2,
+  "instruction": "Choose where you are travelling to.",
+  "reason": "fill on 'To' failed: Locator.fill: Timeout 10000ms exceeded",
+  "strategies_tried": 2
+}
+```
+The loop absorbs a first failure: the planner is told, and may choose
+differently next time. Before this message existed it told the *frontend*
+nothing at all, so a user saw step 2, then step 3, with no way to tell a
+skipped step from a completed one — and neither could anyone reading a
+transcript. That cost a day of misdiagnosis on the first live run
+(EVALUATION.md, case 5).
+
+`instruction` is the same wording the user was already shown for that step,
+so the message names something they recognise rather than an internal target.
+`reason` is the failure as the loop saw it. `strategies_tried` is how many
+routes were attempted before giving up on the step — 2 today, always.
+
+Not the same thing as `error`. `error` is the harness failing; this is the
+task failing at something and continuing. It is shown quietly and briefly,
+not as an alarm.
+
+A second consecutive failure ends the run with `help.requested` instead, so
+these two never describe the same moment.
+
 ### `load.updated`
 ```json
 { "score": 0.72, "level": 2, "reason": "high element count, two backtracks" }

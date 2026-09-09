@@ -23,6 +23,7 @@ MessageType = Literal[
     "task.started",
     "state.changed",
     "step.presented",
+    "step.failed",
     "load.updated",
     "page.preview",
     "help.requested",
@@ -71,6 +72,26 @@ class StepPresented(BaseModel):
     fields: List[StepField]
     actions: List[StepAction]
     requires_confirmation: bool
+
+
+class StepFailed(BaseModel):
+    """A step did not work, and the run is carrying on past it.
+
+    Emitted where the loop previously said nothing at all. A first failure is
+    absorbed — the planner is told and may choose differently — and until this
+    existed the frontend saw step N, then step N+1, with no way to tell a
+    skipped step from a completed one. That is not a hypothetical: it is how
+    the first live railways run was misdiagnosed for a day.
+
+    Not the same thing as `error`, which is the harness failing. This is the
+    task failing at something and continuing, which the user should see
+    quietly rather than be alarmed by.
+    """
+
+    step_index: int
+    instruction: str  # what was attempted, in the words the user was shown
+    reason: str  # why it did not work
+    strategies_tried: int
 
 
 class LoadUpdated(BaseModel):

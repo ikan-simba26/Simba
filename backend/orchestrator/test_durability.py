@@ -308,3 +308,96 @@ def test_the_caption_says_what_a_key_does_not_what_it_is_called() -> None:
     )
 
     assert caption_for(move) == "I'm about to move down the list on From."
+
+
+# --- a skipped step is not a silent one -------------------------------------
+
+
+SKIPPED_STEP = [
+    PlanStep(
+        instruction="Click something that isn't there.",
+        detail="",
+        actions=CONFIRM,
+        operations=[Operation("click", Target("button", "No Such Button"))],
+        expect=Expectation(),
+    ),
+    PlanStep(
+        instruction="Type your username.",
+        detail="",
+        actions=CONFIRM,
+        operations=[Operation("fill", USERNAME, "username")],
+        expect=Expectation(),
+    ),
+]
+
+TWO_STEPS = Task(goal="Two steps, the first impossible.", estimated_steps=2)
+
+
+def test_a_step_that_failed_and_was_skipped_says_so(replica: str) -> None:  # noqa: F811
+    """The regression that cost a day.
+
+    The loop absorbs a first failure — it tells the planner and moves on — and
+    for a long time it told the frontend nothing. `HardcodedPlanner` ignores
+    setbacks, so it served the next step, and the emitted trace was
+    `step.presented(1)`, `step.presented(2)`, `task.completed`: byte for byte
+    what a run where both steps worked looks like. The first live railways run
+    was read that way for a day.
+    """
+    connection = drive(SKIPPED_STEP, TWO_STEPS)
+
+    failures = connection.of("step.failed")
+    assert failures, connection.types()
+
+    failure = failures[0]
+    assert failure["step_index"] == 1
+    # Named in the words the user was shown, not an internal target.
+    assert failure["instruction"] == "Click something that isn't there."
+    assert "could not find 'No Such Button'" in failure["reason"]
+    assert failure["strategies_tried"] == 2
+
+
+def test_the_skipped_step_is_reported_before_the_next_one_is_presented(
+    replica: str,  # noqa: F811
+) -> None:
+    """Order matters: the notice is about the step that just went by.
+
+    Arriving after the next `step.presented` would attach it to the wrong step
+    in anything reading the stream in order.
+    """
+    connection = drive(SKIPPED_STEP, TWO_STEPS)
+
+    types = connection.types()
+    assert types.count("step.presented") == 2
+    first_presented = types.index("step.presented")
+    failed_at = types.index("step.failed")
+    second_presented = types.index("step.presented", first_presented + 1)
+
+    assert first_presented < failed_at < second_presented, types
+
+
+def test_a_run_where_nothing_fails_says_nothing(replica: str) -> None:  # noqa: F811
+    """Quiet, not chatty. The control for the two tests above."""
+    connection = drive(TWO_FILLS, SIGN_IN)
+
+    assert not connection.of("step.failed"), connection.types()
+    assert connection.of("task.completed")
+
+
+def test_giving_up_does_not_also_report_a_skipped_step(replica: str) -> None:  # noqa: F811
+    """The second consecutive failure ends the run, and `help.requested`
+    already carries the reason. Two messages about one moment would be one
+    message too many."""
+    plan = SKIPPED_STEP[:1] + [
+        PlanStep(
+            instruction="Click something else that isn't there.",
+            detail="",
+            actions=CONFIRM,
+            operations=[Operation("click", Target("button", "Nor This One"))],
+            expect=Expectation(),
+        )
+    ]
+
+    connection = drive(plan, TWO_STEPS)
+
+    assert len(connection.of("step.failed")) == 1, connection.types()
+    assert connection.of("help.requested")

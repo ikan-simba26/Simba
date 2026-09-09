@@ -18,6 +18,7 @@ export type MessageType =
   | "task.started"
   | "state.changed"
   | "step.presented"
+  | "step.failed"
   | "load.updated"
   | "page.preview"
   | "help.requested"
@@ -64,6 +65,23 @@ export interface StepPresented {
   fields: StepField[];
   actions: StepAction[];
   requires_confirmation: boolean;
+}
+
+/**
+ * A step did not work, and the run is carrying on past it.
+ *
+ * Emitted where the loop previously said nothing at all. Not the same thing
+ * as `error`, which is the harness failing — this is the task failing at
+ * something and continuing, which the user should see quietly rather than be
+ * alarmed by.
+ */
+export interface StepFailed {
+  step_index: number;
+  /** What was attempted, in the words the user was shown. */
+  instruction: string;
+  /** Why it did not work. */
+  reason: string;
+  strategies_tried: number;
 }
 
 export interface LoadUpdated {
@@ -156,6 +174,7 @@ export type AnyEnvelope =
   | Envelope<TaskStarted>
   | Envelope<StateChanged>
   | Envelope<StepPresented>
+  | Envelope<StepFailed>
   | Envelope<LoadUpdated>
   | Envelope<PagePreview>
   | Envelope<HelpRequested>

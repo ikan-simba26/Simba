@@ -15,6 +15,7 @@ import type {
   LoadUpdated,
   PagePreview,
   State,
+  StepFailed,
   StepPresented,
   StepResponse,
   TaskCompleted,
@@ -46,6 +47,15 @@ interface Store {
   completed: TaskCompleted | null;
   failed: TaskFailed | null;
   error: ErrorPayload | null;
+  /**
+   * The most recent step the run could not do and carried on past. Shown
+   * briefly and quietly — the run is still going, so this is not the stuck
+   * screen and must not read like one. Deliberately *not* cleared by the
+   * next `step.presented`: that arrives immediately afterwards, and clearing
+   * it there would make the notice unreachable in exactly the case it exists
+   * for.
+   */
+  stepFailure: StepFailed | null;
 
   log: LogEntry[];
 
@@ -78,6 +88,7 @@ interface Store {
   /** True once this step has already been moved for overflow. One hop only. */
   overflowHopped: boolean;
   dismissLevelNotice: () => void;
+  dismissStepFailure: () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
   startTask: (goal: string) => void;
@@ -96,6 +107,7 @@ const EMPTY = {
   completed: null,
   failed: null,
   error: null,
+  stepFailure: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -172,6 +184,8 @@ export const useStore = create<Store>((set, get) => {
 
     dismissLevelNotice: () => set({ levelNotice: null }),
 
+    dismissStepFailure: () => set({ stepFailure: null }),
+
     setWsUrl: (wsUrl) => set({ wsUrl }),
 
     connect: (url) => {
@@ -240,6 +254,10 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         preview: null,
         trustOpen: false,
       });
+      return;
+    case "step.failed":
+      // Not cleared here or by the step that follows: see the store field.
+      set({ stepFailure: message.payload as StepFailed });
       return;
     case "load.updated": {
       const load = message.payload as LoadUpdated;
