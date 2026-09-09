@@ -245,6 +245,130 @@ def test_a_row_of_cells_yields_the_cells_not_the_row() -> None:
     assert all(f.tag == "td" for f in found)
 
 
+# --- qualifiers: what the label cannot carry --------------------------------
+
+
+def calendar(today_index: int = 4) -> dict:
+    """A month grid the way a picker builds one.
+
+    Three rows: trailing days of the previous month, the month itself, then
+    leading days of the next. The numbers repeat across the boundaries, which
+    is the whole problem.
+    """
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", attrs={"class": "el-picker-panel"}, style=FLOATING,
+                   rect=(300, 200, 320, 300))
+    table = b.node(panel, "table", attrs={"class": "el-date-table"})
+    cells = [
+        ("30", "prev-month"), ("31", "prev-month"),
+        ("1", "available"), ("2", "available"), ("3", "available"),
+        ("4", "available today"), ("5", "disabled"),
+        ("29", "available"), ("30", "available"),
+        ("1", "next-month"), ("2", "next-month"),
+    ]
+    for index, (day, classes) in enumerate(cells):
+        cell = b.node(table, "td", attrs={"class": classes}, style=POINTER,
+                      rect=(300 + index * 30, 220, 28, 28))
+        # Text in a span inside the cell, as every picker does it.
+        b.node(cell, "span", style=POINTER, rect=(302 + index * 30, 222, 24, 24),
+               text=day)
+    return b.build()
+
+
+def test_the_two_cells_labelled_thirty_are_told_apart() -> None:
+    """The finding this exists for, in miniature.
+
+    A month grid has two cells called `30`. Emitted identically, "the 30th of
+    this month" is not expressible and a planner picks whichever comes first.
+    """
+    found = infer(calendar())
+
+    thirtieths = [f for f in found if f.label == "30"]
+    assert len(thirtieths) == 2
+    assert {f.qualifier for f in thirtieths} == {"previous month", ""}
+
+
+def test_a_day_in_the_month_on_screen_has_no_qualifier() -> None:
+    """Emptiness is the signal. It is what "this month" looks like."""
+    found = infer(calendar())
+
+    ordinary = [f for f in found if f.qualifier == ""]
+    assert {f.label for f in ordinary} == {"1", "2", "3", "29", "30"}
+
+
+def test_leading_and_trailing_days_name_the_month_they_belong_to() -> None:
+    found = infer(calendar())
+
+    by_label = {(f.label, f.qualifier) for f in found}
+    assert ("31", "previous month") in by_label
+    assert ("1", "next month") in by_label
+    # And `1` exists twice, once each way.
+    assert ("1", "") in by_label
+
+
+def test_state_tokens_are_carried_too() -> None:
+    found = infer(calendar())
+
+    qualifiers = {f.label: f.qualifier for f in found if f.label in {"4", "5"}}
+    assert qualifiers["4"] == "today"
+    assert qualifiers["5"] == "disabled"
+
+
+def test_a_disabled_choice_is_surfaced_rather_than_dropped() -> None:
+    """A date you cannot pick is information, not noise.
+
+    Dropping it would make the page look as though the option does not exist,
+    which is a different and worse claim than "it exists and is unavailable".
+    """
+    found = infer(calendar())
+
+    assert any(f.label == "5" and f.qualifier == "disabled" for f in found)
+
+
+def test_the_qualifier_comes_from_the_cell_when_the_text_is_in_a_span() -> None:
+    """The node that survives the containment filter is the `td`.
+
+    Its class carries the state; the `span` inside carries the text. Looking
+    only at the element that won would find nothing on some libraries and
+    nothing on the parent for others, so both are checked.
+    """
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", style=FLOATING)
+    cell = b.node(panel, "td", attrs={"class": "prev-month"}, style=POINTER,
+                  rect=(0, 0, 28, 28))
+    b.node(cell, "span", style=POINTER, rect=(1, 1, 26, 26), text="30")
+
+    found = infer(b.build())
+
+    assert len(found) == 1
+    assert (found[0].label, found[0].qualifier) == ("30", "previous month")
+
+
+def test_an_ordinary_dropdown_option_carries_no_qualifier() -> None:
+    """Station names are unambiguous, so nothing is added to them."""
+    found = infer(dropdown())
+
+    assert all(f.qualifier == "" for f in found)
+
+
+def test_styling_classes_are_not_treated_as_qualifiers() -> None:
+    """A curated list, not a class dump. Most of a class attribute is noise."""
+    b = Builder()
+    root = b.node(-1, "html")
+    body = b.node(root, "body")
+    panel = b.node(body, "div", style=FLOATING)
+    b.node(panel, "li", attrs={"class": "el-select-dropdown__item hover selected--x"},
+           style=POINTER, rect=(0, 0, 100, 30), text="LAHORE CANTT")
+
+    found = infer(b.build())
+
+    assert found[0].qualifier == ""
+
+
 # --- against the replicas: the cost of being wrong --------------------------
 
 
@@ -344,5 +468,74 @@ def test_the_live_railways_dropdown_reaches_perception(playwright_instance) -> N
         page.locator(chosen.locator_hint).click()
         page.wait_for_timeout(800)
         assert origin.input_value() == "LAHORE CANTT"
+    finally:
+        browser.close()
+
+
+@LIVE
+def test_the_live_calendar_tells_its_duplicate_days_apart(playwright_instance) -> None:
+    """A month grid on the real site, and an October date made expressible.
+
+    Before qualifiers this listing gave a planner 42 day cells of which
+    eleven numbers appeared twice, with nothing to choose between them. The
+    live LLM run clicked the 15th of the month the picker happened to open
+    on, and could not have done better: "the 15th of October" was not
+    something the input could express.
+    """
+    from backend.orchestrator.loop import pick
+    from backend.orchestrator.plan import Target
+
+    browser = playwright_instance.chromium.launch()
+    try:
+        context = browser.new_context(
+            user_agent=USER_AGENT, viewport={"width": 1280, "height": 800}
+        )
+        page = context.new_page()
+        page.set_default_timeout(15000)
+        page.goto(RAILWAYS, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(3000)
+
+        date_field = page.get_by_role("textbox", name="Departure Date", exact=True)
+        date_field.click()
+        page.wait_for_timeout(800)
+
+        days = [e for e in read(page).elements if e.inferred and e.role == "option"]
+        assert len(days) > 28, f"the grid should be a month of days, got {len(days)}"
+
+        # The case the brief names: two cells, one number, told apart.
+        thirtieths = [d for d in days if d.label == "30"]
+        assert len(thirtieths) == 2, [d.label for d in days]
+        assert len({d.qualifier for d in thirtieths}) == 2, (
+            f"both cells called '30' carry {thirtieths[0].qualifier!r}"
+        )
+        assert "" in {d.qualifier for d in thirtieths}
+        assert "previous month" in {d.qualifier for d in thirtieths}
+
+        # Every duplicate number is separated, not just that one.
+        for label in {d.label for d in days}:
+            same = [d for d in days if d.label == label]
+            assert len({d.qualifier for d in same}) == len(same), (
+                f"{len(same)} cells labelled {label!r} share a qualifier"
+            )
+
+        # And an October date is expressible: go to next month and name the
+        # day belonging to the month on screen.
+        page.get_by_role("button", name="Next Month", exact=True).click()
+        page.wait_for_timeout(800)
+
+        elements = read(page).elements
+        chosen = pick(elements, Target("option", "15", qualifier=""))
+        assert chosen is not None, "the 15th of the month on screen was not found"
+        element = next(e for e in elements if e.id == chosen)
+        assert element.qualifier == ""
+
+        page.locator(element.locator_hint).click()
+        page.wait_for_timeout(900)
+
+        # The site writes the committed date back as dd-mm-yyyy.
+        assert date_field.input_value().startswith("15-"), date_field.input_value()
+        assert date_field.input_value() != "15-09-2026", (
+            "picked the month the calendar opened on, not the one asked for"
+        )
     finally:
         browser.close()

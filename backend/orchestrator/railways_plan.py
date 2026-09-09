@@ -163,7 +163,15 @@ RAILWAYS_PLAN: list[PlanStep] = [
         # infers it the same way it infers a dropdown option, and gives it the
         # same role: anything inside a floating panel is one of a set of
         # choices.
-        operations=[Operation("click", Target("option", DEPARTURE_DAY))],
+        #
+        # `qualifier=""` means the day belonging to the month on screen. The
+        # grid also carries trailing days of the previous month and leading
+        # days of the next, and those are labelled with bare numbers too — so
+        # without this, "15" could be matched against a cell from a month
+        # nobody asked for. It does not bite on the 15th, which no grid shows
+        # twice, and it is the difference between a plan that is correct and
+        # one that happens to work.
+        operations=[Operation("click", Target("option", DEPARTURE_DAY, qualifier=""))],
         expect=Expectation(label_gone=DEPARTURE_DAY),
     ),
     PlanStep(

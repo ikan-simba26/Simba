@@ -63,6 +63,30 @@ MAX_AREA_SHARE = 0.5
 # native <select>'s options into top-level elements on every page.
 INFERRED_ACTIONS = {"option": "click", "menuitem": "click", "button": "click"}
 
+# Class tokens that say something about an element the label cannot.
+#
+# The class attribute is already parsed, and until now everything in it was
+# thrown away. That was fine while inferred elements had distinct labels. A
+# calendar does not: a month grid carries trailing days of the previous month
+# and leading days of the next, so `30` appears twice and `1` through `10`
+# appear twice, and perception emitted them identically. "The 15th of
+# October" was not expressible in what a planner was given — the live LLM run
+# clicked the 15th of September with nothing in its input that could have
+# told it apart.
+#
+# A short, curated list, not a general class dump. These four are stable
+# across component libraries and mean the same thing everywhere; a `class`
+# attribute in the wild is mostly styling and would drown a planner in noise.
+# Order matters: the first match wins, so the two that change *which element
+# this is* come before the two that merely describe its state.
+QUALIFIER_TOKENS: tuple[tuple[frozenset[str], str], ...] = (
+    (frozenset({"prev-month", "prev", "previous-month", "other-month--prev"}),
+     "previous month"),
+    (frozenset({"next-month", "next", "other-month--next"}), "next month"),
+    (frozenset({"disabled", "is-disabled"}), "disabled"),
+    (frozenset({"today", "is-today"}), "today"),
+)
+
 
 @dataclass(frozen=True)
 class Inferred:
@@ -76,6 +100,11 @@ class Inferred:
     rect: Rect
     signal: str  # "cursor" or "group" — which rule fired
     css_path: str
+    # A few words the label cannot carry: "previous month", "disabled".
+    # Empty for an ordinary element, which is itself meaningful — in a
+    # calendar grid it is what marks a day as belonging to the month on
+    # screen rather than to the one either side of it.
+    qualifier: str = ""
 
     @property
     def action(self) -> str:
@@ -180,6 +209,7 @@ def find_inferred(
                 rect=bounds,
                 signal="cursor" if node_index in pointer else "group",
                 css_path=document.css_path(node_index),
+                qualifier=_qualifier_for(document, node_index),
             )
         )
     return found
@@ -246,6 +276,25 @@ def _floats(document: Document, node_index: int) -> bool:
         if position in {"absolute", "fixed"}:
             return True
     return False
+
+
+def _qualifier_for(document: Document, node_index: int) -> str:
+    """What the class attribute says that the text does not.
+
+    Looks at the element and, failing that, its parent: a library will often
+    put the state on the cell and the text in a `span` inside it, and either
+    could be the node that survived the containment filter.
+    """
+    for index in (node_index, document.parents[node_index]):
+        if index < 0:
+            continue
+        tokens = set(document.attribute(index, "class").lower().split())
+        if not tokens:
+            continue
+        for names, qualifier in QUALIFIER_TOKENS:
+            if tokens & names:
+                return qualifier
+    return ""
 
 
 def _label_for(document: Document, node_index: int) -> str:

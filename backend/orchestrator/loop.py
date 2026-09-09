@@ -133,8 +133,11 @@ async def perceive(page: Page) -> tuple[list[Element], Snapshot]:
 def pick(elements: list[Element], target: Target) -> int | None:
     """Choose an element id. This is the seat the LLM will take."""
     for element in elements:
-        if element.role == target.role and element.label == target.label:
-            return element.id
+        if element.role != target.role or element.label != target.label:
+            continue
+        if target.qualifier is not None and element.qualifier != target.qualifier:
+            continue
+        return element.id
     return None
 
 
@@ -377,6 +380,7 @@ async def run_task(
     last_failure: str | None = None
     completed: list[Move] = []
     filled: list[FilledValue] = []
+    lapses = 0
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -408,21 +412,55 @@ async def run_task(
         # Durable verification: everything typed so far has to *still* be
         # there, not merely have been there when it was typed.
         #
-        # This hands control back rather than retrying, which is a departure
-        # from how every other failure is handled here, and deliberate. A
-        # retry exists for an action that did not take effect — a click that
-        # missed, a strategy that did not suit the widget — and a different
-        # strategy is a real chance at a different outcome. A value the page
-        # took back is not that. The typing worked; something on the page
-        # undid it afterwards, and repeating the same keystrokes invites the
-        # same undoing. Meanwhile every further step would be acting on a
-        # form that does not contain what the user was shown being entered,
-        # which is the exact class of silent wrongness the whole verification
-        # design exists to prevent. So: stop, and say so.
-        lapsed = await durability_failure(page, filled)
-        if lapsed is not None:
-            await give_up(lapsed)
-            return
+        # A lapse is handed back to the planner once before the run ends. It
+        # used to end the run outright, on the reasoning that repeating the
+        # same keystrokes invites the same undoing — which is true of the
+        # keystrokes and not of the *plan*. Both live cases are recoverable by
+        # choosing differently rather than by trying harder: a station that
+        # needs committing from its dropdown, and a date set to the month the
+        # picker happened to open on. A planner that can re-plan should get
+        # to. One chance only, because a second lapse means the re-plan did
+        # not work either, and every further step would be acting on a form
+        # that does not contain what the user was shown being entered.
+        #
+        # `HardcodedPlanner` ignores setbacks and simply serves its next step,
+        # so for the hardcoded path this is one extra step before the same
+        # give-up.
+        lapse = await lapsed_value(page, filled)
+        if lapse is not None:
+            record, lapsed = lapse
+            lapses += 1
+            if lapses >= 2:
+                await give_up(lapsed)
+                return
+
+            # Stop watching this one. What the planner puts back may not be
+            # the string that was typed — the live date picker commits
+            # `2026-10-15` as `15-10-2026` — so holding the old record
+            # would report a lapse against a step that had just done the
+            # right thing.
+            filled = [f for f in filled if f is not record]
+
+            # Never silent, on the same principle as a skipped step. The step
+            # named is the last one, which is the one that undid the value and
+            # the one the user just watched appear to succeed.
+            await connection.send(
+                "step.failed",
+                StepFailed(
+                    step_index=steps_taken,
+                    instruction=history[-1] if history else task.goal,
+                    reason=lapsed,
+                    # Nothing was retried: the step's own actions all
+                    # succeeded and the failure was found afterwards.
+                    strategies_tried=0,
+                ),
+            )
+            setback = (
+                f"{lapsed}. Typing a value is not always choosing it — a "
+                f"list or a calendar may need the choice committed by clicking "
+                f"the option itself. Put it back, and commit it this time."
+            )
+            continue
 
         if task.success is not None and satisfies(before, task.success):
             break
@@ -656,10 +694,10 @@ async def record_fills(page: Page, move: Move) -> list[FilledValue]:
     return recorded
 
 
-async def durability_failure(
+async def lapsed_value(
     page: Page, recorded: list[FilledValue]
-) -> str | None:
-    """Whether a value this run typed has since stopped being there.
+) -> tuple[FilledValue, str] | None:
+    """The first value this run typed that has since stopped being there.
 
     Reading a field back the instant after typing proves the keystrokes
     arrived. It does not prove the value *stays*, and on a real page that is a
@@ -684,11 +722,19 @@ async def durability_failure(
         except PlaywrightError:
             continue
         if actual != record.value:
-            return (
+            return record, (
                 f"{record.label!r} no longer holds what I put in it — it held "
                 f"{record.value!r} and now holds {actual!r}"
             )
     return None
+
+
+async def durability_failure(
+    page: Page, recorded: list[FilledValue]
+) -> str | None:
+    """`lapsed_value`, as just the message."""
+    lapse = await lapsed_value(page, recorded)
+    return lapse[1] if lapse is not None else None
 
 
 def resolve_value(

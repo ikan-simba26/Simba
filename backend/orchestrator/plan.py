@@ -21,6 +21,16 @@ class Target:
 
     role: str
     label: str
+    # Narrows a match when the label alone is ambiguous.
+    #
+    # `None` means the qualifier is not part of the match, which is what
+    # almost every target wants. A string means it must match exactly — and
+    # `""` is a real value, not a synonym for None: it means "the one with no
+    # qualifier at all". That is the distinction a calendar needs. A month
+    # grid has two cells labelled `30`, one of them the previous month's;
+    # `Target("option", "30", qualifier="")` is the way to say the one in the
+    # month on screen.
+    qualifier: str | None = None
 
 
 @dataclass(frozen=True)

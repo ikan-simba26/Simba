@@ -96,6 +96,10 @@ def render_page(elements: list[Element]) -> str:
 
     for element in elements:
         line = f"{element.id}. {element.role} {element.label!r}"
+        if element.qualifier:
+            # Without this a month grid offers two elements called '30' and
+            # nothing to choose between them.
+            line += f" ({element.qualifier})"
         if element.input_type:
             line += f" [input type={element.input_type}]"
         if element.overlay:
