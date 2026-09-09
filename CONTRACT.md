@@ -81,11 +81,7 @@ transcript. That cost a day of misdiagnosis on the first live run
 `instruction` is the same wording the user was already shown for that step,
 so the message names something they recognise rather than an internal target.
 `reason` is the failure as the loop saw it. `strategies_tried` is how many
-routes were attempted before giving up on the step: **2** when the step's own
-actions failed, and **0** when they all succeeded and the failure was found
-afterwards — a value that stopped being there by the next look at the page.
-The second case names the most recent step, which is the one that undid the
-value and the one the user just watched appear to work.
+routes were attempted before giving up on the step — 2 today, always.
 
 Not the same thing as `error`. `error` is the harness failing; this is the
 task failing at something and continuing. It is shown quietly and briefly,

@@ -6,6 +6,12 @@ runs, and on a real page those are different questions: a component-framework
 combobox clears its own input on blur unless a choice was committed. A field
 can verify correctly and be empty two seconds later.
 
+A lapse ends the run. Handing it back to the planner as a setback instead was
+tried on 2026-09-09 and reverted the same day: the live LLM run was told its
+date was the wrong month, re-planned, searched anyway, and reported
+`task.completed` on a timetable for a date nobody asked for. A run that
+stopped honestly became one that finished wrongly.
+
 The replicas do not behave that way, so the blur handler is attached here, in
 the test, to a page that is otherwise untouched. The replicas stay as they
 are — they are evidence, and editing them to suit the loop would spend the
@@ -217,75 +223,33 @@ def test_the_loop_notices_a_field_that_emptied_itself(replica: str) -> None:  # 
     moves to the password field, the username blurs, and the page takes the
     value back. Nothing before durable verification was capable of noticing.
 
-    The run is not ended by it: the planner is told first. `HardcodedPlanner`
-    ignores setbacks, so here the run carries on and the notice is the only
-    trace — which is exactly why the notice has to exist.
+    The run ends here. Handing it to the planner as a setback instead was
+    tried on 2026-09-09 and reverted the same day — see the module docstring
+    and EVALUATION.md case 6.
     """
     connection = drive(TWO_FILLS, SIGN_IN, script=CLEAR_ON_BLUR)
 
-    failures = connection.of("step.failed")
-    assert failures, connection.types()
-    reported = failures[-1]
-    assert "Student ID or Username" in reported["reason"]
-    assert "no longer holds" in reported["reason"]
-    # Nothing was retried; the step's own actions all succeeded.
-    assert reported["strategies_tried"] == 0
-
-
-def test_a_lapse_is_handed_to_the_planner_before_the_run_ends(
-    replica: str,  # noqa: F811
-) -> None:
-    """One chance to put it back, then give up.
-
-    A planner that can re-plan should get to: both live cases were
-    recoverable by choosing differently rather than trying harder. The
-    setback says so in words a planner can act on.
-    """
-    seen: list[str | None] = []
-
-    class Watching(HardcodedPlanner):
-        async def next_move(self, elements, history, setback):
-            seen.append(setback)
-            return await super().next_move(elements, history, setback)
-
-    async def go() -> FakeConnection:
-        connection = FakeConnection()
-        async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch()
-            page = await browser.new_page(viewport={"width": 1280, "height": 800})
-            await page.add_init_script(CLEAR_ON_BLUR)
-            try:
-                await run_task(
-                    page, connection, Watching(TWO_FILLS), SIGN_IN, REPLICA_URL + "/"
-                )
-            finally:
-                await browser.close()
-        return connection
-
-    asyncio.run(go())
-
-    told = [s for s in seen if s and "no longer holds" in s]
-    assert told, seen
-    assert "commit it this time" in told[0]
-
-
-def test_a_second_lapse_ends_the_run(replica: str) -> None:  # noqa: F811
-    """The re-plan did not work either, so stop.
-
-    Four fills: the username is typed, blurred away by the password, typed
-    again, and blurred away again. The first lapse is a setback; the second
-    is the end.
-    """
-    plan = [TWO_FILLS[0], TWO_FILLS[1], TWO_FILLS[0], TWO_FILLS[1], TWO_FILLS[2]]
-
-    connection = drive(plan, SIGN_IN, script=CLEAR_ON_BLUR)
-
     help_requested = connection.of("help.requested")
     assert help_requested, connection.types()
-    assert "no longer holds" in help_requested[0]["reason"]
-    # One reported and survived, one ended the run.
-    assert len(connection.of("step.failed")) == 1, connection.types()
-    assert not connection.of("task.completed")
+    reason = help_requested[0]["reason"]
+    assert "Student ID or Username" in reason
+    assert "no longer holds" in reason
+    assert not connection.of("task.completed"), (
+        "the run finished on a form the page had emptied"
+    )
+
+
+def test_a_lapse_is_never_absorbed_in_silence(replica: str) -> None:  # noqa: F811
+    """Whatever else happens, the person is told what went wrong.
+
+    The reason travels on `help.requested` rather than `step.failed`, because
+    the run is over — two messages about one moment would be one too many,
+    which is the same rule a second consecutive setback follows.
+    """
+    connection = drive(TWO_FILLS, SIGN_IN, script=CLEAR_ON_BLUR)
+
+    assert not connection.of("step.failed"), connection.types()
+    assert len(connection.of("help.requested")) == 1
 
 
 def test_the_same_plan_finishes_when_the_page_behaves(replica: str) -> None:  # noqa: F811

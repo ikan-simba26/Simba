@@ -83,6 +83,15 @@ class Snapshot:
     # page "did not change at all" about a step that had just worked.
     values: tuple[str, ...] = ()
 
+    def value_of(self, label: str) -> str | None:
+        """What the field with this label holds, or None if there is no such
+        field. An empty string is an answer, not an absence — a field the page
+        has emptied is exactly what this is for."""
+        for element_label, value in zip(self.labels, self.values):
+            if element_label == label:
+                return value
+        return None
+
 
 class Connection:
     """One frontend WebSocket, framed as contract envelopes."""
@@ -210,6 +219,15 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected {expect.label_present!r} to appear on the page"
     if expect.content_says and not after.content.says(expect.content_says):
         return f"expected the page to say {expect.content_says!r}"
+    if expect.value_is is not None:
+        actual = after.value_of(expect.value_is.label)
+        if actual is None:
+            return f"expected a field called {expect.value_is.label!r} on the page"
+        if actual != expect.value_is.equals:
+            return (
+                f"expected {expect.value_is.label!r} to hold "
+                f"{expect.value_is.equals!r}, it holds {actual!r}"
+            )
     if expect.rows_at_least is not None:
         rows = sum(len(table.rows) for table in after.content.tables)
         if rows < expect.rows_at_least:
@@ -380,7 +398,6 @@ async def run_task(
     last_failure: str | None = None
     completed: list[Move] = []
     filled: list[FilledValue] = []
-    lapses = 0
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -412,55 +429,27 @@ async def run_task(
         # Durable verification: everything typed so far has to *still* be
         # there, not merely have been there when it was typed.
         #
-        # A lapse is handed back to the planner once before the run ends. It
-        # used to end the run outright, on the reasoning that repeating the
-        # same keystrokes invites the same undoing — which is true of the
-        # keystrokes and not of the *plan*. Both live cases are recoverable by
-        # choosing differently rather than by trying harder: a station that
-        # needs committing from its dropdown, and a date set to the month the
-        # picker happened to open on. A planner that can re-plan should get
-        # to. One chance only, because a second lapse means the re-plan did
-        # not work either, and every further step would be acting on a form
-        # that does not contain what the user was shown being entered.
+        # This ends the run. It is not a retry and it is not a setback, and
+        # both of those were tried.
         #
-        # `HardcodedPlanner` ignores setbacks and simply serves its next step,
-        # so for the hardcoded path this is one extra step before the same
-        # give-up.
-        lapse = await lapsed_value(page, filled)
-        if lapse is not None:
-            record, lapsed = lapse
-            lapses += 1
-            if lapses >= 2:
-                await give_up(lapsed)
-                return
-
-            # Stop watching this one. What the planner puts back may not be
-            # the string that was typed — the live date picker commits
-            # `2026-10-15` as `15-10-2026` — so holding the old record
-            # would report a lapse against a step that had just done the
-            # right thing.
-            filled = [f for f in filled if f is not record]
-
-            # Never silent, on the same principle as a skipped step. The step
-            # named is the last one, which is the one that undid the value and
-            # the one the user just watched appear to succeed.
-            await connection.send(
-                "step.failed",
-                StepFailed(
-                    step_index=steps_taken,
-                    instruction=history[-1] if history else task.goal,
-                    reason=lapsed,
-                    # Nothing was retried: the step's own actions all
-                    # succeeded and the failure was found afterwards.
-                    strategies_tried=0,
-                ),
-            )
-            setback = (
-                f"{lapsed}. Typing a value is not always choosing it — a "
-                f"list or a calendar may need the choice committed by clicking "
-                f"the option itself. Put it back, and commit it this time."
-            )
-            continue
+        # A retry is wrong because the keystrokes worked — something on the
+        # page undid them afterwards, and repeating them invites the same
+        # undoing. Handing it to the planner as a setback was tried on
+        # 2026-09-09 and reverted the same day: the live LLM run was told in
+        # plain words that its date was the wrong month, re-planned, clicked
+        # search anyway, and reported `task.completed` on a timetable for a
+        # date nobody had asked for. A run that stopped honestly became one
+        # that finished wrongly, which is a strictly worse failure — the user
+        # cannot catch it.
+        #
+        # It will be worth revisiting when a success condition can verify the
+        # goal's own values well enough that a wrong answer cannot pass.
+        # `Expectation.value_is` is the beginning of that and is not yet
+        # enough on its own. See DECISIONS.md and EVALUATION.md, case 6.
+        lapsed = await durability_failure(page, filled)
+        if lapsed is not None:
+            await give_up(lapsed)
+            return
 
         if task.success is not None and satisfies(before, task.success):
             break
