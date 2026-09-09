@@ -691,6 +691,11 @@ which is the exact class of silent wrongness verification exists to prevent.
 commit the choice this time" — never gets the chance. Worth revisiting when
 the LLM path is exercised against a live site; flagged rather than settled.
 
+**Revisited 2026-09-09, and this decision stands.** The LLM path was
+exercised against a live site, the other way was tried, and it was reverted
+the same day. See "A durability lapse ends the run — tried the other way,
+reverted the same day" below for what it cost.
+
 ---
 
 ## An action gets ten seconds, not thirty
@@ -769,32 +774,119 @@ that ignores the qualifier will waste a step discovering it.
 
 ---
 
-## A durability lapse gets one chance with the planner, and it made things worse
+## A durability lapse ends the run — tried the other way, reverted the same day
 
-**Decision.** A lapsed value is handed back to the planner as a setback
-before the run ends, rather than ending it immediately. A second lapse still
-ends the run. Requested explicitly; recorded here with what it cost.
+**Decision.** A value that stops being there ends the run with
+`help.requested`. It is not retried and it is not handed back to the planner.
 
-**Alternatives.** Keep the immediate give-up. Re-run the step that filled the
-value automatically.
+**What was tried instead.** On 2026-09-09 the lapse was changed to hand the
+failure to the planner once as a setback, giving up only on a second lapse.
+The reasoning was sound and is still sound as far as it goes: both live
+lapses are recoverable by *choosing differently* rather than trying harder —
+commit the option, press Next Month first — and a planner that can re-plan
+should get the chance. Repeating the keystrokes invites the same undoing;
+reconsidering the plan does not.
 
-**Why this.** Both live lapses are recoverable by *choosing differently*
-rather than trying harder — commit the option; press Next Month first — and a
-planner that can re-plan should get to. Repeating the keystrokes invites the
-same undoing; reconsidering the plan does not.
+**Why it was reverted.** It converted a run that stopped honestly into one
+that finished wrongly. In the live LLM run the model was told in plain words
+that its date was the wrong month and that the choice needed committing, it
+re-planned, it clicked search anyway, and the run reported `task.completed`
+on a timetable for `2026-09-15` against a goal naming `2026-10-15`.
 
-**Cost, measured rather than predicted.** In the live LLM run it converted a
-safe stop into an unsafe success: the model was told the date was wrong,
-re-planned, clicked search anyway, and the run reported `task.completed` on a
-timetable for a date nobody asked for. Before the change no search went out
-and the user was told the system was stuck.
+Before the change, no search went out and the user was told the system was
+stuck — wrong about the cause, right about the outcome. After it, a person is
+handed a plausible, well-formed answer to a question they did not ask, with
+nothing on screen suggesting anything went wrong. **That is the worst thing
+this system can produce and the only failure a user cannot catch.** A
+recoverable stop is worth more than an unrecoverable success.
 
-That is the worst outcome this system can produce, and it is now reachable.
-The mitigation is not to revert — the reasoning above still holds — but to
-close the other two holes it depends on: a setback the model actually acts
-on, and a success condition that can see the value the goal names. Both are
-open in STATUS.md, and neither is verified, because the day's quota went on
-finding this out.
+The mechanism was not at fault and the model was not simply careless: the
+setback reached it, and moving that setback above the element list changed
+its answer at the same decision. What is missing is a check that can tell a
+right answer from a wrong one at the end, and until that exists, continuing
+past a lapse is trading a visible failure for an invisible one.
+
+**What would bring it back.** A success condition that can verify the goal's
+own values well enough that a wrong answer cannot pass.
+`Expectation.value_is` (2026-09-09) is the first half — the railways task now
+requires the departure field to hold the goal's date — and it is not enough
+on its own, because it only asks about the fields a plan happened to name.
+Reconsider when a task can state what it was asking for, and be checked
+against it, without the plan author having to remember to.
+
+**Cost of the revert.** An LLM that could genuinely recover from a lapse is
+stopped anyway, and a run that could have finished ends in `help.requested`.
+That is the trade, taken deliberately and with the evidence in hand rather
+than predicted: see EVALUATION.md case 6.
+
+---
+
+## `Expectation.value_is`: a success condition may ask what a field holds
+
+**Decision.** An `Expectation` can name a field and the value it must hold,
+read from the values `Snapshot` already carries. The railways task uses it:
+success now needs results *and* the departure field holding the goal's date.
+
+**Alternatives.** Check the date in the results. Check the URL. Leave
+`rows_at_least=1` and rely on the planner being right.
+
+**Why this.** The results cannot be checked: the table is `Train No.`,
+`From/To`, `Time`, `Duration` — no date column — so `content_says` has
+nothing to match. The URL never changes; it is a single-page app. The only
+place the requested date appears at all is the field the user watched being
+filled, and no expectation could read a field value even though `Snapshot`
+has carried them since 2026-09-08.
+
+`rows_at_least=1` is not wrong, it is the wrong question: it is satisfied by a
+search for any date at all, which is exactly how a run reported success on
+the wrong one.
+
+**The expected value is what the page shows, not what was typed.** The picker
+accepts `2026-10-15` and commits it as `15-10-2026`, so `FieldValue.equals`
+holds the second. A condition written against the typed string would fail at
+the moment the value became real, which is the opposite of its purpose — and
+that distinction is the same one durable verification exists for.
+
+**Cost.** It is per-field and per-plan: someone has to remember to write it,
+and a task whose author forgets is exactly as blind as before. It also
+hard-codes one site's display format into a plan. Both are acceptable for a
+hardcoded plan and neither scales to a planner writing its own success
+conditions, which is the version this will eventually need.
+
+---
+
+## A floating panel says what it is showing
+
+**Decision.** An inferred element carries `panel`, the heading of the
+floating panel it sits in, and `render_page` promotes it to a banner above
+the element list: `IT IS SHOWING: 2026 September.`
+
+**Alternatives.** Leave the month in the element list as `button 'September'`
+among seventeen others. Put the heading on every option.
+
+**Why this.** A month of day cells is not self-describing. Every month has a
+15th; which month is on screen is stated once, at the top, and both live LLM
+runs clicked the 15th of the month the picker happened to open on without
+ever comparing it to the goal — with `button 'September'` and `button 'Next
+Month'` sitting unremarked in the list the whole time.
+
+Qualifiers fixed the ambiguity *within* a grid and could not fix this: they
+say which cell is which, not which grid you are looking at. This is the third
+mechanism to follow the same rule — a fact that changes which element is
+correct belongs above the list, not in it (EVALUATION.md, "Where information
+sits is a perception decision").
+
+Once per panel, not once per option: forty-two repetitions of the same
+sentence is how a banner stops being read.
+
+**Cost.** The heading is found by class-name fragments — `header`, `title`,
+`caption`, `heading` — so a panel that names its header something else gets
+none, silently. And a heading is only ever as informative as the page made
+it: this one reads `2026 September` because that is the order the site prints
+it in, and nothing here reorders or reformats what the page said.
+
+**Unverified.** Whether stating the month actually changes what a model picks
+has not been measured. It needs a live run, and the day's quota is spent.
 
 ---
 

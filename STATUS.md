@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-09 · 197 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`)
+**Last updated:** 2026-09-09 · 214 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`)
 
 ---
 
@@ -21,19 +21,21 @@ It now *completes* on the live one with the hardcoded plan: five steps,
 forty-six seconds, no model, choosing two stations from a dropdown and a date
 from a calendar that the accessibility tree does not know exist.
 
-**With the LLM it now runs to the end and gets the wrong answer.** It commits
-both stations from the inferred options unprompted, then sets the date to the
-15th of the month the picker opened on, is told so, re-plans, and searches
-anyway — returning a real timetable for `2026-09-15` against a goal naming
-`2026-10-15`, and reporting `task.completed`.
+**With the LLM it produced a wrong answer, and that has been closed off.** It
+commits both stations from the inferred options unprompted, then set the date
+to the 15th of the month the picker opened on and searched anyway — returning
+a real timetable for `2026-09-15` against a goal naming `2026-10-15`, and
+reporting `task.completed`. The first plausible-but-wrong answer the system
+has produced, and the failure mode that matters most (EVALUATION.md, case 6).
 
-That is a **regression in outcome**, and it comes from a change made
-deliberately: a durability lapse now hands the failure to the planner once
-instead of ending the run. The mechanism works; the model does not use it.
-Before the change the run stopped and said it was stuck, which was wrong
-about the cause and right about the outcome. See EVALUATION.md 2026-09-09b —
-this is the first plausible-but-wrong answer the system has produced, and it
-is the failure mode that matters most.
+Three things had to line up. Two are now fixed: the success condition can
+test a field's value, so that run would fail today; and a floating panel
+states which month it is showing instead of leaving it in an unremarkable
+button. The third — continuing past a durability lapse — was a change made
+that morning and reverted the same evening. **A lapse ends the run again.**
+
+What remains unmeasured is whether any of it changes what the model does.
+That needs a live run and the day's quota is spent.
 
 What the system cannot do is trust its own result. A field can read back
 correctly at every check while the application submits something else, and no
@@ -63,6 +65,10 @@ not the application's state"*.
   `next month`, `disabled`, `today`. Live-tested on the railways calendar —
   the two cells labelled `30` are told apart, and `Target("option", "15",
   qualifier="")` names the 15th of the month on screen.
+- **Panel headings**: an inferred element carries what the floating panel it
+  sits in says it is showing, and `render_page` promotes it above the element
+  list — `IT IS SHOWING: 2026 September.` Live-tested, and it follows the
+  month when `Next Month` is pressed.
 - **Content extraction** (`content.py`): headings with level, table rows
   paired to their column headers, label/value pairs, prominent values. The
   second output channel.
@@ -96,13 +102,10 @@ top three items from the previous entry are now done.
    ordinal, and worked only because that page has exactly one unnamed button.
    Inference deliberately drops unlabelled candidates for the same reason, so
    an icon-only control found by cursor is still not reportable.
-4. **Nothing says which month a calendar is showing.** Qualifiers fixed the
-   ambiguity *within* a grid — every duplicate day is now separated, and the
-   15th of October is expressible. What no element carries is the grid's own
-   month: `button 'September'` and `button 'October'` are just two more
-   buttons, and both LLM runs clicked the 15th without comparing either to
-   the goal. A panel-level qualifier, or a heading promoted the way an
-   overlay banner is, would be the next thing to try.
+4. **A panel heading is found by class-name fragment.** `header`, `heading`,
+   `title`, `caption`. A picker that names its header something else gets no
+   heading, silently, and the calendar is ambiguous again. The list will need
+   extending and the only way to find out is a page where it fails.
 5. **Inference is confined to the first document.** Iframes arrive as further
    entries in the snapshot's `documents` and are not read.
 6. **Accordion expanded state is discarded.** The AX tree reports
@@ -134,8 +137,12 @@ top three items from the previous entry are now done.
   railways flow **completes on the live site**, 5/5 steps, 46s, no model.
 - **Durable verification**: a typed value must still be there at the next
   perceive, not only the instant after typing. Has fired twice on the live
-  site, both times correctly. A lapse is handed to the planner once as a
-  setback before the run ends.
+  site, both times correctly. A lapse **ends the run** — the other way was
+  tried on 2026-09-09 and reverted the same day.
+- **`Expectation.value_is`**: a success condition can require a named field to
+  hold a given value, read from the values `Snapshot` already carries. The
+  railways task uses it, so the run that searched the wrong date would now
+  fail instead of completing.
 - **`press`** as a fourth operation — arrow keys, Enter, Escape. Additive;
   `CONTRACT.md` and both schema files untouched.
 - **Content-based success conditions**: `Expectation.content_says` and
@@ -152,22 +159,21 @@ top three items from the previous entry are now done.
 - Nothing.
 
 **Blocked / open**
-- **A run can now report success on a wrong answer.** The single most
-  important open item on this page. The LLM run searched `2026-09-15` against
-  a goal naming `2026-10-15`, got two real trains, and reported
-  `task.completed`. Three things had to line up and all three are open:
-  the model ignored a well-formed setback; nothing tells it which month a
-  calendar is showing; and the success condition cannot see a date at all.
-- **`Expectation` has no vocabulary for a form value.** `Snapshot` has
-  carried `values` since 2026-09-08 and no expectation can test them. A task
-  whose goal names a value should be able to require the form still holds it
-  at the end — the cheapest of the three fixes above, and the one that would
-  have caught this. **Blocked on quota** to test against the case that
-  motivated it.
+- **A success condition still has to be remembered.** `value_is` closes the
+  railways case, and it is per-field and per-plan: a task whose author does
+  not write one is exactly as blind as `RAILWAYS_TASK` was for four days. The
+  version this eventually needs is a task that states what it was asking for
+  and is checked against it without anyone having to remember. Raham's to
+  propose.
 - **The model cannot navigate a calendar.** It clicked the 15th of the month
   the picker opened on in both runs, with `button 'Next Month'` in its list
   and October in its goal, and did so again after being told the date was
-  wrong. Needs re-testing on the demo model before anything is concluded.
+  wrong. The panel heading now states the month; **whether that changes what
+  it picks is unmeasured.**
+- **Three changes are unverified end to end.** The promoted setback, the
+  panel heading, and `value_is` in a live run. All three are tested at the
+  unit and page level; none has been through a whole task with a model.
+  **Blocked on quota.**
 - **Trace memory has never run against a live model.** Replay needs none and
   is covered; the record-then-replay cycle on a real run is not. Blocked on
   API quota.
@@ -266,10 +272,11 @@ top three items from the previous entry are now done.
   kind of thing a stronger model may simply not have.
 - No LLM run against the billing flow, same quota block.
 - No baseline for the LLM against a goal it has not seen.
-- **The setback-prominence fix is unverified end to end.** Moving the setback
-  above the element list changed the model's answer at the decision that
-  failed, measured with one call. Whether it changes the *run* needs a full
-  run and the day's quota is spent.
+- **Three fixes are unverified against a model.** The promoted setback (one
+  call says it changes that decision), the panel heading, and
+  `Expectation.value_is`. Each is tested where it can be — unit tests, and
+  live page tests that need no model — and none has been through a whole run.
+  **Blocked on quota.**
 
 ---
 
@@ -280,7 +287,7 @@ top three items from the previous entry are now done.
   flow.
 - `tools/screen_site.py` — screen a site before pointing anything at it.
 - `spike/` proves the Electron + CDP + Playwright arrangement.
-- 204 tests from the repo root with `python -m pytest`; 5 Electron integration
+- 221 tests from the repo root with `python -m pytest`; 5 Electron integration
   tests skip unless a host is running, and the two live-site tests need
   `SIMBA_LIVE_TESTS=1`.
 

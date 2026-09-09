@@ -894,8 +894,16 @@ The middle row is the one to sit with. Handing a failure back to a planner is
 right when the planner can act on it, and the evidence that this one can is
 now weaker than it looked: given a clear, well-placed correction it re-tried
 the approach that had already failed. Until the LLM path can demonstrably
-recover from a lapse, the safety of the old behaviour — stop, and say so —
-was worth more than the flexibility that replaced it.
+recover from a lapse, the safety of the old behaviour — stop, and say so — is
+worth more than the flexibility that replaced it.
+
+**Settled the same day.** The one-chance change was reverted: a lapse ends the
+run again. Two of the three holes it depended on are now closed —
+`Expectation.value_is` means the railways task can no longer pass on a wrong
+date, and a floating panel now states which month it is showing rather than
+leaving it in an unremarkable button. The third, whether the model acts on a
+promoted setback across a whole run, is unmeasured and needs quota. See
+case 6, and DECISIONS.md.
 
 ---
 
@@ -1191,6 +1199,91 @@ not be, because the second number did not exist. An agent that recovers from
 its own errors must emit the fact that it recovered, or its successes and its
 near-misses are the same observation — and the person debugging it, or the
 person using it, has no way to tell which one they are looking at.
+
+### 6. A run that completed, returned real results, and answered a different question
+
+The most serious entry on this page, and the only one where the system
+produced a wrong answer rather than a wasted step. Everything above cost time.
+This cost correctness, silently.
+
+**What matched.** Everything. Every check the loop had agreed the run had
+worked:
+
+| Check | Verdict | Why it was satisfied |
+|---|---|---|
+| Every step's read-back | pass | the values typed were genuinely typed |
+| Every step's page-change check | pass | the page changed each time |
+| `step.failed` | not raised at the end | the steps' own actions succeeded |
+| Durable verification | raised once, then cleared | the lapsed record was dropped after being reported |
+| `task.success` = `rows_at_least=1` | **pass** | **two real trains came back** |
+| The user's screen | `task.completed` | a finished task, and a timetable |
+
+**What actually happened.** The goal was *Find trains from LAHORE CANTT to
+KARACHI CANTT on **2026-10-15***. The search that went out was:
+
+    {"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":"2026-09-15"}
+
+The model had typed `2026-10-15` into the date field, then clicked `15` in the
+calendar — the 15th of September, the month the picker opens on. It never
+pressed `Next Month`. Durable verification caught the change, reported it, and
+handed it back to the planner as a setback; the model re-planned and clicked
+search anyway. Two trains came back. They are real trains. They run on the
+wrong day.
+
+Nothing on the screen said so. A user asked to find trains for the 15th of
+October would have been shown a departure board and a completed task.
+
+**Which check was too weak.** `rows_at_least=1`, and it is worth being precise
+about *why*, because the check is not buggy — it answers the question it was
+asked, and the question was wrong.
+
+    success=Expectation(rows_at_least=1)
+
+"Results appeared" is satisfied by a search for **any** date. The goal names a
+date and nothing in the run could test it:
+
+- **Not the results.** The table is `Train No.`, `From/To`, `Time`,
+  `Duration`. There is no date column, so `content_says` has nothing to match.
+- **Not the URL or title.** Neither changes; it is a single-page app.
+- **Not a label.** No interactive element carries the date.
+
+The only place the requested date exists on the finished page is the input
+field the user watched being filled — and `Expectation` had no vocabulary for
+a field value, though `Snapshot` had carried them since the day before.
+
+**What distinguishes them now.** `Expectation.value_is` (2026-09-09). The
+railways task's success is now results **and** the departure field holding the
+goal's date, in the format the page writes it back in:
+
+    success=Expectation(
+        rows_at_least=1,
+        value_is=FieldValue("Departure Date", "15-10-2026"),
+    )
+
+The exact failing snapshot is a test (`test_success_conditions.py`): the same
+page, the same two trains, `15-09-2026` in the field. It fails now. The same
+test asserts that `rows_at_least=1` alone still passes on it, so which check
+was too weak is pinned down rather than described.
+
+**And the change that let it happen was reverted.** Continuing past a lapse
+was a deliberate change made that morning, on reasoning that still looks
+right in isolation: both live lapses were recoverable by choosing differently,
+and a planner that can re-plan should get the chance. It was reverted the same
+evening. A lapse ends the run again.
+
+The trade is stated plainly in DECISIONS.md: a recoverable stop is worth more
+than an unrecoverable success. Stopping is visible, wrong, and fixable by the
+person watching. Finishing with the wrong answer is none of those.
+
+**The pattern this one breaks.** The other five cases were all found by
+putting a second number beside the first — step count beside completion, wall
+clock beside success. This one had a second number. Two trains came back, and
+that was the number that lied, because it measured the wrong thing well. The
+defence here is not another number but a check that knows what the task was
+*for*: not "did something happen" but "did the thing the goal named happen".
+Every success condition in this repo should be read with that question, and
+`RAILWAYS_TASK` failed it for four days without anyone noticing, because it
+passed.
 
 ### The pattern
 
