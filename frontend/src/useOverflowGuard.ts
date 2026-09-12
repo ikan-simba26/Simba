@@ -40,11 +40,25 @@ export function useOverflowGuard(
       if (next === null) return; // Level 1 is the floor; a scrollbar it is.
 
       // Ask the page, rather than guessing how much room the chrome takes.
-      // The step is not the only thing on screen: there is the padding, the
-      // notice and the level control too, and an earlier version measured
-      // only the step and concluded a scrolling page fitted.
+      // The step is not the only thing on screen: there is the padding and
+      // the level control too, and an earlier version measured only the step
+      // and concluded a scrolling page fitted.
+      //
+      // Transient notices are the exception, and they have to be, because
+      // including them made this guard undo the very thing it was reacting
+      // to. A level change puts a notice on screen saying so; the notice adds
+      // about seventy pixels; the guard then found the page overflowing and
+      // hopped back to the level it came from. Measured on the mock flow, the
+      // level went 2 -> 3 -> 2 inside half a second and the notice blamed the
+      // step for being "too long to fit" when the step was fine. Reshaping a
+      // step because of chrome that disappears in eight seconds is the wrong
+      // trade in both directions.
+      const transient = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-transient]"),
+      ).reduce((total, node) => total + node.offsetHeight, 0);
       const overflowing =
-        document.documentElement.scrollHeight > window.innerHeight + 2;
+        document.documentElement.scrollHeight - transient >
+        window.innerHeight + 2;
       if (!overflowing || !element.isConnected) return;
 
       if (useStore.getState().overflowHopped) {

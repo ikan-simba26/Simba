@@ -90,6 +90,7 @@ export function LevelNotice() {
           transition={{ duration: 0.35, ease: EASE }}
           className="mb-6 flex items-center justify-between gap-4 rounded-lg
                      border border-line bg-raised px-4 py-3 text-[14px] text-muted"
+          data-transient
         >
           <span>{levelNotice.because}.</span>
           <button

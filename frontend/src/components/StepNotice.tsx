@@ -46,6 +46,7 @@ export function StepFailureNotice() {
           transition={{ duration: 0.35, ease: EASE }}
           className="mb-6 flex items-start justify-between gap-4 rounded-lg
                      border border-line bg-raised px-4 py-3"
+          data-transient
           role="status"
         >
           <div className="flex flex-col gap-1">
