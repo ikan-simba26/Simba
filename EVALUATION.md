@@ -1287,13 +1287,36 @@ passed.
 
 ### The pattern
 
-Every one of these passed a check that was true but not sufficient: the click
-did land, the task did complete, the string was on the page. What each check
-missed was the *cost* — a wasted step, thirty seconds, an entire run's worth
-of context. The defence is not better assertions but a second, unrelated
-number next to the first: step counts beside completion, wall clock beside
-success, the actual sequence beside the outcome. Two numbers disagreeing is
-how all three of these were found.
+Every one of these six passed a check that was true but not sufficient: the
+click did land, the task did complete, the string was on the page, the value
+was in the field.
+
+For the first three the missing thing was *cost* — a wasted step, thirty
+seconds, an entire run's worth of context — and the defence was a second,
+unrelated number beside the first: step counts beside completion, wall clock
+beside success, the actual sequence beside the outcome. Two numbers
+disagreeing is how those three were found.
+
+Cases 4 to 6 do not fit that shape, and it is worth being clear about why
+rather than stretching the original lesson over them.
+
+- **Case 4** had no second number available. The DOM said the field held the
+  date at every check, and every signal this design has is downstream of the
+  DOM, so there was no second, unrelated observation to take. Only the
+  outgoing request disagreed, and nothing was watching it.
+- **Case 5** had no first number. A step that failed and was carried past
+  emitted nothing at all, so its trace and a successful step's were the same
+  bytes. You cannot cross-check an observation that was never made.
+- **Case 6** had two numbers that agreed, and both were right. Two trains came
+  back; the page really did change. What was wrong was the *question*: "did
+  results appear" is satisfied by a search for any date, and the goal named
+  one.
+
+So the rule the first three suggest — put a second number next to the first —
+is necessary and not sufficient. The other three say: emit the fact that
+something went wrong even when you recovered from it (5); know that agreeing
+signals may share a single source and be wrong together (4); and ask whether
+the check is measuring the thing the task was actually for (6).
 
 ---
 
@@ -1415,10 +1438,62 @@ makes about verification should be read with that boundary attached.
   `gemini-3.1-pro-preview` and `gemini-pro-latest` return 429 on the first
   request; `gemini-2.5-pro` returns 404. The "demo model" above is the
   strongest that actually answers, not the strongest that exists.
-- **One replica, one task.** Everything here is `replicas/registration` and
-  the CS-401 goal. Nothing has been measured against a second site, a second
-  task, or a page whose overlay is not a full-viewport backdrop.
-- **No cost measurement.** Tokens per run and cost per completed task are not
-  recorded yet.
-- **The hardcoded planner has no benchmark.** The A/B it exists for has not
-  been run, so there is no baseline to compare the LLM against.
+
+### What perception cannot see
+
+- **The DOM is not the application's state.** The boundary, in full, under its
+  own heading above. A field read back correctly at every check while the
+  application submitted an empty value, and every signal available here agrees
+  with the DOM and is wrong together. Watching the network would close it and
+  is not in scope. **Every claim this project makes about verification should
+  be read with this attached.**
+- **`INTERACTIVE_ROLES` is a fixed list of fourteen roles.** Anything outside
+  it is not a control as far as `build_elements` is concerned, whatever the
+  page thinks. `slider`, `treeitem`, `option` on a native `<select>`,
+  `combobox` variants a library invents — none of them reach a planner. The
+  live railways flow only works because `interactivity.py` reaches round the
+  outside of this list from layout; the list itself has not moved since it was
+  written. Nothing has been measured on a page that needs a role it lacks, so
+  the size of this gap is unknown rather than small.
+- **A modal's content is skipped along with a dropdown's.** Content extraction
+  excludes floating panels because a date picker is not content, and nothing
+  yet tells a dialog from a popup.
+- **Inference is confined to the first document.** Iframes are not read.
+
+### What the orchestrator cannot promise
+
+- **A success condition has to be written by hand, per plan.** `value_is`
+  closes the railways case and it is per-field and per-task: a plan whose
+  author does not write one is exactly as blind as `RAILWAYS_TASK` was for
+  four days, and case 6 is what that looks like. Nothing warns an author that
+  their success condition cannot see the thing their goal names. This is the
+  most likely source of the next wrong answer.
+- **Trace memory has never run against a live model.** Replay needs no model
+  and is covered; the record-then-replay cycle on a real run is not.
+- **The JS-click fallback can click through a modal.** With overlay detection
+  off it does so in 10/10 runs and the run still passes.
+
+### What is measured, and what that leaves
+
+The three limitations this section used to carry — one replica, no cost
+measurement, no hardcoded baseline — were true when written and are now
+contradicted by results earlier in this same file. Removed rather than
+quietly corrected, because a limitations list that disagrees with its own
+evidence is worse than no list: it is the section a reader trusts to be
+current.
+
+For the record, since each was cited as a gap:
+
+- **Three flows, not one.** Two replicas plus a live public site
+  (2026-09-06, 2026-09-07 onward).
+- **Cost is recorded.** Tokens and dollars per run, per model, in the
+  2026-09-06 A/B and every live run since.
+- **The hardcoded baseline exists.** The A/B ran on 2026-09-06 and the
+  hardcoded arm is the deterministic control every flow now defaults to.
+
+What that leaves is narrower and worth stating plainly: **no flow has been
+measured more than once with a model since the perception work landed.** The
+ten-run benchmarks are all from 2026-09-05, against the registration replica,
+before inferred roles, content extraction, qualifiers and panel headings
+existed. Every number in this file describing *model* behaviour predates the
+thing it would now be measuring.
