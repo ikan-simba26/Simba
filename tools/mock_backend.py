@@ -107,6 +107,23 @@ STEPS = [
 app = FastAPI()
 
 
+@app.get("/")
+async def health() -> dict[str, str]:
+    """Same shape as the real backend's, so a launcher can poll either.
+
+    Without this, readiness could only be inferred from a 404, which is true
+    by accident rather than by statement.
+    """
+    return {
+        "status": "ok",
+        "flow": "mock",
+        "planner": "scripted",
+        "trace_memory": "off",
+        "browser": "none",
+        "replica": "none",
+    }
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
