@@ -699,10 +699,18 @@ async def lapsed_value(
     A field that has gone from the page entirely is not a failure — the page
     navigated, which is the page-level check's business, not this one.
     """
-    for record in recorded:
-        if record.url != page.url:
-            continue
-        elements, _ = await perceive(page)
+    watching = [record for record in recorded if record.url == page.url]
+    if not watching:
+        return None
+
+    # One read for every record, not one each. `perceive` is three CDP calls
+    # plus a full snapshot parse — cheap once, and paid per watched field when
+    # it sat inside the loop. All the records are being checked against the
+    # same instant anyway, so re-reading between them was never buying
+    # freshness, only latency.
+    elements, _ = await perceive(page)
+
+    for record in watching:
         element_id = pick(elements, Target(record.role, record.label))
         if element_id is None:
             continue
