@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import type { PagePreview } from "@shared/schema";
 
+import { TRUST } from "../copy";
 import { useStore } from "../store";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
@@ -40,7 +41,7 @@ export function TrustControl() {
       className="mt-6 w-full text-center text-[14px] text-muted underline
                  underline-offset-4 transition-colors duration-300 hover:text-ink"
     >
-      What are you doing?
+      {TRUST.ask}
     </button>
   );
 }

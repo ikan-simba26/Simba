@@ -13,6 +13,7 @@ import { useEffect } from "react";
 
 import type { Level } from "@shared/schema";
 
+import { NOTICE } from "../copy";
 import { useStore } from "../store";
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -96,7 +97,7 @@ export function LevelNotice() {
           <button
             type="button"
             onClick={dismissLevelNotice}
-            aria-label="Dismiss"
+            aria-label={NOTICE.dismiss}
             className="shrink-0 px-2 text-muted transition-colors duration-300 hover:text-ink"
           >
             &times;

@@ -15,6 +15,8 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import type { State } from "@shared/schema";
 
+import { STOPPED } from "../copy";
+
 const EASE = [0.22, 0.61, 0.36, 1] as const;
 
 /** A 2px line crossing the top of the column while an action is running. */
@@ -80,10 +82,10 @@ export function StuckNote({ reason, suggestion }: { reason?: string; suggestion?
       className="flex flex-col gap-4"
     >
       <h1 className="text-[30px] leading-[1.35] font-medium text-stuck">
-        Sorry — I&rsquo;m stuck.
+        {STOPPED.heading}
       </h1>
       <p className="text-[19px] leading-relaxed text-ink/85">
-        {suggestion ?? "Could you take it from here? I'll carry on afterwards."}
+        {suggestion ?? STOPPED.suggestion}
       </p>
       {reason ? <p className="text-[15px] leading-relaxed text-muted">{reason}</p> : null}
     </motion.div>

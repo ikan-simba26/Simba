@@ -16,8 +16,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 
-import type { Level, StepAction, StepField } from "@shared/schema";
+import type { Finding, Level, StepAction, StepField } from "@shared/schema";
 
+import { FOUND, STEP } from "../copy";
 import { LEVELS, firstSentence, typeSize } from "../levels";
 import type { StepRendererProps } from "./StepView";
 
@@ -97,6 +98,8 @@ export function StepShell({
       ? step.fields.filter((field) => !(values[field.id] ?? field.value))
       : step.fields;
 
+  const findings: Finding[] = step.findings ?? [];
+
   const [primary, ...rest] = orderActions(step.actions);
   const secondary = rest[0];
 
@@ -127,7 +130,7 @@ export function StepShell({
             transition={FOLD}
             className="text-muted tracking-wide"
           >
-            Step {step.step_index} of {step.step_total}
+            {STEP.count(step.step_index, step.step_total)}
           </motion.p>
         </Fold>
 
@@ -149,6 +152,29 @@ export function StepShell({
         >
           {instruction}
         </motion.h1>
+
+        {/* What has been found so far, when the task was looking for
+            something. Under the instruction and larger than it: the
+            instruction says what is happening now, the finding is what the
+            person actually asked for, and showing the answer as a step label
+            buries it.
+
+            Not at level 3: that level is one sentence and one thing to press,
+            and a second block on it is the clutter the level exists to
+            remove. The answer is still waiting on the closing screen. */}
+        <Fold show={findings.length > 0 && spec.progress !== "none"} gap={spec.gap * 0.5}>
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] text-muted">{FOUND.heading}</span>
+            <motion.span
+              animate={{ fontSize: `${foundSize(level, instruction)}px` }}
+              transition={FOLD}
+              className="font-medium leading-[1.15] tracking-[-0.01em] text-ink"
+            >
+              {findings[0]?.value}
+            </motion.span>
+            <span className="text-[14px] text-muted">{findings[0]?.label}</span>
+          </div>
+        </Fold>
 
         <Fold show={spec.detail && Boolean(step.detail)} gap={spec.gap * 0.3}>
           <p className="text-[15px] leading-relaxed text-muted">{step.detail}</p>
@@ -215,6 +241,14 @@ export function StepShell({
       </div>
     </div>
   );
+}
+
+/**
+ * How big a finding is on the step card: larger than the instruction beside
+ * it, and capped so a long answer cannot push the step off the screen.
+ */
+function foundSize(level: Level, instruction: string): number {
+  return Math.min(44, Math.round(typeSize(level, instruction) * 1.2));
 }
 
 function Field({

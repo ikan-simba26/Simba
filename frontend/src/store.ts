@@ -12,6 +12,8 @@ import type {
   Level,
   ErrorPayload,
   HelpRequested,
+  HistoryOffered,
+  PastGoal,
   LoadUpdated,
   PagePreview,
   State,
@@ -56,6 +58,13 @@ interface Store {
    * for.
    */
   stepFailure: StepFailed | null;
+  /**
+   * Goals this person has asked for before, offered on the home screen.
+   *
+   * Not cleared with a task: they are the same goals afterwards, and the
+   * closing screen's "do something else" goes straight back to them.
+   */
+  history: PastGoal[];
 
   log: LogEntry[];
 
@@ -89,6 +98,8 @@ interface Store {
   overflowHopped: boolean;
   dismissLevelNotice: () => void;
   dismissStepFailure: () => void;
+  /** Back to the home screen without dropping the connection. */
+  startOver: () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
   startTask: (goal: string) => void;
@@ -139,6 +150,7 @@ export const useStore = create<Store>((set, get) => {
     wsUrl: DEFAULT_WS_URL,
     log: [],
     level: 2,
+    history: [],
     levelLocked: false,
     levelNotice: null,
     overflowHopped: false,
@@ -185,6 +197,10 @@ export const useStore = create<Store>((set, get) => {
     dismissLevelNotice: () => set({ levelNotice: null }),
 
     dismissStepFailure: () => set({ stepFailure: null }),
+
+    // Clears the finished task but keeps the remembered goals, so "do
+    // something else" lands on the home screen rather than an empty box.
+    startOver: () => set({ ...EMPTY }),
 
     setWsUrl: (wsUrl) => set({ wsUrl }),
 
@@ -254,6 +270,9 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         preview: null,
         trustOpen: false,
       });
+      return;
+    case "history.offered":
+      set({ history: (message.payload as HistoryOffered).goals });
       return;
     case "step.failed":
       // Not cleared here or by the step that follows: see the store field.

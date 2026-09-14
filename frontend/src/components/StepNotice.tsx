@@ -21,6 +21,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 
+import { NOTICE } from "../copy";
 import { useStore } from "../store";
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -50,20 +51,12 @@ export function StepFailureNotice() {
           role="status"
         >
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] text-ink/85">
-              I couldn&rsquo;t do that step &mdash; {lowerFirst(stepFailure.instruction)}{" "}
-              I&rsquo;m carrying on.
-            </span>
-            {/* The mechanical reason, smaller. Someone who wants it can read
-                it; someone who does not is not made to. */}
-            <span className="text-[13px] leading-relaxed text-muted">
-              {stepFailure.reason}
-            </span>
+            <span className="text-[14px] text-ink/85">{NOTICE.skipped}</span>
           </div>
           <button
             type="button"
             onClick={dismissStepFailure}
-            aria-label="Dismiss"
+            aria-label={NOTICE.dismiss}
             className="shrink-0 px-2 text-muted transition-colors duration-300 hover:text-ink"
           >
             &times;
@@ -72,13 +65,4 @@ export function StepFailureNotice() {
       )}
     </AnimatePresence>
   );
-}
-
-/** So the instruction reads as part of the sentence around it. */
-function lowerFirst(text: string): string {
-  if (!text) return text;
-  // Only when the first word is ordinary prose. "LAHORE CANTT" stays as it is.
-  const [first] = text.split(" ");
-  if (first !== first.toLowerCase() && first === first.toUpperCase()) return text;
-  return text[0].toLowerCase() + text.slice(1);
 }
