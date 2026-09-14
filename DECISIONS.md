@@ -912,3 +912,93 @@ planner must act on at *this* step sits above the list.
 re-typed the date, which is exactly what the widget discards. And the
 end-to-end effect is unverified: it changed one decision under test and has
 not been run through a whole task, because the quota ran out.
+
+---
+
+## The interface's copy lives in one file, and is enforced
+
+**Decision.** Every sentence the interface says is in `frontend/src/copy.ts`.
+A component may not write its own, and `frontend/test_copy.py` fails if one
+does.
+
+**Alternatives.** Keep strings where they are used. A convention rather than a
+test.
+
+**Why this.** The audience is people with cognitive disabilities, and the
+governing rule is that identical situations read identically. Someone who has
+learned that "Give me a moment." means waiting should never meet "One
+moment…" for the same state: a second phrasing asks them to work out whether
+something new is happening, which is the work this project exists to remove.
+
+A component that writes its own string cannot be checked for that. A table
+can. The test compiles `copy.ts` with the project's own `tsc` and reads the
+values out through node, so it cannot pass against a file that would not
+build, and cannot drift from what actually renders. It also scans every
+`.tsx` for sentences, which is the part that stops the file quietly becoming a
+suggestion.
+
+It already caught two things on the first run: `ending.withAnswer` and
+`found.heading` were two situations with one sentence, and a level change had
+two possible phrasings depending on which pair of levels it was between.
+
+**Cost.** It is only *one* file for the interface. The instructions on each
+step and the labels on their buttons come from the backend's plans, and a plan
+for a new site brings its own wording with no test behind it. So the voice is
+set in two places and only one of them is enforceable. Named in the report and
+in `copy.ts` rather than hidden.
+
+---
+
+## A task says what it was asked to find out
+
+**Decision.** `Task.answers` is a tuple of (name to show, content label). The
+loop resolves them from the content channel at every perceive, remembers what
+it has seen, and sends them on `step.presented` and `task.completed`.
+
+**Alternatives.** Read the answer from the final page. Put the sentence
+together in the backend. Let the frontend search the content itself.
+
+**Why this.** A run that ends with "Done." answers nothing. Somebody who asked
+what their bill was is owed the number, and the content channel has had it
+since 2026-09-08 with nothing carrying it to the screen.
+
+Accumulated rather than read at the end, because the answer is usually not on
+the page the task finishes on: the billing amount is on the results page and
+the run then opens the detail page, where that column does not exist. Reading
+only at the end would find nothing, having walked past the answer two steps
+earlier.
+
+The *name* comes from the plan rather than the page because the page's own
+heading is `P/WITHIN`, which means nothing outside a billing department. And
+the sentence around it is composed in the frontend, not the backend, so all
+the wording stays in one reviewable place.
+
+**Cost.** Another thing a plan author has to remember, and the same shape of
+gap as `value_is`: a task that does not declare `answers` shows nothing and
+nothing warns the author. The two should probably be one declaration — what
+this task is about — rather than two.
+
+---
+
+## Past goals reach the home screen over the socket, not over HTTP
+
+**Decision.** A new backend-to-frontend message, `history.offered`, sent once
+when the socket opens.
+
+**Alternatives.** A `GET /goals` route with CORS. A request/response pair the
+frontend asks for.
+
+**Why this.** The home screen shows what this person has asked for before, so
+the data has to cross the boundary, and CLAUDE.md is explicit that the two
+processes talk over WebSocket and nothing else. An HTTP route would have been
+smaller in one sense and a hole in the architecture in another.
+
+Sent unprompted rather than asked for because there is nothing to ask with
+until a task starts, and adding a frontend-to-backend request would have been
+two new message types rather than one.
+
+**Cost.** It is a **new message type**, which `CONTRACT.md` says needs all
+three owners, where an additive optional field does not. It is additive — a
+frontend that ignores it is unaffected — but it is a change to the contract's
+shape and it was made to satisfy a screen. Flagged for review rather than
+presented as routine.

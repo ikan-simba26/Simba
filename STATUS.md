@@ -6,7 +6,7 @@ Per module: what is done, what is in progress, what is blocked and on whom.
 Owners are from `CLAUDE.md`. "Blocked on" names a person or an external
 thing, not a task.
 
-**Last updated:** 2026-09-09 · 214 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`)
+**Last updated:** 2026-09-15 · 224 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`)
 
 ---
 
@@ -243,11 +243,31 @@ top three items from the previous entry are now done.
   (`step.failed`). The muted card the level notice uses, not the stuck screen:
   the run is still going, and dressing a recovered setback up as a failure
   would teach people to distrust a system that is working.
+- **A home screen**: a greeting, and the goals this person has asked for
+  before as large cards, with the text box behind "Something else". No
+  history means the box directly.
+- **Findings on screen**: the value the goal was about, larger than the
+  instruction beside it, on the step card and again on the closing screen.
+- **A closing screen that answers the question** rather than saying "Done.",
+  with one action to finish and one to start something else.
+- **Presence between steps** in the same plain voice as everything else,
+  instead of an unlabelled pulse.
+- **All interface copy in `copy.ts`**, with `test_copy.py` failing if a
+  component writes its own sentence or if one situation can produce two.
 
 **In progress**
 - Nothing.
 
 **Blocked / open — needs Aly**
+- **The voice is set in two places.** `copy.ts` holds the interface's words
+  and is enforced by a test. The instruction on each step and the label on
+  each button come from the backend's plans, where nothing checks them — a new
+  plan brings its own wording and can be as inconsistent as its author. The
+  wording review in the 2026-09-15 report lists what that has already cost.
+- **A found value is shown exactly as the page wrote it.** The billing due
+  date reads `15-09-2026` on screen because that is what the table says.
+  Formatting it would mean inventing, so nothing does — but `15-09-2026` is
+  not plain language and this audience is the one least able to parse it.
 - **Nothing chooses a level automatically** except `load.updated`, which only
   the mock sends. Every real run sits at level 2 unless the user moves it.
 - **The credential vault is not built.** Values arrive in `step.response`
@@ -279,13 +299,19 @@ top three items from the previous entry are now done.
 - `task.start.goal` is honoured rather than discarded, and `CONTRACT.md` says
   so explicitly.
 - **`step.failed`** added 2026-09-09 — additive, no rename, no removal. Both
-  schema files and CONTRACT.md carry it. `strategies_tried` is `0` when the
-  step's own actions succeeded and the failure was found afterwards.
+  schema files and CONTRACT.md carry it.
+- **`findings`** on `step.presented` and `task.completed`, added 2026-09-15.
+  Additive optional fields, which `CONTRACT.md` permits without ceremony.
+- **`history.offered`** added 2026-09-15 — a **new message type**, which is
+  more than an additive field. Sent unprompted when the socket opens, so the
+  home screen has something to show. Additive in effect, and still a change to
+  the contract's shape: **needs ratifying with the other two owners.**
 
 **Blocked / open**
 - `CONTRACT.md` is still marked **DRAFT** and has never been ratified in a
   session with all three owners, which it requires before being treated as
-  frozen. **Blocked on Nahail, Raham and Aly together.**
+  frozen. **Blocked on Nahail, Raham and Aly together**, and now overdue:
+  three message types have been added since it was written.
 - `telemetry` is specified and nothing sends it. It is the estimator's other
   input channel.
 
@@ -324,7 +350,7 @@ top three items from the previous entry are now done.
   flow.
 - `tools/screen_site.py` — screen a site before pointing anything at it.
 - `spike/` proves the Electron + CDP + Playwright arrangement.
-- 221 tests from the repo root with `python -m pytest`; 5 Electron integration
+- 231 tests from the repo root with `python -m pytest`; 5 Electron integration
   tests skip unless a host is running, and the two live-site tests need
   `SIMBA_LIVE_TESTS=1`.
 
