@@ -31,18 +31,28 @@ BILLING_TASK = Task(
     goal=GOAL,
     estimated_steps=3,
     success=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
+    # What the goal is actually asking, and what to call it on screen. The
+    # page's own heading for the amount is `P/WITHIN`, which means nothing
+    # outside a billing department.
+    #
+    # Both are read off the results page and remembered; the run then opens
+    # the detail page, where neither column exists. See `findings_in`.
+    answers=(
+        ("Your bill", "P/WITHIN"),
+        ("Due", "DUE DT"),
+    ),
 )
 
 BILLING_PLAN: list[PlanStep] = [
     PlanStep(
-        instruction="Dismiss the cookie notice.",
+        instruction="The site is asking about cookies. I’ll say yes.",
         detail="The site is asking about cookies before anything else.",
         actions=_confirm("Accept cookies"),
         operations=[Operation("click", Target("button", "Accept all cookies"))],
         expect=Expectation(label_gone="Accept all cookies"),
     ),
     PlanStep(
-        instruction="Look up your bill.",
+        instruction="Let me look up your bill.",
         detail="Using the 14-digit reference number from your bill.",
         fields=[
             StepField(id="reference", label="Reference No.", type="text", value=REFERENCE),
@@ -55,7 +65,7 @@ BILLING_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/bill"),
     ),
     PlanStep(
-        instruction="Open the full bill breakdown.",
+        instruction="Now I’ll open the full bill.",
         detail="This shows what makes up the amount due.",
         actions=_confirm("Show me the breakdown"),
         operations=[Operation("click", Target("link", "View full bill detail"))],

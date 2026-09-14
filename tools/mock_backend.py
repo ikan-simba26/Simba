@@ -19,7 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from shared.envelope import envelope  # noqa: E402
 from shared.schema import (  # noqa: E402
     BaseModel,
+    Finding,
+    HistoryOffered,
     LoadUpdated,
+    PastGoal,
     StateChanged,
     StepAction,
     StepFailed,
@@ -38,6 +41,15 @@ GOAL = "Register for CS-401"
 # to have "failed" and a step after it for the notice to sit above.
 FAILED_BEFORE_STEP = 3
 
+# The answer the scripted task is looking for, and the step it turns up on.
+# Two values, because a real answer usually has a qualifier attached: the
+# amount is the thing asked for and the date is what makes it actionable.
+FOUND_AT_STEP = 3
+FINDINGS = [
+    Finding(label="Your bill", value="14,382 rupees"),
+    Finding(label="Due", value="15 September"),
+]
+
 # one at level 3, then back. It is here so the level change — the fold from
 # one level to the next — can be demoed and worked on without one.
 LEVEL_BEFORE_STEP = {3: 3, 4: 2}
@@ -51,7 +63,7 @@ STEPS = [
     StepPresented(
         step_index=1,
         step_total=3,
-        instruction="Log in to the course portal.",
+        instruction="Let me sign you in first.",
         detail="Using your saved university credentials.",
         fields=[],
         actions=[
@@ -63,7 +75,7 @@ STEPS = [
     StepPresented(
         step_index=2,
         step_total=3,
-        instruction="Add CS-401 to your course list.",
+        instruction="Now I’ll add CS-401 for you.",
         detail="3 credit hours. Seats available: 12.",
         fields=[],
         actions=[
@@ -77,7 +89,7 @@ STEPS = [
         step_total=4,
         # Two sentences, so level 3 trimming to the first one is visible.
         instruction=(
-            "Confirm your place on CS-401. This uses one of your four "
+            "Ready to confirm your place. This uses one of your four "
             "elective slots for the year."
         ),
         detail="Advanced Widget Design, 3 credit hours, Dr. Aslam.",
@@ -93,7 +105,7 @@ STEPS = [
     StepPresented(
         step_index=4,
         step_total=4,
-        instruction="Submit your registration for CS-401.",
+        instruction="Last one — I’ll send it now.",
         detail="This finalizes your schedule for the term.",
         fields=[],
         actions=[
@@ -146,6 +158,18 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 continue
             return
 
+    # The home screen's cards. Two, so the screen shows a choice rather than
+    # a single button that looks like the only option.
+    await send(
+        "history.offered",
+        HistoryOffered(
+            goals=[
+                PastGoal(goal="Register for CS-401", site="http://127.0.0.1:5000"),
+                PastGoal(goal="Check my electricity bill", site="http://127.0.0.1:5100"),
+            ]
+        ),
+    )
+
     await receive("task.start")
 
     await send("task.started", TaskStarted(goal=GOAL, estimated_steps=len(STEPS)))
@@ -159,7 +183,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 "step.failed",
                 StepFailed(
                     step_index=step.step_index - 1,
-                    instruction="Close the registration alert.",
+                    instruction="The portal opened a notice. I’ll close it.",
                     reason=(
                         "click on 'Close' failed: Locator.click: Timeout "
                         "10000ms exceeded"
@@ -185,7 +209,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
         await send("state.changed", StateChanged(state="acting"))
         await send("state.changed", StateChanged(state="waiting"))
-        await send("step.presented", step)
+        # From the step the amount is on, the answer travels with every step
+        # and then with the ending — the same journey a real run makes.
+        await send(
+            "step.presented",
+            step.model_copy(update={"findings": FINDINGS})
+            if step.step_index >= FOUND_AT_STEP
+            else step,
+        )
         await receive("step.response", step.step_index)
 
         await send("state.changed", StateChanged(state="thinking"))
@@ -198,6 +229,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             steps_taken=len(STEPS),
             llm_calls=0,
             replayed=False,
+            findings=FINDINGS,
         ),
     )
     await ws.close()

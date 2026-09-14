@@ -126,7 +126,7 @@ def _confirm(label: str) -> list[StepAction]:
 
 REGISTRATION_PLAN: list[PlanStep] = [
     PlanStep(
-        instruction="Sign in to the course portal.",
+        instruction="Let me sign you in first.",
         detail="Fictional State University student portal.",
         fields=[
             StepField(id="username", label="Student ID or Username", type="text", value=""),
@@ -141,14 +141,14 @@ REGISTRATION_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/courses"),
     ),
     PlanStep(
-        instruction="Close the registration alert.",
+        instruction="The portal opened a notice. I’ll close it.",
         detail="The portal opened a notice about the add/drop deadline.",
         actions=_confirm("Close it"),
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
     ),
     PlanStep(
-        instruction="Register for CS-401, Advanced Widget Design.",
+        instruction="Ready to book your place on CS-401.",
         detail="3 credit hours. MWF 10:00-10:50, Dr. Aslam, SCI 214.",
         actions=_confirm("Register for CS-401"),
         operations=[Operation("click", Target("button", "Register for CS-401"))],

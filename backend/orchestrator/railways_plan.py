@@ -138,11 +138,17 @@ RAILWAYS_TASK = Task(
         rows_at_least=1,
         value_is=FieldValue("Departure Date", DEPARTURE_AS_SHOWN),
     ),
+    # The goal asks which trains run, so the answer is the train and how long
+    # it takes. Read from the results table once the search returns.
+    answers=(
+        ("Train", "Train No."),
+        ("Journey", "Duration"),
+    ),
 )
 
 RAILWAYS_PLAN: list[PlanStep] = [
     PlanStep(
-        instruction="Choose where you are travelling from.",
+        instruction="Let me set where you’re starting from.",
         detail=f"Starting at {ORIGIN}.",
         fields=[StepField(id="from", label="From", type="text", value=ORIGIN)],
         actions=_confirm("Set the departure station"),
@@ -155,7 +161,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_gone=ORIGIN),
     ),
     PlanStep(
-        instruction="Choose where you are travelling to.",
+        instruction="Now where you’re going.",
         detail=f"Arriving at {DESTINATION}.",
         fields=[StepField(id="to", label="To", type="text", value=DESTINATION)],
         actions=_confirm("Set the destination"),
@@ -166,7 +172,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_gone=DESTINATION),
     ),
     PlanStep(
-        instruction="Open the calendar and go to the right month.",
+        instruction="Let me find the right month.",
         detail=f"Departing {DEPARTURE}.",
         actions=_confirm("Open the calendar"),
         operations=[
@@ -179,7 +185,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_present=DEPARTURE_DAY),
     ),
     PlanStep(
-        instruction="Pick the day you want to travel.",
+        instruction="Now the day you’re travelling.",
         detail=f"{DEPARTURE}. Typing the date does not take — it has to be picked.",
         actions=_confirm("Set the date"),
         # A `td` in the calendar grid, with no role and no aria. Perception
@@ -198,7 +204,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_gone=DEPARTURE_DAY),
     ),
     PlanStep(
-        instruction="Search for trains.",
+        instruction="Ready to look up your trains.",
         detail="This only looks up the timetable. Nothing is booked.",
         actions=_confirm("Search"),
         # The search control is a button with no accessible name at all — no
