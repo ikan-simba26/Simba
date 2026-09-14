@@ -38,6 +38,7 @@ from shared.schema import (
     Highlight,
     PagePreview,
     StateChanged,
+    Finding,
     StepAction,
     StepFailed,
     StepField,
@@ -238,6 +239,26 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
     return None
 
 
+def findings_in(snapshot: Snapshot, task: "Task", known: dict[str, str]) -> list[Finding]:
+    """Update what has been found, and return it in the task's own order.
+
+    Accumulated across the run rather than read from the final page, because
+    the answer is often not on the page the task ends on. The billing amount
+    is on the results page; the run then opens the detail page, where that
+    column does not exist. Reading only at the end would find nothing and
+    report nothing, having walked past the answer two steps earlier.
+
+    `known` is mutated, which is the point: it is the run's memory of what it
+    has seen.
+    """
+    for label, content_label in task.answers:
+        value = snapshot.content.value_for(content_label)
+        if value:
+            known[label] = value
+    return [Finding(label=label, value=known[label])
+            for label, _ in task.answers if label in known]
+
+
 def satisfies(after: Snapshot, expect: Expectation) -> bool:
     """Whether a page is already in the expected state, change or no change."""
     return mismatch(after, expect) is None
@@ -299,6 +320,16 @@ class Task:
     goal: str
     estimated_steps: int
     success: Expectation | None = None
+    # What this task is actually asking, as (name to show, content label).
+    #
+    # A run that only reports progress answers nothing: "Done." is not what
+    # somebody wanted when they asked what their bill was. The content channel
+    # already reads the value; this says which value the goal was about, and
+    # what to call it in front of a person. The page calls it `P/WITHIN`.
+    #
+    # Empty for a task that changes something rather than finding something
+    # out, which is most of them.
+    answers: tuple[tuple[str, str], ...] = ()
 
 
 MAX_STEPS = 12
@@ -398,6 +429,8 @@ async def run_task(
     last_failure: str | None = None
     completed: list[Move] = []
     filled: list[FilledValue] = []
+    # What the task was asked to find out, as it turns up. See `findings_in`.
+    found: dict[str, str] = {}
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -425,6 +458,7 @@ async def run_task(
     for _ in range(MAX_STEPS):
         await set_state("thinking")
         elements, before = await perceive(page)
+        findings = findings_in(before, task, found)
 
         # Durable verification: everything typed so far has to *still* be
         # there, not merely have been there when it was typed.
@@ -476,6 +510,7 @@ async def run_task(
                 fields=move.fields,
                 actions=move.actions,
                 requires_confirmation=True,
+                findings=findings,
             ),
         )
         async def answer_questions(message: dict) -> None:
@@ -540,6 +575,7 @@ async def run_task(
         filled += await record_fills(page, move)
 
     _, final = await perceive(page)
+    findings = findings_in(final, task, found)
     if task.success is not None and not satisfies(final, task.success):
         # Prefer the concrete reason the last move failed over the generic
         # "ran out of steps", which says nothing a user could act on.
@@ -562,6 +598,7 @@ async def run_task(
             steps_taken=steps_taken,
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
+            findings=findings,
         ),
     )
 

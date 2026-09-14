@@ -101,6 +101,21 @@ class TraceStore:
                 "DELETE FROM traces WHERE goal = ? AND site = ?", (goal, site)
             )
 
+    def recent(self, limit: int = 3) -> list[tuple[str, str]]:
+        """The most recently recorded goals, newest first.
+
+        `created_at` is an ISO-8601 UTC string, which sorts correctly as text,
+        so the ordering does not need parsing.
+        """
+        with self._connect() as connection:
+            return [
+                (goal, site)
+                for goal, site in connection.execute(
+                    "SELECT goal, site FROM traces ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                )
+            ]
+
     def goals(self) -> list[tuple[str, str]]:
         with self._connect() as connection:
             return [

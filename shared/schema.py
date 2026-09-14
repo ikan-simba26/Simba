@@ -22,6 +22,7 @@ MessageType = Literal[
     # backend -> frontend
     "task.started",
     "state.changed",
+    "history.offered",
     "step.presented",
     "step.failed",
     "load.updated",
@@ -51,6 +52,35 @@ class StateChanged(BaseModel):
     state: State
 
 
+class PastGoal(BaseModel):
+    """Something this person asked for before, and where they asked it."""
+
+    goal: str
+    site: str
+
+
+class HistoryOffered(BaseModel):
+    """What the home screen offers instead of an empty box.
+
+    Sent once, when the socket opens, before any task. A frontend that ignores
+    it sees exactly what it saw before.
+    """
+
+    goals: List[PastGoal]
+
+
+class Finding(BaseModel):
+    """A value the task was looking for, and the name to show it under.
+
+    `label` is for a person to read, not the page's own column heading: the
+    billing replica calls the amount `P/WITHIN`, and nobody outside a billing
+    department knows what that means. The plan supplies the readable name.
+    """
+
+    label: str
+    value: str
+
+
 class StepField(BaseModel):
     id: str
     label: str
@@ -72,6 +102,9 @@ class StepPresented(BaseModel):
     fields: List[StepField]
     actions: List[StepAction]
     requires_confirmation: bool
+    # What has been found so far, if the task was looking for anything.
+    # Additive and optional: a task that reads nothing sends an empty list.
+    findings: List[Finding] = []
 
 
 class StepFailed(BaseModel):
@@ -124,6 +157,9 @@ class TaskCompleted(BaseModel):
     steps_taken: int
     llm_calls: int
     replayed: bool
+    # The answer, when the task had one. A run that ends without saying what
+    # it found has not finished from the user's side of the screen.
+    findings: List[Finding] = []
 
 
 class TaskFailed(BaseModel):

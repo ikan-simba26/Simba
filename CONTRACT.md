@@ -40,6 +40,28 @@ means a dropped message — log it, don't silently continue.
 `state` is one of `thinking` | `acting` | `waiting` | `stuck`. Drives the four
 visual states. Exactly one is active at a time.
 
+### `history.offered`
+Added 2026-09-15. Sent **once, when the socket opens**, before any task.
+```json
+{
+  "goals": [
+    { "goal": "Register for CS-401", "site": "http://127.0.0.1:5000" },
+    { "goal": "Check my electricity bill", "site": "http://127.0.0.1:5100" }
+  ]
+}
+```
+What the home screen offers instead of an empty text box. Read from the same
+SQLite trace store that replay uses, newest first, capped at three — so the
+cards are exactly the goals that would replay, rather than a second list that
+could disagree with the first.
+
+An empty list is normal and means the text box is shown directly. A frontend
+that ignores this message sees exactly what it saw before.
+
+This is the only message the backend sends unprompted. It is here rather than
+on an HTTP route because the two processes talk over WebSocket and nothing
+else (CLAUDE.md).
+
 ### `step.presented`
 The main message.
 ```json
@@ -60,6 +82,14 @@ The main message.
 ```
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
+
+`findings` is what the task has been asked to find out, as far as it has got —
+`[{ "label": "Your bill", "value": "14,382" }]`. Empty for a task that changes
+something rather than finding something out, which is most of them.
+
+`label` is for a person to read, not the page's own column heading: the
+billing replica calls that column `P/WITHIN`. The plan supplies the readable
+name, because only the plan knows what the goal was about.
 
 ### `step.failed`
 Added 2026-09-09. A step did not work and the run is **carrying on past it**.
@@ -116,8 +146,16 @@ Sent only in response to `trust.requested`.
 ### `task.completed`
 ```json
 { "summary": "Registered for CS-401.", "duration_ms": 48200,
-  "steps_taken": 6, "llm_calls": 4, "replayed": false }
+  "steps_taken": 6, "llm_calls": 4, "replayed": false,
+  "findings": [{ "label": "Your bill", "value": "14,382" }] }
 ```
+`findings` is the answer, when the task had one, and the closing screen is
+built from it. A task that looked something up and ends without saying what it
+found has not finished from the user's side of the screen.
+
+Accumulated across the run rather than read from the last page: the answer is
+often not on the page the task ends on. The billing amount is on the results
+page, and the run then opens the detail page where that column does not exist.
 
 ### `task.failed`
 ```json

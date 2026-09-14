@@ -17,6 +17,7 @@ export type MessageType =
   // backend -> frontend
   | "task.started"
   | "state.changed"
+  | "history.offered"
   | "step.presented"
   | "step.failed"
   | "load.updated"
@@ -44,6 +45,34 @@ export interface StateChanged {
   state: State;
 }
 
+/** Something this person asked for before, and where they asked it. */
+export interface PastGoal {
+  goal: string;
+  site: string;
+}
+
+/**
+ * What the home screen offers instead of an empty box.
+ *
+ * Sent once, when the socket opens, before any task. A frontend that ignores
+ * it sees exactly what it saw before.
+ */
+export interface HistoryOffered {
+  goals: PastGoal[];
+}
+
+/**
+ * A value the task was looking for, and the name to show it under.
+ *
+ * `label` is for a person to read, not the page's own column heading: the
+ * billing replica calls the amount `P/WITHIN`, and nobody outside a billing
+ * department knows what that means. The plan supplies the readable name.
+ */
+export interface Finding {
+  label: string;
+  value: string;
+}
+
 export interface StepField {
   id: string;
   label: string;
@@ -65,6 +94,8 @@ export interface StepPresented {
   fields: StepField[];
   actions: StepAction[];
   requires_confirmation: boolean;
+  /** What has been found so far, if the task was looking for anything. */
+  findings?: Finding[];
 }
 
 /**
@@ -114,6 +145,8 @@ export interface TaskCompleted {
   steps_taken: number;
   llm_calls: number;
   replayed: boolean;
+  /** The answer, when the task had one. */
+  findings?: Finding[];
 }
 
 export interface TaskFailed {
@@ -173,6 +206,7 @@ export interface Envelope<T> {
 export type AnyEnvelope =
   | Envelope<TaskStarted>
   | Envelope<StateChanged>
+  | Envelope<HistoryOffered>
   | Envelope<StepPresented>
   | Envelope<StepFailed>
   | Envelope<LoadUpdated>

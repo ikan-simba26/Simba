@@ -24,6 +24,7 @@ Two switches, both environment variables:
 """
 
 import os
+import sqlite3
 from dataclasses import replace
 from pathlib import Path
 
@@ -38,8 +39,12 @@ from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
 from backend.orchestrator.traces import TraceStore, site_of
+from shared.schema import HistoryOffered, PastGoal
 
 DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
+# How many past goals the home screen offers. Three large cards is a choice;
+# a list of them is the cluttered interface this project exists to remove.
+HOME_GOALS = 3
 
 FLOWS = {
     "registration": (REGISTRATION_TASK, REGISTRATION_PLAN, "http://127.0.0.1:5000"),
@@ -84,10 +89,34 @@ async def health() -> dict[str, str]:
     }
 
 
+def past_goals() -> HistoryOffered:
+    """What this person has asked for before, most recent first.
+
+    Read from the same SQLite store trace replay uses, so the home screen
+    offers exactly the goals that would replay rather than a separate list
+    that could disagree with it. Capped: the home screen shows a few large
+    cards, and a long list of them is the cluttered interface this project
+    exists to remove.
+    """
+    try:
+        store = TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB))
+        goals = store.recent(limit=HOME_GOALS)
+    except sqlite3.Error:
+        # A missing or unreadable store is an empty home screen, not a dead
+        # socket. The text box is always there underneath.
+        return HistoryOffered(goals=[])
+    return HistoryOffered(goals=[PastGoal(goal=goal, site=site) for goal, site in goals])
+
+
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     connection = Connection(websocket, task_id="t_skeleton")
+
+    # Offered before anything is asked for, so the home screen has something
+    # to show the moment it connects.
+    await connection.send("history.offered", past_goals())
+
     start = await connection.receive("task.start")
 
     _, task, plan, replica_url = selected_flow()
