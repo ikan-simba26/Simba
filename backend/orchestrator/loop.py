@@ -486,7 +486,7 @@ async def run_task(
         # `About.holds` is the beginning of that and is not yet enough on its
         # own: it checks only the values a plan author declared, on the final
         # page. See DECISIONS.md and EVALUATION.md, case 6.
-        lapsed = await durability_failure(page, filled)
+        lapsed = await durability_failure(page, filled, task.about.holds)
         if lapsed is not None:
             await give_up(lapsed)
             return
@@ -732,7 +732,7 @@ async def record_fills(page: Page, move: Move) -> list[FilledValue]:
 
 
 async def lapsed_value(
-    page: Page, recorded: list[FilledValue]
+    page: Page, recorded: list[FilledValue], holds: tuple[FieldValue, ...] = ()
 ) -> tuple[FilledValue, str] | None:
     """The first value this run typed that has since stopped being there.
 
@@ -746,6 +746,21 @@ async def lapsed_value(
 
     A field that has gone from the page entirely is not a failure — the page
     navigated, which is the page-level check's business, not this one.
+
+    **A field that now holds exactly what the task declared for it is not a
+    failure either** (`holds`, from `Task.about.holds`). A page often commits
+    a value by rewriting it: the live railways picker takes a typed
+    `2026-10-15` and, once the day is picked, writes back `15-10-2026`. That
+    is the value being set, not undone, and on 2026-09-17 this check stopped
+    an LLM run with a correct form because it compared against the typed
+    string alone (EVALUATION.md, 2026-09-17b).
+
+    Nothing else is loosened. The record keeps the typed value, so a field
+    accepted this way is still checked at every later look, and anything but
+    the declared value is a lapse. A field the task did not declare gets no
+    such allowance, and a reformat there still reads as a lapse — which is
+    where an LLM planner, typing into whatever it chooses, usually is. See
+    DECISIONS.md.
     """
     watching = [record for record in recorded if record.url == page.url]
     if not watching:
@@ -766,19 +781,22 @@ async def lapsed_value(
             actual = await resolve(page, elements, element_id).input_value()
         except PlaywrightError:
             continue
-        if actual != record.value:
-            return record, (
-                f"{record.label!r} no longer holds what I put in it — it held "
-                f"{record.value!r} and now holds {actual!r}"
-            )
+        if actual == record.value:
+            continue
+        if any(held.label == record.label and held.equals == actual for held in holds):
+            continue
+        return record, (
+            f"{record.label!r} no longer holds what I put in it — it held "
+            f"{record.value!r} and now holds {actual!r}"
+        )
     return None
 
 
 async def durability_failure(
-    page: Page, recorded: list[FilledValue]
+    page: Page, recorded: list[FilledValue], holds: tuple[FieldValue, ...] = ()
 ) -> str | None:
     """`lapsed_value`, as just the message."""
-    lapse = await lapsed_value(page, recorded)
+    lapse = await lapsed_value(page, recorded, holds)
     return lapse[1] if lapse is not None else None
 
 

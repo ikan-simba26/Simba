@@ -34,6 +34,7 @@ from backend.orchestrator.loop import (
 from backend.orchestrator.plan import (
     About,
     Expectation,
+    FieldValue,
     HardcodedPlanner,
     Operation,
     PlanStep,
@@ -164,6 +165,83 @@ def test_nothing_recorded_means_nothing_to_check(replica: str) -> None:  # noqa:
     assert on_login(lambda page: durability_failure(page, [])) is None
 
 
+# --- a value the page reformatted into the one the task declared ------------
+#
+# The 2026-09-17 live LLM run typed `2026-10-15` into the departure date,
+# picked the 15th of October from the calendar, and the picker wrote the field
+# back as `15-10-2026` — the right date, in the page's own format. The check
+# compared that with what was typed, saw a different string, and ended a run
+# whose form was entirely correct (EVALUATION.md, 2026-09-17b).
+#
+# The fix accepts a changed value only when it is exactly the value the task
+# declared for that field in `Task.about.holds`. Anywhere else the check is as
+# strict as it was, false stops included. The replica's username field stands
+# in for the date: the page upper-cases it, the way the picker reformats.
+
+UPPER_CASE_IT = "document.getElementById('username').value = 'RAHAM'"
+DECLARED = (FieldValue("Student ID or Username", "RAHAM"),)
+
+
+def typed_then(page_change: str, holds=()):
+    async def body(page):
+        await page.fill("#username", "raham")
+        recorded = await record_fills(page, FILL_USERNAME)
+        await page.evaluate(page_change)
+        return await durability_failure(page, recorded, holds)
+
+    return body
+
+
+def test_a_reformat_into_the_declared_value_is_not_a_lapse(replica: str) -> None:  # noqa: F811
+    assert on_login(typed_then(UPPER_CASE_IT, DECLARED)) is None
+
+
+def test_a_change_into_anything_else_is_still_a_lapse(replica: str) -> None:  # noqa: F811
+    """Declared, but not what the field now holds: the check is not loosened."""
+    failure = on_login(
+        typed_then("document.getElementById('username').value = 'someone'", DECLARED)
+    )
+    assert failure is not None and "'someone'" in failure
+
+
+def test_a_field_emptied_is_still_a_lapse_even_when_declared(replica: str) -> None:  # noqa: F811
+    failure = on_login(typed_then("document.getElementById('username').value = ''", DECLARED))
+    assert failure is not None and "no longer holds" in failure
+
+
+def test_an_undeclared_field_is_as_strict_as_before(replica: str) -> None:  # noqa: F811
+    """The limit of the fix, pinned down.
+
+    With nothing declared, a reformat reads as a lapse exactly as it did on
+    2026-09-17. This is the situation the LLM planner is in on any field its
+    task did not name — see DECISIONS.md.
+    """
+    failure = on_login(typed_then(UPPER_CASE_IT))
+    assert failure is not None and "'RAHAM'" in failure
+
+
+def test_a_value_declared_for_another_field_does_not_count(replica: str) -> None:  # noqa: F811
+    failure = on_login(typed_then(UPPER_CASE_IT, (FieldValue("Password", "RAHAM"),)))
+    assert failure is not None
+
+
+def test_the_check_keeps_watching_after_accepting_a_reformat(replica: str) -> None:  # noqa: F811
+    """Accepting `RAHAM` once must not stop the field being watched."""
+
+    async def body(page):
+        await page.fill("#username", "raham")
+        recorded = await record_fills(page, FILL_USERNAME)
+        await page.evaluate(UPPER_CASE_IT)
+        first = await durability_failure(page, recorded, DECLARED)
+        await page.evaluate("document.getElementById('username').value = ''")
+        second = await durability_failure(page, recorded, DECLARED)
+        return first, second
+
+    first, second = on_login(body)
+    assert first is None
+    assert second is not None
+
+
 # --- and in the loop --------------------------------------------------------
 
 
@@ -238,6 +316,47 @@ def test_the_loop_notices_a_field_that_emptied_itself(replica: str) -> None:  # 
     assert not connection.of("task.completed"), (
         "the run finished on a form the page had emptied"
     )
+
+
+UPPER_CASE_ON_BLUR = """
+    document.addEventListener('DOMContentLoaded', function () {
+        var field = document.getElementById('username');
+        if (field) {
+            field.addEventListener('blur', function () {
+                this.value = this.value.toUpperCase();
+            });
+        }
+    });
+"""
+
+# Two fills and no navigation, so the username field is still on the final
+# page for the declared value to be checked there.
+TYPE_BOTH = TWO_FILLS[:2]
+
+
+def test_the_loop_finishes_when_the_page_reformats_into_the_declared_value(
+    replica: str,  # noqa: F811
+) -> None:
+    """The 2026-09-17 false stop, through the whole loop, now completing."""
+    task = Task(goal="Type both.", estimated_steps=2,
+                about=About(holds=(FieldValue("Student ID or Username", "RAHAM"),)))
+
+    connection = drive(TYPE_BOTH, task, script=UPPER_CASE_ON_BLUR)
+
+    assert not connection.of("help.requested"), connection.of("help.requested")
+    assert connection.of("task.completed")
+
+
+def test_the_same_reformat_still_stops_a_task_that_declared_nothing(
+    replica: str,  # noqa: F811
+) -> None:
+    """The control, and the limit: undeclared, the reformat is a lapse."""
+    task = Task(goal="Type both.", estimated_steps=2, about=About())
+
+    connection = drive(TYPE_BOTH, task, script=UPPER_CASE_ON_BLUR)
+
+    help_requested = connection.of("help.requested")
+    assert help_requested and "no longer holds" in help_requested[0]["reason"]
 
 
 def test_a_lapse_is_never_absorbed_in_silence(replica: str) -> None:  # noqa: F811

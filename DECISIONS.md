@@ -1426,3 +1426,51 @@ stated in its docstring.
 first live run of 2026-09-07, and the copy-test mutations. And a re-run is
 reproduction of the method, not of the number — the hardcoded benchmark came
 back at half its recorded wall clock.
+
+---
+
+## A changed value is accepted when it is the value the task declared
+
+**Date:** 2026-09-17
+
+**Decision.** Durable verification no longer treats a field as lapsed when it
+now holds exactly the value `Task.about.holds` declares for that field's
+label. Any other change is still a lapse, the record keeps the typed value so
+the field goes on being watched, and a field with no declared value is
+checked exactly as before.
+
+**Alternatives.** Compare values through a normaliser — date-aware, or digits
+only. Stop watching a field once a choice has been committed into it.
+
+**Why this.** Asked for, and it has the narrowest reach of the three. A
+normaliser has to know every format every site writes, and a digits-only one
+would equate `15-10-2026` with `2026-10-15` and also with `10-15-2026`, a
+different date. Unwatching a field after a commit gives up exactly the case
+durable verification was built for: a value the page silently replaces. The
+declared value is already the task's statement of what the field must say,
+and the loop already requires it at the end.
+
+**Where the check is now weak — and how that differs from what was asked to
+be recorded.** The instruction was to record that the check is now *blind*
+on fields the plan did not declare. That is not what this change does, and
+recording it that way would be wrong in a way that matters:
+
+- **On an undeclared field the check is unchanged, not blind.** It still
+  catches a value that disappears or is replaced. It also still stops a run
+  whenever the page merely *reformats* a value — the 2026-09-17 false stop,
+  intact. `test_an_undeclared_field_is_as_strict_as_before` pins that down.
+- **That is where the LLM planner operates.** It types into whatever field
+  it chooses, and a task declares only the values its goal names. On any
+  other field a reformatting widget will still end an LLM run with a correct
+  form. The railways run is helped only because its task happens to declare
+  the departure date.
+- **On a declared field the check is weaker in one precise way.** A field
+  that ends up holding the declared value passes, whatever was typed — so if
+  the page itself substituted the declared value for something wrong the
+  planner typed, that is not reported. Since the declared value is the right
+  answer by definition, this only hides a planner mistake the page corrected.
+
+**Cost.** False stops remain on undeclared fields, which is most fields an
+LLM touches. Fixing those needs one of the rejected alternatives, or a
+planner that declares what it means a field to hold before it types —
+flagged in STATUS.md.
