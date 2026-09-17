@@ -113,12 +113,14 @@ application's state (EVALUATION.md).
 5. Iframes are not read.
 6. Accordion expanded state is discarded.
 7. An inferred element's `css_path` is positional.
-8. **The live railways results have no header pairs.** Read after the
-   2026-09-17f run: three tables, no headers, the header row a table of its
-   own — so `value_for("Train No.")` is `None`, `About.finds` finds nothing,
-   and a correct run ends without its answer. Recorded as paired on
-   2026-09-09. Whether the site changed or extraction did is not established.
-   **The most important open item on this page after the DOM boundary.**
+8. ~~The live railways results have no header pairs.~~ **Fixed 2026-09-17.**
+   The site had not changed: a scrolling table's heading strip carries an
+   empty spacer cell, so it was one column wider than its rows and the join
+   refused. Verified on the live site — a completed run now shows
+   `2DN / Train` on the closing screen (EVALUATION.md, 2026-09-17i). What it
+   leaves behind: **content extraction had only ever been measured headless**,
+   and this failed only in the 1280x800 host, so other readings may be
+   viewport-dependent in ways nothing has checked.
 9. `value_for` returns the first matching pair, so even when pairing works
    "which trains?" shows one train.
 10. Page-side load features for the estimator: not started.

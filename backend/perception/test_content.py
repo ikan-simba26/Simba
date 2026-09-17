@@ -260,3 +260,103 @@ def test_mismatched_widths_are_left_alone() -> None:
     rows = Table(headers=(), rows=(Row((("", "1"), ("", "2"), ("", "3"))),))
 
     assert len(_adopt_headers([headings, rows])) == 2
+
+
+# --- the spacer column a scrolling table adds to its heading strip ----------
+
+
+def test_a_scrollbar_spacer_does_not_stop_the_pairing() -> None:
+    """The 2026-09-17 live failure, as the pure rule.
+
+    Element UI adds an empty gutter cell to the heading strip when the body
+    scrolls, so the strip has five cells to the body's four and the join used
+    to refuse. The run found its train and reported no answer (EVALUATION.md,
+    2026-09-17i).
+    """
+    from backend.perception.content import Row, Table, _adopt_headers
+
+    headings = Table(headers=(), rows=(Row(tuple(("", value) for value in
+                     ("Train No.", "From/To", "Time", "Duration", ""))),))
+    trains = Table(headers=(), rows=(Row(tuple(("", value) for value in
+                   ("2DN", "LAHORE CANTT KARACHI CANTT", "08:04 06:20", "22 h 16 min"))),))
+
+    joined = _adopt_headers([headings, trains])
+
+    assert len(joined) == 1
+    assert joined[0].headers == ("Train No.", "From/To", "Time", "Duration")
+    assert joined[0].rows[0].get("Duration") == "22 h 16 min"
+
+
+def test_a_named_extra_column_is_never_discarded_to_force_a_fit() -> None:
+    """Only an empty trailing cell is a spacer. A named one means the strip
+    and the rows are genuinely different shapes, and guessing would name
+    columns wrongly."""
+    from backend.perception.content import Row, Table, _adopt_headers
+
+    headings = Table(headers=(), rows=(Row(tuple(("", value) for value in
+                     ("A", "B", "C", "Total"))),))
+    rows = Table(headers=(), rows=(Row(tuple(("", value) for value in ("1", "2", "3"))),))
+
+    assert len(_adopt_headers([headings, rows])) == 2
+
+
+def test_a_heading_strip_narrower_than_its_rows_is_left_alone() -> None:
+    from backend.perception.content import Row, Table, _adopt_headers
+
+    headings = Table(headers=(), rows=(Row((("", "A"), ("", "B"))),))
+    rows = Table(headers=(), rows=(Row((("", "1"), ("", "2"), ("", "3"))),))
+
+    assert len(_adopt_headers([headings, rows])) == 2
+
+
+def test_rows_of_differing_widths_are_left_alone() -> None:
+    """Ragged rows are not a shape a heading strip can name."""
+    from backend.perception.content import Row, Table, _adopt_headers
+
+    headings = Table(headers=(), rows=(Row((("", "A"), ("", "B"))),))
+    rows = Table(headers=(), rows=(
+        Row((("", "1"), ("", "2"))),
+        Row((("", "1"), ("", "2"), ("", "3"))),
+    ))
+
+    assert len(_adopt_headers([headings, rows])) == 2
+
+
+# The live results, as the browser has them: two tables, the heading strip
+# carrying the gutter cell a scrolling body adds. Captured from
+# pakrailways.gov.pk on 2026-09-17 and reduced to what matters.
+SPLIT_TABLES_WITH_GUTTER = """
+<div class="el-table">
+  <div class="el-table__header-wrapper">
+    <table class="el-table__header"><thead><tr>
+      <th class="el-table_1_column_1"><div class="cell">Train No.</div></th>
+      <th class="el-table_1_column_2"><div class="cell">From/To</div></th>
+      <th class="el-table_1_column_3"><div class="cell">Time</div></th>
+      <th class="el-table_1_column_4"><div class="cell">Duration</div></th>
+      <th class="gutter" style="width: 15px"></th>
+    </tr></thead></table>
+  </div>
+  <div class="el-table__body-wrapper">
+    <table class="el-table__body"><tbody><tr class="el-table__row">
+      <td class="el-table_1_column_1"><div class="cell">2DN</div></td>
+      <td class="el-table_1_column_2"><div class="cell">LAHORE CANTT KARACHI CANTT</div></td>
+      <td class="el-table_1_column_3"><div class="cell">08:04 06:20</div></td>
+      <td class="el-table_1_column_4"><div class="cell">22 h 16 min</div></td>
+    </tr></tbody></table>
+  </div>
+</div>
+"""
+
+
+def test_the_train_is_readable_from_the_live_markup(page: Page) -> None:
+    """The same thing again through a real browser, on the real shape.
+
+    The unit tests above fix the rule; this proves the rule meets the markup,
+    which is where the 2026-09-17 run came apart.
+    """
+    page.set_content(SPLIT_TABLES_WITH_GUTTER)
+    content = read(page).content
+
+    assert content.value_for("Train No.") == "2DN"
+    assert content.value_for("Duration") == "22 h 16 min"
+    assert content.labelled("22 h 16 min") == ["Duration"]

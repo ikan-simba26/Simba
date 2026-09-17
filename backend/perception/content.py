@@ -165,6 +165,30 @@ def extract(document: Document | None) -> Content:
     return content
 
 
+def _without_gutter(headers: tuple[str, ...], width: int) -> tuple[str, ...] | None:
+    """`headers` cut to `width`, or None if they cannot be.
+
+    A component library that scrolls a table's body adds a spacer column to
+    the heading strip, the width of the scrollbar, with no text in it —
+    Element UI calls it a gutter. The strip then has one cell more than every
+    row beneath it.
+
+    That is state, not markup: the same page pairs correctly when the body
+    does not scroll. On 2026-09-17 a live railways run searched, found its
+    train, and reported no answer at all, because the results heading strip
+    had five cells to the body's four and the join below refused (EVALUATION.md,
+    2026-09-17i). Only *empty* trailing cells are dropped, and only as many as
+    the mismatch needs, so a real column is never discarded to force a fit.
+    """
+    if len(headers) == width:
+        return headers
+    if len(headers) < width:
+        return None
+    if any(cell.strip() for cell in headers[width:]):
+        return None
+    return headers[:width]
+
+
 def _adopt_headers(tables: list[Table]) -> list[Table]:
     """Join a lone header row to the rows it names.
 
@@ -175,25 +199,27 @@ def _adopt_headers(tables: list[Table]) -> list[Table]:
     Time | Duration` in one, `2DN | LAHORE CANTT KARACHI CANTT | 08:04 06:20 |
     22 h 16 min` in the next, and neither means much without the other.
 
-    Only joined when the widths match exactly, so a mismatch leaves both
-    alone rather than naming columns wrongly.
+    Joined only when the widths match, once any empty trailing spacer cell is
+    discounted (`_without_gutter`). A mismatch that is not a spacer leaves
+    both alone rather than naming columns wrongly.
     """
     joined: list[Table] = []
     index = 0
     while index < len(tables):
         table = tables[index]
         following = tables[index + 1] if index + 1 < len(tables) else None
-        if (
-            following is not None
+        widths = {len(row.cells) for row in following.rows} if following else set()
+        headers = (
+            _without_gutter(table.rows[0].values, widths.pop())
+            if following is not None
             and not table.headers
             and not following.headers
             and len(table.rows) == 1
             and following.rows
-            and all(
-                len(row.cells) == len(table.rows[0].cells) for row in following.rows
-            )
-        ):
-            headers = table.rows[0].values
+            and len(widths) == 1
+            else None
+        )
+        if headers is not None:
             joined.append(
                 Table(
                     headers=headers,

@@ -2119,3 +2119,75 @@ mechanism, not a mood. Differences *between* sessions are not.
 
 The November benchmark should run its arms back to back in one session, and
 report the conditions block with them.
+
+---
+
+## 2026-09-17i — the missing answer was a scrollbar, and the closing screen now shows the train
+
+The run in 2026-09-17f finished correctly and showed nothing: `findings` was
+empty because nothing paired `Train No.` with `2DN`. That entry said it was
+not established whether the site had changed. **It had not.**
+
+### What was actually wrong
+
+`content.py` has not been touched since 2026-09-08, so the extraction code was
+not the change. The markup is the same Element UI shape `_adopt_headers` was
+written for — a one-row `el-table__header` table, then an `el-table__body`
+table — and, probed directly on the live page today, it pairs:
+
+    raw[0] headers=() widths=[4]  ('Train No.', 'From/To', 'Time', 'Duration')
+    raw[1] headers=() widths=[4]  ('2DN', 'LAHORE CANTT KARACHI CANTT', '08:04 06:20', '22 h 16 min')
+    -> joined, value_for('Train No.') = '2DN'
+
+The same page inside the Electron host, after the same search:
+
+    raw[0] headers=() widths=[5]  ('Train No.', 'From/To', 'Time', 'Duration', '')
+    raw[1] headers=() widths=[4]  ('2DN', ...)
+    -> widths differ, the join refuses, no pairs at all
+
+**The fifth cell is a scrollbar spacer.** Element UI adds an empty
+`<th class="gutter">` to the heading strip when the body scrolls, so the strip
+is one cell wider than every row under it. `_adopt_headers` only ever joined
+on an exact width match — deliberately, so a mismatch cannot name columns
+wrongly — and a gutter is a mismatch.
+
+So this was never about the site. It is **state**: the same page, the same
+markup, pairs or does not pair depending on whether that table's body has a
+scrollbar, which depends on the viewport and how many rows came back. The
+headless probe had no scrollbar; the host, with its 1280x800 site view, did.
+That is also why nothing caught it earlier: every recorded content measurement
+before 2026-09-17 was taken headless.
+
+### The fix, and what it refuses to do
+
+`_without_gutter` discounts trailing header cells that are empty, and only as
+many as the mismatch needs. A trailing cell with a name in it is still a
+mismatch and still refuses — naming columns wrongly is worse than not naming
+them. Six tests, four of them on the rule and one on the real markup in a
+browser; with the allowance removed, two fail.
+
+### Verified on the live site
+
+Hardcoded plan, through the Electron host, driven in the overlay
+(`python -m tools.evaluation.railways_llm_stack_run`):
+
+| | |
+|---|---|
+| Steps | **5 of 5** |
+| Task duration | **61.1s** (5 × 2.5s of that is the deliberate pause before each answer) |
+| Model calls | 0 |
+| Search sent | `{"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":"2026-10-15"}` |
+| Findings on `task.completed` | `Train 2DN`, `Journey 22 h 16 min` |
+| **The closing screen** | **"Here's what I found / 2DN / Train / 22 h 16 min / Journey"** |
+
+The gutter was present in that run — checked in the host's own page
+afterwards, header strip five cells to the body's four — so the fix is what
+put the train on the screen, not a lucky layout.
+
+It is also the first hardcoded railways completion recorded since 2026-09-09:
+the live flow still works. The wall clock is not comparable to the 46.1s and
+54s of those days — it includes the pauses, and see 2026-09-17h on what a
+duration from this machine is worth.
+
+**Still true:** `value_for` returns the first pair, so "which trains?" answers
+with one train. Two trains came back on 2026-09-09; one came back today.

@@ -6,7 +6,12 @@ is typed into the real overlay, every step is shown in the real window, and
 pause long enough for someone watching to read the step. The backend drives
 the covered site view exactly as it does for a person.
 
-Needs the stack up first, with the LLM planner:
+Drives whichever planner the backend is running: it presses each step's own
+primary button, whatever that step called it — "Yes, do that" from the LLM,
+"Set the date" and the rest from the hardcoded plan.
+
+Needs the stack up first, with the LLM planner (or without
+`SIMBA_USE_HARDCODED_PLAN=0` for the hardcoded plan, which spends no quota):
 
     $env:SIMBA_USE_HARDCODED_PLAN = "0"; .\\run.ps1 railways
 
@@ -82,7 +87,11 @@ async def main() -> None:
                 break
             steps = [m for m in received if m["type"] == "step.presented"]
             if len(steps) > answered:
-                go = overlay.get_by_role("button", name="Yes, do that", exact=True)
+                # Whatever this step called its primary action. The label is
+                # the plan's, and a hand-written plan writes one per step.
+                primary = next((a["label"] for a in steps[-1]["payload"]["actions"]
+                                if a["kind"] == "primary"), "Yes, do that")
+                go = overlay.get_by_role("button", name=primary, exact=True)
                 try:
                     await go.wait_for(state="visible", timeout=5000)
                 except Exception:  # noqa: BLE001
@@ -90,7 +99,7 @@ async def main() -> None:
                     continue
                 step = steps[-1]["payload"]
                 print(f"step {step['step_index']}: {step['instruction']}  "
-                      f"| {step['detail']}", flush=True)
+                      f"| {step['detail']}  [{primary}]", flush=True)
                 await overlay.wait_for_timeout(READ_PAUSE_S * 1000)
                 await go.click()
                 answered = len(steps)

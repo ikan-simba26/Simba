@@ -1547,3 +1547,42 @@ fix: an empty answer is not an answer.
 by the planner's value. For a `fill` that is the safer way round — typing
 nothing is a no-op the loop would then have to verify as success — but it is
 a real case, and it is the reason to prefer pre-filling later.
+
+---
+
+## An empty trailing header cell is a spacer, a named one is a mismatch
+
+**Date:** 2026-09-17
+
+**Decision.** `content._adopt_headers` joins a heading strip to the rows
+beneath it when the widths match once *empty* trailing header cells are
+discounted, and only as many as the mismatch needs. A trailing cell with text
+in it still refuses the join.
+
+**Alternatives.** Drop any trailing cell, named or not. Match on the column
+class names Element UI puts on both strip and rows. Count a gutter by looking
+for `class="gutter"`.
+
+**Why this.** A component library that scrolls a table's body adds a spacer
+column to its heading strip, the width of the scrollbar and with no text in
+it. The strip is then one cell wider than its rows, the exact-width join
+refused, and a live railways run found its train and reported no answer
+(EVALUATION.md, 2026-09-17i).
+
+Dropping any trailing cell would name columns wrongly whenever a table
+genuinely has a column the strip labels and the rows leave out, which is the
+failure the exact match existed to prevent. Matching on class names would work
+on Element UI and nothing else — the module reads layout and text precisely so
+it does not depend on one library's class vocabulary, and `interactivity.py`
+already pays for a curated class list elsewhere. An empty trailing cell is
+library-independent and says what it is: nothing.
+
+**Cost.** A table whose last column is genuinely headerless — a strip that
+labels four of five columns and leaves the fifth blank on purpose — now has
+that column silently dropped from the pairing rather than left unpaired. Its
+values are still in the row; nothing names them.
+
+**Found by state, not by markup.** Whether this bites depends on whether that
+table's body scrolls, so the same page pairs headless and fails in the
+1280x800 host. Every content measurement before this was taken headless. Worth
+remembering for anything else content extraction is trusted to read.

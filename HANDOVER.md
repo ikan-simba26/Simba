@@ -455,7 +455,6 @@ blocked on quota, days after the quota had reset.
 |---|---|---|
 | **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17, and the railways LLM run then completed correctly. Undeclared fields still false-stop |
 | **Setback placement, measured** | A run with a step that fails on purpose | Neither 2026-09-17 LLM run had a failed step |
-| **Answers from the live railways results** | Perception — Nahail's | The header row is extracted as its own table, so a correct run shows no answer |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
 | **The estimator** | Page-side load features, then the estimator — both Nahail's, neither started | |
