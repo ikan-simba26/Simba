@@ -1341,3 +1341,31 @@ and hide the symptom. `mode="wait"` stranded the column outright last time
 crossfade working as intended. The cause is inferred from behaviour, not from
 Framer's source; if an exit strands for another reason, this does not prevent
 it. The terminal test does not catch it for the stuck ending.
+
+---
+
+## Stopping is its own ending, shown the moment stop is pressed
+
+**Date:** 2026-09-17
+
+**Decision.** When the person answers a step with anything but go-ahead, the
+overlay shows "I've stopped, as you asked." at once, in ordinary ink, with
+"Do something else". It does not wait for the backend's `task.failed`, and
+does not show it. The failed screen remains for a `task.failed` the person
+did not cause.
+
+**Alternatives.** Go straight to the home screen. Wait for `task.failed` and
+choose the screen by its `reason` string. Add a field to `task.failed`
+saying who ended it.
+
+**Why this.** The overlay already knows the person pressed stop — it sent the
+response — and the backend acts on nothing without one, so there is nothing
+to wait for. Matching on the reason string would make wording load-bearing.
+A contract field needs all three owners, and the frontend does not need it.
+Going straight home would be a change the person did not see announced.
+The overlay keys on "not `confirm`" because that is exactly the backend's
+rule (`loop.run_task`); `test_copy.py` checks the two ids agree.
+
+**Cost.** The frontend now encodes a backend rule. If a step ever offers two
+ways forward, both non-`confirm` answers will read as stopping until this
+changes.

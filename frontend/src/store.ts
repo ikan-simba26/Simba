@@ -48,6 +48,18 @@ interface Store {
   help: HelpRequested | null;
   completed: TaskCompleted | null;
   failed: TaskFailed | null;
+  /**
+   * The person pressed stop on a step, and the task has ended because they
+   * chose it.
+   *
+   * Set the moment they press it, not when the backend replies. The backend
+   * acts on nothing until it has a response, treats any response other than
+   * go-ahead as a stop, and reports that stop as `task.failed` — which is the
+   * contract's only way to say a task ended without completing. Waiting for
+   * that message and showing it would tell someone who chose to stop that the
+   * assistant had failed.
+   */
+  stoppedByPerson: boolean;
   error: ErrorPayload | null;
   /**
    * The most recent step the run could not do and carried on past. Shown
@@ -111,6 +123,13 @@ interface Store {
   cancel: () => void;
 }
 
+/**
+ * The one action id the backend treats as "go ahead". Anything else stops the
+ * task (`backend/orchestrator/loop.py`, `voice.CONFIRM_ID`); `test_copy.py`
+ * checks the two agree.
+ */
+const GO_AHEAD_ID = "confirm";
+
 const EMPTY = {
   task: null,
   state: null,
@@ -121,6 +140,7 @@ const EMPTY = {
   help: null,
   completed: null,
   failed: null,
+  stoppedByPerson: false,
   error: null,
   stepFailure: null,
 };
@@ -238,6 +258,12 @@ export const useStore = create<Store>((set, get) => {
         input_values: values,
       };
       connection.respondToStep(response);
+      if (actionId !== GO_AHEAD_ID) {
+        // The backend stops on anything but go-ahead (loop.run_task). Say so
+        // now; there is nothing to wait for.
+        set({ stoppedByPerson: true, step: null, answered: true });
+        return;
+      }
       // Mark it answered rather than clearing it. Clearing would drop the
       // screen back to the goal for the few milliseconds before the next
       // message lands, and that flash is both ugly and — with an
@@ -309,6 +335,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set({ completed: message.payload as TaskCompleted, step: null });
       return;
     case "task.failed":
+      // Kept even after the person stopped, for the development view. The
+      // screen shows the stop, not this — see `stoppedByPerson`.
       set({ failed: message.payload as TaskFailed, step: null });
       return;
     case "error":

@@ -245,6 +245,7 @@ def test_the_wording_asked_for(copy: dict) -> None:
     assert copy["stopped"]["suggestion"] == (
         "I won't do any more on this. You can ask me for something else."
     )
+    assert copy["stopped"]["byYou"] == "I've stopped, as you asked."
     assert copy["home"]["againHeading"] == "You asked me for these"
     assert voice.STOP == "Stop this"
 
@@ -427,6 +428,13 @@ def test_the_stuck_screen_promises_nothing_that_does_not_happen(copy: dict) -> N
                  voice.HELP_SUGGESTION):
         for promise in ("carry on", "afterwards", "after.", "do this part", "help with"):
             assert promise not in text, (promise, text)
+
+
+def test_the_overlay_knows_which_answer_means_go_ahead() -> None:
+    """The overlay shows its own stop screen for any answer but go-ahead,
+    because that is what the backend does with one. The two must agree."""
+    store = (SOURCE / "store.ts").read_text(encoding="utf-8")
+    assert f'const GO_AHEAD_ID = "{voice.CONFIRM_ID}";' in store
 
 
 def test_the_stuck_screen_reads_the_same_whichever_side_wrote_it(copy: dict) -> None:

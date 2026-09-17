@@ -1,7 +1,7 @@
 """Every way a task can end leaves the person something to press.
 
-A task ends in one of four screens: finished with an answer, finished without
-one, failed, or stuck. Until 2026-09-17 the stuck screen had nothing on it to
+A task ends in one of five screens: finished with an answer, finished
+without one, failed, stuck, or stopped because the person pressed stop. Until 2026-09-17 the stuck screen had nothing on it to
 press. `STOPPED.again` was in `copy.ts` and no component rendered it, so the
 one moment the system said it needed the person was the one moment it gave
 them nowhere to go — and the backend closes the socket after
@@ -49,7 +49,7 @@ GREETING = "Hello. What can I do for you?"
 AWAIT_RESPONSE = "(await step.response)"
 
 # Which button the person presses on the step, for an ending that has one.
-PRESSES: dict[str, str] = {}
+PRESSES = {"stopped by the person": "Stop this"}
 GO_AHEAD = "Check the bill"
 
 A_STEP = {
@@ -89,8 +89,10 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False, "findings": [],
         }),
     ),
+    # The backend ending a task on its own account. `loop.py` has no such path
+    # today — its only `task.failed` is a stop — but the contract allows it.
     "failed": ending(
-        ("task.failed", {"reason": "You asked me to stop.", "recoverable": True}),
+        ("task.failed", {"reason": "The portal timed out.", "recoverable": True}),
     ),
     "stuck": ending(
         ("state.changed", {"state": "stuck"}),
@@ -123,6 +125,14 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
             "reason": "could not find 'Check Bill' on the page",
             "suggestion": "I won't do any more on this. You can ask me for something else.",
         }),
+    ),
+    # What the real backend does when the person presses stop: `task.failed`,
+    # straight away, then the socket closes.
+    "stopped by the person": ending(
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_STEP),
+        (AWAIT_RESPONSE, {}),
+        ("task.failed", {"reason": "You asked me to stop.", "recoverable": True}),
     ),
 }
 
@@ -290,3 +300,32 @@ def test_the_stuck_screen_says_what_happens_and_offers_a_way_on(
     for promise in ("carry on", "Can you", "help with"):
         assert promise not in text, promise
     assert "Do something else" in labels
+
+
+def test_stopping_is_not_reported_as_a_failure(
+    page: Page, overlay: str, backend: Backend
+) -> None:
+    """Pressing stop is the person's decision, and reads as one.
+
+    The backend reports it as `task.failed` — the contract's only way to say a
+    task ended without completing — and the screen used to show exactly that:
+    "I couldn't finish this."
+    """
+    labels = reach(page, overlay, backend, "stopped by the person")
+    text = page.inner_text("body")
+
+    assert backend.responses and backend.responses[0]["payload"]["action_id"] == "cancel"
+    assert "I've stopped, as you asked." in text
+    assert "I couldn't finish this." not in text
+    assert "You asked me to stop." not in text
+    assert "Do something else" in labels
+
+
+def test_a_failure_the_person_did_not_choose_still_says_so(
+    page: Page, overlay: str, backend: Backend
+) -> None:
+    """The control: the fix did not turn every failure into a polite stop."""
+    reach(page, overlay, backend, "failed")
+    text = page.inner_text("body")
+    assert "I couldn't finish this." in text
+    assert "I've stopped, as you asked." not in text

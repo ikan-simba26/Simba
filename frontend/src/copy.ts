@@ -168,9 +168,18 @@ export const STOPPED = {
    * whichever side supplied it.
    */
   suggestion: "I won't do any more on this. You can ask me for something else.",
-  /** The task ended rather than paused. */
+  /** The backend ended the task, and it was not the person's choice. */
   failedHeading: "I couldn't finish this.",
-  /** Offered on both, so there is always a way onwards. */
+  /**
+   * The person pressed stop, and it has.
+   *
+   * Its own sentence, not `failedHeading`. The backend reports a stop as
+   * `task.failed`, and for a while the screen said "I couldn't finish this."
+   * to someone who had just chosen to stop — a decision they made, read back
+   * to them as the assistant failing.
+   */
+  byYou: "I've stopped, as you asked.",
+  /** Offered on every ending, so there is always a way onwards. */
   again: ONWARD,
 } as const;
 
@@ -254,6 +263,7 @@ export const SITUATIONS: Record<string, string> = {
   "stopped.heading": STOPPED.heading,
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
+  "stopped.byYou": STOPPED.byYou,
   "home.greeting": HOME.greeting,
   "home.askHeading": HOME.askHeading,
   "trust.ask": TRUST.ask,

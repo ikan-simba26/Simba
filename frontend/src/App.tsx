@@ -49,14 +49,20 @@ export default function App() {
 }
 
 function Column() {
-  const { state, step, help, completed, failed, task, trustOpen } = useStore();
+  const { state, step, help, completed, failed, stoppedByPerson, task, trustOpen } = useStore();
 
   const acting = state === "acting";
   const thinking = state === "thinking";
   const stuck = state === "stuck" || Boolean(help);
 
   // One screen at a time, and only one. The key drives the crossfade.
-  const screen = stuck
+  //
+  // The person's own stop comes first: once they have pressed it, the
+  // backend's `task.failed` that follows is the stop being carried out, not a
+  // failure to show them.
+  const screen = stoppedByPerson
+    ? "stopped"
+    : stuck
     ? "stuck"
     : completed
       ? "completed"
@@ -101,6 +107,7 @@ function Column() {
               {screen.startsWith("step-") && <Step />}
               {screen === "completed" && <Completed />}
               {screen === "failed" && <Failed />}
+              {screen === "stopped" && <StoppedByPerson />}
               {screen === "stuck" && <Stuck />}
             </motion.div>
           </AnimatePresence>
@@ -393,6 +400,25 @@ function Stuck() {
   return (
     <div className="flex flex-col gap-8">
       <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+      <OnwardButton onClick={startOver} />
+    </div>
+  );
+}
+
+/**
+ * The person pressed stop, and it has.
+ *
+ * Not `Failed`. Stopping was their decision, and the screen says the decision
+ * was carried out — in the same calm type as everything else, not the warm
+ * colour the stuck and failed screens use to say something went wrong.
+ */
+function StoppedByPerson() {
+  const { startOver } = useStore();
+  return (
+    <div className="flex flex-col gap-8">
+      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-ink">
+        {STOPPED.byYou}
+      </h1>
       <OnwardButton onClick={startOver} />
     </div>
   );

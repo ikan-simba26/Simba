@@ -65,9 +65,10 @@ def actions(label: str) -> list[StepAction]:
 #: to "do this part" and promise to "carry on after".
 HELP_SUGGESTION = "I won't do any more on this. You can ask me for something else."
 
-#: `task.failed.reason` when the person pressed `STOP`. It is shown on the
-#: screen, under "I couldn't finish this.", and it used to read "The user
-#: chose not to continue." — about the person, in the third person, to them.
+#: `task.failed.reason` when the person pressed `STOP`. It used to read "The
+#: user chose not to continue." — about the person, in the third person, to
+#: them. Since 2026-09-17 the overlay does not show it: it knows the person
+#: pressed stop, and shows its own sentence rather than a failure screen.
 YOU_STOPPED = "You asked me to stop."
 
 # --- the trust panel --------------------------------------------------------
