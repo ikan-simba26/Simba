@@ -274,10 +274,15 @@ whether any step was replayed, and the findings.
 
 The overlay is one column showing one screen at a time (`App.tsx`): home,
 working ("Let me open that for you." then "Give me a moment."), a step, or
-one of four endings — found an answer, done, failed, stuck. **Every ending
-offers "Do something else"**, which returns to the home screen;
-`frontend/test_terminal_states.py` renders each and fails if one has nothing
-to press. Every word it writes itself is in `frontend/src/copy.ts`.
+one of five endings — found an answer, done, failed, stuck, and stopped by
+the person. **Every ending offers "Do something else"**, which returns to the
+home screen; `frontend/test_terminal_states.py` renders each, including after
+a step, and fails if one has nothing to press or a button that goes nowhere.
+
+The person's own stop is decided in the overlay, not read from the backend:
+any answer to a step other than `confirm` stops the task in `loop.run_task`,
+which reports it as `task.failed`, so the overlay shows its stop ending the
+moment the answer is sent and ignores the `task.failed` that follows. Every word it writes itself is in `frontend/src/copy.ts`.
 
 `step.presented` is rendered by `StepShell`, at one of three detail levels
 described as data in `frontend/src/levels.ts`. The levels are ordered by
@@ -352,7 +357,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
 | `frontend/electron/main.ts` | The window: site view, then overlay on top of it |
-| `frontend/src/App.tsx` | The overlay: home, working, step, and the four endings |
+| `frontend/src/App.tsx` | The overlay: home, working, step, and the five endings |
 | `frontend/src/copy.ts` | Every word the overlay writes itself |
 | `frontend/src/store.ts` | Every message applied, in one place |
 | `frontend/src/connection.ts` | The WebSocket, framed as envelopes; `?ws=` overrides the address |
@@ -369,6 +374,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `replicas/registration/`, `replicas/billing/` | Local sites to run against |
 | `tools/mock_backend.py` | Scripted backend so the overlay can be built alone |
 | `tools/screen_site.py` | Screen a site before pointing anything at it |
+| `tools/evaluation/` | The scripts behind EVALUATION.md's tables |
 | `run.ps1`, `run.sh` | One command per flow |
 | `spike/` | The Electron + CDP + Playwright proof the constraints in `CLAUDE.md` came from |
 

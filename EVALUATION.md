@@ -1838,6 +1838,10 @@ without the fix**, so the test does not protect that ending, and whether the
 stuck screen was ever affected is not established. With the fix: 24 passed,
 50.7s.
 
+Full suite after this entry's and the next's changes: **271 passed, 7
+skipped, 323.0s** — 13 more than the morning's 258 (11 terminal-state tests,
+2 copy tests). The 7 skips are unchanged and were not run.
+
 ---
 
 ## 2026-09-17d — the formatter and linter the conventions named

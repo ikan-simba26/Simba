@@ -2,7 +2,9 @@
 
 For someone who has never seen this repository and needs to reason about it
 without reading the code. Written 2026-09-17, against commit `cc4704f` plus
-that day's changes. About twenty minutes end to end.
+that day's changes, and updated the same evening after the owed LLM run and
+the fixes that followed it (sections 2, 5, 6, 7, 8 and 10). About twenty
+minutes end to end.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -82,7 +84,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was run on 2026-09-17: **258 passed, 7 skipped, 288s**. The
+The full suite was last run on 2026-09-17: **271 passed, 7 skipped, 323s**. The
 7 skips are 5 tests that need a running Electron window and 2 that hit the
 live website; **none of those 7 were run today.**
 
@@ -107,12 +109,13 @@ interactive elements, and the readable content.
 |---|---|
 | The loop presents, acts, verifies, retries once differently, and stops with `help.requested` after two failures | `test_verification.py`, `test_orchestrator.py` |
 | All three planners run through identical execution and recovery | `test_shared_recovery.py` asserts identical message sequences under the same injected failure |
-| A typed value is checked when typed *and* at every later read, and a value that disappears ends the run | `test_durability.py`; fired correctly twice on the live site, 2026-09-09 |
+| A typed value is checked when typed *and* at every later read, and a value that disappears ends the run | `test_durability.py`; fired correctly twice on the live site, 2026-09-09 — and **wrongly once**, 2026-09-17, when the page reformatted a correct date (STATUS.md, Orchestrator) |
 | A task declares what it is about — values its goal names, which must hold at the end, and values it asks for, which are found and shown | `test_success_conditions.py`; `test_billing.py` shows `Your bill 14,382` and `Due 15-09-2026` arriving at the end from a page the run had left |
 | The run that searched the wrong date would now fail instead of completing | `test_success_conditions.py` rebuilds that exact page |
 | The hardcoded plan completes on both replicas | `test_orchestrator.py`, `test_billing.py` |
 | The hardcoded plan completes on the live site | **2026-09-09 only** (5/5 steps, 54s). Not run since; not known to still work |
-| The LLM planner works through the same loop, with schema validation and one retry | `test_llm_loop.py`, `test_llm.py` with fake providers. Last real model run: 2026-09-09 |
+| The LLM planner works through the same loop, with schema validation and one retry | `test_llm_loop.py`, `test_llm.py` with fake providers |
+| The LLM planner drives the live site's dropdowns and calendar correctly | **2026-09-17, one run**: both stations committed, October reached, the 15th picked — and then stopped by a false durability check before searching (EVALUATION.md, 2026-09-17b) |
 | Trace replay records a run and replays it with no model calls | `test_replay.py`, `test_billing.py` (second run replays, 0 model calls) |
 | Drives either its own headless Chromium or the Electron window's hidden view | headless: most of the suite. Electron: `test_electron_stack.py`, **skipped today** |
 
@@ -120,8 +123,8 @@ interactive elements, and the readable content.
 
 | Claim | Evidence |
 |---|---|
-| One calm column: a home screen, a working state, a step, and four endings | `test_terminal_states.py` renders all four endings in a real browser |
-| **Every ending offers a way onward** | same file; fixed 2026-09-17 — the "stuck" ending had nothing to press |
+| One calm column: a home screen, a working state, a step, and five endings (found an answer, done, failed, stuck, stopped by the person) | `test_terminal_states.py` renders all five in a real browser, three of them reached from a step |
+| **Every ending offers a way onward, and it can be pressed** | same file. Fixed 2026-09-17 twice: the stuck ending had nothing to press, and every ending reached from a step had an invisible leftover screen over its buttons (EVALUATION.md, 2026-09-17c) |
 | Three detail levels that fold into each other; level 3 is never the tallest | `test_levels.py` measures rendered heights (tests whatever is in `frontend/dist/`) |
 | Every word the overlay writes is in one file, `copy.ts`, and the backend's words obey the same rules | `test_copy.py`, 25 tests; 8 deliberate breakages tried on 2026-09-17, all now caught |
 | "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test |
@@ -363,7 +366,17 @@ backend\venv\Scripts\python -m tools.screen_site https://example.gov/ /search /h
 Read-only: checks robots.txt, loads each page, reports what perception sees.
 A `DISALLOWED` row means do not build a flow for that site.
 
-### Mode 8 — the original architecture spike
+### Mode 8 — re-run an evaluation
+
+```powershell
+backend\venv\Scripts\python -m tools.evaluation.hardcoded_registration_benchmark
+```
+
+Every table in EVALUATION.md has a script in `tools/evaluation/`; the table
+*Which script produced which table* says which. Each script's docstring says
+whether it spends model quota or touches the live site — several do both.
+
+### Mode 9 — the original architecture spike
 
 See [spike/README.md](spike/README.md). It is the experiment the "covered,
 not hidden" rule came from, and is not used by the app.
@@ -398,6 +411,7 @@ replicas/registration/         a cluttered student portal with a blocking modal 
 replicas/billing/              a cluttered electricity bill lookup with a cookie bar (port 5100)
 tools/mock_backend.py          a scripted backend for working on the overlay alone
 tools/screen_site.py           read-only site screener
+tools/evaluation/              the scripts behind every table in EVALUATION.md
 spike/                         the original Electron + CDP experiment
 
 .scratch/, logs/, traces.db    gitignored: scratch scripts, LLM transcripts, trace store
@@ -409,25 +423,35 @@ are in `backend/orchestrator/plan.py` (registration),
 `https://www.pakrailways.gov.pk/train`, and it is read-only: it fills a search
 and reads a timetable.
 
-**Not in the repository, and needed.** Every model benchmark in
-EVALUATION.md was produced by scripts in `.scratch/` — `benchmark.py`,
-`ablation.py`, `rail_llm.py` — which is gitignored. They exist on one machine.
-Anyone else re-running the evaluation has to recreate them.
+**The evaluation scripts** are in `tools/evaluation/` (until 2026-09-17 they
+were in the gitignored `.scratch/`). EVALUATION.md, *Which script produced
+which table*, maps every result to one; three results have none.
 
 ---
 
-## 7. What is blocked, and on what
+## 7. What is blocked, and what is only not done
+
+**Blocked** — cannot move until named people act:
 
 | Blocked | On | Notes |
 |---|---|---|
-| **The one LLM run that confirms three fixes** (setback placement, "which month" banner, the held date) | Someone making it — Raham's area | STATUS.md said "blocked on quota" from 2026-09-09. The quota is daily and eight days have passed; it is no longer blocked, only not done. One railways run, about 6–7 requests. Its script is in `.scratch/`. What each outcome would mean is in STATUS.md |
-| **The stronger-model ablation** | A paid API key | The free tier stopped it on 2026-09-05. The single biggest gap in the evaluation: a stronger model might not need the perception hints at all |
-| **An honest baseline for the LLM** | A goal neither planner has seen, and quota | |
 | **Ratifying the contract** | Nahail, Raham and Aly in one session | `CONTRACT.md` has been a draft since 2026-09-04. Two message types were added since, `step.failed` and `history.offered`; the second is recorded as pending |
-| **The estimator** | Perception's page-side load features (Nahail), not started | |
+
+That is the only one. Until 2026-09-17 several items below were recorded as
+blocked on quota, days after the quota had reset.
+
+**Not blocked, not done:**
+
+| Item | What it needs | Notes |
+|---|---|---|
+| **A durability check that tells reformatting from undoing** | A design choice — Raham's | Stopped the 2026-09-17 LLM run on a correct date. Until fixed, an LLM run on the railways calendar cannot reach its search |
+| **The setback and held-date questions** | The fix above, then one LLM run | The 2026-09-17 run answered the month-banner question only |
+| **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
+| **An honest baseline for the LLM** | A goal neither planner has seen | |
+| **The estimator** | Page-side load features, then the estimator — both Nahail's, neither started | |
 | **The credential vault** | Aly, not started | |
-| **Trace memory against a real model** | Quota | Replay itself is tested |
-| **Knowing whether the live flow still completes** | Running it | Last completed 2026-09-09. The page's structure was unchanged on 2026-09-17 |
+| **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
+| **Knowing whether the live flow still completes** | Running `python -m tools.evaluation.railways_hardcoded_run` | Last completed 2026-09-09 |
 
 **Uncertain: the quota itself.** The documents disagree on how many requests
 a day the free model allows and which model name the stronger one was
@@ -444,17 +468,15 @@ options and a recommendation; this is the list.
 
 **The interface**
 
-1. **The stuck screen promises something nothing does.** It says "Can you do
-   this part? I'll carry on after." But the backend has already closed the
-   connection, nothing resumes, and the person cannot see the page they are
-   being asked to act on — it is covered by design. Either build a real hand
-   over (reveal the page, then resume), or say something true. The most
-   important open question in the interface.
+1. **Should the stuck screen hand the task over?** It now says only what is
+   true — "I'm stuck, so I've stopped." — because nothing resumes and the page
+   is covered. Letting the person finish the step themselves would be a
+   feature: reveal the page, then carry on. *Settled for now, 2026-09-17; the
+   larger question is open.*
 2. **"I'm done" and "Do something else" do the same thing.** Both go to the
    home screen. What should "I'm done" do?
-3. **Pressing "Stop this" is reported as a failure** — "I couldn't finish
-   this." A choice the person made should probably not read as the assistant
-   failing.
+3. *(Settled 2026-09-17: pressing "Stop this" now shows "I've stopped, as you
+   asked.", not a failure.)*
 4. **The stuck screen shows a technical reason** (`could not find 'Close' on
    the page`) in small type. The skipped-step notice deliberately removed this
    kind of text.
@@ -602,15 +624,13 @@ The billing plan declares that `P/WITHIN` is "Your bill" and `DUE DT` is
 
 Stated so nobody trusts the wrong one:
 
-- [README.md](README.md) says 214 tests pass (258 today) and gives
-  `npm run dev` as the way to start the frontend. The launchers and
-  RUNNING.md use `npm start`, which builds and opens the Electron window;
-  `npm run dev` only serves the overlay.
-- [frontend/README.md](frontend/README.md) describes the frontend as "a
-  functional harness, not the interface", with no detail levels, no trust
-  panel and Framer Motion unused. All three exist and are used. Stale since
-  about 2026-09-06.
-- CLAUDE.md names `ruff` and `black` as conventions. Neither is installed or
-  listed in `requirements-dev.txt`, so nothing has been checked with them.
 - EVALUATION.md contains several statements its own later entries contradict.
   Its 2026-09-17 entry lists them.
+- `CONTRACT.md`'s examples for `step.presented` and `help.requested` still use
+  wording the system no longer says ("Not now", "I'll carry on from there").
+- CLAUDE.md says Python 3.11; the venv is 3.12.3.
+
+Fixed on 2026-09-17, and listed here earlier the same day: README.md's test
+count and start command, frontend/README.md calling the overlay a harness,
+and CLAUDE.md and README.md naming `ruff` and `black`, which were never
+installed. Those two are now described as not in use.

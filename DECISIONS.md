@@ -1390,3 +1390,33 @@ owners to agree and review, not a side effect of fixing a stale line.
 
 **Cost.** The project has no formatter, and now says so. Style will keep
 drifting until someone proposes adopting one.
+
+---
+
+## Evaluation scripts live in `tools/evaluation/`, their outputs do not
+
+**Date:** 2026-09-17 (`7d7bc5d`)
+
+**Decision.** The thirteen scripts behind EVALUATION.md's numbers moved from
+`.scratch/` to `tools/evaluation/`, renamed for what they measure, each run
+as `python -m tools.evaluation.<name>`. Their outputs stay in `logs/`, which
+stays gitignored. `overlay_ablation` had its missing first condition
+restored; everything else changed only its paths, plus one signature fix.
+The other fifty-odd scratch scripts — document patchers, UI drivers,
+throwaway probes — stayed where they were.
+
+**Alternatives.** Flat in `tools/`, beside `screen_site.py` and
+`mock_backend.py`. Commit the raw outputs too. Commit the ablation script
+exactly as found.
+
+**Why this.** A subdirectory keeps thirteen measurement scripts from burying
+the two tools people run day to day. Transcripts hold full prompts and are
+large and many; the tables in EVALUATION.md are the record, and the scripts
+make them re-runnable. An ablation script that cannot produce the row it is
+cited for is not reproduction, so the condition went back, with the change
+stated in its docstring.
+
+**Cost.** Three results still have no script: the one-call token count, the
+first live run of 2026-09-07, and the copy-test mutations. And a re-run is
+reproduction of the method, not of the number — the hardcoded benchmark came
+back at half its recorded wall clock.
