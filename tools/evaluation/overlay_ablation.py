@@ -29,6 +29,8 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+from tools.evaluation.conditions import banner, conditions
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PORT = 5030
 REPLICA = f"http://127.0.0.1:{PORT}"
@@ -42,6 +44,7 @@ DEMO_MODEL = "gemini-3.8-flash"
 # Scarcest quota first, so a cap costs the cheapest condition, not the one
 # the question is actually about.
 ONLY = set(sys.argv[1:])
+CHROMIUM: dict[str, str] = {}
 
 # (label, model, overlay flag, runs). The demo model is capped at 5 requests
 # per minute on this key, so a run of it costs ~5 minutes of waiting; five
@@ -101,6 +104,7 @@ async def one_run(label: str, index: int) -> dict:
     crash = None
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
+        CHROMIUM.setdefault("version", browser.version)
         page = await browser.new_page(viewport={"width": 1280, "height": 800})
         try:
             await run_task(page, connection, planner, REGISTRATION_TASK, REPLICA)
@@ -131,6 +135,7 @@ async def one_run(label: str, index: int) -> dict:
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     replica = subprocess.Popen(
         [sys.executable, "app.py"],
         cwd=REPO_ROOT / "replicas" / "registration",
@@ -166,6 +171,11 @@ async def main() -> None:
                     await asyncio.sleep(PAUSE_S)
 
             everything[label] = results
+            # Per condition, because each arm sets its own model and switches
+            # and may run minutes or days apart from the others.
+            everything[f"{label}.conditions"] = conditions(
+                model=model, overlay_detection=overlay, runs=len(results),
+                chromium=CHROMIUM.get("version"))
             out_path.write_text(
                 json.dumps(everything, indent=2), encoding="utf-8"
             )

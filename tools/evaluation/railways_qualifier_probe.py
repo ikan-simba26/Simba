@@ -14,10 +14,12 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 from collections import Counter
 from playwright.sync_api import sync_playwright
 from backend.perception.serializer import read
+from tools.evaluation.conditions import banner  # noqa: E402
 
 URL = "https://www.pakrailways.gov.pk/train"
 UA = ("SIMBA-screener/0.1 (final-year university project; read-only; "
       "+https://github.com/ikan-simba26/Simba)")
+print(banner(), flush=True)
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(user_agent=UA, viewport={"width":1280,"height":800})

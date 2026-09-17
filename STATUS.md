@@ -283,9 +283,13 @@ application's state (EVALUATION.md).
 - **The 5.9s hardcoded figure does not reproduce** and is corrected; its cause is not
   established (2026-09-17e). The LLM timings from 2026-09-05 were taken the
   same way and have not been re-run.
-- **Evaluation scripts record a number and nothing about the conditions** —
-  interpreter, Playwright version, what else was running. That is why the
-  5.9s cannot be explained now. Not fixed.
+- ~~Evaluation scripts record a number and nothing about the conditions.~~
+  **Fixed 2026-09-17**: every script prints its conditions and the three that
+  write result files record them (`tools/evaluation/conditions.py`). It
+  immediately showed the same benchmark at 6.85s where it had been 3.01s
+  hours earlier, so **the 5.9s is now best explained as the machine, not the
+  code** (EVALUATION.md, 2026-09-17h). Any duration from this machine reads
+  ±2x without a conditions block beside it.
 - EVALUATION.md still contains statements its later entries contradict,
   listed in its 2026-09-17 entry.
 

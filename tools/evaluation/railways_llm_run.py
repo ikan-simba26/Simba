@@ -31,6 +31,7 @@ from backend.orchestrator.railways_plan import (
     RAILWAYS_URL,
 )
 from backend.perception.serializer import read_async
+from tools.evaluation.conditions import banner  # noqa: E402
 
 UA = (
     "SIMBA-screener/0.1 (final-year university project; read-only; "
@@ -70,6 +71,7 @@ class Printing(Connection):
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     transcript = Transcript()
     print("transcript:", transcript.path)
     provider = provider_from_env(transcript=transcript)

@@ -18,6 +18,7 @@ from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.perception.serializer import read_async
+from tools.evaluation.conditions import banner  # noqa: E402
 
 UA = ("SIMBA-screener/0.1 (final-year university project; read-only; "
       "+https://github.com/ikan-simba26/Simba)")
@@ -41,6 +42,7 @@ class Printing(Connection):
                 "payload": {"step_index": step_index, "action_id": "confirm", "input_values": {}}}
 
 async def main():
+    print(banner(), flush=True)
     c = Printing(); started = time.monotonic()
     async with async_playwright() as pw:
         b = await pw.chromium.launch()

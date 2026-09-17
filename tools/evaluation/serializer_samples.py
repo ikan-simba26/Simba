@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO))
 from backend.orchestrator.llm_loop import render_page  # noqa: E402
 from backend.perception.serializer import read_async  # noqa: E402
 from tools.screen_site import USER_AGENT  # noqa: E402
+from tools.evaluation.conditions import banner  # noqa: E402
 
 
 def wait(url: str) -> None:
@@ -54,6 +55,7 @@ def show_content(content) -> None:
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     from playwright.async_api import async_playwright
 
     py = sys.executable

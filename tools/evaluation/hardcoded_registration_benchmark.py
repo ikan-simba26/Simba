@@ -17,9 +17,11 @@ from playwright.async_api import async_playwright
 from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.llm_loop import REGISTRATION_TASK
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
+from tools.evaluation.conditions import banner, record
 from dataclasses import replace
 
 ROOT = Path(__file__).resolve().parents[2]
+CHROMIUM: dict[str, str] = {}
 PORT, RUNS = 5030, 10
 REPLICA = f"http://127.0.0.1:{PORT}"
 CREDS = {"username": "raham", "password": "hunter2"}
@@ -44,6 +46,7 @@ async def one(i):
     c = Rec(); started = time.monotonic()
     async with async_playwright() as p:
         b = await p.chromium.launch()
+        CHROMIUM.setdefault("version", b.version)
         pg = await b.new_page(viewport={"width":1280,"height":800})
         await run_task(pg, c, HardcodedPlanner(REGISTRATION_PLAN), TASK, REPLICA)
         url = pg.url
@@ -58,6 +61,7 @@ async def one(i):
             "failure": (c.of("help.requested") or [{}])[0].get("reason")}
 
 async def main():
+    print(banner(), flush=True)
     proc = subprocess.Popen([sys.executable, "app.py"],
         cwd=ROOT/"replicas"/"registration", env={**os.environ, "PORT": str(PORT)},
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -70,7 +74,7 @@ async def main():
                   f"calls={r['llm_calls']} {r['seconds']}s", flush=True)
     finally:
         proc.terminate(); proc.wait(timeout=10)
-    (ROOT/"logs"/"hardcoded_ab.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    record(ROOT/"logs"/"hardcoded_ab.json", out, runs=RUNS, chromium=CHROMIUM.get("version"))
     print("wrote logs/hardcoded_ab.json")
 
 asyncio.run(main())

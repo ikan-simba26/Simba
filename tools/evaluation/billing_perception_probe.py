@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 
 from backend.perception.overlays import COMPUTED_STYLES, analyse
 from backend.perception.serializer import serialize
+from tools.evaluation.conditions import banner  # noqa: E402
 
 BASE = "http://127.0.0.1:5100"
 VIEWPORT = (1280, 800)
@@ -62,6 +63,8 @@ def blockers(page):
             print(f"    fixed {name} at ({round(x)},{round(y)}) {round(w)}x{round(h)} "
                   f"z={styles[1]} coverage={cov:.1%}")
 
+
+print(banner(), flush=True)
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

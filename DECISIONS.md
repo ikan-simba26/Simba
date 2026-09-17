@@ -1474,3 +1474,44 @@ recording it that way would be wrong in a way that matters:
 LLM touches. Fixing those needs one of the rejected alternatives, or a
 planner that declares what it means a field to hold before it types —
 flagged in STATUS.md.
+
+---
+
+## A measurement records the conditions it was taken under
+
+**Date:** 2026-09-17
+
+**Decision.** Every script in `tools/evaluation/` prints a conditions block
+when it starts, and the three that write result files write it into the file:
+time with offset, commit and dirty flag, interpreter and whether it is the
+project venv, Playwright and Chromium versions, provider and model string,
+every `SIMBA_*` switch whether set or not, platform, CPU count and CPU load.
+`tools/evaluation/conditions.py`, with tests.
+
+**Alternatives.** Record nothing, as before. Record only what changes between
+arms of an experiment. Use a library that samples the machine properly
+(`psutil`).
+
+**Why this.** The 2026-09-06 hardcoded figure of 5.93s could not be explained
+five days later, because its result file held ten numbers and nothing else
+(EVALUATION.md, 2026-09-17e). Within hours of adding this, the same benchmark
+ran at 6.85s where it had run at 3.01s the same afternoon — a 2.3x spread the
+recorder makes visible and an unrecorded number hides (2026-09-17h). The
+November benchmark is what the report rests on, so the gap had to close before
+it, not after.
+
+`psutil` would sample load better and is a new dependency for one number;
+CLAUDE.md says not to add one without asking. `os.getloadavg` where it exists
+and a CIM query on Windows cost about three seconds once per run, and report
+`None` rather than zero when they fail.
+
+**Only the model string and the provider are read from `.env`**, never a key,
+and `test_conditions.py` asserts that no key reaches a banner or a result
+file. A recorder that leaked a credential into `logs/` would be a worse
+problem than the one it solves.
+
+**Cost.** About four seconds added to the start of every script, most of it
+the CPU-load query. A dirty tree is reported but not refused, so a run can
+still be taken against uncommitted code — it just says so. And the conditions
+describe the start of a run, not the whole of it: a machine that gets busy
+half way through still reports the load it began with.

@@ -379,6 +379,12 @@ Every table in EVALUATION.md has a script in `tools/evaluation/`; the table
 *Which script produced which table* says which. Each script's docstring says
 whether it spends model quota or touches the live site — several do both.
 
+Each one prints what it is running under before it starts — commit,
+interpreter, Playwright and Chromium, model, switches, machine and CPU load —
+and the three that write result files write that into the file. Read it before
+trusting a wall clock: on this machine the same benchmark has measured 3.01s
+and 6.85s on one day (EVALUATION.md, 2026-09-17h).
+
 ### Mode 9 — the original architecture spike
 
 See [spike/README.md](spike/README.md). It is the experiment the "covered,

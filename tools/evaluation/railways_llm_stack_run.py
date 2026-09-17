@@ -32,6 +32,7 @@ from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.orchestrator.railways_plan import RAILWAYS_TASK  # noqa: E402
+from tools.evaluation.conditions import banner  # noqa: E402
 
 CDP = "http://127.0.0.1:9222"
 READ_PAUSE_S = 2.5  # long enough to read a step before it is answered
@@ -45,6 +46,7 @@ ENDINGS = (
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     received: list[dict] = []
     searches: list[str] = []
     started = time.monotonic()

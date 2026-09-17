@@ -17,10 +17,12 @@ from backend.perception.snapshot import parse
 from backend.perception.content import extract
 from backend.perception.interactivity import find_inferred
 from backend.perception.overlays import analyse
+from tools.evaluation.conditions import banner  # noqa: E402
 
 URL = "https://www.pakrailways.gov.pk/train"
 UA = ("SIMBA-screener/0.1 (final-year university project; read-only; "
       "+https://github.com/ikan-simba26/Simba)")
+print(banner(), flush=True)
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(user_agent=UA, viewport={"width":1280,"height":800})

@@ -27,6 +27,7 @@ from backend.orchestrator.llm import Transcript, provider_from_env
 from backend.orchestrator.llm_loop import SYSTEM_PROMPT, render_page
 from backend.orchestrator.railways_plan import RAILWAYS_TASK, RAILWAYS_URL
 from backend.perception.serializer import read_async
+from tools.evaluation.conditions import banner  # noqa: E402
 
 UA = (
     "SIMBA-screener/0.1 (final-year university project; read-only; "
@@ -36,6 +37,7 @@ HISTORY = ["Fill in From."]
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     transcript = Transcript()
     provider = provider_from_env(transcript=transcript)
 

@@ -22,12 +22,14 @@ from playwright.async_api import async_playwright
 from backend.orchestrator.llm import Transcript, provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.orchestrator.loop import Connection, run_task
+from tools.evaluation.conditions import banner, record
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PORT = 5030
 REPLICA = f"http://127.0.0.1:{PORT}"
 CREDENTIALS = {"username": "raham", "password": "hunter2"}
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 10
+CHROMIUM: dict[str, str] = {}
 PAUSE_S = 5.0  # stay under the free-tier rate limit
 
 
@@ -72,6 +74,7 @@ async def one_run(index: int) -> dict:
     started = time.monotonic()
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
+        CHROMIUM.setdefault("version", browser.version)
         page = await browser.new_page(viewport={"width": 1280, "height": 800})
         try:
             await run_task(page, connection, planner, REGISTRATION_TASK, REPLICA)
@@ -97,6 +100,7 @@ async def one_run(index: int) -> dict:
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     replica = subprocess.Popen(
         [sys.executable, "app.py"],
         cwd=REPO_ROOT / "replicas" / "registration",
@@ -126,7 +130,7 @@ async def main() -> None:
         replica.wait(timeout=10)
 
     out = REPO_ROOT / "logs" / "benchmark.json"
-    out.write_text(json.dumps(results, indent=2), encoding="utf-8")
+    record(out, results, runs=RUNS, chromium=CHROMIUM.get("version"))
     print("\nwrote", out)
 
 

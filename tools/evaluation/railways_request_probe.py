@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 from playwright.sync_api import sync_playwright
 from backend.perception.serializer import read
+from tools.evaluation.conditions import banner  # noqa: E402
 
 URL = "https://www.pakrailways.gov.pk/train"
 UA = ("SIMBA-screener/0.1 (final-year university project; read-only; "
@@ -34,6 +35,7 @@ def grab(resp):
         try: seen.append(json.dumps(resp.json())[:900])
         except Exception as e: seen.append(f"<unparseable {e}>")
 
+print(banner(), flush=True)
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(user_agent=UA, viewport={"width":1280,"height":800})

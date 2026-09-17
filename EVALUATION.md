@@ -63,6 +63,15 @@ Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
 repository, and the tables in this file are the record of them.
 
+**Since 2026-09-17 every script records what it ran under.** Each prints a
+conditions block when it starts — time, commit and whether the tree was dirty,
+interpreter and whether it is the project venv, Playwright and Chromium
+versions, provider and model, every `SIMBA_*` switch, platform, CPU count and
+CPU load — and the three that write result files write it into the file beside
+the results (`tools/evaluation/conditions.py`). Files written before that date
+hold bare results; anything reading them must handle both shapes. Result files
+from 2026-09-17 onward are `{"conditions": ..., "results": ...}`.
+
 **Re-run on 2026-09-17 to check the move worked**, the two that need no model
 and no live site:
 
@@ -2072,3 +2081,41 @@ The contract does not require it, so the test now also sends
 Control for the whole file, fix reverted: **5 failed, 32 passed** — the four
 after-a-step endings other than stuck-in-the-backend's-order, and the stop.
 With the fix: 37 passed.
+
+---
+
+## 2026-09-17h — the same benchmark three times in one day: 3.01s, 3.93s, 6.85s
+
+The 2026-09-06 hardcoded figure of 5.93s could not be explained
+(2026-09-17e). Wiring the conditions recorder in produced the explanation, or
+as close to one as this machine allows. The same script, the same ten runs,
+the same code, the same machine, one day:
+
+| When | Mean | Range | CPU load at start | Conditions recorded |
+|---|---|---|---|---|
+| ~15:00 | **3.01s** | 2.8–4.6 | not recorded | no |
+| ~15:30, full test suite running alongside | **3.93s** | 2.8–4.9 | not recorded | no |
+| ~23:36 | **6.85s** | 6.2–7.5 | 23% | **yes** |
+| (2026-09-06, published) | 5.93s | 4.9–6.4 | not recorded | no |
+
+**A 2.3x spread with nothing in the repository changing.** Playwright 1.62.0
+and Chromium 151.0.7922.34 in every run of the day; the loop untouched
+between them; commit `2566938` for the two evening runs and the same working
+tree for the afternoon ones. The published 5.93s sits inside that spread.
+
+This does not name the mechanism — thermal state, power profile, what else
+the machine was doing, none of which the repository can see. It does settle
+what the mechanism is *not*: the code, the dependencies, or anything a reader
+of the result file could have inferred. **Any wall clock from this machine
+should be read as ±2x unless the conditions beside it say otherwise**, which
+is the whole reason for recording them.
+
+What that means for the figures in this file: every per-run *duration* — 5.9s,
+19.1s, 44.5s, 61.3s, 17.1s, 46.1s, 54s, 71.8s, 84.4s — is a measurement of a
+machine as much as of the system. The *differences within one session* are
+still evidence: the overlay-detection ablation ran its two arms minutes apart
+(19.1s against 44.5s) and its gap is one Playwright click timeout, which is a
+mechanism, not a mood. Differences *between* sessions are not.
+
+The November benchmark should run its arms back to back in one session, and
+report the conditions block with them.

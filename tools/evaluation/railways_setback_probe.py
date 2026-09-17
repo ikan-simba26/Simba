@@ -30,6 +30,7 @@ from backend.orchestrator.llm import Transcript, build_user_prompt, provider_fro
 from backend.orchestrator.llm_loop import SYSTEM_PROMPT, render_page
 from backend.orchestrator.railways_plan import RAILWAYS_TASK, RAILWAYS_URL
 from backend.perception.serializer import read_async
+from tools.evaluation.conditions import banner  # noqa: E402
 
 UA = (
     "SIMBA-screener/0.1 (final-year university project; read-only; "
@@ -66,6 +67,7 @@ async def commit_station(page, field: str, typed: str, wanted: str) -> None:
 
 
 async def main() -> None:
+    print(banner(), flush=True)
     transcript = Transcript()
     provider = provider_from_env(transcript=transcript)
 
