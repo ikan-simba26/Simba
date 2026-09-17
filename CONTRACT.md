@@ -41,7 +41,8 @@ means a dropped message — log it, don't silently continue.
 visual states. Exactly one is active at a time.
 
 ### `history.offered`
-Added 2026-09-15. Sent **once, when the socket opens**, before any task.
+Added 2026-09-15. **Pending ratification** — see below. Sent **once, when the
+socket opens**, before any task.
 ```json
 {
   "goals": [
@@ -58,9 +59,50 @@ could disagree with the first.
 An empty list is normal and means the text box is shown directly. A frontend
 that ignores this message sees exactly what it saw before.
 
-This is the only message the backend sends unprompted. It is here rather than
-on an HTTP route because the two processes talk over WebSocket and nothing
-else (CLAUDE.md).
+This is the only message the backend sends unprompted.
+
+**Status: pending ratification** (recorded 2026-09-17). It was added by one
+owner to serve the home screen. It is additive in effect, but it is a new
+message *type* rather than an optional field on an existing one, and this
+file's rule for changes without ceremony names only additive optional
+fields. It needs agreeing by Nahail, Raham and Aly, at the same session that
+ratifies the rest of this draft. Until then, treat it as provisional: a
+frontend must keep working without it, and does.
+
+**Why a WebSocket message and not an HTTP endpoint.** The obvious alternative
+was `GET /history` on the FastAPI app, fetched by the home screen. It was not
+chosen, for these reasons:
+
+- **One channel.** CLAUDE.md says the two processes talk over WebSocket and
+  that nothing crosses the boundary that is not in this file. An HTTP route
+  would be a second transport with its own error handling and its own place
+  to document, for one list of strings.
+- **No new request is needed.** The overlay opens the socket as soon as it
+  starts, and the backend has nothing to wait for before answering. A GET
+  would be a second round trip to learn something the connection could carry.
+- **It is visible where everything else is.** A message gets an envelope and
+  a `seq`, and shows in the development view's log (Ctrl+Shift+D) beside
+  every other message. An HTTP response would not.
+- **The mock plays it too.** `tools/mock_backend.py` is the demo-day
+  fallback and speaks only this protocol. A route would need a second fake.
+- **No cross-origin setup.** The Electron overlay is loaded from `file:`, so
+  a fetch to `http://127.0.0.1:8000` would need CORS configured on the
+  backend. The WebSocket already connects from there.
+- **Unprompted rather than asked for**, because asking would have needed a
+  second new message type (a frontend-to-backend request) for no gain: there
+  is only ever one answer and it is wanted immediately.
+
+**What it costs, known on 2026-09-17:**
+
+- It is only as fresh as the connection. The backend closes the socket when a
+  task ends, and the frontend reconnects only when the next task starts. So
+  the home screen reached from a finished task shows the list from *before*
+  that task, and a goal just done does not appear until the next connection.
+  A GET re-fetched on the way home would not have this problem; fixing it
+  here means reconnecting on the way home, or a request message.
+- The list is read from the trace store, and only `SIMBA_TRACE_MEMORY=1`
+  writes to it. With the launchers' defaults the list is whatever an earlier
+  trace-memory run left in `traces.db`, which is usually nothing.
 
 ### `step.presented`
 The main message.

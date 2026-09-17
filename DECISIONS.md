@@ -1026,6 +1026,18 @@ frontend that ignores it is unaffected — but it is a change to the contract's
 shape and it was made to satisfy a screen. Flagged for review rather than
 presented as routine.
 
+**Drift, noted 2026-09-17.** The cost above says `CONTRACT.md` requires all
+three owners for a new message type. It does not say that: its rule names
+additive optional fields (allowed) and renames or removals (all three
+owners), and a new type is in neither. The conclusion stands — a new type is
+a change to the contract's shape and should be agreed — but it was a
+judgement, not a rule being followed. `CONTRACT.md` now records the message
+as **pending ratification**, with the reasoning for a WebSocket message over
+`GET /history` and two costs found since: the list is only as fresh as the
+connection (a goal just finished does not appear on the home screen the run
+returns to), and only `SIMBA_TRACE_MEMORY=1` ever writes to the store it is
+read from.
+
 ---
 
 ## What a task is about is declared once, and must be
