@@ -1316,3 +1316,28 @@ only what is so.
 **Cost.** The stuck screen no longer invites the person into the task at all.
 If a hand-over is built, this wording has to change with it. The reason under
 it is still technical, and still shown.
+
+---
+
+## The leaving step stays on screen until it has gone
+
+**Date:** 2026-09-17
+
+**Decision.** The step component keeps rendering the last step while its
+screen fades out, instead of rendering nothing the moment `step` is cleared.
+
+**Alternatives.** Stop clearing `step` on an ending. Make exiting screens
+ignore pointer events. Go back to `AnimatePresence mode="wait"`.
+
+**Why this.** With the step rendering nothing mid-exit, the exit never
+completed and an invisible element sat over every ending's buttons. Measured:
+0 of 7 attempts could press "Do something else" after a step; 4 of 4 after
+this change. Not clearing `step` would spread the fix across every message
+handler. Ignoring pointer events would leave the stranded element in the page
+and hide the symptom. `mode="wait"` stranded the column outright last time
+(see "An answered step stays on screen").
+
+**Cost.** A step is briefly visible, disabled, while it fades, which is the
+crossfade working as intended. The cause is inferred from behaviour, not from
+Framer's source; if an exit strands for another reason, this does not prevent
+it. The terminal test does not catch it for the stuck ending.

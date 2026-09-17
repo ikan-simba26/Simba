@@ -45,6 +45,23 @@ BUILD = FRONTEND.parent / ".scratch" / "overlay-terminal"
 GOAL = "Find out what I owe"
 GREETING = "Hello. What can I do for you?"
 
+# In a script, wait here for the overlay's `step.response` before going on.
+AWAIT_RESPONSE = "(await step.response)"
+
+# Which button the person presses on the step, for an ending that has one.
+PRESSES: dict[str, str] = {}
+GO_AHEAD = "Check the bill"
+
+A_STEP = {
+    "step_index": 1, "step_total": 3,
+    "instruction": "Let me look up your bill.", "detail": "",
+    "fields": [], "requires_confirmation": True, "findings": [],
+    "actions": [
+        {"id": "confirm", "label": "Check the bill", "kind": "primary"},
+        {"id": "cancel", "label": "Stop this", "kind": "secondary"},
+    ],
+}
+
 
 def ending(*messages: tuple[str, dict]) -> list[tuple[str, dict]]:
     """A task that starts, and then ends with these messages."""
@@ -79,6 +96,31 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
         ("state.changed", {"state": "stuck"}),
         ("help.requested", {
             "reason": "could not find 'Close' on the page",
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
+        }),
+    ),
+    # Endings reached *from a step*, which is how every real run ends. The
+    # four above arrive from the working screen, and on their own they passed
+    # while every ending after a step was unpressable: the leaving step screen
+    # stranded itself over the buttons (see `App.Step`). Found 2026-09-17.
+    "completed after a step": ending(
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_STEP),
+        (AWAIT_RESPONSE, {}),
+        ("state.changed", {"state": "acting"}),
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/bill/detail", "duration_ms": 1,
+            "steps_taken": 1, "llm_calls": 0, "replayed": False,
+            "findings": [{"label": "Your bill", "value": "14,382"}],
+        }),
+    ),
+    "stuck after a step": ending(
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_STEP),
+        (AWAIT_RESPONSE, {}),
+        ("state.changed", {"state": "stuck"}),
+        ("help.requested", {
+            "reason": "could not find 'Check Bill' on the page",
             "suggestion": "I won't do any more on this. You can ask me for something else.",
         }),
     ),
@@ -121,6 +163,7 @@ class Backend:
 
     def __init__(self) -> None:
         self.script: list[tuple[str, dict]] = []
+        self.responses: list[dict] = []
         self.port = 0
         started = threading.Event()
 
@@ -145,6 +188,12 @@ class Backend:
                 except websockets.ConnectionClosed:
                     return
                 for message_type, payload in self.script:
+                    if message_type == AWAIT_RESPONSE:
+                        try:
+                            self.responses.append(json.loads(await ws.recv()))
+                        except websockets.ConnectionClosed:
+                            return
+                        continue
                     await send(message_type, payload)
                 await ws.close()
 
@@ -176,9 +225,14 @@ def page(playwright_instance: Playwright) -> Iterator[Page]:
 def reach(page: Page, overlay: str, backend: Backend, name: str) -> list[str]:
     """Drive the overlay to this ending. Returns the labels of its buttons."""
     backend.script = ENDINGS[name]
+    backend.responses.clear()
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
+    if any(message_type == AWAIT_RESPONSE for message_type, _ in backend.script):
+        # A step comes first, and the person answers it.
+        page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
+        page.get_by_role("button", name=PRESSES.get(name, GO_AHEAD), exact=True).click()
     # Let the last message land and the crossfade finish.
     page.wait_for_function(
         "() => !document.body.innerText.includes('Give me a moment.')", timeout=15000

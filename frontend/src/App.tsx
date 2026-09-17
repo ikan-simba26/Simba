@@ -234,6 +234,21 @@ function Step() {
   const [values, setValues] = useState<Record<string, string>>({});
   const measured = useRef<HTMLDivElement>(null);
 
+  // The step on its way out, kept on screen while it fades.
+  //
+  // Every ending clears `step` in the same update that changes the screen, so
+  // this component is still mounted — inside the exiting half of the
+  // crossfade — when `step` becomes null. It used to return null at that
+  // point. The exiting element then emptied mid-exit, Framer never finished
+  // removing it, and it stayed in the column's grid cell at opacity 0 on top
+  // of the ending, swallowing every click. Measured on 2026-09-17: after any
+  // step, "I'm done", "Do something else" and every other ending's button
+  // could not be pressed, and had not been since at least `cc4704f`. Keeping
+  // the last step rendered lets the exit run to completion.
+  const leaving = useRef(step);
+  if (step) leaving.current = step;
+  const shown = step ?? leaving.current;
+
   useEffect(() => {
     if (!step) return;
     const initial: Record<string, string> = {};
@@ -244,16 +259,17 @@ function Step() {
   // A step that will not fit drops a level instead of growing a scrollbar.
   useOverflowGuard(measured, { level, active: Boolean(step) });
 
-  if (!step) return null;
+  if (!shown) return null;
 
   return (
     <div ref={measured}>
       <StepView
         level={level}
-        step={step}
+        step={shown}
         values={values}
         waiting={isWaiting(state)}
-        answered={answered}
+        // A step that is leaving can no longer be answered.
+        answered={answered || !step}
         onChange={(fieldId, value) =>
           setValues((current) => ({ ...current, [fieldId]: value }))
         }

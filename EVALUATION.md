@@ -1802,3 +1802,38 @@ Also on screen for that stop, had a person been watching: the stuck screen's
 old wording, because the run started before this day's wording change — and
 under it, in small type, a reason saying the date had been lost when it had
 not.
+
+---
+
+## 2026-09-17c — every ending reached from a step was unpressable
+
+Found while testing the new stop screen, not by looking for it.
+
+A task always reaches its ending from a step. The ending's buttons could not
+be pressed: the step screen that was leaving stayed in the column's grid cell
+at opacity 0, empty, on top of them, and swallowed every click.
+
+| Condition | Attempts | "Do something else" pressable |
+|---|---|---|
+| Stop pressed on a step, this day's `App.tsx` | 3 | **0** |
+| Go-ahead pressed, then `task.completed`, this day's `App.tsx` | 2 | **0** |
+| The same, **`cc4704f`'s `App.tsx`** | 2 | **0** |
+| The same two cases after the fix | 4 | **4** |
+
+So it predates this day's changes; `cc4704f` has it. How far back is not
+established. The four endings `test_terminal_states.py` covered all arrived
+from the working screen, which does not strand, so the test passed throughout.
+
+**Cause, as far as it was measured.** Every ending clears `step` in the same
+update that changes the screen, and the step component returned nothing once
+`step` was null — while it was still mounted as the leaving half of the
+crossfade. Keeping the last step rendered while it fades removes the stranded
+element in every attempt. That Framer Motion never completes an exit whose
+content has emptied is the inference, not something read out of Framer.
+
+**Control.** `test_terminal_states.py` now has three endings reached from a
+step. With the one-line fix reverted: 2 failed, 22 passed — `completed after
+a step` and `stopped by the person` fail. **`stuck after a step` passes even
+without the fix**, so the test does not protect that ending, and whether the
+stuck screen was ever affected is not established. With the fix: 24 passed,
+50.7s.
