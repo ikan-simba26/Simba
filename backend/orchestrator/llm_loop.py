@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from backend.orchestrator.llm import Action, LLMError, Provider
 from backend.orchestrator.loop import Move, Task
-from backend.orchestrator.plan import Expectation, Operation, Target
+from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.serializer import Element
 from shared.schema import StepAction, StepField
 
@@ -51,6 +51,9 @@ REGISTRATION_TASK = Task(
     goal="Register for the course CS-401.",
     estimated_steps=4,
     success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+    # Changes something rather than finding something out. The course code is
+    # in the goal, but the confirmation page states it as text, not in a field.
+    about=About(),
 )
 
 

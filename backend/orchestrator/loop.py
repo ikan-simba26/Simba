@@ -24,7 +24,7 @@ from typing import Protocol
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
-from backend.orchestrator.plan import Expectation, Operation, Target
+from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import (
     Element,
@@ -220,15 +220,6 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected {expect.label_present!r} to appear on the page"
     if expect.content_says and not after.content.says(expect.content_says):
         return f"expected the page to say {expect.content_says!r}"
-    if expect.value_is is not None:
-        actual = after.value_of(expect.value_is.label)
-        if actual is None:
-            return f"expected a field called {expect.value_is.label!r} on the page"
-        if actual != expect.value_is.equals:
-            return (
-                f"expected {expect.value_is.label!r} to hold "
-                f"{expect.value_is.equals!r}, it holds {actual!r}"
-            )
     if expect.rows_at_least is not None:
         rows = sum(len(table.rows) for table in after.content.tables)
         if rows < expect.rows_at_least:
@@ -236,6 +227,37 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
                 f"expected at least {expect.rows_at_least} row(s) of results, "
                 f"the page has {rows}"
             )
+    return None
+
+
+def held_mismatch(after: Snapshot, held: FieldValue) -> str | None:
+    """None if the field holds the value, else why not.
+
+    Exact, deliberately: a date that is nearly right is a wrong answer. And an
+    empty field is an answer, not an absence — `value_of` tells the two apart.
+    """
+    actual = after.value_of(held.label)
+    if actual is None:
+        return f"expected a field called {held.label!r} on the page"
+    if actual != held.equals:
+        return f"expected {held.label!r} to hold {held.equals!r}, it holds {actual!r}"
+    return None
+
+
+def unmet(after: Snapshot, task: "Task") -> str | None:
+    """Why this page does not finish the task, or None if it does.
+
+    The values the goal names come first, then the task's own success
+    expectation. First because they are the more specific failure: on the
+    railways page that searched the wrong date, "results appeared" is true and
+    the date is what is wrong, and the reason given should say so.
+    """
+    for held in task.about.holds:
+        failure = held_mismatch(after, held)
+        if failure is not None:
+            return failure
+    if task.success is not None:
+        return mismatch(after, task.success)
     return None
 
 
@@ -251,12 +273,12 @@ def findings_in(snapshot: Snapshot, task: "Task", known: dict[str, str]) -> list
     `known` is mutated, which is the point: it is the run's memory of what it
     has seen.
     """
-    for label, content_label in task.answers:
-        value = snapshot.content.value_for(content_label)
+    for answer in task.about.finds:
+        value = snapshot.content.value_for(answer.reads)
         if value:
-            known[label] = value
-    return [Finding(label=label, value=known[label])
-            for label, _ in task.answers if label in known]
+            known[answer.name] = value
+    return [Finding(label=answer.name, value=known[answer.name])
+            for answer in task.about.finds if answer.name in known]
 
 
 def satisfies(after: Snapshot, expect: Expectation) -> bool:
@@ -319,17 +341,17 @@ class Planner(Protocol):
 class Task:
     goal: str
     estimated_steps: int
+    # When the page says the task is done. Checked before every move, so a run
+    # stops as soon as it holds, and once more at the end.
     success: Expectation | None = None
-    # What this task is actually asking, as (name to show, content label).
+    # What the task is about: the values its goal names, which must hold for
+    # the run to finish, and the values it asks for, which are read and shown.
     #
-    # A run that only reports progress answers nothing: "Done." is not what
-    # somebody wanted when they asked what their bill was. The content channel
-    # already reads the value; this says which value the goal was about, and
-    # what to call it in front of a person. The page calls it `P/WITHIN`.
-    #
-    # Empty for a task that changes something rather than finding something
-    # out, which is most of them.
-    answers: tuple[tuple[str, str], ...] = ()
+    # Required, and keyword-only. `About()` is a legitimate answer — a task
+    # that changes something rather than finding something out, which is most
+    # of them — but it has to be written, so that leaving it out is a
+    # TypeError rather than a task that silently checks and shows nothing.
+    about: About = field(kw_only=True)
 
 
 MAX_STEPS = 12
@@ -478,14 +500,18 @@ async def run_task(
         #
         # It will be worth revisiting when a success condition can verify the
         # goal's own values well enough that a wrong answer cannot pass.
-        # `Expectation.value_is` is the beginning of that and is not yet
-        # enough on its own. See DECISIONS.md and EVALUATION.md, case 6.
+        # `About.holds` is the beginning of that and is not yet enough on its
+        # own: it checks only the values a plan author declared, on the final
+        # page. See DECISIONS.md and EVALUATION.md, case 6.
         lapsed = await durability_failure(page, filled)
         if lapsed is not None:
             await give_up(lapsed)
             return
 
-        if task.success is not None and satisfies(before, task.success):
+        # Only a task with a success expectation can finish early. `holds`
+        # alone is not a finish line: a filled form nobody has searched with
+        # holds every value the goal named.
+        if task.success is not None and unmet(before, task) is None:
             break
 
         move = await planner.next_move(elements, history, setback)
@@ -576,13 +602,15 @@ async def run_task(
 
     _, final = await perceive(page)
     findings = findings_in(final, task, found)
-    if task.success is not None and not satisfies(final, task.success):
+    # A task with named values is checked here even without a success
+    # expectation, so a declared value can never go unchecked.
+    unfinished = (
+        unmet(final, task) if task.success is not None or task.about.holds else None
+    )
+    if unfinished is not None:
         # Prefer the concrete reason the last move failed over the generic
         # "ran out of steps", which says nothing a user could act on.
-        await give_up(
-            last_failure
-            or f"I ran out of steps before finishing. {mismatch(final, task.success)}"
-        )
+        await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
         return
 
     # A planner that remembers runs gets told what actually worked.

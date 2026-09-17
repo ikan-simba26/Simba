@@ -71,6 +71,60 @@ class FieldValue:
 
 
 @dataclass(frozen=True)
+class Answer:
+    """Something the goal asks to find out, and what to call it on screen.
+
+    `name` is for a person to read. `reads` is the label the page's own
+    content uses for the value — the billing replica heads its amount column
+    `P/WITHIN`, which means nothing outside a billing department, so the name
+    and the place it is read from are necessarily two different strings.
+    """
+
+    name: str
+    reads: str
+
+
+@dataclass(frozen=True)
+class About:
+    """What a task is about, declared once.
+
+    Two halves, because a goal does two things with values. It *names* some
+    ("on 2026-10-15") and it *asks for* some ("which trains?").
+
+    `holds` is the first: each named value, as the page shows it once it is
+    really set. Every one is checked whenever the run decides it has finished,
+    in addition to the task's `success` expectation, and a run that ends with
+    one of them wrong ends in `help.requested` rather than `task.completed`.
+    Nobody has to also remember to write it into `success`.
+
+    It exists because of a specific failure. The railways task's success was
+    `rows_at_least=1`, the run searched for the wrong date, two real trains
+    came back, and it reported `task.completed` — a well-formed answer to a
+    question nobody asked. The results table has no date column, so the only
+    place the date appears is the field the user watched being filled
+    (EVALUATION.md, case 6).
+
+    `finds` is the second: read from the content channel along the way,
+    remembered, and sent to the screen as `findings`.
+
+    These used to be two unrelated declarations — `Task.answers`, and
+    `Expectation.value_is` inside a task's success condition — and a plan
+    author had to remember both, separately, with nothing to say either had
+    been forgotten. One declaration makes "what is this task about?" a single
+    question, and `Task` requires it to be answered: `About()` is allowed, but
+    it has to be written down.
+
+    A limit worth knowing: a held value is checked on the *final* page. A
+    field the run has navigated away from is not there to be checked, so a
+    value typed on one page of a multi-page flow — the billing reference
+    number — cannot be a `holds` entry. That case still has no check.
+    """
+
+    holds: tuple[FieldValue, ...] = ()
+    finds: tuple[Answer, ...] = ()
+
+
+@dataclass(frozen=True)
 class Expectation:
     """What must be true of the page after a step, for it to count as done.
 
@@ -83,6 +137,10 @@ class Expectation:
 
     The last two ask about what the page *says*, which is what such a task was
     always actually about.
+
+    What a *field* must hold is not here. It was, as `value_is`, from
+    2026-09-09 to 2026-09-17; it is now `About.holds`, so the values a goal
+    names are declared in the same place as the values it asks for.
     """
 
     url_contains: str | None = None
@@ -92,19 +150,6 @@ class Expectation:
     # Readable content, from perception's second channel.
     content_says: str | None = None
     rows_at_least: int | None = None
-    # A form field, and what it must hold.
-    #
-    # This exists because of a specific failure. The railways task's success
-    # was `rows_at_least=1`, the run searched for the wrong date, two real
-    # trains came back, and it reported `task.completed` — a well-formed
-    # answer to a question nobody asked. "Results appeared" is satisfied by a
-    # search for any date at all. The goal names a date and nothing checked
-    # it: the results table has no date column, so content cannot see it, and
-    # the only place it appears is the field the user watched being filled.
-    #
-    # `Snapshot` has carried form values since 2026-09-08 and until now no
-    # expectation could read them. See EVALUATION.md, case 6.
-    value_is: FieldValue | None = None
 
 
 @dataclass(frozen=True)

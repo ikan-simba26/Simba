@@ -16,6 +16,7 @@ from backend.orchestrator.llm import Action
 from backend.orchestrator.llm_loop import LLMPlanner
 from backend.orchestrator.loop import Move, Task, run_task
 from backend.orchestrator.plan import (
+    About,
     Expectation,
     HardcodedPlanner,
     Operation,
@@ -29,6 +30,7 @@ TASK = Task(
     goal="Register for the course CS-401.",
     estimated_steps=4,
     success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+    about=About(),
 )
 
 # Both planners are pointed at the same element: a nav link with href="#",

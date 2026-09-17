@@ -814,6 +814,17 @@ on its own, because it only asks about the fields a plan happened to name.
 Reconsider when a task can state what it was asking for, and be checked
 against it, without the plan author having to remember to.
 
+*Update, 2026-09-17: `Expectation.value_is` is now `About.holds`, and a task
+cannot be written without an `About`. That is the "state what it was asking
+for" half. It is still only as good as what the author declares, it is only
+checked on the final page, and nothing checks what the task finds — so the
+condition above for revisiting is not yet met.*
+
+**Cost of the revert.** An LLM that could genuinely recover from a lapse is
+stopped anyway, and a run that could have finished ends in `help.requested`.
+That is the trade, taken deliberately and with the evidence in hand rather
+than predicted: see EVALUATION.md case 6.
+
 **Cost of the revert.** An LLM that could genuinely recover from a lapse is
 stopped anyway, and a run that could have finished ends in `help.requested`.
 That is the trade, taken deliberately and with the evidence in hand rather
@@ -978,6 +989,11 @@ gap as `value_is`: a task that does not declare `answers` shows nothing and
 nothing warns the author. The two should probably be one declaration — what
 this task is about — rather than two.
 
+**Update, 2026-09-17.** Done: `Task.about`, required. See "What a task is
+about is declared once, and must be" below. Also found: nothing tested that
+an answer reached `task.completed` at all. `test_billing.py` now does, from a
+page the run has left.
+
 ---
 
 ## Past goals reach the home screen over the socket, not over HTTP
@@ -1002,3 +1018,45 @@ three owners, where an additive optional field does not. It is additive — a
 frontend that ignores it is unaffected — but it is a change to the contract's
 shape and it was made to satisfy a screen. Flagged for review rather than
 presented as routine.
+
+---
+
+## What a task is about is declared once, and must be
+
+**Date:** 2026-09-17
+
+**Decision.** `Task.answers` and `Expectation.value_is` are replaced by one
+field, `Task.about: About`, with two halves: `holds` (the values the goal
+names, as the page must show them) and `finds` (the values the goal asks for,
+with the name to show each under). `about` is required and keyword-only;
+`About()` is a valid answer but must be written.
+
+The loop checks `holds` through `unmet(snapshot, task)`, which it uses at both
+of the points it used to call `satisfies(snapshot, task.success)`:
+
+- **Early finish**, before each move: only when the task has a `success`
+  expectation, and then `holds` must also be true. `holds` alone never ends a
+  run, because a filled form nobody searched with holds every value.
+- **Final check**: whenever the task has a `success` expectation *or* any
+  `holds`. So a declared value is checked even if nobody wrote a success
+  condition.
+
+**Alternatives.** Keep both fields and add a test that plans use both. Merge
+into a single list of "facts" with a flag for check-or-show. Make success
+require every `finds` value to have been found.
+
+**Why this.** Asked for: two declarations a plan author must separately
+remember is two chances to forget, and forgetting either failed silently.
+Two named halves rather than one list with a flag, because a value the goal
+names and a value it asks for are used in opposite directions — one is
+checked, one is shown — and a flag would put that difference where it is
+easy to misread. Required rather than defaulted, because a default is exactly
+how both were forgotten before: a task that did not mention either got an
+empty tuple and said nothing.
+
+**Cost.** Every `Task` construction had to change, five of them in tests. The
+billing reference number still cannot be a `holds` entry: it is typed on the
+first page and checked on the last, where there is no field. And `finds` is
+still not part of success — a billing run that never read the amount would
+complete with no findings rather than stop. Whether it should is flagged, not
+decided.

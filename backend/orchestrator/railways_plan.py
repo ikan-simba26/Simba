@@ -44,6 +44,8 @@ from datetime import date
 
 from backend.orchestrator.loop import Task
 from backend.orchestrator.plan import (
+    About,
+    Answer,
     Expectation,
     FieldValue,
     Operation,
@@ -117,32 +119,32 @@ def _confirm(label: str) -> list[StepAction]:
 RAILWAYS_TASK = Task(
     goal=GOAL,
     estimated_steps=5,
-    # Results appeared, *and* they are results for the date that was asked
-    # for.
-    #
-    # `rows_at_least` alone was the whole condition until 2026-09-09, and it
-    # let a run finish wrongly: the LLM set the date to the month the picker
-    # opened on, searched, got two real trains, and reported `task.completed`
-    # against a goal naming a different month. "Results appeared" is satisfied
-    # by a search for any date at all.
-    #
-    # The date cannot be checked in the results — the table has `Train No.`,
-    # `From/To`, `Time` and `Duration`, and no date column — so the only place
-    # it can be checked is the field the user watched being filled. That is
-    # what `value_is` reads.
-    #
-    # Both halves are needed. `value_is` alone would pass on a filled form
-    # nobody had searched with; `rows_at_least` alone passed on the wrong
-    # search.
-    success=Expectation(
-        rows_at_least=1,
-        value_is=FieldValue("Departure Date", DEPARTURE_AS_SHOWN),
-    ),
-    # The goal asks which trains run, so the answer is the train and how long
-    # it takes. Read from the results table once the search returns.
-    answers=(
-        ("Train", "Train No."),
-        ("Journey", "Duration"),
+    # Results appeared...
+    success=Expectation(rows_at_least=1),
+    about=About(
+        # ...*and* they are results for the date that was asked for.
+        #
+        # `rows_at_least` alone was the whole condition until 2026-09-09, and
+        # it let a run finish wrongly: the LLM set the date to the month the
+        # picker opened on, searched, got two real trains, and reported
+        # `task.completed` against a goal naming a different month. "Results
+        # appeared" is satisfied by a search for any date at all.
+        #
+        # The date cannot be checked in the results — the table has `Train
+        # No.`, `From/To`, `Time` and `Duration`, and no date column — so the
+        # only place it can be checked is the field the user watched being
+        # filled.
+        #
+        # Both halves are needed. The held date alone would pass on a filled
+        # form nobody had searched with; `rows_at_least` alone passed on the
+        # wrong search. The loop never ends a run early on `holds` alone.
+        holds=(FieldValue("Departure Date", DEPARTURE_AS_SHOWN),),
+        # The goal asks which trains run, so the answer is the train and how
+        # long it takes. Read from the results table once the search returns.
+        finds=(
+            Answer("Train", reads="Train No."),
+            Answer("Journey", reads="Duration"),
+        ),
     ),
 )
 

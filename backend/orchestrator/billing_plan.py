@@ -13,7 +13,7 @@ the real goal. See EVALUATION.md, 2026-09-06.
 """
 
 from backend.orchestrator.loop import Task
-from backend.orchestrator.plan import Expectation, Operation, PlanStep, Target
+from backend.orchestrator.plan import About, Answer, Expectation, Operation, PlanStep, Target
 from shared.schema import StepAction, StepField
 
 REFERENCE = "04141234567890"
@@ -37,9 +37,15 @@ BILLING_TASK = Task(
     #
     # Both are read off the results page and remembered; the run then opens
     # the detail page, where neither column exists. See `findings_in`.
-    answers=(
-        ("Your bill", "P/WITHIN"),
-        ("Due", "DUE DT"),
+    #
+    # Nothing in `holds`: the goal names a reference number, but it is typed
+    # on the lookup page and the run ends two pages later, where there is no
+    # field left to check it in. See `About`.
+    about=About(
+        finds=(
+            Answer("Your bill", reads="P/WITHIN"),
+            Answer("Due", reads="DUE DT"),
+        ),
     ),
 )
 

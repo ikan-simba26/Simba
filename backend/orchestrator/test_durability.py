@@ -32,6 +32,7 @@ from backend.orchestrator.loop import (
     run_task,
 )
 from backend.orchestrator.plan import (
+    About,
     Expectation,
     HardcodedPlanner,
     Operation,
@@ -212,7 +213,7 @@ TWO_FILLS = [
 ]
 
 SIGN_IN = Task(goal="Sign in.", estimated_steps=3,
-               success=Expectation(url_contains="/courses"))
+               success=Expectation(url_contains="/courses"), about=About())
 
 
 def test_the_loop_notices_a_field_that_emptied_itself(replica: str) -> None:  # noqa: F811
@@ -315,7 +316,8 @@ def test_a_move_of_presses_alone_still_has_to_prove_itself(replica: str) -> None
     ]
 
     connection = drive(plan, Task(goal="Press escape.", estimated_steps=1,
-                                  success=Expectation(url_contains="/courses")))
+                                  success=Expectation(url_contains="/courses"),
+                                  about=About()))
 
     assert connection.of("help.requested"), connection.types()
 
@@ -356,7 +358,7 @@ SKIPPED_STEP = [
     ),
 ]
 
-TWO_STEPS = Task(goal="Two steps, the first impossible.", estimated_steps=2)
+TWO_STEPS = Task(goal="Two steps, the first impossible.", estimated_steps=2, about=About())
 
 
 def test_a_step_that_failed_and_was_skipped_says_so(replica: str) -> None:  # noqa: F811

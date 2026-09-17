@@ -14,7 +14,7 @@ from playwright.async_api import async_playwright
 from backend.orchestrator.llm import Action, LLMError
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, render_page
 from backend.orchestrator.loop import Task, resolve_value, run_task
-from backend.orchestrator.plan import Expectation, Operation, Target
+from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.orchestrator.test_orchestrator import replica  # noqa: F401
 from backend.orchestrator.test_verification import FakeConnection
 from backend.perception.serializer import Element
@@ -272,7 +272,8 @@ def test_goal_already_satisfied_completes_without_calling_the_model(replica: str
     provider = ScriptedProvider([])
     goal = Task(goal="Be on the login page.",
                 success=Expectation(title_contains="Sign In"),
-                estimated_steps=1)
+                estimated_steps=1,
+                about=About())
 
     connection = drive(provider, goal, replica)
 

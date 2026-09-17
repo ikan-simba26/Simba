@@ -21,6 +21,7 @@ from backend.orchestrator.loop import (
 )
 from backend.orchestrator.plan import (
     REGISTRATION_PLAN,
+    About,
     Expectation,
     HardcodedPlanner,
     Operation,
@@ -39,6 +40,7 @@ TASK = Task(
     goal="Register for the course CS-401.",
     estimated_steps=3,
     success=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+    about=About(),
 )
 
 

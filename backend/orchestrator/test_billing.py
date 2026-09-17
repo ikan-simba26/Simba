@@ -92,6 +92,28 @@ def test_the_hardcoded_plan_reaches_the_bill_detail(billing_replica: str) -> Non
     assert completed["llm_calls"] == 0
 
 
+def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica: str) -> None:
+    """What `About.finds` is for, end to end, on the real replica.
+
+    The amount and the due date are only in the results table. The run then
+    opens the detail page, where neither column exists — so these values in
+    `task.completed` can only have come from remembering them. Until
+    2026-09-17 nothing tested that the answer reached the end at all.
+
+    The due date is exactly as the page wrote it. Nothing reformats a found
+    value (STATUS.md).
+    """
+    connection = drive(HardcodedPlanner(BILLING_PLAN), BILLING_TASK, billing_replica)
+
+    completed = connection.payload_of("task.completed")
+    assert completed["findings"] == [
+        {"label": "Your bill", "value": "14,382"},
+        {"label": "Due", "value": "15-09-2026"},
+    ]
+    # And it was shown while the run was still going, from the step it turned up on.
+    assert connection.of("step.presented")[-1]["findings"] == completed["findings"]
+
+
 def test_the_reference_number_is_actually_typed(billing_replica: str) -> None:
     """A fill is verified by reading the field back, on this site too."""
     connection = drive(HardcodedPlanner(BILLING_PLAN), BILLING_TASK, billing_replica)
