@@ -72,62 +72,67 @@ def ending(*messages: tuple[str, dict]) -> list[tuple[str, dict]]:
     ]
 
 
-ENDINGS: dict[str, list[tuple[str, dict]]] = {
-    "completed with an answer": ending(
+HELP = ("help.requested", {
+    "reason": "could not find 'Check Bill' on the page",
+    "suggestion": "I won't do any more on this. You can ask me for something else.",
+})
+
+# How each ending ends: the messages after the task is under way.
+TAILS: dict[str, list[tuple[str, dict]]] = {
+    "completed with an answer": [
         ("task.completed", {
             "summary": f"{GOAL} http://127.0.0.1:5100/bill/detail", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "findings": [{"label": "Your bill", "value": "14,382"},
                          {"label": "Due", "value": "15-09-2026"}],
         }),
-    ),
+    ],
     # The backend's summary really is the goal and then the final URL. It was
     # rendered here in 26px type until 2026-09-17.
-    "completed without an answer": ending(
+    "completed without an answer": [
         ("task.completed", {
             "summary": f"{GOAL} http://127.0.0.1:5000/register", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False, "findings": [],
         }),
-    ),
+    ],
     # The backend ending a task on its own account. `loop.py` has no such path
     # today — its only `task.failed` is a stop — but the contract allows it.
-    "failed": ending(
+    "failed": [
         ("task.failed", {"reason": "The portal timed out.", "recoverable": True}),
-    ),
-    "stuck": ending(
-        ("state.changed", {"state": "stuck"}),
-        ("help.requested", {
-            "reason": "could not find 'Close' on the page",
-            "suggestion": "I won't do any more on this. You can ask me for something else.",
-        }),
-    ),
-    # Endings reached *from a step*, which is how every real run ends. The
-    # four above arrive from the working screen, and on their own they passed
-    # while every ending after a step was unpressable: the leaving step screen
-    # stranded itself over the buttons (see `App.Step`). Found 2026-09-17.
-    "completed after a step": ending(
-        ("state.changed", {"state": "waiting"}),
-        ("step.presented", A_STEP),
-        (AWAIT_RESPONSE, {}),
-        ("state.changed", {"state": "acting"}),
-        ("task.completed", {
-            "summary": f"{GOAL} http://127.0.0.1:5100/bill/detail", "duration_ms": 1,
-            "steps_taken": 1, "llm_calls": 0, "replayed": False,
-            "findings": [{"label": "Your bill", "value": "14,382"}],
-        }),
-    ),
-    "stuck after a step": ending(
-        ("state.changed", {"state": "waiting"}),
-        ("step.presented", A_STEP),
-        (AWAIT_RESPONSE, {}),
-        ("state.changed", {"state": "stuck"}),
-        ("help.requested", {
-            "reason": "could not find 'Check Bill' on the page",
-            "suggestion": "I won't do any more on this. You can ask me for something else.",
-        }),
-    ),
+    ],
+    # The order `loop.give_up` sends: the state first, then the request.
+    "stuck": [("state.changed", {"state": "stuck"}), HELP],
+    # The same ending with the request arriving alone. The contract does not
+    # require the state change to come first, and this is the order that
+    # matters: when `help.requested` is the message that switches the screen,
+    # a step on its way out strands itself over the buttons unless
+    # `App.Step` keeps rendering it. With the stuck state first the screen has
+    # already switched while the step was still set, and nothing strands — which
+    # is why the stuck ending looked protected when it was not. Measured
+    # 2026-09-17 with the fix reverted: 3 of 3 blocked this way, 0 of 3 the
+    # other.
+    "stuck, asked for with no state change first": [HELP],
+}
+
+# Through a step: the way every real run reaches its ending. The person
+# presses go-ahead on a step, the backend acts, then the ending arrives.
+THROUGH_A_STEP = [
+    ("state.changed", {"state": "waiting"}),
+    ("step.presented", A_STEP),
+    (AWAIT_RESPONSE, {}),
+    ("state.changed", {"state": "acting"}),
+]
+
+ENDINGS: dict[str, list[tuple[str, dict]]] = {
+    # From the working screen, before any step. Not how a real run ends, and
+    # on their own these passed while every ending after a step was
+    # unpressable (EVALUATION.md, 2026-09-17c). Kept because they are the
+    # simplest case of each screen.
+    **{name: ending(*tail) for name, tail in TAILS.items()},
+    # Every ending again, reached through a step.
+    **{f"{name}, after a step": ending(*THROUGH_A_STEP, *tail) for name, tail in TAILS.items()},
     # What the real backend does when the person presses stop: `task.failed`,
-    # straight away, then the socket closes.
+    # straight away, then the socket closes. Only exists after a step.
     "stopped by the person": ending(
         ("state.changed", {"state": "waiting"}),
         ("step.presented", A_STEP),
@@ -135,6 +140,15 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
         ("task.failed", {"reason": "You asked me to stop.", "recoverable": True}),
     ),
 }
+
+
+def test_every_ending_is_also_reached_through_a_step() -> None:
+    """The structure itself: no ending is tested only from the working screen."""
+    through = {name for name, script in ENDINGS.items()
+               if any(message == AWAIT_RESPONSE for message, _ in script)}
+    for name in TAILS:
+        assert f"{name}, after a step" in through, name
+    assert "stopped by the person" in through
 
 
 # --- the overlay, built from the source as it is now -------------------------

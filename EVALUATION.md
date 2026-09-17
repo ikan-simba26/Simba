@@ -1945,3 +1945,31 @@ missing.
 fashion and have not been re-run. Their *differences* between conditions are
 large enough that a 2x environmental factor applied to both arms would not
 reverse them, but none of the absolute seconds should be quoted as today's.
+
+---
+
+## 2026-09-17g — the terminal-state test covers every ending through a step
+
+`frontend/test_terminal_states.py` now renders each ending twice — from the
+working screen and through a step — plus the person's own stop. 37 tests,
+79.5s.
+
+Why the stuck ending was unprotected, measured with the fix in `App.Step`
+reverted, three attempts each:
+
+| How the stuck ending arrives after a step | Buttons pressable |
+|---|---|
+| `state.changed: stuck`, then `help.requested` — the order `loop.give_up` sends | 3 of 3 |
+| `help.requested` alone | **0 of 3** |
+| `help.requested`, then `state.changed: stuck` | **0 of 3** |
+| (control) `task.completed` | **0 of 3** |
+
+The strand happens when the message that clears the step is also the one that
+switches the screen. With the stuck state first, the screen switches while the
+step is still set, and nothing strands. The old test used exactly that order.
+The contract does not require it, so the test now also sends
+`help.requested` alone.
+
+Control for the whole file, fix reverted: **5 failed, 32 passed** — the four
+after-a-step endings other than stuck-in-the-backend's-order, and the stop.
+With the fix: 37 passed.
