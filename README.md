@@ -52,8 +52,21 @@ local replicas themselves.
 ```bash
 cd frontend
 npm install
-npm run dev
+npm start          # type-checks, builds, and opens the Electron window
 ```
+
+`npm run dev` serves only the overlay, in an ordinary browser, with no site
+view behind it — useful for working on the overlay against the mock backend,
+not for running SIMBA. See `frontend/README.md`.
+
+## The quickest way to run it
+
+```powershell
+.\run.ps1            # or ./run.sh — registration replica, window, backend, in order
+```
+
+`RUNNING.md` has every flow and what to do when one fails. The sections below
+are the pieces by hand.
 
 ## Running it
 
@@ -67,9 +80,11 @@ prove the *wiring*.
 python -m pytest        # from the repo root
 ```
 
-The tests start the replicas they need. 214 pass; 7 skip, and the skips are
-deliberate — 5 want a live Electron host (see 3 below) and 2 want
-`SIMBA_LIVE_TESTS=1`, which points at a real public website.
+The tests start the replicas they need. On 2026-09-17: 271 pass, in
+about five minutes; 7 skip, and the skips are deliberate — 5 want a live
+Electron host (see 3 below) and 2 want `SIMBA_LIVE_TESTS=1`, which points at a
+real public website. (This said 214 until 2026-09-17, which was out of date
+by ten days.)
 
 ```bash
 SIMBA_LIVE_TESTS=1 python -m pytest -k live     # hits pakrailways.gov.pk
@@ -163,7 +178,14 @@ The LLM path needs `.env` — see `CLAUDE.md`. It is never committed.
 
 ## Conventions
 
-- Python 3.11, type hints everywhere, `ruff` + `black`. Tests in `pytest`.
+- Python 3.11, type hints everywhere. Tests in `pytest`.
+- **No formatter or linter is in use.** `ruff` and `black` were named here
+  until 2026-09-17, but neither was ever installed or run. Measured that day
+  over the repository's 57 Python files: `black` would reformat 46 of them
+  (about 2,000 changed lines at its default width), and `ruff` with its
+  defaults reports 69 findings, 30 of them not auto-fixable. Adopting either
+  means one reformat across every module, so it is a decision for all three
+  owners, not a convention to assume.
 - TypeScript strict mode. No `any`.
 - Small commits. Branch per feature: `feat/<module>-<thing>`.
 - Every contributor sets `git config user.name` and `user.email` locally so

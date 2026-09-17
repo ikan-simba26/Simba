@@ -1837,3 +1837,25 @@ a step` and `stopped by the person` fail. **`stuck after a step` passes even
 without the fix**, so the test does not protect that ending, and whether the
 stuck screen was ever affected is not established. With the fix: 24 passed,
 50.7s.
+
+---
+
+## 2026-09-17d — the formatter and linter the conventions named
+
+`CLAUDE.md` and `README.md` said the Python code used `ruff` and `black`.
+Neither was installed. Both were installed into `backend/venv` to measure,
+then removed again with the four packages `black` had pulled in (`pip check`
+clean afterwards).
+
+Over the repository's 57 Python files (tracked, plus the day's new ones):
+
+| | Result |
+|---|---|
+| `black --check`, default 88 columns | 46 files would change, ~1,965 changed lines |
+| `black --check -l 100` | 40 files, ~1,499 lines |
+| `ruff check`, its defaults (0.16.8) | 69 findings; 39 fixable automatically |
+
+The largest groups: unsorted imports (17), unused `noqa` (9), blind `except`
+(7), old-style annotations (6), subprocesses started in async functions (5),
+unused imports (5). The claim was removed from both files rather than made
+true, because making it true is a reformat of every module.

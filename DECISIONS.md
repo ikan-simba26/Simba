@@ -1369,3 +1369,24 @@ rule (`loop.run_task`); `test_copy.py` checks the two ids agree.
 **Cost.** The frontend now encodes a backend rule. If a step ever offers two
 ways forward, both non-`confirm` answers will read as stopping until this
 changes.
+
+---
+
+## No formatter or linter is claimed until one is adopted
+
+**Date:** 2026-09-17
+
+**Decision.** `CLAUDE.md` and `README.md` no longer say the Python code uses
+`ruff` and `black`. They say neither is in use, with the measurement.
+
+**Alternatives.** Install both, pin them in `requirements-dev.txt`, and apply
+them.
+
+**Why this.** Either option makes the conventions true. Applying them means
+`black` rewriting 46 of 57 files — every module, including perception and the
+replicas — and 30 `ruff` findings needing hand fixes, some in behaviour
+(blind `except`, unchecked subprocesses). That is a change for all three
+owners to agree and review, not a side effect of fixing a stale line.
+
+**Cost.** The project has no formatter, and now says so. Style will keep
+drifting until someone proposes adopting one.

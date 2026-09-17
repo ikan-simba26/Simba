@@ -108,7 +108,14 @@ something passing its tests is the one nobody reviews.
 
 ## Conventions
 
-- Python 3.11, type hints everywhere, `ruff` + `black`. Tests in `pytest`.
+- Python 3.11, type hints everywhere. Tests in `pytest`.
+- **No formatter or linter is in use.** `ruff` and `black` were named here
+  until 2026-09-17, but neither was ever installed or run. Measured that day
+  over the repository's 57 Python files: `black` would reformat 46 of them
+  (about 2,000 changed lines at its default width), and `ruff` with its
+  defaults reports 69 findings, 30 of them not auto-fixable. Adopting either
+  means one reformat across every module, so it is a decision for all three
+  owners, not a convention to assume.
 - TypeScript strict mode. No `any`.
 - Tests before implementation for anything in the verification path.
 - Small commits. Branch per feature: `feat/<module>-<thing>`.
