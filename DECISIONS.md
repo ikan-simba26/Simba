@@ -229,6 +229,12 @@ planning: about 13 seconds for five model round trips.
 The comparison that would give one — both planners against a goal neither has
 seen — has not been run.
 
+**Correction, 2026-09-17.** The 5.9s this entry quotes does not reproduce: the
+same commit runs at 3.0s today, and the cause is not established
+(EVALUATION.md, 2026-09-17e). The "3.2x" and "about 13 seconds" above were
+computed from it and are withdrawn. The decision does not rest on the ratio
+and stands.
+
 ---
 
 ## The backend detaches from the Electron host, never closes it

@@ -72,8 +72,8 @@ and no live site:
 - `hardcoded_registration_benchmark`: 10/10 completed, 3 steps, 0 model calls,
   as before. **Mean wall clock 3.01s against 5.93s** in the 2026-09-06 result
   file (median 2.8s against 5.9s). The shape reproduces and the time does not.
-  Why is not established; the loop has changed since (a 10s action timeout,
-  one page read per durability check), and so may the machine's load.
+  *Investigated in 2026-09-17e: not the code — the original commit also runs
+  at 3.0s today. The published 5.9s is corrected in its entry.*
 
 ---
 
@@ -364,6 +364,23 @@ difference is which planner picks the next move.
 | Hardcoded | 10 | 10/10 | 3 | 0 | **5.9** | 1 |
 | LLM, overlay ON | 10 | 10/10 | 5 | 5 | 19.1 | 1 |
 | LLM, overlay OFF | 10 | 10/10 | 4 | 4 | 44.5 | 1 |
+
+> **Corrected 2026-09-17: the Hardcoded row's 5.9s does not reproduce.**
+> Re-run on 2026-09-17 it is **3.0s** — with today's code (3.01s mean), and
+> with this entry's own commit `3968838` checked out and run the same way
+> (3.0s, 10/10). So no code change since explains it. Nor does a package
+> change: Playwright, greenlet and Flask in `backend/venv` were installed on
+> 2026-09-04 and not touched since. What made the original runs twice as
+> slow is **not established** — see 2026-09-17e for what was ruled out and
+> what was not.
+>
+> What this changes below: "3.2x faster" and "about 13 seconds" for five
+> model round trips were both computed from 5.9s. From 3.0s they would read
+> 6.4x and about 16s. **Neither pair should be quoted**: the LLM's 19.1s is
+> itself a 2026-09-05 measurement under conditions nobody recorded, has not
+> been re-run, and the planning-cost estimate is only sound when both arms run
+> in one session on one machine. The argument of the entry — the hardcoded
+> plan is a ceiling, not a baseline — does not depend on the ratio.
 
 The hardcoded plan is **3.2x faster** than the best LLM configuration, uses
 no model at all, and is perfectly deterministic. It takes 3 steps to the
@@ -1863,3 +1880,68 @@ The largest groups: unsorted imports (17), unused `noqa` (9), blind `except`
 (7), old-style annotations (6), subprocesses started in async functions (5),
 unused imports (5). The claim was removed from both files rather than made
 true, because making it true is a reformat of every module.
+
+---
+
+## 2026-09-17e — why the hardcoded benchmark is twice as fast as published
+
+The 2026-09-06 A/B reports the hardcoded plan at **5.93s** mean (median 5.9,
+range 4.9–6.4). Re-run on 2026-09-17 it is **3.01s** (median 2.8, range
+2.8–4.6). A published figure off by 2x is the most serious problem this file
+has had, so this entry is the investigation.
+
+**Is it the same measurement?** Yes. The 2026-09-06 result file survives
+(`logs/hardcoded_ab-2026-09-06.json`, gitignored). Its step instructions —
+"Sign in to the course portal.", "Close the registration alert.", "Register
+for CS-401, Advanced Widget Design." — are the registration plan's wording at
+`3968838` and not later, so it was that plan, through that script, timing the
+same span: browser launch to browser close.
+
+**What was ruled out**
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| The code got faster since | `3968838` checked out in a worktree, today's copy of the script run against it | **3.0s** mean, 10/10, range 2.8–3.5. Ruled out |
+| A dependency changed | install dates of Playwright 1.62.0, greenlet, pyee, Flask, Werkzeug, FastAPI, uvicorn in `backend/venv` | all 2026-09-04, before the A/B. Ruled out for the venv |
+| One slow fixed cost (browser start, driver start) that something external could inflate | each phase of a run timed, current code, 5 runs | Playwright driver 0.40s, browser launch 0.10s, new page 0.10s, **the task 2.19s**, close 0.06s. No single phase is large enough; a 2x total needs the task itself to run at half speed |
+
+**What was not ruled out**
+
+- **Load on the machine.** Run while the full test suite ran alongside, the
+  same old code measured **3.93s** mean, range 2.8–4.9. It moves the time in
+  the right direction and widens the spread the way the 2026-09-06 runs are
+  spread, but it does not reach 5.9s. There is circumstantial evidence the
+  machine was busy then: `logs/cost-probe.jsonl` shows a model call at
+  00:45:34 on 2026-09-06, and five commits landed between 00:39 and 00:52,
+  two of them adding test suites. Nothing records whether tests were running
+  during the ten runs.
+- **A different interpreter or browser.** The 2026-09-06 script had no import
+  path set up, so it cannot have been run the way it is today; how it was run
+  is not recorded in the repository. If it ran under a Python outside
+  `backend/venv`, the Playwright and Chromium it used could differ. Checking
+  means reading outside the project (a Python install, or earlier session
+  transcripts under the user's home directory), which the project's rules do
+  not allow without asking. **Not checked.**
+- Power state, thermal throttling, antivirus. Not recorded, not recoverable.
+
+**Conclusion.** The cause is **not established**. The code and the venv are
+exonerated; load reproduces part of the gap; the rest is unrecoverable from
+what was recorded. The 5.9s is corrected in its entry, with the claims
+derived from it withdrawn rather than recomputed.
+
+**What would have prevented it.** The run recorded a number and nothing about
+the conditions it was taken under — interpreter, other processes, whether it
+was run alone. Every script in `tools/evaluation/` should record the Python
+executable, the Playwright version and the wall-clock start time into its
+result file. Not done in this entry; flagged in STATUS.md.
+
+**Also found.** The one-call cost figure in the 2026-09-06 entry (61 + 62
+tokens), recorded as having no surviving script, has a surviving transcript:
+`logs/cost-probe.jsonl`, 2026-09-06 00:45. The script that wrote it is still
+missing.
+
+**What else leans on a timing from those two nights.** The LLM figures in the
+2026-09-05 entries (61.3s, 17.1s, 19.1s, 44.5s) were measured in the same
+fashion and have not been re-run. Their *differences* between conditions are
+large enough that a 2x environmental factor applied to both arms would not
+reverse them, but none of the absolute seconds should be quoted as today's.

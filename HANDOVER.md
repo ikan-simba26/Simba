@@ -201,12 +201,15 @@ hold the goal's date. A stop the person can see is worth more than a finish
 they cannot question.
 
 **6. The hardcoded plan is a ceiling, not a baseline.** On the registration
-replica it takes **3 steps and 5.9s** against the LLM's **5 steps and 19.1s**,
-at no cost against about $0.00003 per model call. That does not mean the LLM
-is 3.2 times worse: the plan already knows the answer because a person wrote
-it. What the comparison measures is the price of planning — about 13 seconds
-for five round trips. **There is no honest baseline for the LLM yet**; that
-needs both planners on a goal neither has seen.
+replica it takes **3 steps** against the LLM's **5 steps**. The times first
+published — 5.9s against 19.1s — do not hold up: the hardcoded arm re-runs at
+3.0s with the very same code, for a reason not established (EVALUATION.md,
+2026-09-17e), and the LLM arm has not been re-run. So no ratio between them
+should be quoted. The finding does not rest on one: the hardcoded plan is
+faster and free because a person already wrote the answer into it, so it
+measures perfect planning, not a rival to the LLM. **There is no honest
+baseline for the LLM yet**; that needs both planners, in one session, on a
+goal neither has seen.
 
 ---
 
