@@ -26,6 +26,57 @@ better, particularly on the wasted-navigation problem.
 
 ---
 
+## Which script produced which table
+
+Added 2026-09-17. Until then every script below lived in `.scratch/`, which
+is gitignored, so no number in this file could be reproduced by anyone but
+the person who ran it. They are now in `tools/evaluation/`. Run each from the
+repo root as `python -m tools.evaluation.<name>`; each script's docstring
+says what it spends (model quota, the live site) and anything that differs
+from the version that produced its table.
+
+| Entry | Table or claim | Script |
+|---|---|---|
+| 2026-09-05 | LLM planner, ten consecutive runs | `llm_registration_benchmark` |
+| 2026-09-05 | After overlay detection: ten runs, and "Before and after" | `llm_registration_benchmark` |
+| 2026-09-05 | Ablation, four conditions | `overlay_ablation` — **not the exact version**: the first row's condition had been deleted from it and is restored |
+| 2026-09-06 | Perception against a second replica | `billing_perception_probe` (needs the billing replica on :5100) |
+| 2026-09-06 | Hardcoded plan vs LLM, Hardcoded row | `hardcoded_registration_benchmark`; the LLM rows are the two above |
+| 2026-09-06 | Token and cost, one planning call (61 + 62 tokens) | **unknown** — no surviving script matches it |
+| 2026-09-07 | Screening table | `tools/screen_site.py` (already committed) |
+| 2026-09-07 | The first live run, stuck after 2 of 4 steps | **not preserved** — an earlier form of `railways_hardcoded_run`, from before the plan had five steps |
+| 2026-09-08 | The live flow completes, 5/5, 46.1s | `railways_hardcoded_run` |
+| 2026-09-08 | What perception now sees (18 → 24 after typing) | `railways_inference_probe`; the calendar-open count is from `perception_timing_probe` |
+| 2026-09-08 | Profiling `read()` | `perception_timing_probe` |
+| 2026-09-09 | Run 1 and run 2 with the LLM | `railways_llm_run` |
+| 2026-09-09 | The fix: a banner, not a rule; "Where information sits" | `railways_banner_probe` |
+| 2026-09-09b | The run that completed on the wrong date | `railways_llm_run` |
+| 2026-09-09b | Setback promoted, one call | `railways_setback_probe` |
+| 2026-09-09b | Qualifiers, duplicate-label table | `railways_qualifier_probe` |
+| "The DOM is not the application's state" | `"travelDate":""` while the field read `2026-10-15` | `railways_request_probe` (submits two live searches) |
+| "Durable verification, justified" | The two live lapses | `railways_llm_run` (the 2026-09-09 runs) |
+| 2026-09-17 | What perception reads today | `serializer_samples` |
+| 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
+| 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
+
+Transcripts and raw results go to `logs/`, which is also gitignored. The
+scripts are reproducible; the outputs they wrote on the day are not in the
+repository, and the tables in this file are the record of them.
+
+**Re-run on 2026-09-17 to check the move worked**, the two that need no model
+and no live site:
+
+- `billing_perception_probe`: identical to the 2026-09-06 table — 37, 39 and
+  37 elements, the same role and dead-link counts, the cookie bar at 6.6%
+  coverage and undetected, 37 → 38 elements on expanding the accordion.
+- `hardcoded_registration_benchmark`: 10/10 completed, 3 steps, 0 model calls,
+  as before. **Mean wall clock 3.01s against 5.93s** in the 2026-09-06 result
+  file (median 2.8s against 5.9s). The shape reproduces and the time does not.
+  Why is not established; the loop has changed since (a 10s action timeout,
+  one page read per durability check), and so may the machine's load.
+
+---
+
 ## 2026-09-05 — LLM planner, ten consecutive runs
 
 Commit `e1ed61c`. Goal: "Register for the course CS-401." No changes between
