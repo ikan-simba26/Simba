@@ -4,19 +4,25 @@ Plain language, naming the real files. Read `CLAUDE.md` first for the rules
 this has to obey, `CONTRACT.md` for the message shapes, and `DECISIONS.md`
 for why any of it is shaped this way.
 
+**Refreshed 2026-09-17** against the code as checked out that day. What had
+drifted is listed at the end, under *Drift found on 2026-09-17*, rather than
+corrected silently.
+
 ## The short version
 
     overlay (React)         backend (Python)                 the site
     ---------------         ----------------                 --------
+                    ◀──     history.offered (on connect)
     task.start      ──▶     perceive the page        ──▶     read via CDP
                             decide the next action
     step.presented  ◀──     describe it in plain words
     step.response   ──▶     do it                    ──▶     click / type
                             verify it worked         ──▶     read again
                             (retry, or ask for help)
+    step.failed     ◀──     (if a step was carried past)
     trust.requested ──▶     screenshot + locate target ──▶   capture
     page.preview    ◀──
-    task.completed  ◀──
+    task.completed  ◀──     or task.failed, or help.requested
 
 Two processes, one WebSocket, and nothing crosses between them that is not
 in `CONTRACT.md`.
@@ -33,22 +39,35 @@ site view over CDP on port 9222 and drives it.
 
 ### 1. The overlay opens a task
 
-The overlay asks "What would you like me to do?", and sends `task.start`
-carrying whatever was typed. That text *is* the task: the backend runs the
-goal as sent (`CONTRACT.md`), and only falls back to its configured goal if
-the message carries none.
+When the socket opens, the backend sends `history.offered` — up to three
+goals from the trace store — before anything is asked
+(`app.py:past_goals`). The home screen greets the person, shows those goals
+as cards, and keeps the text box behind "Ask for something new". With no
+history the text box is shown directly.
+
+Choosing a card or typing a goal sends `task.start`. That text *is* the task:
+the backend runs the goal as sent (`CONTRACT.md`), and only falls back to its
+configured goal if the message carries none.
 `backend/orchestrator/app.py:ws_endpoint` accepts the socket, wraps it in a
-`Connection` (`loop.py`), and waits for that message.
+`Connection` (`loop.py`), and waits for that message. **One socket carries
+one task**: the backend closes it when the task ends, and the overlay
+reconnects when the next one starts.
 
 Environment variables decide what runs:
 
 | Variable | Effect |
 |---|---|
 | `SIMBA_FLOW` | Which site, replica URL and hardcoded plan, from the `FLOWS` table in `app.py` |
+| `SIMBA_REPLICA_URL` | Overrides the flow's start URL |
 | `SIMBA_USE_HARDCODED_PLAN` | `1` runs `HardcodedPlanner`, otherwise `LLMPlanner` |
-| `SIMBA_TRACE_MEMORY` | `1` wraps the planner in `TracePlanner` and replays a remembered run |
+| `SIMBA_TRACE_MEMORY` | `1` wraps the planner in `TracePlanner`, which replays a remembered run and records new ones |
+| `SIMBA_TRACE_DB` | Where the trace store is (default `traces.db` at the repo root) |
 | `SIMBA_BROWSER` | `chromium` launches a headless browser; `electron` attaches to the running host |
-| `SIMBA_LLM_PROVIDER` | `anthropic`, or any OpenAI-compatible endpoint |
+| `SIMBA_CDP_URL` | Where the Electron host's CDP endpoint is |
+| `SIMBA_OVERLAY_URL` | Excludes a dev-server overlay when picking the site view |
+| `SIMBA_LLM_PROVIDER` | `anthropic`, or `openai` for any OpenAI-compatible endpoint |
+| `SIMBA_LLM_EFFORT` | Thinking effort for the Anthropic provider |
+| `SIMBA_OVERLAY_DETECTION`, `SIMBA_INFERRED_ROLES` | Ablation switches in perception |
 
 `browser.open_page` yields the page to drive — either a fresh headless
 Chromium at the frozen viewport, or the Electron host's site view picked out
@@ -58,7 +77,7 @@ with the chosen planner. Everything after this point is planner-agnostic.
 
 ### 2. Perceive
 
-`loop.perceive` calls `perception/serializer.py:serialize_async`, which makes
+`loop.perceive` calls `perception/serializer.py:read_async`, which makes
 three CDP calls in one session:
 
 | Call | What it gives |
@@ -69,10 +88,11 @@ three CDP calls in one session:
 
 `serializer.build_elements` joins them into a numbered list of `Element`s —
 `id`, `role`, `label`, `type`, `tag`, `input_type`, `name`, `value`, `rect`,
-plus the flags `overlay`, `occluded`, `dead_link` and `inferred`. Structure
-comes from the accessibility tree because it already resolves an accessible
-name from a `<label for>`, an `aria-label` or the element's own text, and
-already drops what a user cannot see.
+plus the flags `overlay`, `occluded`, `dead_link` and `inferred`, and for an
+inferred element `qualifier` and `panel`. Structure comes from the
+accessibility tree because it already resolves an accessible name from a
+`<label for>`, an `aria-label` or the element's own text, and already drops
+what a user cannot see.
 
 The snapshot is parsed once by `perception/snapshot.py:parse` and read by
 three modules, so all three agree on what the page looks like:
@@ -80,7 +100,7 @@ three modules, so all three agree on what the page looks like:
 | Module | Reads | For |
 |---|---|---|
 | `overlays.py` | position, z-index, bounds | what is covering the page, or covering one element |
-| `interactivity.py` | `cursor`, sibling structure | controls the accessibility tree calls text |
+| `interactivity.py` | `cursor`, sibling structure, class tokens | controls the accessibility tree calls text |
 | `content.py` | text, tables, `font-size` | what the page *says* |
 
 **`interactivity.py` is why a real site works at all.** A component framework
@@ -90,27 +110,25 @@ renders a dropdown option as `<li class="...__item"><span>LAHORE CANTT</span>`
 and reads layout: an element with a computed `cursor: pointer` is something a
 person is being told they can click, and three or more same-class siblings
 inside a floating panel are a list of choices. What it finds is flagged
-`inferred`, because a role the page declared and a role we guessed at deserve
-different amounts of trust.
+`inferred`. Inside a floating panel everything is an `option`; elsewhere a
+list item is a `menuitem` and anything else a `button` (DECISIONS.md). Four
+class tokens become a `qualifier` (`previous month`, `next month`,
+`disabled`, `today`), and the panel's own heading becomes `panel`.
 
 Those elements have no role to look up, so `serialize` also computes a
-structural path for each one and the backend uses it in `loop.resolve`. A
-planner still only ever says `click(14)`.
+structural path for each one (`locator_hint`) and the backend uses it in
+`loop.resolve`. A planner still only ever says `click(14)`.
 
 **`content.py` is the second output channel.** Interactive elements are what
 the page offers; content is what it says — headings with their level, table
 rows paired to their column headers, label/value pairs, and text set
-noticeably larger than the page's own baseline. A task whose goal is to read
-a number needs it: `14,382` alone is a number, and `("P/WITHIN", "14,382")`
-is an answer. It travels separately so nothing can confuse "the page says
-14,382" with "there is a button called 14,382". Content stops at a floating
-panel — a date picker is a control, not something the page says.
+noticeably larger than the page's own baseline. `14,382` alone is a number;
+`("P/WITHIN", "14,382")` is an answer. Content stops at a floating panel — a
+date picker is a control, not something the page says.
 
 `perceive` also builds a `Snapshot` — url, title, the tuple of element labels,
 the tuple of field **values**, and the content. That is the "before" picture
-verification compares against. Values are in it because a form that has been
-filled is not the same page as an empty one, and without them a step that
-typed a station name into a combobox changed nothing the loop could see.
+verification compares against.
 
 ### 3. Decide
 
@@ -136,7 +154,15 @@ between them:
 `LLMPlanner._choose` renders the page with `render_page`, calls the provider,
 and checks the answer. A malformed response or an `element_id` that is not on
 the page is retried **once** with the specific error fed back; a second
-failure sets `stuck_reason` and returns `None`.
+failure sets `stuck_reason` and returns `None`. The model can `click`, `type`
+or `select`; it cannot `press` a key, which only hand-written plans use.
+
+`render_page` puts three kinds of banner above the element list when they
+apply — an overlay is covering the page; a list of choices is open; what the
+open panel says it is showing — because a fact a planner must act on *at this
+step* is ignored when it is one line among many (EVALUATION.md, *"Where
+information sits is a perception decision"*). `llm.build_user_prompt` puts a
+setback above the list for the same reason.
 
 `TracePlanner` looks up `(goal, site)` in SQLite (`traces.py`). With a hit it
 replays the recorded steps, each resolved against the *current* page by role
@@ -146,9 +172,16 @@ replay for good and the wrapped planner takes over from there.
 ### 4. Present, and wait
 
 `run_task` sends `state.changed: waiting` then `step.presented` with the
-move's instruction, the planner's reasoning as `detail`, any input fields,
-and the confirm/cancel actions. It then blocks on `connection.receive` until
-a `step.response` for that step index arrives.
+move's instruction, detail, any input fields, the two actions, and whatever
+the task has found so far. It then blocks on `connection.receive` until a
+`step.response` for that step index arrives.
+
+The words come from two places. A hand-written plan writes its own
+instruction, detail and primary label. Everything else — the stop button
+("Stop this"), the LLM and replay confirm button ("Yes, do that"), the
+sentence describing a move a planner chose — comes from
+`backend/orchestrator/voice.py`. `frontend/test_copy.py` holds both to the
+same rules as the overlay's own `copy.ts`.
 
 Nothing acts on the page before the user confirms. A response whose
 `action_id` is not `confirm` ends the task with `task.failed`.
@@ -158,13 +191,19 @@ Nothing acts on the page before the user confirms. A response whose
 `loop.attempt_move` runs the move's operations. For each one:
 
 1. Perceive again — the previous operation may have navigated.
-2. Resolve the target to an id: `loop.pick` matches by role and label, or the
-   planner supplied `element_id` directly.
-3. Decide the value: `loop.resolve_value` takes the vault's value over
+2. Resolve the target to an id: `loop.pick` matches by role, label and (if
+   given) qualifier, or the planner supplied `element_id` directly.
+3. Decide the value: `loop.resolve_value` takes the step response's value over
    anything a planner supplied, and **refuses outright** to fill a password
    from a planner-invented string.
-4. `loop.act` performs it. `loop.resolve` turns the integer id back into a
-   Playwright locator via `get_by_role(role, name=label).nth(...)`.
+4. Refuse if something is covering the point a click would land on
+   (`loop.covering`, a fresh target-scoped overlay check).
+5. `loop.act` performs it. `loop.resolve` turns the integer id back into a
+   Playwright locator — `locator_hint` for an inferred element, otherwise
+   `get_by_role(role, name=label).nth(...)`.
+
+Every action is capped at `ACTION_TIMEOUT_MS` (10s) rather than Playwright's
+30s default.
 
 ### 6. Verify
 
@@ -172,30 +211,22 @@ Never assumed, always checked.
 
 - A **fill** is verified by reading the field back (`loop.verify_typed`).
   Typing changes no URL, title or label, so a move of fills and key presses
-  is not also required to change the page. A move of presses alone is, since
-  it has no read-back to stand on.
+  is not also required to change the page. A move of presses alone is.
 - Anything else must change the page. `loop.verify` polls `perceive` for up
   to `VERIFY_TIMEOUT_S` and compares before against after with `loop.check`,
   which requires both that the snapshot changed at all and that the move's
   `Expectation` holds.
 - And **durably**: `loop.durability_failure` re-checks, at every later
-  perceive, that each value this run typed is still there. Read-back proves
-  the keystrokes arrived; it does not prove the value stays, and a
-  component-framework combobox clears its own input on blur unless a choice
-  was committed. A lapse ends the run rather than being retried — the typing
-  worked, something undid it, and repeating the keystrokes invites the same
-  undoing while every later step acts on a form that is not filled.
+  perceive, that each value this run typed is still there. A lapse ends the
+  run rather than being retried or handed to the planner — tried the other
+  way on 2026-09-09 and reverted the same day (DECISIONS.md).
 
 An `Expectation` can be about the URL, the title, a label appearing or
-going — or about **content**: `content_says` and `rows_at_least`. Those exist
-because a single-page app finishes a search without changing its URL, its
-title or one interactive label, and until content was readable such a task
-had no expressible success condition at all.
+going, or **content**: `content_says` and `rows_at_least`.
 
 What none of this catches: **the DOM is not the application's state.** A live
 date input read back `2026-10-15` at every check while the framework's own
-model held `""`, and the search went out empty. Every signal available here
-agrees with the DOM and is wrong together. See `EVALUATION.md`.
+model held `""`, and the search went out empty. See `EVALUATION.md`.
 
 ### 7. Recover
 
@@ -203,55 +234,75 @@ Identical code for every planner:
 
 1. The move is retried once with **a different strategy** — a real click
    becomes a JS click, and a `fill` becomes click-then-select-all-then-type.
-   This is the `strategy` argument threaded through `attempt_move` and `act`.
-
-   The fill fallback clicks first because `fill` and `clear` both wait for an
-   element to be *editable*, and a framework combobox ships its input
-   `readonly` until clicked, removing the attribute in its own handler. The
-   direct route times out on a field nothing is blocking; a click is not
-   subject to that check.
-
-Every action is capped at `ACTION_TIMEOUT_MS` (10s) rather than Playwright's
-30s default. A person is watching the step, and the loop retries — at 30s a
-step that fails both strategies costs over a minute before anyone is told.
-2. Still failing, the failure is handed back to the planner as a `setback` on
-   the next iteration, and it may choose differently.
+   The fill fallback clicks first because a framework combobox ships its
+   input `readonly` until clicked, and `fill` waits for editable forever.
+2. Still failing, the loop sends `step.failed` — the person sees a quiet
+   notice — and hands the failure to the planner as a `setback` on the next
+   iteration, where it may choose differently. The hardcoded planner ignores
+   setbacks and simply serves its next step.
 3. Two consecutive setbacks and the run stops: `state.changed: stuck`, then
-   `help.requested` naming what went wrong.
+   `help.requested` naming what went wrong, with the suggestion from
+   `voice.HELP_SUGGESTION`.
 
 ### 8. Finish
 
-When the task's success `Expectation` is satisfied, `run_task` hands the
-moves that actually worked to `planner.finished` if it has one — that is how
-`TracePlanner` records a trace — and sends `task.completed` with the step
-count, the model calls made, and whether any step was replayed.
+A task declares what it is about in `Task.about` (`plan.About`): `holds`, the
+values its goal names as the page must show them, and `finds`, the values it
+asks for and the names to show them under. It is required — `About()` is
+allowed but has to be written.
+
+At every perceive, `loop.findings_in` reads each `finds` value from the
+content channel and remembers it, because the answer is often on a page the
+run leaves before it ends. Those findings go out on every `step.presented`
+and on `task.completed`.
+
+Before each move, if the task has a `success` expectation, `loop.unmet`
+checks the page against `holds` and then `success`; if nothing is unmet, the
+run stops early. `holds` alone never ends a run early — a filled form nobody
+has searched with holds every value.
+
+When the planner has nothing more, the same check runs on the final page
+whenever the task has a `success` expectation *or* any `holds`. Unmet, the
+run ends in `help.requested` with the reason. Met, `run_task` hands the moves
+that worked to `planner.finished` if it has one — that is how `TracePlanner`
+records a trace — and sends `task.completed` with the step count, model calls,
+whether any step was replayed, and the findings.
 
 ---
 
 ## What the overlay does with all this
 
+The overlay is one column showing one screen at a time (`App.tsx`): home,
+working ("Let me open that for you." then "Give me a moment."), a step, or
+one of four endings — found an answer, done, failed, stuck. **Every ending
+offers "Do something else"**, which returns to the home screen;
+`frontend/test_terminal_states.py` renders each and fails if one has nothing
+to press. Every word it writes itself is in `frontend/src/copy.ts`.
+
 `step.presented` is rendered by `StepShell`, at one of three detail levels
 described as data in `frontend/src/levels.ts`. The levels are ordered by
-**density** — how much is on screen and how many decisions it asks for — not
-by height (`DECISIONS.md`):
+**density**, not height (`DECISIONS.md`):
 
-| | progress | detail line | fields | second choice | instruction |
-|---|---|---|---|---|---|
-| Level 1 | stated | shown | all, inline | button | full |
-| Level 2 | murmured | hidden | all, stacked | button | full |
-| Level 3 | none | hidden | only what it needs | plain text | first sentence |
+| | progress | detail line | fields | second choice | instruction | findings |
+|---|---|---|---|---|---|---|
+| Level 1 | stated | shown | all, inline | button | full | shown |
+| Level 2 | murmured | hidden | all, stacked | button | full | shown |
+| Level 3 | none | hidden | only what it needs | plain text | first sentence | hidden until the end |
 
 They are one persistent tree rather than three components, because the change
-between them has to *fold*: regions collapse their own height to nothing over
-350ms while what remains slides up. Three trees could only crossfade.
+between them has to *fold*: regions collapse their own height over 350ms
+while what remains slides up.
 
 `load.updated` moves the level; the user can override and lock it with the
-three dots at the foot of the column, which sends `level.override`. While
-locked, `load.updated` changes the score and leaves the level alone. Any
-change the user did not make raises a dismissible notice — the interface
-never reshapes silently. If a step would not fit, the level drops one step
-towards level 1 (the compact layout) rather than growing a scrollbar; one hop
-only, then it scrolls and says so.
+three dots at the foot of the column, which sends `level.override`. Any
+change the user did not make raises a dismissible notice — one of two
+sentences, chosen by direction alone. If a step would not fit, the level
+drops one step towards level 1 (the compact layout) rather than growing a
+scrollbar; one hop per step, then it scrolls.
+
+`step.failed` raises a quiet notice — "I couldn't do that. I'm carrying on."
+— that outlives the step it belongs to, since the next step arrives
+milliseconds later.
 
 ### The trust panel
 
@@ -260,23 +311,20 @@ waiting for `step.response`* — `Connection.receive` takes an `on_other` hook
 so a message arriving mid-wait is answered rather than dropped.
 
 `loop.send_preview` screenshots the site view, resolves the element the
-current move targets to its bounding box, and sends `page.preview`. The
-overlay then slides up and out, showing the capture dimmed with that element
-ringed and the caption beneath it.
+current move targets to its bounding box, and sends `page.preview` with a
+caption from `voice.caption`. The overlay slides up and out, showing the
+capture dimmed with that element ringed and the caption beneath it.
 
 This is the reason the site view is covered rather than hidden: Chromium
-stops reliably repainting a view it believes is invisible, and the capture
-times out about half the time (`CLAUDE.md`).
+stops reliably repainting a view it believes is invisible (`CLAUDE.md`).
 
-**The capture comes back larger than the viewport.** On this machine the
-Electron site view captures at **1920x1200 for a 1280x800 viewport** — a
-device pixel ratio of 1.5. The `highlight` bounds in `page.preview` are in
-**CSS pixels**, from `locator.bounding_box()`, so they do not match the
-image's pixel dimensions. The overlay positions the highlight in
-*percentages* of the 1280x800 capture viewport, which is why it lands
-correctly regardless of the ratio. Anything that does pixel arithmetic on
-that image — cropping, scaling, drawing into it server-side — has to scale by
-the ratio first, and must not assume it is 1.
+**The capture may come back larger than the viewport.** On the machine this
+was measured on, the Electron site view captured at **1920x1200 for a
+1280x800 viewport** — a device pixel ratio of 1.5. The `highlight` bounds are
+in **CSS pixels**, so the overlay positions the ring in *percentages* of the
+1280x800 viewport, which is correct at any ratio. Anything that does pixel
+arithmetic on that image has to scale by the ratio first. Not re-measured on
+2026-09-17.
 
 ---
 
@@ -289,37 +337,48 @@ the ratio first, and must not assume it is 1.
 | `backend/perception/overlays.py` | Structural blocker and occlusion detection, page-level and target-scoped |
 | `backend/perception/interactivity.py` | Controls the accessibility tree calls text |
 | `backend/perception/content.py` | What the page says: headings, tables, pairs, values |
-| `backend/orchestrator/loop.py` | The shared loop: perceive, present, act, verify, recover |
-| `backend/orchestrator/plan.py` | `PlanStep`/`Operation` types, registration plan, `HardcodedPlanner` |
+| `backend/orchestrator/loop.py` | The shared loop: perceive, present, act, verify, recover, finish |
+| `backend/orchestrator/plan.py` | `PlanStep`, `Operation`, `Target`, `Expectation`, `About`; the registration plan; `HardcodedPlanner` |
+| `backend/orchestrator/voice.py` | Every fixed string the backend puts on screen |
 | `backend/orchestrator/billing_plan.py` | The billing flow's plan and task |
 | `backend/orchestrator/railways_plan.py` | The live read-only train search |
-| `tools/screen_site.py` | Screen a site before pointing anything at it |
 | `backend/orchestrator/browser.py` | Headless Chromium, or attach to the Electron host |
-| `backend/orchestrator/llm_loop.py` | `LLMPlanner`, the system prompt, `render_page` |
-| `backend/orchestrator/llm.py` | Provider interface, validation, token and cost accounting |
+| `backend/orchestrator/llm_loop.py` | `LLMPlanner`, the system prompt, `render_page`, the registration task |
+| `backend/orchestrator/llm.py` | Provider interface, validation, token and cost accounting, transcripts |
 | `backend/orchestrator/traces.py` | SQLite trace storage |
 | `backend/orchestrator/replay.py` | `TracePlanner` |
-| `backend/orchestrator/app.py` | FastAPI `/ws` endpoint and the flow switches |
+| `backend/orchestrator/app.py` | FastAPI `/ws` endpoint, `history.offered`, the flow switches |
+| `backend/estimator/` | Empty. Not built |
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
 | `frontend/electron/main.ts` | The window: site view, then overlay on top of it |
-| `frontend/src/App.tsx` | The overlay: one column, one thing at a time |
+| `frontend/src/App.tsx` | The overlay: home, working, step, and the four endings |
+| `frontend/src/copy.ts` | Every word the overlay writes itself |
+| `frontend/src/store.ts` | Every message applied, in one place |
+| `frontend/src/connection.ts` | The WebSocket, framed as envelopes; `?ws=` overrides the address |
 | `frontend/src/levels.ts` | What each detail level shows, as data |
 | `frontend/src/components/StepShell.tsx` | One step at any level, and the fold between them |
+| `frontend/src/components/StateSignal.tsx` | The four states shown without words; the stuck note |
+| `frontend/src/components/LevelControl.tsx` | The three dots, the lock, the level notice |
+| `frontend/src/components/StepNotice.tsx` | The skipped-step notice |
 | `frontend/src/components/TrustPanel.tsx` | "What are you doing?" and the annotated capture |
-| `frontend/src/store.ts` | Every message applied, in one place |
+| `frontend/src/components/Debug.tsx` | The development view, Ctrl+Shift+D |
+| `frontend/src/useOverflowGuard.ts` | Drops a level when a step will not fit |
+| `frontend/test_copy.py` | The voice rules, for `copy.ts`, the components and the backend |
+| `frontend/test_levels.py`, `frontend/test_terminal_states.py` | Rendered tests in a real browser |
 | `replicas/registration/`, `replicas/billing/` | Local sites to run against |
 | `tools/mock_backend.py` | Scripted backend so the overlay can be built alone |
+| `tools/screen_site.py` | Screen a site before pointing anything at it |
+| `run.ps1`, `run.sh` | One command per flow |
+| `spike/` | The Electron + CDP + Playwright proof the constraints in `CLAUDE.md` came from |
 
 ## What is not built yet
 
 The **estimator** — nothing computes a load score, so `load.updated` is only
 ever sent by the mock, and a real run sits at level 2 unless the user moves
-it. The **credential vault** — values still arrive in `step.response` rather
-than being injected from a store the model cannot see, though
-`loop.resolve_value` already refuses to fill a password from anything a
-planner supplied. **Voice input**, and **replay tuning** (when to prefer a
-trace over fresh planning).
+it. The **credential vault** — values arrive in `step.response` rather than
+being injected from a store the model cannot see. **Telemetry** — specified,
+never sent. **Voice input**, and **replay tuning**.
 
 See `STATUS.md` for where each module actually stands.
 
@@ -327,9 +386,8 @@ See `STATUS.md` for where each module actually stands.
 
 ## The planner system prompt
 
-Verbatim from `backend/orchestrator/llm_loop.py:SYSTEM_PROMPT`. It is the
-whole of what the model is told about its job; everything else it sees is the
-goal, the action history, and the rendered page.
+Verbatim from `backend/orchestrator/llm_loop.py:SYSTEM_PROMPT`, checked
+against the code on 2026-09-17.
 
 ```text
 You operate a web page on behalf of someone who finds cluttered interfaces overwhelming.
@@ -348,13 +406,52 @@ Rules:
 - Keep reasoning to one short sentence, phrased for the person you are helping.
 ```
 
-The page it is given alongside this looks like:
+The page it is given alongside this, captured from the registration replica's
+course page with its modal up on 2026-09-17 (first lines of 66):
 
 ```text
 AN OVERLAY IS COVERING THE PAGE. Everything marked OCCLUDED is unreachable until it is dismissed, using an OVERLAY element.
 
-1. button 'Close'  <- OVERLAY
+1. button 'Close' [input type=button]  <- OVERLAY
 2. link 'Home'  <- OCCLUDED, cannot be clicked  <- dead link, goes nowhere
-3. textbox 'Student ID or Username' [input type=text]  <- OCCLUDED, cannot be clicked
 ...
+11. link 'Registrar'  <- OCCLUDED, cannot be clicked
+...
+36. button 'Register for CS-401' [input type=submit]  <- OCCLUDED, cannot be clicked
 ```
+
+`HANDOVER.md` has fuller samples, including the live site.
+
+---
+
+## Drift found on 2026-09-17
+
+What this file said that was no longer true, and was changed:
+
+- **Stage 7's numbered list was broken.** A paragraph about the action
+  timeout had been inserted between items 1 and 2.
+- **The render sample was not real output.** It showed `3. textbox 'Student
+  ID or Username'` on the page with the modal — a page that has no textbox —
+  and omitted `[input type=button]` on `Close`. Replaced with a capture.
+- **Stage 1** described the overlay asking "What would you like me to do?"
+  first. There has been a home screen with remembered goals, and
+  `history.offered`, since 2026-09-15.
+- **Stage 5** described `loop.resolve` as `get_by_role` only, and did not
+  mention the covering check. Inferred elements resolve by `locator_hint`.
+- **Stage 8** said nothing about findings or about the final check ending in
+  `help.requested`, and described success as "the task's success
+  `Expectation`" only.
+- **Stage 7** did not mention `step.failed`, which has existed since
+  2026-09-09.
+- **The overlay section** did not mention the home screen, findings, the four
+  endings, `copy.ts`, or the skipped-step notice. It also said overflow, once
+  it has hopped, "scrolls and says so"; it says so in the developer's console,
+  not to the person.
+- **The environment table** listed five of the twelve `SIMBA_*` variables the
+  backend reads. (The Electron host reads three more — `SIMBA_START_URL`,
+  `SIMBA_CDP_PORT`, `SIMBA_DEV_SERVER` — and the launchers two.)
+- **The file table** was missing `voice.py` (new), `copy.ts`, `connection.ts`,
+  four components, the overflow guard, the tests, the launchers and `spike/`.
+
+Changed by this task, so not drift: `Expectation.value_is` and
+`Task.answers` are now `Task.about`.

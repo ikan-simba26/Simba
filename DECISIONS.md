@@ -438,6 +438,10 @@ notice says why it happened.
 pulled back to level 1 twice in a second. That is abrupt, and if it turns out
 to matter more than the scrollbar does, this is the decision to revisit.
 
+**Drift, noted 2026-09-17.** "Twice in a second" is no longer true. The guard
+was limited to one hop per step later the same day (`c846be6`), so a locked
+level 3 is pulled back to level 2 once, and the step then scrolls.
+
 ---
 
 ## Practice: measure the rendered result, not the declared intent

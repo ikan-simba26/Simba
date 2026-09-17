@@ -1548,3 +1548,162 @@ ten-run benchmarks are all from 2026-09-05, against the registration replica,
 before inferred roles, content extraction, qualifiers and panel headings
 existed. Every number in this file describing *model* behaviour predates the
 thing it would now be measuring.
+
+*Still true on 2026-09-17. The newest LLM transcript in `logs/` is dated
+2026-09-09.*
+
+---
+
+## 2026-09-17 — the voice under test, every ending rendered, three sites re-read
+
+No model was called and no flow was run end to end against a site. What was
+measured is the test suite, what the new tests catch, and what perception
+reads on each site today.
+
+### The suite
+
+| | Before (HEAD `cc4704f`) | After |
+|---|---|---|
+| Passed | 223 | **258** |
+| Failed | 1 | 0 |
+| Skipped | 7 | 7 |
+| Wall clock (pytest's own figure) | 275.4s | 288.2s |
+
+The one failure before is not a defect in `cc4704f`: `copy.ts` was edited
+while that run was in progress and `test_copy.py` read the edited file. The
+2026-09-15 STATUS.md figure for that commit is 224 passing. The two wall
+clocks are not comparable either — the second run shared the machine with a
+browser capturing serializer output and a `vite build`.
+
+The 34 new passes: 15 in `test_copy.py` (10 tests before, 25 after), 13 in the
+new `test_terminal_states.py`, 5 in `test_success_conditions.py`, 1 in
+`test_billing.py`. The 7 skips are the same 7: five need an Electron host,
+two need `SIMBA_LIVE_TESTS=1`. **Nothing that needs the host or the live site
+was run.**
+
+### Does the copy test catch what it is for?
+
+A test that passes first time proves nothing on its own. Each mutation below
+was applied to the source, the copy test run, and the source restored.
+
+| Mutation | Caught by |
+|---|---|
+| A curly apostrophe in a plan's instruction | `test_the_backend_apostrophes_are_straight` |
+| A plan writing its own stop button labelled "Not now" | `test_every_step_stops_in_the_same_words`, `test_nothing_in_the_backend_writes_its_own_way_to_stop` |
+| The old failure reason, "The user chose not to continue." | `test_the_backend_uses_no_word_the_reader_would_have_to_be_taught` |
+| The old backend suggestion, "Can you take it from here? I'll carry on afterwards." | `test_the_stuck_screen_reads_the_same_whichever_side_wrote_it` |
+| `let it choose` written back into `LevelControl.tsx` | `test_no_component_writes_its_own_words` |
+| The colon back on "Here's what I found" | `test_sentences_end`, `test_the_wording_asked_for` |
+| `voice.STOP` changed to "Not now" everywhere at once | **nothing, at first** |
+
+**8 mutations, 7 caught.** The miss was real: every rule was about the words
+being *consistent*, and changing the stop label everywhere at once is
+perfectly consistent. `voice.STOP == "Stop this"` is now pinned in
+`test_the_wording_asked_for`, and the mutation fails. One further attempt
+broke an import rather than the rule it meant to test; it was redone and is
+the "writes its own stop button" row.
+
+The old component scan, run against `cc4704f`'s `TrustPanel.tsx`, passes it.
+The new scan finds two strings in it: `Hide the page` and the image
+description. With `LevelControl.tsx`'s `let it choose`, three strings were on
+screen and outside `copy.ts` while the test said none were.
+
+### Does the terminal test catch the dead end?
+
+`test_terminal_states.py`, 13 tests, **32.5s**, of which the `vite build` it
+runs first took **5.2s** measured separately.
+
+Control: the same tests against `cc4704f`'s `App.tsx`, everything else
+current.
+
+| Test | Result |
+|---|---|
+| `test_every_ending_has_something_to_press[stuck]` | **failed** — nothing to press |
+| `test_no_ending_shows_a_web_address[completed without an answer]` | **failed** — the backend's `summary`, goal plus URL, was on screen |
+| `test_the_stuck_screen_asks_and_offers_a_way_on` | **failed** |
+| The other 10 | passed |
+
+3 failed, 10 passed, 19.8s. Both defects it exists for are present in the
+previous version and absent from this one.
+
+### Findings, end to end, for the first time
+
+`Task.answers` had no test at all. `test_billing.py` now runs the billing plan
+against the replica and asserts `task.completed.findings` is exactly:
+
+| label | value |
+|---|---|
+| Your bill | `14,382` |
+| Due | `15-09-2026` |
+
+Both are read on the results page; the run ends on the detail page, where
+neither column exists. The due date is as the page wrote it.
+
+### What perception reads today
+
+Captured 2026-09-17 with `read_async` and `render_page`, at 1280x800. The
+two replicas were run locally; the live page was loaded **once**, with the
+screener's user agent, and not touched.
+
+| Page | Elements | Overlay | Occluded | Dead links | Unnamed | First recorded |
+|---|---|---|---|---|---|---|
+| Registration, course list, modal up | 66 | 1 | 65 | 44 | 0 | 66 (2026-09-05) |
+| Billing, enquiry result | 39 | 0 | 0 | — | — | 39 (2026-09-06) |
+| `pakrailways.gov.pk/train`, idle | 18 | 0 | 0 | 3 | 4 | 18, 3 dead, 4 unnamed (2026-09-07) |
+
+Every element count matches the first measurement. The live page is
+structurally unchanged in the respects that were measured, which is not the
+same as the flow still completing — that was not run.
+
+The live page took 6,593ms to load *including* a fixed 2,500ms settle wait.
+The 2026-09-07 figure of 2,625ms included a 1,500ms wait. Neither excludes
+the network, and the two are not a like-for-like comparison.
+
+Content on the billing results page, as a planner's success condition and
+`About.finds` see it: `P/WITHIN → 14,382`, `DUE DT → 15-09-2026`, and eight
+more pairs from the same row. On the live page the only content is one
+prominent value, `TRAIN TIMINGS` at 24px.
+
+### Not measured
+
+- Any LLM call. The run STATUS.md has been waiting on since 2026-09-09 is
+  still not made.
+- Any flow end to end on a site, including the live one, and anything with
+  the Electron host up.
+- `ruff` and `black`, which are not installed.
+- Whether the new wording is *better* for the people it is for. Everything
+  above checks that it is consistent and present, not that it is right.
+
+### Drift in this file, found 2026-09-17
+
+These statements contradict later entries in the same file. They are listed
+here rather than edited, because the rule at the top says old entries are not
+edited, and because a reader who meets one should find the correction.
+
+- **"Durable verification, justified"**, last bullet: "The check now hands the
+  failure back to the planner once before giving up (2026-09-09)." Reverted
+  the same day. A lapse ends the run.
+- **"When verification passes wrongly"** opens with "Three times now". There
+  are six cases.
+- **Case 5** says "The other four cases here were all found by putting a
+  second number next to the first." The section's own closing, *The pattern*,
+  says cases 4 to 6 do not fit that shape.
+- **2026-09-07**, and **2026-09-08** under *Still open*: a step that failed
+  and was skipped is "still open" and "invisible to the user". Closed on
+  2026-09-09 by `step.failed`.
+- Not drift, but a reader will meet it: **case 6** and the **2026-09-09b**
+  entry describe the fix as `Expectation.value_is`. This task renamed it: it
+  is now `About.holds` (DECISIONS.md). The behaviour tested is the same.
+- **Configuration under test** says the lite model was chosen because its
+  free allowance was workable where `gemini-3.6-flash` allowed 20 requests a
+  day. *Known limitations* says 20 a day **per model**, the 2026-09-09 entry
+  says 20 a day for the lite model, and the 2026-09-05 ablation names the
+  stronger model `gemini-3.8-flash`. **Which quota and which model name were
+  true on which day is not established.** The ten lite-model runs of
+  2026-09-05 needed more than 20 requests, so the lite quota was higher then
+  than it was on 2026-09-09, or the runs spanned days.
+- **The 54s hardcoded railways run** that STATUS.md cites as re-verification
+  on 2026-09-09 has no entry here.
+- **`.scratch/benchmark.py`** is cited as the method for the ten-run
+  benchmarks. `.scratch/` is gitignored, so the method is not in the
+  repository.
