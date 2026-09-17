@@ -146,17 +146,28 @@ export const ENDING = {
 /* -------------------------------------------------------- when it stops */
 
 export const STOPPED = {
-  /** The assistant cannot continue and needs the person. */
-  heading: "I need your help with this.",
   /**
-   * What it asks of them.
+   * The assistant could not go on, and has stopped.
+   *
+   * Says what has happened, and nothing it cannot keep. It used to read "I
+   * need your help with this." and then "Can you do this part? I'll carry on
+   * after." — and none of that was true. When the backend sends
+   * `help.requested` the run is over and the connection is closed, so nothing
+   * carries on; and the page is covered by this overlay by design, so the
+   * person could not do "this part" even if they wanted to. Asking someone to
+   * do something they cannot see, and promising to resume when nothing will,
+   * is the worst thing this screen could say to this audience.
+   */
+  heading: "I'm stuck, so I've stopped.",
+  /**
+   * What happens now: nothing more, and they can choose something else.
    *
    * The backend sends its own suggestion in `help.requested`, and that is what
    * is shown when it arrives. `voice.HELP_SUGGESTION` is required by
    * `test_copy.py` to be this same sentence, so the screen reads the same
    * whichever side supplied it.
    */
-  suggestion: "Can you do this part? I'll carry on after.",
+  suggestion: "I won't do any more on this. You can ask me for something else.",
   /** The task ended rather than paused. */
   failedHeading: "I couldn't finish this.",
   /** Offered on both, so there is always a way onwards. */

@@ -360,7 +360,7 @@ function Failed() {
 }
 
 /**
- * The assistant cannot go on and has asked for help.
+ * The assistant could not go on, and has stopped.
  *
  * This screen had no action at all. `STOPPED.again` existed in `copy.ts` and
  * nothing rendered it, so a stuck task was a dead end: a heading, a request,

@@ -79,7 +79,7 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
         ("state.changed", {"state": "stuck"}),
         ("help.requested", {
             "reason": "could not find 'Close' on the page",
-            "suggestion": "Can you do this part? I'll carry on after.",
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
         }),
     ),
 }
@@ -220,12 +220,19 @@ def test_no_ending_shows_a_web_address(
     assert "http" not in text, text
 
 
-def test_the_stuck_screen_asks_and_offers_a_way_on(
+def test_the_stuck_screen_says_what_happens_and_offers_a_way_on(
     page: Page, overlay: str, backend: Backend
 ) -> None:
-    """The screen the defect was on, stated directly."""
+    """The screen the defect was on, stated directly.
+
+    And it no longer promises what nothing does: the run is over and the page
+    is covered, so there is nothing for the person to do on it and nothing
+    that will carry on afterwards.
+    """
     labels = reach(page, overlay, backend, "stuck")
     text = page.inner_text("body")
-    assert "I need your help with this." in text
-    assert "Can you do this part? I'll carry on after." in text
+    assert "I'm stuck, so I've stopped." in text
+    assert "I won't do any more on this. You can ask me for something else." in text
+    for promise in ("carry on", "Can you", "help with"):
+        assert promise not in text, promise
     assert "Do something else" in labels

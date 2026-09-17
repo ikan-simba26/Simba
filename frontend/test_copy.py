@@ -241,7 +241,10 @@ def test_the_wording_asked_for(copy: dict) -> None:
     assert copy["ending"]["finish"] == "I'm done"
     assert copy["home"]["somethingElse"] == "Ask for something new"
     assert copy["found"]["heading"] == "Here's what I found"
-    assert copy["stopped"]["suggestion"] == "Can you do this part? I'll carry on after."
+    assert copy["stopped"]["heading"] == "I'm stuck, so I've stopped."
+    assert copy["stopped"]["suggestion"] == (
+        "I won't do any more on this. You can ask me for something else."
+    )
     assert copy["home"]["againHeading"] == "You asked me for these"
     assert voice.STOP == "Stop this"
 
@@ -412,6 +415,18 @@ def test_the_backend_apostrophes_are_straight() -> None:
 def test_no_web_address_reaches_the_screen() -> None:
     for where, text in {**backend_sentences(), **backend_labels()}.items():
         assert "http" not in text and "://" not in text, f"{where}: {text!r}"
+
+
+def test_the_stuck_screen_promises_nothing_that_does_not_happen(copy: dict) -> None:
+    """When the stuck screen shows, the run has ended and the page is covered.
+
+    It said "Can you do this part? I'll carry on after." from 2026-09-15 to
+    2026-09-17. Nothing carried on, and nobody could see the part.
+    """
+    for text in (copy["stopped"]["heading"], copy["stopped"]["suggestion"],
+                 voice.HELP_SUGGESTION):
+        for promise in ("carry on", "afterwards", "after.", "do this part", "help with"):
+            assert promise not in text, (promise, text)
 
 
 def test_the_stuck_screen_reads_the_same_whichever_side_wrote_it(copy: dict) -> None:

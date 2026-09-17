@@ -1291,3 +1291,28 @@ into `dist/` would change what a running Electron host loads underneath it.
 running alongside. `vite build` does not type-check,
 so a type error does not fail this test; `npm run build` still has to be run
 for that.
+
+---
+
+## The stuck screen says what happens, not what it hopes
+
+**Date:** 2026-09-17
+
+**Decision.** "I'm stuck, so I've stopped." / "I won't do any more on this.
+You can ask me for something else." The backend's `voice.HELP_SUGGESTION` is
+the same sentence, and `test_copy.py` fails if either side promises to carry
+on or asks the person to do part of the task.
+
+**Alternatives.** Build what the old words promised: reveal the site view,
+let the person act, resume. Keep asking for help but drop the promise.
+
+**Why this.** The words asked for earlier the same day were untrue on every
+point. `help.requested` ends the run and the socket closes, so nothing
+carries on. The site view is covered by design, so the person cannot do
+"this part". A real hand-over is a feature — a contract change and a new
+backend state — not a wording fix, and until it exists the screen should say
+only what is so.
+
+**Cost.** The stuck screen no longer invites the person into the task at all.
+If a hand-over is built, this wording has to change with it. The reason under
+it is still technical, and still shown.

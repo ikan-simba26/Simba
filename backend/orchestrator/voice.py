@@ -58,7 +58,12 @@ def actions(label: str) -> list[StepAction]:
 #: `help.requested.suggestion`. `test_copy.py` requires this to be exactly
 #: `STOPPED.suggestion` in `copy.ts`, which is the frontend's fallback for the
 #: same screen — so the stuck screen reads the same whichever side supplied it.
-HELP_SUGGESTION = "Can you do this part? I'll carry on after."
+#:
+#: It says what happens, because that is all it can truthfully say. When this
+#: is sent the run has ended and the socket is about to close: nothing
+#: resumes, and the person cannot reach the page to help. It used to ask them
+#: to "do this part" and promise to "carry on after".
+HELP_SUGGESTION = "I won't do any more on this. You can ask me for something else."
 
 #: `task.failed.reason` when the person pressed `STOP`. It is shown on the
 #: screen, under "I couldn't finish this.", and it used to read "The user
