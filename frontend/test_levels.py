@@ -84,7 +84,7 @@ LONG = {
 
 ACTIONS = [
     {"id": "confirm", "label": "Yes, do that", "kind": "primary"},
-    {"id": "cancel", "label": "Not now", "kind": "secondary"},
+    {"id": "cancel", "label": "Stop this", "kind": "secondary"},
 ]
 
 

@@ -39,7 +39,7 @@ GO_AHEAD = "Yes, do that"
 #: The way out of any step. The same words on every step of every plan,
 #: because the person should never have to read the second button to find out
 #: whether it is still the one that stops.
-STOP = "Not now"
+STOP = "Stop this"
 
 CONFIRM_ID = "confirm"
 CANCEL_ID = "cancel"
@@ -58,7 +58,7 @@ def actions(label: str) -> list[StepAction]:
 #: `help.requested.suggestion`. `test_copy.py` requires this to be exactly
 #: `STOPPED.suggestion` in `copy.ts`, which is the frontend's fallback for the
 #: same screen — so the stuck screen reads the same whichever side supplied it.
-HELP_SUGGESTION = "Could you take it from here? I'll carry on afterwards."
+HELP_SUGGESTION = "Can you do this part? I'll carry on after."
 
 #: `task.failed.reason` when the person pressed `STOP`. It is shown on the
 #: screen, under "I couldn't finish this.", and it used to read "The user

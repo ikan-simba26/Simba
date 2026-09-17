@@ -1158,3 +1158,45 @@ dropped a level.
 **Cost.** The screen no longer says *why* the level moved, only that it did.
 That was already the rule for `load.updated`, whose `reason` the contract
 says is never shown.
+
+---
+
+## Thinking and acting share one sentence
+
+**Date:** 2026-09-17
+
+**Decision.** `presence` has two situations, `opening` ("Let me open that for
+you.") and `working` ("Give me a moment."). "I'm doing that now." is gone.
+
+**Alternatives.** Keep both. Merge them into a new, longer sentence.
+
+**Why this.** Asked for. It also holds up on its own terms: from the person's
+side, working out what to do and doing it are one situation — wait — and the
+difference is already shown without words, by the line that crosses the top
+of the column while an action runs. The shorter existing sentence was kept
+rather than writing a new one, so nothing already learned changes.
+
+**Cost.** The screen no longer says in words that something is being done to
+the page right now. Someone who cannot see or does not notice the moving line
+gets no signal of it.
+
+---
+
+## A lead-in ends with nothing
+
+**Date:** 2026-09-17
+
+**Decision.** "Here's what I found" and "You asked me for these" have no
+colon. `test_copy.py` now has three kinds of string: sentences (end in `.` or
+`?`), lead-ins (no punctuation) and labels (no punctuation), in the tables
+`SITUATIONS`, `LEADS` and `LABELS`.
+
+**Alternatives.** Keep counting a colon as an ending. Drop the rule.
+
+**Why this.** The colons were removed as asked, and the old test allowed a
+colon specifically for "Here's what I found:". Leaving that allowance with
+nothing using it would let one come back unnoticed. A lead-in sits directly
+above what it introduces, which does the colon's job.
+
+**Cost.** Three categories to keep straight instead of one. A string put in
+the wrong table fails for a reason that reads oddly until you know why.

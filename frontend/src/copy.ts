@@ -27,8 +27,9 @@
  *   - Never a word the reader has to be taught: no "step", "session",
  *     "verify", "retry", "overlay". (`STEP.count` breaks this one, knowingly —
  *     see the note on it.)
- *   - A sentence ends with a full stop, a question mark, or a colon that
- *     introduces what sits below it. A button label ends with nothing.
+ *   - A sentence ends with a full stop or a question mark. A lead-in that sits
+ *     above the thing it introduces ends with nothing. A button label ends
+ *     with nothing.
  *   - Straight apostrophes only, here and in the backend, so one screen never
  *     mixes `I'm` with `I’ll`.
  *
@@ -44,15 +45,27 @@
 
 import type { Level } from "@shared/schema";
 
+/* --------------------------------------------------------------- onward */
+
+/**
+ * Back to the home screen, from any screen that has ended.
+ *
+ * One name, because it is one destination. The closing screen and the two
+ * screens that end without finishing used to call it "Do something else" and
+ * "Start again", and "Start again" also suggested it would retry the same
+ * task, which it never did.
+ */
+export const ONWARD = "Do something else";
+
 /* ------------------------------------------------------------------ home */
 
 export const HOME = {
   /** The first thing anyone sees. A greeting, not a prompt. */
   greeting: "Hello. What can I do for you?",
-  /** Above the remembered goals. Only shown when there are some. */
-  againHeading: "You've asked me for these before:",
+  /** Above the remembered goals. Only shown when there are some. A lead-in. */
+  againHeading: "You asked me for these",
   /** Reveals the text box. Deliberately last, and quiet. */
-  somethingElse: "Something else",
+  somethingElse: "Ask for something new",
   /** Above the text box, once it is showing. */
   askHeading: "What would you like me to do?",
   placeholder: "Pay my electricity bill",
@@ -64,17 +77,19 @@ export const HOME = {
 /**
  * What the assistant says while it is working.
  *
- * One sentence per situation, and the situations are the contract's own
- * states. `waiting` has no sentence: the step on screen is the sentence, and
- * a second one beside it would be two things to read.
+ * Two situations, not three. Working out what to do and doing it used to have
+ * a sentence each ("Give me a moment." and "I'm doing that now."), but from
+ * where the person sits they are one situation — wait — and the difference is
+ * already shown without words by the line crossing the top of the column
+ * while an action runs (`StateSignal.ActingLine`). `waiting` has no sentence:
+ * the step on screen is the sentence, and a second one beside it would be two
+ * things to read.
  */
-const PRESENCE: Record<"opening" | "thinking" | "acting", string> = {
+const PRESENCE: Record<"opening" | "working", string> = {
   /** Between "start" and the first step, while the site loads. */
   opening: "Let me open that for you.",
-  /** Working out what to do next. */
-  thinking: "Give me a moment.",
-  /** Doing it. */
-  acting: "I'm doing that now.",
+  /** Working out what to do next, or doing it. */
+  working: "Give me a moment.",
 };
 
 export type Presence = keyof typeof PRESENCE;
@@ -103,8 +118,8 @@ export const STEP = {
 /* -------------------------------------------------------------- findings */
 
 export const FOUND = {
-  /** Above a value found mid-task. The value itself is the large type. */
-  heading: "Here's what I found:",
+  /** Above a value found mid-task. The value itself is the large type. A lead-in. */
+  heading: "Here's what I found",
 } as const;
 
 /* --------------------------------------------------------------- ending */
@@ -123,9 +138,9 @@ export const ENDING = {
   /** When it did not. Nothing was being looked for; something was done. */
   withoutAnswer: "That's done.",
   /** Ends the task. */
-  finish: "Thank you",
+  finish: "I'm done",
   /** Starts another. */
-  again: "Do something else",
+  again: ONWARD,
 } as const;
 
 /* -------------------------------------------------------- when it stops */
@@ -141,11 +156,11 @@ export const STOPPED = {
    * `test_copy.py` to be this same sentence, so the screen reads the same
    * whichever side supplied it.
    */
-  suggestion: "Could you take it from here? I'll carry on afterwards.",
+  suggestion: "Can you do this part? I'll carry on after.",
   /** The task ended rather than paused. */
   failedHeading: "I couldn't finish this.",
   /** Offered on both, so there is always a way onwards. */
-  again: "Start again",
+  again: ONWARD,
 } as const;
 
 /* -------------------------------------------------------------- notices */
@@ -220,8 +235,7 @@ export const TRUST = {
  */
 export const SITUATIONS: Record<string, string> = {
   "presence.opening": presence("opening"),
-  "presence.thinking": presence("thinking"),
-  "presence.acting": presence("acting"),
+  "presence.working": presence("working"),
   "notice.simpler": NOTICE.simpler,
   "notice.fuller": NOTICE.fuller,
   "notice.skipped": NOTICE.skipped,
@@ -231,18 +245,21 @@ export const SITUATIONS: Record<string, string> = {
   "stopped.failedHeading": STOPPED.failedHeading,
   "home.greeting": HOME.greeting,
   "home.askHeading": HOME.askHeading,
-  "home.againHeading": HOME.againHeading,
-  "found.heading": FOUND.heading,
   "trust.ask": TRUST.ask,
+};
+
+/** Lead-ins: text that introduces what sits below it. Never punctuated. */
+export const LEADS: Record<string, string> = {
+  "found.heading": FOUND.heading,
+  "home.againHeading": HOME.againHeading,
 };
 
 /** Everything that goes on a button. Never punctuated, never two for one place. */
 export const LABELS: Record<string, string> = {
+  onward: ONWARD,
   "home.somethingElse": HOME.somethingElse,
   "home.start": HOME.start,
   "ending.finish": ENDING.finish,
-  "ending.again": ENDING.again,
-  "stopped.again": STOPPED.again,
   "notice.dismiss": NOTICE.dismiss,
   "level.unlock": LEVEL.unlock,
   "level.choose1": LEVEL.choose(1),

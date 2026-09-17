@@ -93,9 +93,8 @@ def copy() -> dict:
     script = (
         f"const c = require({json.dumps(str(emitted))});"
         "process.stdout.write(JSON.stringify({"
-        "situations: c.SITUATIONS, labels: c.LABELS,"
-        "presence: {opening: c.presence('opening'), thinking: c.presence('thinking'),"
-        " acting: c.presence('acting')},"
+        "situations: c.SITUATIONS, leads: c.LEADS, labels: c.LABELS, onward: c.ONWARD,"
+        "presence: {opening: c.presence('opening'), working: c.presence('working')},"
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
         "count: [c.STEP.count(1, 3), c.STEP.count(1, 3), c.STEP.count(2, 3)],"
@@ -112,6 +111,7 @@ def everything_in(copy: dict) -> dict[str, str]:
     """Every string in the tables, keyed by where it lives."""
     return {
         **{f"situation {k}": v for k, v in copy["situations"].items()},
+        **{f"lead {k}": v for k, v in copy["leads"].items()},
         **{f"label {k}": v for k, v in copy["labels"].items()},
     }
 
@@ -130,9 +130,15 @@ def test_asking_twice_gives_the_same_sentence(copy: dict) -> None:
     someone makes it one — which is the change worth catching.
     """
     assert copy["count"][0] == copy["count"][1]
-    assert copy["presence"]["thinking"] == copy["situations"]["presence.thinking"]
-    assert copy["presence"]["acting"] == copy["situations"]["presence.acting"]
+    assert copy["presence"]["working"] == copy["situations"]["presence.working"]
     assert copy["presence"]["opening"] == copy["situations"]["presence.opening"]
+
+
+def test_working_and_acting_are_one_sentence(copy: dict) -> None:
+    """Thinking and acting used to be two sentences for what, to the person, is
+    one situation: wait. There is no longer a separate sentence to drift."""
+    assert set(copy["presence"]) == {"opening", "working"}
+    assert copy["presence"]["opening"] != copy["presence"]["working"]
 
 
 def test_a_level_change_reads_the_same_whichever_levels_it_is_between(copy: dict) -> None:
@@ -164,7 +170,7 @@ def test_no_two_situations_share_a_sentence(copy: dict) -> None:
     notice would stop telling the reader anything.
     """
     seen: dict[str, str] = {}
-    for name, sentence in copy["situations"].items():
+    for name, sentence in {**copy["situations"], **copy["leads"]}.items():
         assert sentence not in seen, f"{name} reads exactly like {seen[sentence]}"
         seen[sentence] = name
 
@@ -184,16 +190,20 @@ def test_the_step_count_is_the_only_place_a_number_is_explained(copy: dict) -> N
 
 
 def test_sentences_end(copy: dict) -> None:
-    """A sentence said to a person is punctuated. Button labels are not.
+    """A sentence said to a person is punctuated. Leads-in and labels are not.
 
     This is the one mechanical check on tone that is worth automating: it
     catches a label pasted into a place that speaks, and a sentence pasted
     onto a button.
+
+    A colon used to count as an ending, for "Here's what I found:". Both
+    lead-ins lost theirs on 2026-09-17, and a lead-in now ends with nothing:
+    it sits directly above the thing it introduces, which does the colon's job.
     """
     for name, sentence in copy["situations"].items():
-        # A colon counts: it introduces the thing below it, which is a whole
-        # thought, and rewriting it as a full stop would be worse English.
-        assert sentence[-1] in ".?:", f"{name} does not end a sentence: {sentence!r}"
+        assert sentence[-1] in ".?", f"{name} does not end a sentence: {sentence!r}"
+    for name, lead in copy["leads"].items():
+        assert lead[-1].isalnum(), f"{name} is a lead-in and is punctuated: {lead!r}"
     for name, label in copy["labels"].items():
         assert label[-1].isalnum(), f"{name} is a label and is punctuated: {label!r}"
 
@@ -217,6 +227,23 @@ def test_the_closing_screen_offers_a_way_out_and_a_way_on(copy: dict) -> None:
     assert copy["ending"]["finish"].strip()
     assert copy["ending"]["again"].strip()
     assert copy["ending"]["finish"] != copy["ending"]["again"]
+
+
+def test_one_place_onwards_has_one_name(copy: dict) -> None:
+    """The closing screen, the failed screen and the stuck screen all lead back
+    to the home screen. They used to call it "Do something else" on one and
+    "Start again" on the others."""
+    assert copy["ending"]["again"] == copy["stopped"]["again"] == copy["onward"]
+
+
+def test_the_wording_asked_for(copy: dict) -> None:
+    """The 2026-09-17 wording, pinned so a later change is a deliberate one."""
+    assert copy["ending"]["finish"] == "I'm done"
+    assert copy["home"]["somethingElse"] == "Ask for something new"
+    assert copy["found"]["heading"] == "Here's what I found"
+    assert copy["stopped"]["suggestion"] == "Can you do this part? I'll carry on after."
+    assert copy["home"]["againHeading"] == "You asked me for these"
+    assert voice.STOP == "Stop this"
 
 
 # --- nothing writes its own -------------------------------------------------

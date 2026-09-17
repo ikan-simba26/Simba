@@ -17,7 +17,7 @@ import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
 import { StepFailureNotice } from "./components/StepNotice";
-import { ENDING, HOME, STOPPED, presence, type Presence } from "./copy";
+import { ENDING, HOME, STOPPED, presence } from "./copy";
 import { StepView } from "./components/StepView";
 import type { Finding } from "@shared/schema";
 
@@ -120,7 +120,7 @@ function Home() {
   //
   // Derived, not initial state. `history` arrives over the socket a moment
   // after the first render, so seeding `useState` from it meant the box was
-  // always showing and "Something else" never appeared at all.
+  // always showing and the button that reveals it never appeared at all.
   const [revealed, setRevealed] = useState(false);
   const asking = revealed || history.length === 0;
 
@@ -217,8 +217,10 @@ function Home() {
  * `copy.ts` and is the same one every time this situation occurs.
  */
 function Working() {
-  const { state, task } = useStore();
-  const situation: Presence = state === "acting" ? "acting" : task ? "thinking" : "opening";
+  const { task } = useStore();
+  // Thinking and acting are one situation from the person's side — wait —
+  // and share a sentence. The acting line above the column tells them apart.
+  const situation = task ? "working" : "opening";
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-ink/80">
