@@ -204,10 +204,11 @@ application's state (EVALUATION.md).
 - **The stuck screen still shows the technical reason** in small type. In the
   2026-09-17 run that reason would have told the person the date had been
   lost, when it had been set correctly.
-- **An LLM "Fill in" step shows an empty field, and pressing "Yes, do that"
-  sends it.** On an input with a `name` attribute, `loop.resolve_value` then
-  types that empty value instead of the model's. Not seen live — the railways
-  inputs have no name — but nothing stops it on a form whose inputs do.
+- **An LLM "Fill in" step still shows an empty field.** Since 2026-09-17 an
+  empty answer no longer overrides the model's value (DECISIONS.md), so the
+  defect is closed, but the step still asks the person to approve a field that
+  does not show what is about to be typed. Pre-filling it belongs with the
+  credential vault.
 - **"Click element 13."** reached the screen in the watched run.
 - "I'm showing a bit more again." is also what an overflow drop says.
 - "Step 2 of 6" uses a word `copy.ts` forbids.

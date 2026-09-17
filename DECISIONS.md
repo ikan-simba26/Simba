@@ -1515,3 +1515,35 @@ the CPU-load query. A dirty tree is reported but not refused, so a run can
 still be taken against uncommitted code — it just says so. And the conditions
 describe the start of a run, not the whole of it: a machine that gets busy
 half way through still reports the load it began with.
+
+---
+
+## An answer that says nothing does not override the planner
+
+**Date:** 2026-09-17
+
+**Decision.** `loop.resolve_value` uses a value from `step.response` only when
+it is non-empty. An empty one falls through to what the planner supplied, and
+for a password to the existing refusal.
+
+**Alternatives.** Leave it: the person's answer always wins, empty or not.
+Have the LLM planner pre-fill its chosen value into the step's field so the
+person confirms something real. Stop sending fields the person did not touch.
+
+**Why this.** The overlay sends every field of the step as it stands, and an
+LLM-planned step shows its field empty — the model's value is not put in the
+box. So pressing "Yes, do that" without typing sent `""`, and on any input
+carrying a `name` attribute that replaced the model's value: the field was
+filled with nothing, read back as nothing, and verified. It did not bite on
+the railways site, whose inputs have no `name`, but nothing stopped it
+elsewhere.
+
+Pre-filling the field is the better end state — the person should be able to
+see and correct what is about to be typed — but it changes what a step shows
+and belongs with the credential vault, which is not built. This is the narrow
+fix: an empty answer is not an answer.
+
+**Cost.** A person who clears a field *meaning* to send nothing is overruled
+by the planner's value. For a `fill` that is the safer way round — typing
+nothing is a no-op the loop would then have to verify as success — but it is
+a real case, and it is the reason to prefer pre-filling later.

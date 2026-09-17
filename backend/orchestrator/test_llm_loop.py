@@ -232,6 +232,53 @@ def test_model_value_is_used_for_an_ordinary_field() -> None:
     assert resolve_value(field, operation, {}) == ("CS-401", None)
 
 
+def test_an_empty_answer_does_not_override_what_the_model_chose() -> None:
+    """The overlay sends the step's fields as they stand, and an LLM step shows
+    them empty: the model's value is not put into the box for the person to
+    confirm. So pressing "Yes, do that" without typing sent an empty string,
+    and on any input with a `name` it replaced the model's value — the field
+    was then "filled" with nothing, and read back as nothing, successfully.
+
+    Not observed live: the railways inputs have no `name`, so the key never
+    matched. Any named input would have hit it.
+    """
+    field = element(id=1, role="textbox", label="Search", tag="input",
+                    input_type="text", name="q")
+    operation = Operation("fill", Target("textbox", "Search"), element_id=1, value="CS-401")
+
+    assert resolve_value(field, operation, {"q": ""}) == ("CS-401", None)
+
+
+def test_an_answer_that_says_something_still_wins() -> None:
+    """The person's own answer is still the authority when they gave one."""
+    field = element(id=1, role="textbox", label="Search", tag="input",
+                    input_type="text", name="q")
+    operation = Operation("fill", Target("textbox", "Search"), element_id=1, value="CS-401")
+
+    assert resolve_value(field, operation, {"q": "MATH-210"}) == ("MATH-210", None)
+
+
+def test_an_empty_answer_with_nothing_to_fall_back_on_is_still_empty() -> None:
+    field = element(id=1, role="textbox", label="Search", tag="input",
+                    input_type="text", name="q")
+    operation = Operation("fill", Target("textbox", "Search"), element_id=1)
+
+    assert resolve_value(field, operation, {"q": ""}) == ("", None)
+
+
+def test_an_empty_password_is_refused_rather_than_typed_as_nothing() -> None:
+    """A password has no planner fallback, so an empty answer is the refusal
+    path, not a field quietly filled with nothing."""
+    field = element(id=1, role="textbox", label="Password", tag="input",
+                    input_type="password", name="password")
+    operation = Operation("fill", Target("textbox", "Password"), element_id=1)
+
+    value, refusal = resolve_value(field, operation, {"password": ""})
+
+    assert value == ""
+    assert "never filled from anything a planner supplied" in refusal
+
+
 # --- end to end against the replica -----------------------------------------
 
 

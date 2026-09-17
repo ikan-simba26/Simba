@@ -812,7 +812,15 @@ def resolve_value(
         return "", None
 
     key = operation.value_key or element.name
-    if key and key in input_values:
+    # An answer that says nothing is not an answer. The overlay sends every
+    # field of the step as it stands, and an LLM-planned step shows its field
+    # empty — the model's value is not put in the box for the person to
+    # confirm. So pressing "Yes, do that" without typing used to send `""`
+    # and, on any input carrying a `name`, replace what the model chose: the
+    # field was filled with nothing and read back as nothing, successfully.
+    # A password with no answer falls through to the refusal below, which is
+    # where it belongs.
+    if key and input_values.get(key):
         return input_values[key], None
     if element.is_password:
         return "", (
