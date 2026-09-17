@@ -1948,6 +1948,105 @@ reverse them, but none of the absolute seconds should be quoted as today's.
 
 ---
 
+## 2026-09-17f — the railways LLM run through the Electron host: completed, on the right date, with no answer shown
+
+The second LLM run of the day, after durable verification was changed to
+accept a value the task declared (DECISIONS.md). Run through the real stack
+so it could be watched: `run.ps1 railways` with the LLM planner, the goal
+typed into the real overlay, each step left on screen 2.5s and then answered
+with "Yes, do that" in the window over CDP
+(`python -m tools.evaluation.railways_llm_stack_run`). Live site, read-only.
+
+| | |
+|---|---|
+| Model | `gemini-3.1-flash-lite`, same as every railways run |
+| Model calls | **8**, no retries, no rate limiting, no errors |
+| Tokens | **7,305** |
+| Cost | **$0.000847** |
+| Task duration (`task.completed.duration_ms`) | **84.4s**, of which 8 × 2.5s was the deliberate pause before each answer |
+| Transcript | `logs/llm-20260917-142859.jsonl` (gitignored) |
+
+### The run
+
+    step 1  Fill in From.              typed 'LAHORE CANTT'
+    step 2  Click LAHORE CANTT.        <- inferred option
+    step 3  Fill in To.                typed 'KARACHI CANTT'
+    step 4  Click KARACHI CANTT.       <- inferred option
+    step 5  Fill in Departure Date.    typed '2026-10-15'
+    step 6  Click Next Month.          "The current month is September, so I need
+                                        to click the next month button to reach
+                                        October."
+    step 7  Click 15.                  "the 15th from the currently displayed
+                                        calendar for October 2026"
+    step 8  Click element 13.          <- the unnamed search button
+    task.completed - 8 steps, 8 calls
+
+The search that went out:
+
+    {"boardStationCode":"LRC","arrivalStationCode":"KCT","travelDate":"2026-10-15"}
+
+Final form `From = 'LAHORE CANTT'`, `To = 'KARACHI CANTT'`, `Departure Date =
+'15-10-2026'`. One train came back, `2DN`, 22 h 16 min. **The first LLM run
+in this project to finish a live task correctly.**
+
+### The three questions, against STATUS.md's outcomes
+
+**Month banner — changed the run, again.** Call 6 was shown `IT IS SHOWING:
+2026 September` and pressed Next Month; call 7 was shown `2026 October` and
+picked its 15th. With the banner: 2 of 2 runs today navigated the calendar.
+Without it, 2026-09-09: 0 of 2. Still four runs, not a rate.
+
+**Setback placement — not exercised, for the second time.** No step failed;
+none of the eight prompts carries a setback. Two runs today have now passed
+without producing the situation this change is for. It is unanswered, and a
+run that goes well cannot answer it: it needs a step that fails on purpose,
+which a live site will not supply on demand.
+
+**Held date — changed the run, through durability rather than success.** Up
+to step 7 this run matched 2026-09-17b call for call, and so did the page:
+the typed `2026-10-15` became `15-10-2026` when the day was picked. That
+stopped 17b. Here it matched the declared `About.holds` value and was
+accepted, and the run went on to search. At the end the held date was checked
+as part of success and passed — correctly, since the date was right. This is
+STATUS.md's second outcome: *`task.completed` on the goal's date*. What the
+held date was built for, failing a run that searched the **wrong** date, is
+still untested on a live run. A correct run cannot test it.
+
+The acceptance is inferred, not logged: the loop emits nothing when it
+accepts a declared value. The inference rests on the two runs being identical
+up to that point, with the only code difference being that change.
+
+### What went wrong in a run that went right
+
+**No answer on the closing screen.** `task.completed.findings` was empty, so
+the overlay said "That's done." and repeated the goal instead of showing the
+train. The task declares `Train` ← `Train No.` and `Journey` ← `Duration`,
+and neither was found. Read from the live page after the run: content
+extraction reports three tables with **no headers** — the results' header row
+(`Train No.`, `From/To`, `Time`, `Duration`) is a table of its own, one row of
+plain cells, and the body `2DN | LAHORE CANTT KARACHI CANTT | 08:04 06:20 | 22
+h 16 min` is another. Nothing pairs them, so there are no label/value pairs
+at all. `rows_at_least=1` passed on the body rows regardless.
+
+On 2026-09-09 the same results were recorded paired to their headers. Whether
+the site's markup has changed since, or the earlier pairing came through a
+path that no longer applies, is **not established**. Flagged for perception.
+
+**"Click element 13."** The unnamed search button reached the screen as that
+sentence, in front of the person being asked to approve it. Known and flagged
+since 2026-09-15; seen in a watched run for the first time.
+
+**An empty field can override the model.** An LLM "Fill in" step shows an
+empty field, and the overlay sends whatever that field holds when "Yes, do
+that" is pressed. The loop takes a sent value over the model's whenever the
+field has a `name` attribute. It did not bite here — the railways inputs have
+no `name`, and the prompts confirm the model's values were typed (the station
+lists narrowed to one option, as in the headless run) — but on a form whose
+inputs are named, pressing go-ahead without typing would type nothing.
+Inferred from `loop.resolve_value`, not observed. Flagged.
+
+---
+
 ## 2026-09-17g — the terminal-state test covers every ending through a step
 
 `frontend/test_terminal_states.py` now renders each ending twice — from the

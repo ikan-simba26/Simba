@@ -84,7 +84,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-09-17: **271 passed, 7 skipped, 323s**. The
+The full suite was last run on 2026-09-17: **292 passed, 7 skipped, 367s**. The
 7 skips are 5 tests that need a running Electron window and 2 that hit the
 live website; **none of those 7 were run today.**
 
@@ -447,8 +447,9 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **A durability check that tells reformatting from undoing** | A design choice — Raham's | Stopped the 2026-09-17 LLM run on a correct date. Until fixed, an LLM run on the railways calendar cannot reach its search |
-| **The setback and held-date questions** | The fix above, then one LLM run | The 2026-09-17 run answered the month-banner question only |
+| **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17, and the railways LLM run then completed correctly. Undeclared fields still false-stop |
+| **Setback placement, measured** | A run with a step that fails on purpose | Neither 2026-09-17 LLM run had a failed step |
+| **Answers from the live railways results** | Perception — Nahail's | The header row is extracted as its own table, so a correct run shows no answer |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
 | **The estimator** | Page-side load features, then the estimator — both Nahail's, neither started | |

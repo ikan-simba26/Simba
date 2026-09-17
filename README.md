@@ -80,8 +80,8 @@ prove the *wiring*.
 python -m pytest        # from the repo root
 ```
 
-The tests start the replicas they need. On 2026-09-17: 271 pass, in
-about five minutes; 7 skip, and the skips are deliberate — 5 want a live
+The tests start the replicas they need. On 2026-09-17: 292 pass, in
+about six minutes; 7 skip, and the skips are deliberate — 5 want a live
 Electron host (see 3 below) and 2 want `SIMBA_LIVE_TESTS=1`, which points at a
 real public website. (This said 214 until 2026-09-17, which was out of date
 by ten days.)

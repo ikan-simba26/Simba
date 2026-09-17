@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-17 (second pass) · 271 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · full suite 323s
+**Last updated:** 2026-09-17 (third pass) · 292 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · full suite 329s and 367s on two runs of the same tree, which is the spread to expect from a wall clock here (EVALUATION.md, 2026-09-17e)
 
 ---
 
@@ -17,14 +17,24 @@ items sat under "blocked on quota" for eight days after the quota had reset.
 The walking skeleton runs end to end on three flows — two replicas we wrote,
 and one live public site.
 
-**The owed LLM run has been made** (EVALUATION.md, 2026-09-17b). One run on
-the live railways site, 7 model calls, 71.8s, $0.000784. The model committed
-both stations, **navigated the calendar to October for the first time** —
-its reasoning restates the new month banner — and picked the right day. The
-form ended correct. Then **durable verification stopped the run** on a
-correct value: the picker rewrote the typed `2026-10-15` as `15-10-2026`, and
-the check cannot tell a reformatted value from a replaced one. No search went
-out. That false stop is now the most important open item in the orchestrator.
+**An LLM run has finished a live task correctly, for the first time**
+(EVALUATION.md, 2026-09-17f). Railways, through the real Electron window, 8
+model calls, $0.000847: both stations committed, the calendar navigated to
+October, the 15th picked, and the search sent for `2026-10-15`. The run
+before it, earlier the same day, did the same and was stopped by durable
+verification on a date the page had only reformatted (2026-09-17b); a value
+matching the task's declared `About.holds` is now accepted, and that is the
+difference between the two runs.
+
+**The run found the train and did not show it.** The live results' header row
+is extracted as a table of its own, so nothing pairs `Train No.` with `2DN`,
+and the closing screen said "That's done." instead of the answer. Now the most
+important open item in perception.
+
+**A published benchmark figure does not reproduce, by 2x.** The hardcoded plan's 5.9s
+from 2026-09-06 re-runs at 3.0s with that very commit. The code and the venv
+are ruled out; the cause is not established. Corrected in EVALUATION.md, with
+the ratios derived from it withdrawn (2026-09-17e).
 
 **Every ending reached from a step was unpressable** — found and fixed on
 2026-09-17, present since at least `cc4704f`. After any step, an invisible
@@ -37,6 +47,18 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-17 (third pass)
+
+- **The benchmark discrepancy investigated** and the published figure
+  corrected (EVALUATION.md 2026-09-17e).
+- **Durable verification accepts a value the task declared** — and is
+  unchanged, false stops included, on every field the task did not declare
+  (DECISIONS.md).
+- **Every ending is also tested through a step**, including the stuck ending
+  in the one message order that exposed it (EVALUATION.md 2026-09-17g).
+- **The railways LLM run through the Electron host** (2026-09-17f).
+- **The day's work committed**, one commit per item.
 
 ### Changed on 2026-09-17 (second pass)
 
@@ -91,9 +113,15 @@ application's state (EVALUATION.md).
 5. Iframes are not read.
 6. Accordion expanded state is discarded.
 7. An inferred element's `css_path` is positional.
-8. `value_for` returns the first matching pair, so "which trains?" shows one
-   train.
-9. Page-side load features for the estimator: not started.
+8. **The live railways results have no header pairs.** Read after the
+   2026-09-17f run: three tables, no headers, the header row a table of its
+   own — so `value_for("Train No.")` is `None`, `About.finds` finds nothing,
+   and a correct run ends without its answer. Recorded as paired on
+   2026-09-09. Whether the site changed or extraction did is not established.
+   **The most important open item on this page after the DOM boundary.**
+9. `value_for` returns the first matching pair, so even when pairing works
+   "which trains?" shows one train.
+10. Page-side load features for the estimator: not started.
 
 **Blocked**
 - Nothing.
@@ -121,18 +149,20 @@ application's state (EVALUATION.md).
 - Nothing.
 
 **Open — Raham's call**
-- **Durable verification stops correct runs when a page reformats a value.**
-  Typed `2026-10-15`, committed as `15-10-2026`, read as a lapse. Found in the
-  2026-09-17 run; the hardcoded plan never types the date, so no hardcoded run
-  could show it. Options: compare through a normaliser (date-aware, or
-  digits-only); stop watching a field once a choice has been committed into
-  it; or accept a changed value that equals a declared `About.holds` value.
-  **The most important open item in this module**, and the one standing
-  between the LLM run and a completed search.
-- **Two of the three questions the owed run was for are still unanswered.**
-  The promoted setback was never exercised (no step failed), and the held date
-  never checked (the run ended first). Answering them needs the false stop
-  fixed, then another run.
+- **Durable verification still stops correct runs on undeclared fields.**
+  Since 2026-09-17 a field that now holds its task-declared value is accepted;
+  every other field is compared with what was typed, character for character,
+  so a page that reformats a value there still ends the run. An LLM planner
+  types into whatever it chooses, so this is where it will meet it. Options
+  and costs in DECISIONS.md.
+- **Setback placement is still unmeasured.** Two runs today, neither with a
+  failed step. A live site will not fail on demand; answering it needs a run
+  on a page made to fail one step.
+- **The held date has never failed a wrong-date run live.** It passed the
+  correct date in 2026-09-17f. The wrong-date case is covered only by
+  `test_success_conditions.py`.
+- **The loop says nothing when it accepts a declared value.** The only
+  evidence it happened in 2026-09-17f is that the run did not stop.
 - `About` checks only what was declared, only on the final page; `finds` is
   not part of success.
 - A move the LLM or replay chose reads as an order ("Click LAHORE CANTT.");
@@ -174,8 +204,11 @@ application's state (EVALUATION.md).
 - **The stuck screen still shows the technical reason** in small type. In the
   2026-09-17 run that reason would have told the person the date had been
   lost, when it had been set correctly.
-- **The terminal test does not catch a stranded stuck screen** — with the fix
-  reverted, "stuck after a step" still passed.
+- **An LLM "Fill in" step shows an empty field, and pressing "Yes, do that"
+  sends it.** On an input with a `name` attribute, `loop.resolve_value` then
+  types that empty value instead of the model's. Not seen live — the railways
+  inputs have no name — but nothing stops it on a form whose inputs do.
+- **"Click element 13."** reached the screen in the watched run.
 - "I'm showing a bit more again." is also what an overflow drop says.
 - "Step 2 of 6" uses a word `copy.ts` forbids.
 - A found value is shown as the page wrote it (`15-09-2026`).
@@ -247,8 +280,12 @@ application's state (EVALUATION.md).
   recorded contradictory quotas. The 2026-09-17 run hit no rate limit.
 - No LLM run against the billing flow. No LLM baseline on an unseen goal.
   Neither is blocked.
-- The hardcoded benchmark re-ran at 3.01s mean against 5.93s recorded; why is
-  not established.
+- **The 5.9s hardcoded figure does not reproduce** and is corrected; its cause is not
+  established (2026-09-17e). The LLM timings from 2026-09-05 were taken the
+  same way and have not been re-run.
+- **Evaluation scripts record a number and nothing about the conditions** —
+  interpreter, Playwright version, what else was running. That is why the
+  5.9s cannot be explained now. Not fixed.
 - EVALUATION.md still contains statements its later entries contradict,
   listed in its 2026-09-17 entry.
 
@@ -273,8 +310,8 @@ application's state (EVALUATION.md).
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
-- Most of this day's work is uncommitted on `feat/orchestrator-evaluation-scripts`;
-  only the evaluation scripts were asked to be committed.
+- The day's work is committed on `feat/orchestrator-evaluation-scripts`, not
+  merged, and not pushed.
 
 **Blocked**
 - Nothing.
