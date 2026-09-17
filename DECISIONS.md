@@ -1200,3 +1200,78 @@ above what it introduces, which does the colon's job.
 
 **Cost.** Three categories to keep straight instead of one. A string put in
 the wrong table fails for a reason that reads oddly until you know why.
+
+---
+
+## Every ending has a way onward, and one destination has one name
+
+**Date:** 2026-09-17
+
+**Decision.** The stuck screen renders a button, `ONWARD` ("Do something
+else"), which returns to the home screen. The closing screen's second button
+and the failed screen's button are the same constant. `copy.ts` exports it
+once and `STOPPED.again` and `ENDING.again` both refer to it.
+`frontend/test_terminal_states.py` renders all four endings and fails if one
+has nothing to press or if pressing it goes nowhere.
+
+**Alternatives.** Keep two names ("Do something else" on the closing screen,
+"Start again" on the others). Name it "Ask for something new" to match the
+home screen's reveal button. Offer a retry on the stuck screen.
+
+**Why this.** `STOPPED.again` existed and nothing rendered it: the stuck
+screen was a dead end, for the audience least able to find their own way out
+of one. Two names for one place asks the reader to work out whether they are
+different places. "Start again" was also inaccurate — it never retried the
+task. "Ask for something new" is already the label of a *different* button
+(it reveals the text box on the home screen), so reusing it would be two
+places with one name, the same problem reversed. There is nothing to retry
+into: the backend closes the socket after `help.requested`.
+
+**Cost.** The closing screen now has two buttons, "I'm done" and "Do something
+else", and both call `startOver` — the same destination under two names,
+which is the problem this entry fixes elsewhere. Not fixed, because deciding
+what "I'm done" should do instead is a design question. Flagged in STATUS.md.
+
+---
+
+## The closing screen restates the goal, not `task.completed.summary`
+
+**Date:** 2026-09-17
+
+**Decision.** With no findings, the closing screen shows "That's done." and
+the goal from `task.started`. It no longer renders `summary`.
+
+**Alternatives.** Change the backend's summary to drop the URL. Show nothing
+under "That's done."
+
+**Why this.** The backend builds `summary` as the goal followed by the final
+URL, and it was rendered in 26px type: `Register for the course CS-401.
+http://127.0.0.1:5000/register`. Six backend tests read that URL out of
+`summary` to see where a run ended, so changing the backend would have taken
+evidence away from them. The frontend already has the goal.
+
+**Cost.** `summary` now means two things: a log-and-test channel in practice,
+and a human-readable sentence in `CONTRACT.md`'s example (`"Registered for
+CS-401."`). Nothing reads it for display any more. Flagged.
+
+---
+
+## The rendered test builds its own overlay
+
+**Date:** 2026-09-17
+
+**Decision.** `test_terminal_states.py` runs `vite build` into
+`.scratch/overlay-terminal/` and tests that, rather than `frontend/dist/`.
+
+**Alternatives.** Use `dist/` and skip without it, as `test_levels.py` does.
+Run `npm run build` into `dist/`.
+
+**Why this.** The defect this test exists for lived in the gap between
+source and screen. Testing a stale `dist/` would reopen that gap. Writing
+into `dist/` would change what a running Electron host loads underneath it.
+`.scratch/` is ignored and is already where `test_copy.py` compiles to.
+
+**Cost.** A build per run — 5.2s measured on 2026-09-17, with the full suite
+running alongside. `vite build` does not type-check,
+so a type error does not fail this test; `npm run build` still has to be run
+for that.

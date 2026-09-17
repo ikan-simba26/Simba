@@ -101,9 +101,7 @@ function Column() {
               {screen.startsWith("step-") && <Step />}
               {screen === "completed" && <Completed />}
               {screen === "failed" && <Failed />}
-              {screen === "stuck" && (
-                <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
-              )}
+              {screen === "stuck" && <Stuck />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -274,13 +272,18 @@ function Step() {
  * asked what their bill was precisely nothing. A task that looked something
  * up ends with what it found, in the largest type on the screen, because
  * that is the thing the person came for. A task that changed something
- * instead says so plainly.
+ * instead says so plainly, and restates what was asked for.
+ *
+ * What was asked for, not `task.completed.summary`. The backend builds the
+ * summary as the goal followed by the final URL, which the tests and the logs
+ * read to see where a run ended — and which put an address like
+ * `http://127.0.0.1:5000/register` on this screen in 26px type.
  *
  * Two actions, always in the same order and the same place: finish, or ask
- * for something else.
+ * for something else. Both currently lead to the home screen; see STATUS.md.
  */
 function Completed() {
-  const { completed, startOver } = useStore();
+  const { completed, task, startOver } = useStore();
   const findings = completed?.findings ?? [];
 
   return (
@@ -292,7 +295,7 @@ function Completed() {
       {findings.length > 0 ? (
         <Findings findings={findings} size={44} />
       ) : (
-        <p className="text-[26px] leading-snug text-ink">{completed?.summary}</p>
+        <p className="text-[26px] leading-snug text-ink">{task?.goal}</p>
       )}
 
       <div className="flex flex-col gap-3">
@@ -351,14 +354,44 @@ function Failed() {
         {STOPPED.failedHeading}
       </h1>
       <p className="text-[19px] leading-relaxed text-ink/80">{failed?.reason}</p>
-      <button
-        type="button"
-        onClick={startOver}
-        className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
-                   text-accent-ink transition-all duration-300 hover:brightness-105"
-      >
-        {STOPPED.again}
-      </button>
+      <OnwardButton onClick={startOver} />
     </div>
+  );
+}
+
+/**
+ * The assistant cannot go on and has asked for help.
+ *
+ * This screen had no action at all. `STOPPED.again` existed in `copy.ts` and
+ * nothing rendered it, so a stuck task was a dead end: a heading, a request,
+ * and nothing to press. For this audience that is the worst screen there is —
+ * the one moment the system admits it needs them is the one moment it gives
+ * them nowhere to go. The backend closes the socket after `help.requested`,
+ * so there is nothing to wait for either.
+ *
+ * `test_terminal_states.py` renders every ending and fails if one has nothing
+ * to press, or if pressing it does not lead anywhere.
+ */
+function Stuck() {
+  const { help, startOver } = useStore();
+  return (
+    <div className="flex flex-col gap-8">
+      <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+      <OnwardButton onClick={startOver} />
+    </div>
+  );
+}
+
+/** The one way onward from a screen that has ended. Same words, same place. */
+function OnwardButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
+                 text-accent-ink transition-all duration-300 hover:brightness-105"
+    >
+      {STOPPED.again}
+    </button>
   );
 }
