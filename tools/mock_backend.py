@@ -16,6 +16,7 @@ from fastapi import FastAPI, WebSocket
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from backend.orchestrator.voice import actions  # noqa: E402
 from shared.envelope import envelope  # noqa: E402
 from shared.schema import (  # noqa: E402
     BaseModel,
@@ -24,7 +25,6 @@ from shared.schema import (  # noqa: E402
     LoadUpdated,
     PastGoal,
     StateChanged,
-    StepAction,
     StepFailed,
     StepField,
     StepPresented,
@@ -66,22 +66,16 @@ STEPS = [
         instruction="Let me sign you in first.",
         detail="Using your saved university credentials.",
         fields=[],
-        actions=[
-            StepAction(id="confirm", label="Log in", kind="primary"),
-            StepAction(id="cancel", label="Not now", kind="secondary"),
-        ],
+        actions=actions("Log in"),
         requires_confirmation=True,
     ),
     StepPresented(
         step_index=2,
         step_total=3,
-        instruction="Now I’ll add CS-401 for you.",
+        instruction="Now I'll add CS-401 for you.",
         detail="3 credit hours. Seats available: 12.",
         fields=[],
-        actions=[
-            StepAction(id="confirm", label="Add course", kind="primary"),
-            StepAction(id="cancel", label="Not now", kind="secondary"),
-        ],
+        actions=actions("Add course"),
         requires_confirmation=True,
     ),
     StepPresented(
@@ -96,22 +90,16 @@ STEPS = [
         fields=[
             StepField(id="student_id", label="Student ID", type="text", value=""),
         ],
-        actions=[
-            StepAction(id="confirm", label="Confirm my place", kind="primary"),
-            StepAction(id="cancel", label="Not now", kind="secondary"),
-        ],
+        actions=actions("Confirm my place"),
         requires_confirmation=True,
     ),
     StepPresented(
         step_index=4,
         step_total=4,
-        instruction="Last one — I’ll send it now.",
+        instruction="Last one — I'll send it now.",
         detail="This finalizes your schedule for the term.",
         fields=[],
-        actions=[
-            StepAction(id="confirm", label="Submit", kind="primary"),
-            StepAction(id="cancel", label="Not now", kind="secondary"),
-        ],
+        actions=actions("Submit"),
         requires_confirmation=True,
     ),
 ]
@@ -183,7 +171,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 "step.failed",
                 StepFailed(
                     step_index=step.step_index - 1,
-                    instruction="The portal opened a notice. I’ll close it.",
+                    instruction="The portal opened a notice. I'll close it.",
                     reason=(
                         "click on 'Close' failed: Locator.click: Timeout "
                         "10000ms exceeded"

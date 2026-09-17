@@ -10,6 +10,7 @@ integer ids and the verification, stays the same.
 from dataclasses import dataclass, field
 from typing import Literal
 
+from backend.orchestrator.voice import actions
 from shared.schema import StepAction, StepField
 
 GOAL = "Register for CS-401"
@@ -162,13 +163,6 @@ class PlanStep:
     actions: list[StepAction] = field(default_factory=list)
 
 
-def _confirm(label: str) -> list[StepAction]:
-    return [
-        StepAction(id="confirm", label=label, kind="primary"),
-        StepAction(id="cancel", label="Not now", kind="secondary"),
-    ]
-
-
 REGISTRATION_PLAN: list[PlanStep] = [
     PlanStep(
         instruction="Let me sign you in first.",
@@ -177,7 +171,7 @@ REGISTRATION_PLAN: list[PlanStep] = [
             StepField(id="username", label="Student ID or Username", type="text", value=""),
             StepField(id="password", label="Password", type="password", value=""),
         ],
-        actions=_confirm("Sign in"),
+        actions=actions("Sign in"),
         operations=[
             Operation("fill", Target("textbox", "Student ID or Username"), "username"),
             Operation("fill", Target("textbox", "Password"), "password"),
@@ -186,16 +180,16 @@ REGISTRATION_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/courses"),
     ),
     PlanStep(
-        instruction="The portal opened a notice. I’ll close it.",
+        instruction="The portal opened a notice. I'll close it.",
         detail="The portal opened a notice about the add/drop deadline.",
-        actions=_confirm("Close it"),
+        actions=actions("Close it"),
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
     ),
     PlanStep(
         instruction="Ready to book your place on CS-401.",
         detail="3 credit hours. MWF 10:00-10:50, Dr. Aslam, SCI 214.",
-        actions=_confirm("Register for CS-401"),
+        actions=actions("Register for CS-401"),
         operations=[Operation("click", Target("button", "Register for CS-401"))],
         expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
     ),

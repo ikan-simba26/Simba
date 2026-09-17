@@ -12,25 +12,16 @@ takes over from that point. Whatever the run ends up doing is then recorded,
 so the trace corrects itself instead of failing the same way twice.
 """
 
+from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Task
 from backend.orchestrator.plan import Expectation, Operation, Target
 from backend.orchestrator.traces import TraceStep, TraceStore
 from backend.perception.serializer import Element
-from shared.schema import StepAction, StepField
-
-CONFIRM = [
-    StepAction(id="confirm", label="Yes, do that", kind="primary"),
-    StepAction(id="cancel", label="Not now", kind="secondary"),
-]
+from shared.schema import StepField
 
 
 def describe(step: TraceStep) -> str:
-    label = step.label or "the element"
-    if step.kind == "fill":
-        return f"Fill in {label}."
-    if step.kind == "select":
-        return f"Choose an option in {label}."
-    return f"Click {label}."
+    return voice.describe(step.kind, step.label or "the element")
 
 
 def steps_from(move: Move) -> list[TraceStep]:
@@ -138,5 +129,5 @@ class TracePlanner:
             ],
             expect=Expectation(),
             fields=fields,
-            actions=CONFIRM,
+            actions=voice.actions(voice.GO_AHEAD),
         )

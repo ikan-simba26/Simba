@@ -958,6 +958,13 @@ for a new site brings its own wording with no test behind it. So the voice is
 set in two places and only one of them is enforceable. Named in the report and
 in `copy.ts` rather than hidden.
 
+**Update, 2026-09-17.** Both places are now enforced — see "The backend's
+words live in `voice.py`" below. Also found: the component scan had been
+passing three strings that were on screen, and a level-change sentence was
+being built in `store.ts` rather than taken from this file. The claim above,
+that every sentence the interface says is in `copy.ts`, was not true when it
+was written.
+
 ---
 
 ## A task says what it was asked to find out
@@ -1060,3 +1067,94 @@ first page and checked on the last, where there is no field. And `finds` is
 still not part of success — a billing run that never read the amount would
 complete with no findings rather than stop. Whether it should is flagged, not
 decided.
+
+---
+
+## The backend's words live in `voice.py`, and one test holds both halves
+
+**Date:** 2026-09-17
+
+**Decision.** Everything the backend puts on screen that is not specific to
+one task — the stop button, the LLM and replay confirm button, the stuck
+screen's suggestion, the failed screen's reason when the person stopped, the
+trust panel's captions, the sentence templates for a move a planner chose —
+is in `backend/orchestrator/voice.py`. The three plans, the LLM planner,
+replay, the loop and the mock backend use it. `frontend/test_copy.py` imports
+the plans, the mock's script and `voice`, and holds every instruction, detail
+line and label to the same rules as `copy.ts`: sentences end, labels do not,
+no taught words, never "the user", straight apostrophes, no web address,
+every step stops in the same words, and the backend's suggestion is the same
+sentence as `STOPPED.suggestion`.
+
+**Alternatives.** Move plan strings into `copy.ts` and have the backend send
+keys — which changes the contract, since `step.presented` carries text. A
+shared JSON file both sides read — a new cross-language build step for a
+problem a test solves. Extend the test to the plans without a shared module —
+it would check, but every plan would still write its own stop button.
+
+**Why this.** The contract has the backend author these strings, so they
+cannot move to the frontend without renaming fields. A test is the lightest
+thing that turns "the voice is set in two places and only one is enforceable"
+into two places that are both enforced. The shared module removes the three
+copies of `_confirm` and two copies of the LLM/replay confirm buttons, which
+is where "Not now" would otherwise have had to be changed seven times.
+
+Writing it turned up four things that were on screen: plans wrote `I’ll`
+with a curly apostrophe beside `copy.ts`'s straight `I'm`; the stuck screen's
+suggestion from the backend was a different sentence from the one in
+`copy.ts`, and the backend's was the one actually shown; the failed screen,
+after the person pressed stop, said "The user chose not to continue." to the
+user; and the scan of components had been passing `let it choose`, `Hide the
+page` and an image description, because it only looked for three-word
+punctuated sentences.
+
+**Cost.** The copy test now imports the backend, so a frontend-only checkout
+cannot run it. Plan-specific instructions are checked by rule, not by review:
+a sentence can pass every check and still be the wrong sentence. And
+`voice.describe` is deliberately *not* in the assistant's voice yet ("Fill in
+From." rather than "Let me fill in From.") — see the next entry.
+
+---
+
+## The LLM's move descriptions are not reworded yet
+
+**Date:** 2026-09-17
+
+**Decision.** `voice.describe` produces the same text `llm_loop.describe` and
+`replay.describe` did.
+
+**Alternatives.** Reword to the assistant's voice now.
+
+**Why this.** The string is used twice: as the instruction on screen, and as
+the model's own history in the next prompt ("Already done: 1. Fill in
+From."). Rewording it changes the prompt, and the one outstanding LLM run —
+the one STATUS.md has been waiting on since 2026-09-09 — should measure the
+prompt the three pending fixes were tested against.
+
+**Cost.** Every LLM-planned or replayed step reads as an order to the person
+("Click LAHORE CANTT.") where every hand-written plan speaks as the assistant
+("Let me set where you're starting from."), and an unnamed element is
+described as "element 13" or "the element". Flagged: the screen string and
+the prompt string should probably be separated.
+
+---
+
+## A level change is announced from its direction alone
+
+**Date:** 2026-09-17
+
+**Decision.** `LevelNotice` renders `copy.levelNotice(from, to)`. The store's
+`because` is no longer rendered; it holds the estimator's reason or the
+overflow guard's, for debugging.
+
+**Alternatives.** Keep rendering `because` and fix its wording.
+
+**Why this.** `copy.ts` already said a level change gets one sentence per
+direction, and nothing used the function. The store built its own strings
+instead, and the overflow guard's — "this step was too long to fit." — was on
+screen in lower case, using a word the rules forbid, whenever a long step
+dropped a level.
+
+**Cost.** The screen no longer says *why* the level moved, only that it did.
+That was already the rule for `load.updated`, whose `reason` the contract
+says is never shown.

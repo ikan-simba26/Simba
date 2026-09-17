@@ -71,7 +71,7 @@ export function TrustPanel() {
             className="mt-8 text-[15px] text-muted underline underline-offset-4
                        transition-colors duration-300 hover:text-ink"
           >
-            Hide the page
+            {TRUST.hide}
           </button>
         </motion.div>
       )}
@@ -103,7 +103,7 @@ function Shot({ preview }: { preview: PagePreview }) {
       <div className="relative overflow-hidden rounded-xl border border-line">
         <img
           src={`data:image/png;base64,${screenshot}`}
-          alt="The page as it is right now"
+          alt={TRUST.picture}
           className="block w-full"
         />
 

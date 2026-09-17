@@ -9,7 +9,7 @@
  *      never meet "One moment…" or "Working…" for the same state. Varying the
  *      wording asks the reader to work out whether something new is happening.
  *      A component that writes its own string cannot be checked for this; a
- *      table can, and `copy.test.ts` does.
+ *      table can, and `frontend/test_copy.py` does.
  *   2. **Wording is a design decision, and not an engineering one.** These
  *      strings are read by people with cognitive disabilities. They should be
  *      reviewable by someone who does not read TypeScript, in one file, in
@@ -25,13 +25,21 @@
  *   - No word where a shorter one exists. "Bill", not "invoice".
  *   - Say what is happening now, not what happened or will happen.
  *   - Never a word the reader has to be taught: no "step", "session",
- *     "verify", "retry", "overlay".
+ *     "verify", "retry", "overlay". (`STEP.count` breaks this one, knowingly —
+ *     see the note on it.)
+ *   - A sentence ends with a full stop, a question mark, or a colon that
+ *     introduces what sits below it. A button label ends with nothing.
+ *   - Straight apostrophes only, here and in the backend, so one screen never
+ *     mixes `I'm` with `I’ll`.
  *
- * **What is not here.** The instructions on each step, and the labels on
- * their buttons, come from the backend's plans — they are about the task, not
- * about the interface, and a plan for a new site brings its own. So the voice
- * is set in two places, and only this one is enforceable. See RUNNING.md and
- * the note in STATUS.md.
+ * **The other half of the voice.** The instruction on each step, its detail
+ * line and the labels on its buttons come from the backend — from a plan, or
+ * from the LLM planner's sentence templates — along with the stuck screen's
+ * suggestion and the trust panel's caption. Those live in
+ * `backend/orchestrator/voice.py` and the plans that use it, and
+ * `frontend/test_copy.py` holds them to the same rules as this file. Where the
+ * two sides voice the same situation (the stuck screen's suggestion), the test
+ * requires them to be the same sentence.
  */
 
 import type { Level } from "@shared/schema";
@@ -84,6 +92,10 @@ export const STEP = {
    *
    * Kept because knowing how much is left is reassuring, and made quiet
    * because it is also pressure. Level 3 drops it entirely — see `levels.ts`.
+   *
+   * It uses "Step", which the rules above forbid. Not fixed here because it is
+   * not only a wording change — it is a question about whether a count belongs
+   * on screen at all — and it is flagged for review rather than settled.
    */
   count: (index: number, total: number) => `Step ${index} of ${total}`,
 } as const;
@@ -121,7 +133,14 @@ export const ENDING = {
 export const STOPPED = {
   /** The assistant cannot continue and needs the person. */
   heading: "I need your help with this.",
-  /** Fallback when the backend sends no suggestion of its own. */
+  /**
+   * What it asks of them.
+   *
+   * The backend sends its own suggestion in `help.requested`, and that is what
+   * is shown when it arrives. `voice.HELP_SUGGESTION` is required by
+   * `test_copy.py` to be this same sentence, so the screen reads the same
+   * whichever side supplied it.
+   */
   suggestion: "Could you take it from here? I'll carry on afterwards.",
   /** The task ended rather than paused. */
   failedHeading: "I couldn't finish this.",
@@ -157,16 +176,36 @@ export const NOTICE = {
   dismiss: "Dismiss",
 } as const;
 
-/** Which sentence a level change gets. Same direction, same words, always. */
+/**
+ * Which sentence a level change gets. Same direction, same words, always.
+ *
+ * Whatever moved the level — the estimator, or a step too long to fit — the
+ * person sees one of these two sentences. The reason it moved is for the
+ * development view, not the screen.
+ */
 export function levelNotice(from: Level, to: Level): string {
   return to > from ? NOTICE.simpler : NOTICE.fuller;
 }
+
+/* ---------------------------------------------------------------- level */
+
+export const LEVEL = {
+  /** The three dots' names, for a screen reader. Generated from the level. */
+  choose: (level: Level) =>
+    level === 1 ? "Show more" : level === 3 ? "Show less" : "Show the usual amount",
+  /** Hands the level back to the estimator once the person has locked it. */
+  unlock: "let it choose",
+} as const;
 
 /* ---------------------------------------------------------------- trust */
 
 export const TRUST = {
   /** The question the person can always ask. */
   ask: "What are you doing?",
+  /** Closes the picture of the real page. */
+  hide: "Hide the page",
+  /** The picture's description, for a screen reader. */
+  picture: "The page as it is right now",
   close: "Close",
 } as const;
 
@@ -188,7 +227,27 @@ export const SITUATIONS: Record<string, string> = {
   "notice.skipped": NOTICE.skipped,
   "ending.withoutAnswer": ENDING.withoutAnswer,
   "stopped.heading": STOPPED.heading,
+  "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "home.greeting": HOME.greeting,
+  "home.askHeading": HOME.askHeading,
+  "home.againHeading": HOME.againHeading,
   "found.heading": FOUND.heading,
+  "trust.ask": TRUST.ask,
+};
+
+/** Everything that goes on a button. Never punctuated, never two for one place. */
+export const LABELS: Record<string, string> = {
+  "home.somethingElse": HOME.somethingElse,
+  "home.start": HOME.start,
+  "ending.finish": ENDING.finish,
+  "ending.again": ENDING.again,
+  "stopped.again": STOPPED.again,
+  "notice.dismiss": NOTICE.dismiss,
+  "level.unlock": LEVEL.unlock,
+  "level.choose1": LEVEL.choose(1),
+  "level.choose2": LEVEL.choose(2),
+  "level.choose3": LEVEL.choose(3),
+  "trust.hide": TRUST.hide,
+  "trust.close": TRUST.close,
 };

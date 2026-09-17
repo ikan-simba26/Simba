@@ -18,9 +18,10 @@ from dataclasses import dataclass
 
 from backend.orchestrator.llm import Action, LLMError, Provider
 from backend.orchestrator.loop import Move, Task
+from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.serializer import Element
-from shared.schema import StepAction, StepField
+from shared.schema import StepField
 
 SYSTEM_PROMPT = """You operate a web page on behalf of someone who finds \
 cluttered interfaces overwhelming.
@@ -154,13 +155,8 @@ def _headings_of(choices: list[Element]) -> str:
 
 
 def describe(action: Action, element: Element) -> str:
-    """The action as a sentence for the person being helped."""
-    label = element.label or f"element {element.id}"
-    if action.action == "type":
-        return f"Fill in {label}."
-    if action.action == "select":
-        return f"Choose an option in {label}."
-    return f"Click {label}."
+    """The action as a sentence for the person being helped. See `voice.describe`."""
+    return voice.describe(action.action, element.label or f"element {element.id}")
 
 
 class LLMPlanner:
@@ -211,10 +207,7 @@ class LLMPlanner:
             # reading the field back, in loop.attempt_move.
             expect=Expectation(),
             fields=fields,
-            actions=[
-                StepAction(id="confirm", label="Yes, do that", kind="primary"),
-                StepAction(id="cancel", label="Not now", kind="secondary"),
-            ],
+            actions=voice.actions(voice.GO_AHEAD),
         )
 
     async def _choose(

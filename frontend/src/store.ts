@@ -75,6 +75,10 @@ interface Store {
   /**
    * Set when something other than the user changed the level, so the
    * interface can say so. The interface never reshapes silently.
+   *
+   * `because` is what moved it, kept in the store for whoever is debugging.
+   * It is never rendered: the words on screen come from `copy.levelNotice`,
+   * by direction alone.
    */
   levelNotice: { from: Level; to: Level; because: string } | null;
   /** The shown step has been answered and is waiting to be replaced. */
@@ -289,14 +293,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         return {
           load,
           level: load.level,
-          levelNotice: {
-            from: current.level,
-            to: load.level,
-            because:
-              load.level > current.level
-                ? "I'm showing less for a moment"
-                : "I'm showing a bit more again",
-          },
+          // The estimator's own reason. Not shown to the user (CONTRACT.md).
+          levelNotice: { from: current.level, to: load.level, because: load.reason },
         };
       });
       return;

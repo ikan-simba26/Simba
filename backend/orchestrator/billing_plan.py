@@ -14,17 +14,11 @@ the real goal. See EVALUATION.md, 2026-09-06.
 
 from backend.orchestrator.loop import Task
 from backend.orchestrator.plan import About, Answer, Expectation, Operation, PlanStep, Target
-from shared.schema import StepAction, StepField
+from backend.orchestrator.voice import actions
+from shared.schema import StepField
 
 REFERENCE = "04141234567890"
 GOAL = "Find the amount due for reference number 04141234567890."
-
-
-def _confirm(label: str) -> list[StepAction]:
-    return [
-        StepAction(id="confirm", label=label, kind="primary"),
-        StepAction(id="cancel", label="Not now", kind="secondary"),
-    ]
 
 
 BILLING_TASK = Task(
@@ -51,9 +45,9 @@ BILLING_TASK = Task(
 
 BILLING_PLAN: list[PlanStep] = [
     PlanStep(
-        instruction="The site is asking about cookies. I’ll say yes.",
+        instruction="The site is asking about cookies. I'll say yes.",
         detail="The site is asking about cookies before anything else.",
-        actions=_confirm("Accept cookies"),
+        actions=actions("Accept cookies"),
         operations=[Operation("click", Target("button", "Accept all cookies"))],
         expect=Expectation(label_gone="Accept all cookies"),
     ),
@@ -63,7 +57,7 @@ BILLING_PLAN: list[PlanStep] = [
         fields=[
             StepField(id="reference", label="Reference No.", type="text", value=REFERENCE),
         ],
-        actions=_confirm("Check the bill"),
+        actions=actions("Check the bill"),
         operations=[
             Operation("fill", Target("textbox", "Reference No."), value=REFERENCE),
             Operation("click", Target("button", "Check Bill")),
@@ -71,9 +65,9 @@ BILLING_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/bill"),
     ),
     PlanStep(
-        instruction="Now I’ll open the full bill.",
+        instruction="Now I'll open the full bill.",
         detail="This shows what makes up the amount due.",
-        actions=_confirm("Show me the breakdown"),
+        actions=actions("Show me the breakdown"),
         operations=[Operation("click", Target("link", "View full bill detail"))],
         expect=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
     ),

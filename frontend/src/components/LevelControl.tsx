@@ -13,7 +13,7 @@ import { useEffect } from "react";
 
 import type { Level } from "@shared/schema";
 
-import { NOTICE } from "../copy";
+import { LEVEL, NOTICE, levelNotice as noticeFor } from "../copy";
 import { useStore } from "../store";
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -35,7 +35,7 @@ export function LevelControl() {
           key={option}
           type="button"
           onClick={() => chooseLevel(option)}
-          aria-label={`Show ${option === 1 ? "more" : option === 3 ? "less" : "the usual amount"}`}
+          aria-label={LEVEL.choose(option)}
           aria-pressed={level === option}
           className="p-2"
         >
@@ -63,7 +63,7 @@ export function LevelControl() {
             className="overflow-hidden whitespace-nowrap pl-2 text-[13px] text-muted
                        underline underline-offset-4 hover:text-ink"
           >
-            let it choose
+            {LEVEL.unlock}
           </motion.button>
         )}
       </AnimatePresence>
@@ -93,7 +93,12 @@ export function LevelNotice() {
                      border border-line bg-raised px-4 py-3 text-[14px] text-muted"
           data-transient
         >
-          <span>{levelNotice.because}.</span>
+          {/* The sentence comes from the direction alone. `because` says what
+              moved the level and stays in the store: it used to be
+              rendered here, which put "this step was too long to fit." —
+              lower case, and with a word the reader has to be taught — on
+              screen whenever the overflow guard fired. */}
+          <span>{noticeFor(levelNotice.from, levelNotice.to)}</span>
           <button
             type="button"
             onClick={dismissLevelNotice}

@@ -24,6 +24,7 @@ from typing import Protocol
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
+from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import (
@@ -357,32 +358,14 @@ class Task:
 MAX_STEPS = 12
 
 
-# Keys, said the way a person would say them. "ArrowDown" is a thing the
-# keyboard has; "move down the list" is the thing that is about to happen, and
-# the trust panel is where someone decides whether to let it.
-KEY_CAPTIONS = {
-    "ArrowDown": "move down the list",
-    "ArrowUp": "move up the list",
-    "Enter": "choose what's highlighted",
-    "Escape": "close this without choosing",
-    "Tab": "move to the next field",
-}
-
-
 def caption_for(move: "Move") -> str:
     """Plain words for what is about to happen. Never the value being typed."""
     operation = move.operations[0] if move.operations else None
     if operation is None:
         return move.instruction
-    where = operation.target.label or "this"
-    if operation.kind == "fill":
-        return f"I'm about to type your {where} in here."
-    if operation.kind == "select":
-        return f"I'm about to choose an option in {where}."
-    if operation.kind == "press":
-        key = operation.value or ""
-        return f"I'm about to {KEY_CAPTIONS.get(key, f'press {key}')} on {where}."
-    return f"I'm about to click {where}."
+    return voice.caption(
+        operation.kind, operation.target.label or "this", operation.value or ""
+    )
 
 
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
@@ -393,7 +376,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
     times out about half the time (CLAUDE.md, architecture constraints).
     """
     highlight = Highlight(x=0, y=0, w=0, h=0)
-    caption = "This is the page I'm working on."
+    caption = voice.PREVIEW_CAPTION
 
     if move is not None and move.operations:
         caption = caption_for(move)
@@ -467,7 +450,7 @@ async def run_task(
             "help.requested",
             HelpRequested(
                 reason=reason,
-                suggestion="Can you take it from here? I'll carry on afterwards.",
+                suggestion=voice.HELP_SUGGESTION,
             ),
         )
 
@@ -548,10 +531,10 @@ async def run_task(
         )
         payload = response.get("payload", {})
 
-        if payload.get("action_id") != "confirm":
+        if payload.get("action_id") != voice.CONFIRM_ID:
             await connection.send(
                 "task.failed",
-                TaskFailed(reason="The user chose not to continue.", recoverable=True),
+                TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
             )
             return
 

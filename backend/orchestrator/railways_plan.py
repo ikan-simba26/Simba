@@ -52,7 +52,8 @@ from backend.orchestrator.plan import (
     PlanStep,
     Target,
 )
-from shared.schema import StepAction, StepField
+from backend.orchestrator.voice import actions
+from shared.schema import StepField
 
 RAILWAYS_URL = "https://www.pakrailways.gov.pk/train"
 
@@ -109,13 +110,6 @@ DEPARTURE_AS_SHOWN = departure_date().strftime("%d-%m-%Y")
 GOAL = f"Find trains from {ORIGIN} to {DESTINATION} on {DEPARTURE}."
 
 
-def _confirm(label: str) -> list[StepAction]:
-    return [
-        StepAction(id="confirm", label=label, kind="primary"),
-        StepAction(id="cancel", label="Not now", kind="secondary"),
-    ]
-
-
 RAILWAYS_TASK = Task(
     goal=GOAL,
     estimated_steps=5,
@@ -150,10 +144,10 @@ RAILWAYS_TASK = Task(
 
 RAILWAYS_PLAN: list[PlanStep] = [
     PlanStep(
-        instruction="Let me set where you’re starting from.",
+        instruction="Let me set where you're starting from.",
         detail=f"Starting at {ORIGIN}.",
         fields=[StepField(id="from", label="From", type="text", value=ORIGIN)],
-        actions=_confirm("Set the departure station"),
+        actions=actions("Set the departure station"),
         operations=[
             Operation("fill", Target("textbox", "From"), value=ORIGIN_QUERY),
             # An `option` that the accessibility tree does not know exists.
@@ -163,10 +157,10 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_gone=ORIGIN),
     ),
     PlanStep(
-        instruction="Now where you’re going.",
+        instruction="Now where you're going.",
         detail=f"Arriving at {DESTINATION}.",
         fields=[StepField(id="to", label="To", type="text", value=DESTINATION)],
-        actions=_confirm("Set the destination"),
+        actions=actions("Set the destination"),
         operations=[
             Operation("fill", Target("textbox", "To"), value=DESTINATION_QUERY),
             Operation("click", Target("option", DESTINATION)),
@@ -176,7 +170,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
     PlanStep(
         instruction="Let me find the right month.",
         detail=f"Departing {DEPARTURE}.",
-        actions=_confirm("Open the calendar"),
+        actions=actions("Open the calendar"),
         operations=[
             Operation("click", Target("textbox", "Departure Date")),
             *[
@@ -187,9 +181,9 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(label_present=DEPARTURE_DAY),
     ),
     PlanStep(
-        instruction="Now the day you’re travelling.",
+        instruction="Now the day you're travelling.",
         detail=f"{DEPARTURE}. Typing the date does not take — it has to be picked.",
-        actions=_confirm("Set the date"),
+        actions=actions("Set the date"),
         # A `td` in the calendar grid, with no role and no aria. Perception
         # infers it the same way it infers a dropdown option, and gives it the
         # same role: anything inside a floating panel is one of a set of
@@ -208,7 +202,7 @@ RAILWAYS_PLAN: list[PlanStep] = [
     PlanStep(
         instruction="Ready to look up your trains.",
         detail="This only looks up the timetable. Nothing is booked.",
-        actions=_confirm("Search"),
+        actions=actions("Search"),
         # The search control is a button with no accessible name at all — no
         # text, no aria-label, a base64 icon only. `Target("button", "")` is
         # the honest description of what perception offers. It is unambiguous
