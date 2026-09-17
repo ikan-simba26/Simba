@@ -1706,4 +1706,99 @@ edited, and because a reader who meets one should find the correction.
   on 2026-09-09 has no entry here.
 - **`.scratch/benchmark.py`** is cited as the method for the ten-run
   benchmarks. `.scratch/` is gitignored, so the method is not in the
-  repository.
+  repository. *Resolved later the same day: now
+  `tools/evaluation/llm_registration_benchmark.py`, and "Which script produced
+  which table" near the top of this file maps every table to its script.*
+
+---
+
+## 2026-09-17b — the owed LLM run: the model navigated the calendar, and verification stopped a correct run
+
+The run STATUS.md had been waiting on since 2026-09-09. One run, live site,
+read-only. `python -m tools.evaluation.railways_llm_run`.
+
+| | |
+|---|---|
+| Model | `gemini-3.1-flash-lite`, OpenAI-compatible endpoint — the same as 2026-09-09 |
+| Goal | Find trains from LAHORE CANTT to KARACHI CANTT on 2026-10-15 |
+| Code | branch `feat/orchestrator-evaluation-scripts` at `7d7bc5d`, plus the uncommitted working tree of 2026-09-17 (`Task.about`, `voice.py`) |
+| Model calls | **7**, no retries, no rate limiting, no errors |
+| Tokens | 6,334 prompt + 376 completion = **6,710** |
+| Cost | **$0.000784** |
+| Wall clock | **71.8s** |
+| Transcript | `logs/llm-20260917-134121.jsonl` (gitignored) |
+
+### The run
+
+    step 1/5  Fill in From.            "entering the departure station"
+    step 2/5  Click LAHORE CANTT.      <- inferred option
+    step 3/5  Fill in To.
+    step 4/5  Click KARACHI CANTT.     <- inferred option
+    step 5/5  Fill in Departure Date.  typed '2026-10-15'
+    step 6/6  Click Next Month.        "The current month displayed is September
+                                        2026, so I need to click the next month
+                                        button to reach October 2026."
+    step 7/7  Click 15.                "I am selecting the 15th of October 2026"
+    help.requested - 'Departure Date' no longer holds what I put in it - it held
+                     '2026-10-15' and now holds '15-10-2026'
+
+Final form, read from the page: `From = 'LAHORE CANTT'`, `To = 'KARACHI
+CANTT'`, `Departure Date = '15-10-2026'`. **All three correct.** No search
+request was sent.
+
+### The three questions STATUS.md said this run would answer
+
+**1. Does stating the visible month change what the model picks? — Yes, in
+this run.** At call 6 the prompt carried `IT IS SHOWING: 2026 September.`
+above the list; the model pressed `Next Month`, and its reasoning restates
+the banner. At call 7 the banner read `2026 October` and it picked October's
+15th (`option '15'`, element 43, no qualifier). On 2026-09-09, with the same
+model and the same page state but no banner, it clicked September's 15th in
+both runs. That is one run against two, not a rate — but it is the first time
+a model has navigated this calendar at all.
+
+**2. Does the promoted setback change a run? — Not tested.** No step failed,
+so no setback was ever sent; none of the seven prompts contains `SOMETHING
+WENT WRONG`. The question is exactly as open as before.
+
+**3. Does the held date (`About.holds`) make a wrong-date run fail? — Not
+tested.** The run ended before the final success check, and no search went
+out, so the check never ran. It also could not have been tested this way: the
+date on the form was right.
+
+### The outcome STATUS.md did not list
+
+STATUS.md named three outcomes and said `help.requested` naming the departure
+date would be the intended result. This run produced `help.requested` naming
+the departure date — **for the opposite reason.** Durable verification
+recorded what the model typed at step 5, `2026-10-15`. Clicking the day at
+step 7 committed the date, and the picker rewrote the field in its own format,
+`15-10-2026`. The durability check compares the field to what was typed,
+character for character, saw a different string, and ended the run.
+
+The value did not lapse. It was committed — the exact thing durable
+verification exists to make the model do — and the check read that as the
+value being undone. It cannot tell *reformatted* from *replaced*: on
+2026-09-09 the same check saw `2026-10-15` become `15-09-2026` and was right
+to stop.
+
+| | 2026-09-09 run 2 | 2026-09-17 |
+|---|---|---|
+| Typed | `2026-10-15` | `2026-10-15` |
+| Field at next check | `15-09-2026` — wrong month | `15-10-2026` — right date, page's format |
+| Durability verdict | lapse, stop | lapse, stop |
+| Correct verdict | stop | **carry on** |
+
+The hardcoded plan never meets this: it clicks the date field rather than
+typing into it, and only typed values are watched. So every recorded
+hardcoded completion is silent on it. It is the first false stop recorded for
+durable verification, and the first time in this file the system refused a
+right answer rather than accepting a wrong one. It is **not fixed** —
+flagged in STATUS.md, because the two obvious fixes are both design choices:
+compare values through a date-aware normaliser, or stop watching a field once
+the page has committed a choice into it.
+
+Also on screen for that stop, had a person been watching: the stuck screen's
+old wording, because the run started before this day's wording change — and
+under it, in small type, a reason saying the date had been lost when it had
+not.
