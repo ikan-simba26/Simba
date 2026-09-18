@@ -391,6 +391,20 @@ and the three that write result files write that into the file. Read it before
 trusting a wall clock: on this machine the same benchmark has measured 3.01s
 and 6.85s on one day (EVALUATION.md, 2026-09-17h).
 
+Most of these scripts drive their own headless browser, which is **not** where
+the product runs. One defect has already existed only in the Electron host
+(the scrollbar spacer, 2026-09-17i). `viewport_perception_probe` reads each
+site both ways in one run and diffs them — on 2026-09-18 every serialized
+figure matched, and the raw markup did not (EVALUATION.md, 2026-09-18c). Run
+it after anything that changes `content.py` or `serializer.py`:
+
+```powershell
+backend\venv\Scripts\python -m tools.evaluation.viewport_perception_probe
+```
+
+It needs the host and both replicas up (Mode 4), and it runs two read-only
+live searches per environment.
+
 ### Mode 9 — the original architecture spike
 
 See [spike/README.md](spike/README.md). It is the experiment the "covered,

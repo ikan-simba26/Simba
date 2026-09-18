@@ -1636,6 +1636,45 @@ rig itself needs reading before it is trusted.
 
 ---
 
+## Perception figures are taken in both environments, not just headless
+
+**Date:** 2026-09-18
+
+**Decision.** `tools/evaluation/viewport_perception_probe` reads every site
+twice — its own headless Chromium and the Electron host's site view over CDP —
+and diffs the two. It is the script to run after any change to `content.py` or
+`serializer.py`, and a new perception figure says which environment produced
+it.
+
+**Alternatives.** Keep measuring headless, which is what every figure before
+today did. Measure only in the host. Compare by hand when something looks
+wrong.
+
+**Why this.** Headless is what a probe can start in one line; the host is what
+a user actually runs. They are the same Chromium at the same 1280x800, which
+is exactly why the difference went unnoticed for two weeks — until a run
+completed correctly and showed no answer, because the host's heading strip
+carries a scrollbar spacer that the headless one does not (2026-09-17i). A
+measurement environment that cannot reproduce a known defect cannot be trusted
+to catch the next one.
+
+Measuring only in the host was the other option and was rejected: the host
+takes ~10s to build and start, needs the replicas up, and cannot run in CI.
+Diffing the two keeps the fast path and makes the gap visible.
+
+**What it produced immediately.** No serialized figure differs, on any of the
+three sites (2026-09-18c) — the numbers in EVALUATION.md are confirmed in the
+environment that matters, for the first time. The raw markup does differ, and
+the spacer is a standing property of the host rather than a bad day on the
+live site.
+
+**Cost.** Two browsers per page and two live searches per environment, so it
+is a deliberate run rather than part of the suite. And it is shallow: it
+compares what the serializer reports plus the heading strips' cell counts, not
+the DOM.
+
+---
+
 ## The inferred-option banner is an observation, not a finding
 
 **Date:** 2026-09-18

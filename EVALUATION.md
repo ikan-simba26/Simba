@@ -55,7 +55,8 @@ from the version that produced its table.
 | 2026-09-09b | Qualifiers, duplicate-label table | `railways_qualifier_probe` |
 | "The DOM is not the application's state" | `"travelDate":""` while the field read `2026-10-15` | `railways_request_probe` (submits two live searches) |
 | "Durable verification, justified" | The two live lapses | `railways_llm_run` (the 2026-09-09 runs) |
-| 2026-09-17 | What perception reads today | `serializer_samples` |
+| 2026-09-17 | What perception reads today | `serializer_samples` (headless only) |
+| 2026-09-18c | Headless against the host, all three sites | `viewport_perception_probe` (needs the host and both replicas; two live searches per environment) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
 
@@ -1575,6 +1576,34 @@ makes about verification should be read with that boundary attached.
   yet tells a dialog from a popup.
 - **Inference is confined to the first document.** Iframes are not read.
 
+### The environment a measurement was taken in
+
+- **Content extraction has only ever been measured headless.** Added
+  2026-09-18. Every perception figure in this file up to 2026-09-17 came from
+  a headless Chromium launched by a probe script; every run a user sees goes
+  through the Electron host's covered `WebContentsView`. The two are the same
+  Chromium at the same 1280x800, which is why nobody thought to check — and
+  they are not the same environment. The scrollbar-spacer defect
+  (2026-09-17i) exists **only in the host**: on the same live page, the same
+  route, minutes apart, the host's heading strip carries an empty
+  `th.gutter` and the headless one does not (2026-09-18c). A bug that only
+  appears where the product runs is invisible to every measurement here.
+- **What re-measuring found.** All three sites were read twice on 2026-09-18,
+  headless and in the host, and **no serialized figure differed** — elements,
+  overlay, occluded, dead links, headings, tables, rows, pairs, and the
+  values themselves (2026-09-18c). So the numbers in this file are not wrong.
+  What was missing was any evidence that they were right, for two weeks, in
+  the environment that matters.
+- **What this means for a figure taken from now on.** A perception figure
+  should say which environment produced it, and anything about *table
+  structure* — column counts, header joins, pairing — has to be checked in
+  the host, because that is the one thing shown to differ. The probe that
+  does both in one run is `tools/evaluation/viewport_perception_probe`.
+- **The host comparison is per-page and shallow.** It diffs what the
+  serializer reports plus the heading strips' raw cell counts. Two
+  environments agreeing on those does not make their DOMs identical, and the
+  spacer's actual trigger is still unnamed.
+
 ### What the orchestrator cannot promise
 
 - **A success condition has to be written by hand, per plan.** `value_is`
@@ -2348,3 +2377,85 @@ Measured on the 2026-09-09 results, rebuilt as markup in a browser:
 `Train 2DN, 14DN`. The billing amount, a label its page uses once, is
 unchanged at `14,382` — asserted end to end against the replica.
 
+---
+
+## 2026-09-18c — every site read twice, headless and in the host: the numbers agree, the markup does not
+
+Every perception figure in this file before today was taken in a headless
+Chromium. Every run a user will ever see happens in the Electron host, in a
+covered `WebContentsView` at 1280x800. On 2026-09-17 that gap produced a
+defect: the live results heading strip carried a scrollbar spacer in the host
+and not headless, the header join refused, and a completed run showed no
+answer (2026-09-17i). One environment-only bug is reason to check the rest.
+
+`python -m tools.evaluation.viewport_perception_probe` reads each page twice —
+once in its own headless browser, once through the host's site view over CDP —
+and diffs the two. Conditions in `logs/viewport_perception.json`:
+`346222c` (dirty: the probe itself was untracked), Python 3.12.3,
+Playwright 1.62.0, load 28–79%, four measurement passes between 19:30 and
+19:36.
+
+### Everything the serializer reports is identical
+
+| Page | Figure | Headless | In the host |
+|---|---|---|---|
+| registration `/courses`, modal up | elements / overlay / occluded / dead links | 66 / 1 / 65 / 44 | **same** |
+| | headings / tables / rows / pairs | 3 / 1 / 20 / 177 | **same** |
+| billing `/bill?reference=…` | elements / dead links | 39 / 32 | **same** |
+| | headings / tables / rows / pairs | 5 / 3 / 19 / 70 | **same** |
+| | `value_for("P/WITHIN")` | `14,382` | **same** |
+| railways `/train`, idle | elements / unnamed / dead links | 18 / 4 / 3 | **same** |
+| railways results, LHR→KHI | tables / rows / joined width / pairs | 2 / 2 / 4 / 4 | **same** |
+| | `values_for("Train No.")` | `['2DN']` | **same** |
+| railways results, LHR→RWP | tables / rows / joined width / pairs | 2 / 3 / 4 / 7 | **same** |
+| | `values_for("Train No.")` | `['39UP', '1UP']` | **same** |
+
+Not one figure differs. The registration, billing and railways-idle figures
+also match what they were first recorded as (66/1/65/44, 39, 18/4/3), which is
+the first time any of them has been confirmed in the environment that runs
+them.
+
+### The markup underneath is not identical, and that is the whole finding
+
+`table_widths` above is measured *after* `_adopt_headers` has discounted an
+empty trailing cell, so it reads 4 whether the strip had four cells or five —
+it cannot see the bug it was written for. Reading the DOM directly, same
+route, same minute, the two environments disagree:
+
+| Heading strip on the results page | Headless | In the host |
+|---|---|---|
+| First strip: cells / empty / `class="gutter"` | 4 / 0 / 0 | **5 / 1 / 1** |
+| Second strip: cells / empty / `class="gutter"` | 5 / 1 / 0 | **6 / 2 / 1** |
+
+The host adds one empty `th.gutter` per strip. It is Element UI's scrollbar
+spacer, and it is present in the host and absent headless on the same page,
+the same route and the same markup, minutes apart. So the 2026-09-17 bug was
+not a bad day on the live site: **it is a standing difference between the two
+environments**, and it would recur on every host run.
+
+What makes the serialized figures agree anyway is the 2026-09-17i fix:
+`_without_gutter` drops empty trailing header cells, so both environments
+join a 4-wide header to a 4-wide body and pair `Train No.` with the trains.
+The fix is now verified live in the environment the bug lives in, which
+2026-09-17i could not claim — that entry verified a run, not a comparison.
+
+Two things this does **not** establish:
+
+- **The trigger is not row count, and is not an overflowing body as far as
+  the probe can see.** The scroll check (`overflow-y: auto|scroll` and
+  `scrollHeight - clientHeight > 4`) found no scrolling wrapper in *either*
+  environment, on a route with one result and on a route with two. The
+  spacer's condition is something host-side the probe does not name.
+- **No claim about the other two sites' markup.** They were compared through
+  the serializer only; their figures agree, and nothing says their DOM is
+  byte-identical.
+
+### The live site, incidentally
+
+LAHORE CANTT → KARACHI CANTT returned **one** train today (`2DN`, 22 h 16 min)
+where 2026-09-09 returned two. LAHORE CANTT → RAWALPINDI returned two
+(`39UP` 6 h 38 min, `1UP` 6 h 3 min) — which is this morning's `values_for`
+change (2026-09-18b) working on a live page for the first time, in the host, with both
+trains in the finding.
+
+Six read-only searches today, across both environments and both routes.
