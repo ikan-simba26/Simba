@@ -273,11 +273,16 @@ def findings_in(snapshot: Snapshot, task: "Task", known: dict[str, str]) -> list
 
     `known` is mutated, which is the point: it is the run's memory of what it
     has seen.
+
+    Every value the page gives a label, not the first: a results table has a
+    row per result, and "which trains run?" is answered by all of them. How
+    that reads as one line — and where it stops and counts the rest — is
+    `voice.found`.
     """
     for answer in task.about.finds:
-        value = snapshot.content.value_for(answer.reads)
-        if value:
-            known[answer.name] = value
+        values = snapshot.content.values_for(answer.reads)
+        if values:
+            known[answer.name] = voice.found(values)
     return [Finding(label=answer.name, value=known[answer.name])
             for answer in task.about.finds if answer.name in known]
 

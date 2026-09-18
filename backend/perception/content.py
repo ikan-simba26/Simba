@@ -123,11 +123,31 @@ class Content:
         """Every label this page attaches to a value. The lookup answer."""
         return [pair.label for pair in self.pairs if pair.value == value]
 
-    def value_for(self, label: str) -> str | None:
+    def values_for(self, label: str) -> list[str]:
+        """Every value this page gives that label, in the order they appear.
+
+        A results table has one row per result, so a label like `Train No.`
+        has as many values as there are trains. Reading only the first
+        answered "which trains run?" with one train — on 2026-09-09 two came
+        back and the finding named one of them (EVALUATION.md, 2026-09-18b).
+
+        Duplicates are dropped, keeping the first: the same value in two rows
+        of the same column is one answer said twice, and a table often
+        repeats a value (both trains run `LAHORE CANTT KARACHI CANTT`).
+        """
+        found: list[str] = []
         for pair in self.pairs:
-            if pair.label == label:
-                return pair.value
-        return None
+            if pair.label == label and pair.value not in found:
+                found.append(pair.value)
+        return found
+
+    def value_for(self, label: str) -> str | None:
+        """The first value for this label, for a label a page uses once.
+
+        `values_for` is the one to use where a label can repeat.
+        """
+        values = self.values_for(label)
+        return values[0] if values else None
 
     def says(self, text: str) -> bool:
         """Whether the text appears anywhere in the readable content.

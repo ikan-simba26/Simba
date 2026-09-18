@@ -2264,3 +2264,35 @@ re-run against any model and any page.
 - **The model prefers the working route when it is offered one.** Left to
   choose first, it clicked "Take the long way round" and finished in one step,
   twice — which is why the first move is forced rather than prompted.
+
+---
+
+## 2026-09-18b — a finding carries every result, not the first
+
+`Content.value_for` returned the first pair with a matching label, and
+`findings_in` used it, so a goal that asks *which* trains run was answered
+with one train. The 2026-09-09 search returned two — `2DN` and `14DN` — and a
+finding would have named `2DN` alone. Nothing was wrong on the page or in the
+pairing; the reader stopped at the first row.
+
+`values_for` returns every value for a label in document order, dropping
+repeats — both trains run `LAHORE CANTT KARACHI CANTT`, and saying that twice
+is noise, not a second answer. `value_for` remains, as the first value, for a
+label a page uses once, and is now expressed in terms of `values_for`.
+
+`voice.found` turns a list into the line a person reads:
+
+| Values | Shown |
+|---|---|
+| `2DN` | `2DN` |
+| `2DN`, `14DN` | `2DN, 14DN` |
+| five or more | `a, b, c, d and 1 more` |
+
+Four and a count, because the closing screen shows a finding in the largest
+type on it and twenty values would not be readable at a glance — which is the
+only reason to show it large.
+
+Measured on the 2026-09-09 results, rebuilt as markup in a browser:
+`values_for("Train No.")` is `["2DN", "14DN"]` and the finding reads
+`Train 2DN, 14DN`. The billing amount, a label its page uses once, is
+unchanged at `14,382` — asserted end to end against the replica.

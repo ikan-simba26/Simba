@@ -11,7 +11,7 @@ These tests are about that cell.
 
 from playwright.sync_api import Page
 
-from backend.perception.content import Content, extract
+from backend.perception.content import Content, Pair, extract
 from backend.perception.serializer import read
 from backend.perception.snapshot import parse
 
@@ -360,3 +360,61 @@ def test_the_train_is_readable_from_the_live_markup(page: Page) -> None:
     assert content.value_for("Train No.") == "2DN"
     assert content.value_for("Duration") == "22 h 16 min"
     assert content.labelled("22 h 16 min") == ["Duration"]
+
+
+# --- every value for a label, not only the first ----------------------------
+
+
+def test_a_label_that_repeats_gives_every_value() -> None:
+    """One row per result, so one value per result.
+
+    The railways results have a row per train. Reading the first answered
+    "which trains run?" with one of them (EVALUATION.md, 2026-09-18b).
+    """
+    content = Content(pairs=[
+        Pair("Train No.", "2DN"), Pair("Duration", "22 h 16 min"),
+        Pair("Train No.", "14DN"), Pair("Duration", "24 h 16 min"),
+    ])
+
+    assert content.values_for("Train No.") == ["2DN", "14DN"]
+    assert content.values_for("Duration") == ["22 h 16 min", "24 h 16 min"]
+    # And the single-value reader still answers with the first.
+    assert content.value_for("Train No.") == "2DN"
+
+
+def test_the_same_value_twice_is_one_answer() -> None:
+    """Both trains run LAHORE CANTT to KARACHI CANTT. Saying it twice is noise."""
+    content = Content(pairs=[
+        Pair("From/To", "LAHORE CANTT KARACHI CANTT"),
+        Pair("From/To", "LAHORE CANTT KARACHI CANTT"),
+    ])
+
+    assert content.values_for("From/To") == ["LAHORE CANTT KARACHI CANTT"]
+
+
+def test_a_label_the_page_does_not_use_has_no_values() -> None:
+    assert Content(pairs=[Pair("A", "1")]).values_for("B") == []
+    assert Content(pairs=[Pair("A", "1")]).value_for("B") is None
+
+
+TWO_TRAINS = SPLIT_TABLES_WITH_GUTTER.replace(
+    """    </tr></tbody></table>""",
+    """    </tr>
+    <tr class="el-table__row">
+      <td class="el-table_1_column_1"><div class="cell">14DN</div></td>
+      <td class="el-table_1_column_2"><div class="cell">LAHORE CANTT KARACHI CANTT</div></td>
+      <td class="el-table_1_column_3"><div class="cell">19:09 19:25</div></td>
+      <td class="el-table_1_column_4"><div class="cell">24 h 16 min</div></td>
+    </tr></tbody></table>""",
+)
+
+
+def test_both_trains_are_readable_from_the_live_markup(page: Page) -> None:
+    """The 2026-09-09 results, which had two trains in them."""
+    page.set_content(TWO_TRAINS)
+    content = read(page).content
+
+    assert content.values_for("Train No.") == ["2DN", "14DN"]
+    assert content.values_for("Duration") == ["22 h 16 min", "24 h 16 min"]
+    # Repeated once per row on the real page, and once here.
+    assert content.values_for("From/To") == ["LAHORE CANTT KARACHI CANTT"]

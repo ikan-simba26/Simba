@@ -215,3 +215,49 @@ def test_a_finding_is_remembered_after_the_page_stops_showing_it() -> None:
     found = findings_in(detail, task, known)
 
     assert [(f.label, f.value) for f in found] == [("Your bill", "14,382")]
+
+
+# --- a finding carries every value, not the first ---------------------------
+
+
+def test_a_finding_carries_every_train_the_page_listed() -> None:
+    """"Which trains run?" is answered by all of them.
+
+    The 2026-09-09 search returned two and the finding named one
+    (EVALUATION.md, 2026-09-18b).
+    """
+    page = Snapshot(
+        url="u", title="t", labels=(), values=(),
+        content=Content(pairs=[
+            Pair("Train No.", "2DN"), Pair("Duration", "22 h 16 min"),
+            Pair("Train No.", "14DN"), Pair("Duration", "24 h 16 min"),
+        ]),
+    )
+
+    found = findings_in(page, RAILWAYS_TASK, {})
+
+    assert [(f.label, f.value) for f in found] == [
+        ("Train", "2DN, 14DN"),
+        ("Journey", "22 h 16 min, 24 h 16 min"),
+    ]
+
+
+def test_a_long_list_says_how_many_are_left_rather_than_filling_the_screen() -> None:
+    """The closing screen shows a finding in its largest type. Twenty values
+    would not be readable at a glance, which is the point of showing it."""
+    from backend.orchestrator.voice import SHOWN_VALUES, found
+
+    assert found(["2DN"]) == "2DN"
+    assert found(["a", "b", "c", "d"]) == "a, b, c, d"
+    assert found(["a", "b", "c", "d", "e"]) == "a, b, c, d and 1 more"
+    assert found([str(n) for n in range(10)]).endswith(f"and {10 - SHOWN_VALUES} more")
+
+
+def test_one_value_reads_exactly_as_it_did_before() -> None:
+    """The billing amount is one number, and must still arrive as one number."""
+    page = Snapshot(url="u", title="t", labels=(),
+                    content=Content(pairs=[Pair("P/WITHIN", "14,382")]))
+    task = Task(goal="g", estimated_steps=1,
+                about=About(finds=(Answer("Your bill", reads="P/WITHIN"),)))
+
+    assert [(f.label, f.value) for f in findings_in(page, task, {})] == [("Your bill", "14,382")]

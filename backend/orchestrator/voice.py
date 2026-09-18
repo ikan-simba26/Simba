@@ -99,6 +99,30 @@ def caption(kind: str, where: str, key: str = "") -> str:
     return f"I'm about to click {where}."
 
 
+# --- what was found ---------------------------------------------------------
+
+#: How many values a finding shows before it says how many are left.
+#:
+#: A results table can have twenty rows, and the closing screen shows a
+#: finding in the largest type on it — the whole point being that the answer
+#: is readable at a glance. Four values and a count keeps that true while
+#: still saying, out loud, that there are more.
+SHOWN_VALUES = 4
+
+
+def found(values: list[str]) -> str:
+    """Several values for one label, as one line a person can read.
+
+    "2DN, 14DN" rather than "2DN" — a goal that asks which trains run is
+    answered by all of them. Past `SHOWN_VALUES` it counts the rest instead of
+    filling the screen.
+    """
+    if len(values) <= SHOWN_VALUES:
+        return ", ".join(values)
+    shown = ", ".join(values[:SHOWN_VALUES])
+    return f"{shown} and {len(values) - SHOWN_VALUES} more"
+
+
 # --- a move a planner chose, as an instruction ------------------------------
 
 
