@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Service Notice | Fictional State University Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<!--
+  A page whose obvious control does not work.
+
+  The loop absorbs a first failure: `step.failed` to the frontend, the reason
+  to the planner as a setback, and on with the run. Until this page nothing
+  could test whether a planner *uses* that setback — the replicas always
+  worked, and a live site cannot be asked to fail on demand.
+
+  "Continue" is a <button> with no form and no handler. It is enabled, named,
+  visible and uncovered: everything perception reports about it is true. It
+  does nothing when clicked, which is what a dead control on a real portal
+  does, and it is what the page pushes you towards.
+
+  The registrar's route below it works. A planner that reads the setback has
+  somewhere to go; one that does not will press Continue again.
+
+  Deliberately without the site nav: with it, a model clicked "Registrar",
+  landed on the login page, and never met the dead button at all, so the run
+  measured something else entirely (2026-09-17, first attempt). This page has
+  exactly two ways forward — the one that fails, and the one that works.
+-->
+
+<div class="topbar">
+  Fictional State University Portal &mdash; Fall 2026 Registration is now open.
+  Priority deadline: September 18.
+</div>
+
+<header class="site-header">
+  <div class="brand">FICTIONAL STATE UNIVERSITY</div>
+  <!--
+    Clutter, on purpose, and every link of it dead.
+
+    The point of this page is the setback the loop hands back after "Continue"
+    fails, and the question is whether *where* that setback sits in the prompt
+    changes what the planner does next. With two elements on the page there is
+    nothing for it to be buried under, and both arms recovered (2026-09-17,
+    second attempt). The case it has to reproduce is the live one: a setback
+    eighteen element lines below the thing it was about.
+
+    So: twenty-four more elements, all href="#". Perception flags every one
+    "dead link, goes nowhere" and the system prompt tells the model not to
+    choose them, so the two ways forward are still the only two ways forward —
+    the list is simply long enough for position to matter.
+  -->
+  <nav class="mainnav">
+    <a href="#">Home</a>
+    <a href="#">Admissions</a>
+    <a href="#">Academics</a>
+    <a href="#">Athletics</a>
+    <a href="#">Library</a>
+    <a href="#">Housing</a>
+    <a href="#">Dining</a>
+    <a href="#">Parking & Transit</a>
+    <a href="#">IT Help Desk</a>
+    <a href="#">Financial Aid</a>
+    <a href="#">Health Services</a>
+    <a href="#">Career Center</a>
+    <a href="#">Alumni</a>
+    <a href="#">Give Now</a>
+    <a href="#">Directory</a>
+    <a href="#">Academic Calendar</a>
+    <a href="#">Bookstore</a>
+    <a href="#">Campus Map</a>
+    <a href="#">News</a>
+    <a href="#">Tuition & Fees</a>
+    <a href="#">Transcript Request</a>
+    <a href="#">Degree Audit</a>
+    <a href="#">Withdrawal Policy</a>
+    <a href="#">Student Handbook</a>
+  </nav>
+</header>
+
+<h1>Service Notice</h1>
+
+<div class="notice">
+  <strong>Notice:</strong> Registration is open. <strong>Use Continue below to
+  go straight to the course list.</strong> The registrar's route is slower and
+  is only needed if Continue does not respond.
+</div>
+
+<form class="loginform" onsubmit="return false">
+  <p>Continue to the course list:</p>
+  <button id="continue">Continue</button>
+  <!--
+    The plausible wrong answer, and the reason this page has three controls
+    rather than two.
+
+    With only Continue and the registrar's link, recovery was over-determined:
+    the button had just failed and is in the planner's own history under "do
+    not repeat", every other element is a flagged dead link, so the one
+    remaining live control was the answer. Four runs recovered and the two
+    setback placements were indistinguishable (EVALUATION.md, 2026-09-17j).
+
+    "Refresh and try again" is what a person presses when something does
+    nothing. It is live, it is honest about what it does, and it gets nowhere:
+    it reloads this same page, so the snapshot does not change and the step
+    fails too. A planner that reaches for it instead of reading the setback
+    ends the run on two consecutive failures, which is the difference the
+    comparison needs.
+  -->
+  <button id="refresh" formaction="{{ url_for('stubborn') }}" formmethod="get"
+          formnovalidate>Refresh and try again</button>
+</form>
+
+<p class="fallback">
+  Not working? <a href="{{ url_for('the_long_way') }}">Take the long way round</a>
+  &mdash; slower, through the registrar's own page.
+</p>
+
+<div class="footer">
+  Fictional State University &mdash; 1 University Way &mdash; (555) 019-2837
+</div>
+</body>
+</html>

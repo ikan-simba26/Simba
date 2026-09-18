@@ -35,6 +35,14 @@ ANTHROPIC_DEFAULT_MODEL = "claude-opus-5"
 OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 16000
 HISTORY_LIMIT = 10  # actions kept in the prompt; see build_user_prompt
+# Where a setback goes in the prompt: "above" the element list, or "after" it.
+#
+# An ablation switch, not a setting. Above is the design (see
+# `build_user_prompt`); after is where it used to be, kept only so the two can
+# be compared on a run rather than argued about. Read per call so a benchmark
+# can flip arms between processes.
+SETBACK_ABOVE = "above"
+SETBACK_AFTER = "after"
 RATE_LIMIT_RETRIES = 4  # a free tier meters per minute; wait it out
 
 # US dollars per million tokens, (prompt, completion). Rates move and vary by
@@ -168,10 +176,24 @@ class Provider(Protocol):
     ) -> Action: ...
 
 
+def setback_placement() -> str:
+    """Where a setback is put. `SIMBA_SETBACK_PLACEMENT=after` restores the
+    old position, for the comparison recorded in EVALUATION.md."""
+    choice = os.environ.get("SIMBA_SETBACK_PLACEMENT", SETBACK_ABOVE).strip().lower()
+    return SETBACK_AFTER if choice == SETBACK_AFTER else SETBACK_ABOVE
+
+
+SETBACK_HEADING = (
+    "SOMETHING WENT WRONG WITH YOUR LAST ANSWER. Put it right before "
+    "anything else — do not move on to another part of the task."
+)
+
+
 def build_user_prompt(
     page: str, goal: str, feedback: str | None, history: list[str] | None = None
 ) -> str:
     parts = [f"Goal: {goal}", ""]
+    above = setback_placement() == SETBACK_ABOVE
 
     # Feedback goes first, in the imperative, above the history and above the
     # element list.
@@ -185,13 +207,8 @@ def build_user_prompt(
     # *at this step* sits above the list, or it competes with the list and
     # loses. See EVALUATION.md, "Where information sits is a perception
     # decision".
-    if feedback:
-        parts += [
-            "SOMETHING WENT WRONG WITH YOUR LAST ANSWER. Put it right before "
-            "anything else — do not move on to another part of the task.",
-            f"Problem: {feedback}",
-            "",
-        ]
+    if feedback and above:
+        parts += [SETBACK_HEADING, f"Problem: {feedback}", ""]
 
     # Without this the model has no memory of its own actions and will keep
     # choosing the step it already completed.
@@ -219,6 +236,12 @@ def build_user_prompt(
         parts += ["Nothing has been done yet. This is the first action.", ""]
 
     parts += ["Interactive elements on the page:", page]
+
+    # The arm this exists to compare against: the same words, after the list,
+    # which is where they were until 2026-09-09 and where a live run showed
+    # the model reading past them.
+    if feedback and not above:
+        parts += ["", SETBACK_HEADING, f"Problem: {feedback}"]
     return "\n".join(parts)
 
 

@@ -1586,3 +1586,41 @@ values are still in the row; nothing names them.
 table's body scrolls, so the same page pairs headless and fails in the
 1280x800 host. Every content measurement before this was taken headless. Worth
 remembering for anything else content extraction is trusted to read.
+
+---
+
+## A replica page that fails on purpose, and a switch to compare prompt positions
+
+**Date:** 2026-09-18
+
+**Decision.** The registration replica serves `/stubborn`: a `<button>` with
+no form and no handler, a "Refresh and try again" button that reloads the same
+page, a link that works, and two dozen dead links for length. `SIMBA_FLOW=stubborn`
+runs it. `SIMBA_SETBACK_PLACEMENT=above|after` decides where a setback sits in
+the prompt, defaulting to above.
+
+**Alternatives.** Keep injecting failures by naming an element that does not
+exist, as the tests did. Make the live site fail somehow. Re-ask single
+decisions, as on 2026-09-09.
+
+**Why this.** A named-but-absent element tests the resolver, not recovery: the
+loop fails before it touches the page. A live site cannot be asked to fail on
+demand, and three runs that were meant to answer the setback question could
+not, because nothing in them failed. Re-asking one decision is one decision.
+
+The page is honest in every way perception can see, so it tests the loop and
+the planner rather than fooling the serializer. The switch exists so the two
+positions can be compared on runs instead of argued about, and it defaults to
+the design.
+
+**What it produced immediately.** Eight runs, two page shapes: placement
+changed nothing, and what decided recovery was the options the page left
+(EVALUATION.md, 2026-09-18). That weakens one of the three legs of "Where
+information sits is a perception decision" — the one that always rested on a
+single call.
+
+**Cost.** A replica page nothing else links to, which is one more thing to
+keep working, and a switch whose `after` arm exists only to be measured
+against. The first version of the page measured the wrong thing — it kept the
+site nav, and the model escaped through a live link to the login page — so the
+rig itself needs reading before it is trusted.

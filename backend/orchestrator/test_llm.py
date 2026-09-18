@@ -222,3 +222,32 @@ def test_usage_serialises_for_the_run_log() -> None:
     assert payload["total_tokens"] == 110
     assert payload["model"] == "gpt-4o-mini"
     assert payload["cost_usd"] > 0
+
+
+def test_the_setback_can_be_put_back_after_the_list_for_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ablation arm. `SIMBA_SETBACK_PLACEMENT=after` is where the setback
+    sat until 2026-09-09, and the only way to compare the two on a real run
+    rather than on one re-asked decision (EVALUATION.md, 2026-09-17j)."""
+    monkeypatch.setenv("SIMBA_SETBACK_PLACEMENT", "after")
+
+    prompt = build_user_prompt("1. button 'Continue'", "goal", "that did nothing")
+
+    assert prompt.index("SOMETHING WENT WRONG") > prompt.index("button 'Continue'")
+    assert "that did nothing" in prompt
+
+
+def test_above_is_what_an_unset_switch_means(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SIMBA_SETBACK_PLACEMENT", raising=False)
+    prompt = build_user_prompt("1. button 'Continue'", "goal", "that did nothing")
+    assert prompt.index("SOMETHING WENT WRONG") < prompt.index("button 'Continue'")
+
+
+def test_an_unknown_placement_is_the_design_not_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A typo in an ablation switch must not quietly select the worse arm."""
+    monkeypatch.setenv("SIMBA_SETBACK_PLACEMENT", "sideways")
+    prompt = build_user_prompt("1. button 'Continue'", "goal", "that did nothing")
+    assert prompt.index("SOMETHING WENT WRONG") < prompt.index("button 'Continue'")

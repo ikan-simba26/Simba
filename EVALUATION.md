@@ -2191,3 +2191,76 @@ duration from this machine is worth.
 
 **Still true:** `value_for` returns the first pair, so "which trains?" answers
 with one train. Two trains came back on 2026-09-09; one came back today.
+
+---
+
+## 2026-09-18 — a step rigged to fail, and the setback question answered: placement changed nothing
+
+Three runs were meant to settle where a setback belongs in the prompt and
+none could, because nothing failed in them. A live site will not fail on
+demand, so the replica now has a page that does:
+`/stubborn` on the registration replica, with a `<button>` that has no form
+and no handler. Everything perception reports about it is true — named,
+enabled, visible, uncovered — and pressing it changes nothing.
+
+**The first move is forced to that button**, so every run reaches the state
+the question is about with a setback in hand. Everything after it is the
+model's. `python -m tools.evaluation.setback_placement_ab`, two runs per arm,
+`gemini-3.1-flash-lite`, conditions recorded in `logs/setback_ab.json`.
+
+### Two page shapes, eight runs
+
+| Page | Live controls after the failure | Setback above | Setback after |
+|---|---|---|---|
+| Two controls | the registrar's route only | **recovered 2/2**, completed 2/2 | **recovered 2/2**, completed 2/2 |
+| Three controls | "Refresh and try again", and the registrar's route | **recovered 0/2** | **recovered 0/2** |
+
+**Placement changed nothing, in any of the eight runs.** What changed the
+outcome was what else was on the page.
+
+- With only one live way forward, the model took it whichever way it had been
+  told. Recovery there is over-determined: the dead button is in its own
+  history under "do not repeat", and every other element is a flagged dead
+  link.
+- With a plausible wrong option present, it took the wrong option both ways —
+  "Refresh and try again", four times out of four, which reloads the same page,
+  fails the change check, and ends the run in `help.requested`. The model was
+  told in the imperative, directly above the list, that its last action did
+  nothing; it pressed the button whose label says "try again".
+
+### What this does to the earlier claim
+
+EVALUATION.md's "Where information sits is a perception decision" rests on
+three cases. Two are unaffected: the overlay banner (10/10 runs, measured) and
+the calendar qualifiers (the distinction was absent from the input). The
+third — the promoted setback — rested on **one re-asked decision** on
+2026-09-09, where moving the same words above the list changed the answer.
+
+That observation stands as a single call on a different page. It does not
+generalise: on this rig, across eight runs and two page shapes, the promotion
+made no difference at all. The honest statement is now:
+
+> Prominence is worth having and costs nothing, and there is no evidence it
+> changes a run. Whether a planner recovers from a setback is decided by the
+> options the page leaves it, not by where it was told.
+
+`SIMBA_SETBACK_PLACEMENT=after` restores the old position, so this can be
+re-run against any model and any page.
+
+### What the rig also showed
+
+- **The loop's recovery works on a control that really fails.** Both
+  strategies land on the dead button, the second being a JS click, and both
+  change nothing (`test_setback.py`, 9 tests, no model).
+- **A wrong recovery is safe.** Two consecutive failures end the run in
+  `help.requested` rather than in a claim of success — which is what the four
+  three-control runs did.
+- **The first attempt at the rig measured the wrong thing** and is worth
+  recording as a method note: the page included the replica's site nav, the
+  model clicked "Registrar", reached the login page and hit the password
+  refusal instead of the dead button. A rig with a live escape route is not a
+  rig. The page now has no nav, and its clutter is twenty-four links that are
+  all `href="#"`.
+- **The model prefers the working route when it is offered one.** Left to
+  choose first, it clicked "Take the long way round" and finished in one step,
+  twice — which is why the first move is forced rather than prompted.

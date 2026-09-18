@@ -57,7 +57,7 @@ Environment variables decide what runs:
 
 | Variable | Effect |
 |---|---|
-| `SIMBA_FLOW` | Which site, replica URL and hardcoded plan, from the `FLOWS` table in `app.py` |
+| `SIMBA_FLOW` | Which site, replica URL and hardcoded plan, from the `FLOWS` table in `app.py`. `stubborn` is a replica page whose first control does nothing, for measuring recovery |
 | `SIMBA_REPLICA_URL` | Overrides the flow's start URL |
 | `SIMBA_USE_HARDCODED_PLAN` | `1` runs `HardcodedPlanner`, otherwise `LLMPlanner` |
 | `SIMBA_TRACE_MEMORY` | `1` wraps the planner in `TracePlanner`, which replays a remembered run and records new ones |
@@ -68,6 +68,7 @@ Environment variables decide what runs:
 | `SIMBA_LLM_PROVIDER` | `anthropic`, or `openai` for any OpenAI-compatible endpoint |
 | `SIMBA_LLM_EFFORT` | Thinking effort for the Anthropic provider |
 | `SIMBA_OVERLAY_DETECTION`, `SIMBA_INFERRED_ROLES` | Ablation switches in perception |
+| `SIMBA_SETBACK_PLACEMENT` | `above` (the design) or `after`, for comparing where a setback sits in the prompt |
 
 `browser.open_page` yields the page to drive — either a fresh headless
 Chromium at the frozen viewport, or the Electron host's site view picked out

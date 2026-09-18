@@ -44,6 +44,25 @@ def login():
     return render_template("login.html")
 
 
+@app.route("/stubborn")
+def stubborn():
+    """A page whose obvious control does nothing. See the template.
+
+    Here so the loop's recovery can be exercised: a step that fails on
+    purpose, with a second route that works. Nothing else in the replica
+    links to it, so the recorded element counts of the other pages are
+    unchanged.
+    """
+    return render_template("stubborn.html")
+
+
+@app.route("/the-long-way")
+def the_long_way():
+    """The route that does work. Signs in on the way, as a portal would."""
+    session["username"] = session.get("username") or "student"
+    return redirect(url_for("courses"))
+
+
 @app.route("/courses")
 def courses():
     if "username" not in session:

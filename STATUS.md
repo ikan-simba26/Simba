@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-17 (third pass) · 292 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · full suite 329s and 367s on two runs of the same tree, which is the spread to expect from a wall clock here (EVALUATION.md, 2026-09-17e)
+**Last updated:** 2026-09-18 · 323 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · full suite 459s. Earlier runs of a smaller suite took 329s and 367s on the same tree; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -157,9 +157,13 @@ application's state (EVALUATION.md).
   so a page that reformats a value there still ends the run. An LLM planner
   types into whatever it chooses, so this is where it will meet it. Options
   and costs in DECISIONS.md.
-- **Setback placement is still unmeasured.** Two runs today, neither with a
-  failed step. A live site will not fail on demand; answering it needs a run
-  on a page made to fail one step.
+- ~~Setback placement is unmeasured.~~ **Answered 2026-09-18**, with a
+  replica page rigged to fail (`SIMBA_FLOW=stubborn`): across eight runs and
+  two page shapes, **where the setback sits changed nothing**. What decided
+  recovery was the options the page left — with a plausible wrong button
+  present the model took it 4/4 and the run ended in `help.requested`
+  (EVALUATION.md, 2026-09-18). One of the three legs of "Where information
+  sits is a perception decision" is weaker than it read.
 - **The held date has never failed a wrong-date run live.** It passed the
   correct date in 2026-09-17f. The wrong-date case is covered only by
   `test_success_conditions.py`.

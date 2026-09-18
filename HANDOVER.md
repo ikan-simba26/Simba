@@ -1,10 +1,9 @@
 # SIMBA — handover
 
 For someone who has never seen this repository and needs to reason about it
-without reading the code. Written 2026-09-17, against commit `cc4704f` plus
-that day's changes, and updated the same evening after the owed LLM run and
-the fixes that followed it (sections 2, 5, 6, 7, 8 and 10). About twenty
-minutes end to end.
+without reading the code. Written 2026-09-17 against commit `cc4704f`, and
+updated twice since: that evening after the owed LLM run, and on 2026-09-18
+after the fixes that followed it. About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -84,7 +83,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-09-17: **292 passed, 7 skipped, 367s**. The
+The full suite was last run on 2026-09-18: **323 passed, 7 skipped, 459s**. The
 7 skips are 5 tests that need a running Electron window and 2 that hit the
 live website; **none of those 7 were run today.**
 
@@ -99,7 +98,7 @@ interactive elements, and the readable content.
 | Detects something covering the page (a modal) from layout alone, and marks what is behind it | `test_overlays.py`; 1 overlay and 65 occluded elements on the registration replica, 2026-09-17 |
 | Finds controls the page never declared — a dropdown option that is a bare `<li>`, a calendar day that is a bare `<td>` | `test_interactivity.py`; on the live site, 6 station options after typing and 42 day cells with the calendar open (EVALUATION.md, 2026-09-08) |
 | Tells two calendar cells labelled "30" apart ("previous month") and says which month a calendar shows | `test_interactivity.py`; live-tested 2026-09-09 |
-| Reads what a page *says*: headings, table cells paired with their column headers, prominent text | `test_content.py`; `P/WITHIN → 14,382` on the billing replica, 2026-09-17 |
+| Reads what a page *says*: headings, table cells paired with their column headers, prominent text | `test_content.py`; `P/WITHIN → 14,382` on the billing replica, 2026-09-17, and `Train No. → 2DN` on the live site, 2026-09-18 |
 | Flags links that go nowhere | 44 of 66 elements on the registration replica, 2026-09-17 |
 | Costs little | whole read 0.19s idle, 0.22s with the calendar open, on the live site (EVALUATION.md, 2026-09-08) |
 
@@ -109,13 +108,14 @@ interactive elements, and the readable content.
 |---|---|
 | The loop presents, acts, verifies, retries once differently, and stops with `help.requested` after two failures | `test_verification.py`, `test_orchestrator.py` |
 | All three planners run through identical execution and recovery | `test_shared_recovery.py` asserts identical message sequences under the same injected failure |
-| A typed value is checked when typed *and* at every later read, and a value that disappears ends the run | `test_durability.py`; fired correctly twice on the live site, 2026-09-09 — and **wrongly once**, 2026-09-17, when the page reformatted a correct date (STATUS.md, Orchestrator) |
+| A typed value is checked when typed *and* at every later read, and a value that disappears ends the run | `test_durability.py`; fired correctly twice on the live site, 2026-09-09. It fired **wrongly** once, 2026-09-17, on a date the page had only reformatted; a value matching the task's own declared value is now accepted, and on undeclared fields the false stop remains (STATUS.md, Orchestrator) |
 | A task declares what it is about — values its goal names, which must hold at the end, and values it asks for, which are found and shown | `test_success_conditions.py`; `test_billing.py` shows `Your bill 14,382` and `Due 15-09-2026` arriving at the end from a page the run had left |
 | The run that searched the wrong date would now fail instead of completing | `test_success_conditions.py` rebuilds that exact page |
 | The hardcoded plan completes on both replicas | `test_orchestrator.py`, `test_billing.py` |
-| The hardcoded plan completes on the live site | **2026-09-09 only** (5/5 steps, 54s). Not run since; not known to still work |
+| The hardcoded plan completes on the live site | **2026-09-18**, 5/5 steps through the Electron window, search sent for the goal's date, and the train on the closing screen (EVALUATION.md, 2026-09-17i) |
 | The LLM planner works through the same loop, with schema validation and one retry | `test_llm_loop.py`, `test_llm.py` with fake providers |
-| The LLM planner drives the live site's dropdowns and calendar correctly | **2026-09-17, one run**: both stations committed, October reached, the 15th picked — and then stopped by a false durability check before searching (EVALUATION.md, 2026-09-17b) |
+| The LLM planner drives the live site's dropdowns and calendar correctly, and finishes | **2026-09-17, two runs**: the first was stopped short by a false durability check; the second, through the Electron window, committed both stations, reached October, picked the 15th and sent the search for `2026-10-15` (EVALUATION.md, 2026-09-17f) |
+| A step that fails is handed back and the run carries on, or stops safely | `test_setback.py`, 9 tests on a replica page rigged to fail; and 8 LLM runs on it, where a wrong recovery ended in `help.requested` rather than a false success (EVALUATION.md, 2026-09-18) |
 | Trace replay records a run and replays it with no model calls | `test_replay.py`, `test_billing.py` (second run replays, 0 model calls) |
 | Drives either its own headless Chromium or the Electron window's hidden view | headless: most of the suite. Electron: `test_electron_stack.py`, **skipped today** |
 
@@ -453,14 +453,14 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17, and the railways LLM run then completed correctly. Undeclared fields still false-stop |
-| **Setback placement, measured** | A run with a step that fails on purpose | Neither 2026-09-17 LLM run had a failed step |
+| **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17 and the railways LLM run then completed. Undeclared fields still false-stop, and that is where the LLM planner works |
+| **Why a model prefers a plausible wrong button to a setback it was just given** | Measurement, not a fix | Answered on 2026-09-18: placement changed nothing across 8 runs; what decided recovery was the options the page left. A stronger model on the same rig is the next thing to try |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
 | **The estimator** | Page-side load features, then the estimator — both Nahail's, neither started | |
 | **The credential vault** | Aly, not started | |
 | **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
-| **Knowing whether the live flow still completes** | Running `python -m tools.evaluation.railways_hardcoded_run` | Last completed 2026-09-09 |
+| **A second train from the railways results** | Perception — Nahail's | `value_for` returns the first pair, so "which trains?" answers with one |
 
 **Uncertain: the quota itself.** The documents disagree on how many requests
 a day the free model allows and which model name the stronger one was
@@ -504,6 +504,9 @@ options and a recommendation; this is the list.
    strings?
 9. **Should finding the answer be part of success?** A billing run that never
    read the amount would currently complete with no answer rather than stop.
+   On 2026-09-17 a railways run did exactly that — found the train, showed
+   nothing — and only a perception fix caught it; nothing in the loop would
+   have.
 10. **Named values are checked on the final page only**, so a value typed on
     the first page of a multi-page flow cannot be checked.
 11. **The results table's first row is the answer.** Two trains came back and
@@ -523,6 +526,13 @@ options and a recommendation; this is the list.
     also stale: the home screen reached after a task shows the goals from
     before that task. [CONTRACT.md](CONTRACT.md) has the reasoning and the
     costs.
+
+16. **Is prompt prominence worth anything?** "Anything a planner must act on
+    goes above the element list" was built on three cases, and the setback one
+    turned out to rest on a single re-asked decision. Measured properly on
+    2026-09-18 it changed nothing in eight runs. The rule is cheap to keep and
+    is no longer evidence; the two other cases still stand. What would settle
+    it is the same rig against a stronger model.
 
 ---
 

@@ -165,13 +165,14 @@ All environment variables, all read at the backend.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `SIMBA_FLOW` | `registration` | `registration`, `billing`, or `railways` (live, read-only) |
+| `SIMBA_FLOW` | `registration` | `registration`, `billing`, `railways` (live, read-only), or `stubborn` (a replica page whose first control does nothing, for measuring recovery) |
 | `SIMBA_USE_HARDCODED_PLAN` | off | Run the flow's written plan instead of the LLM |
 | `SIMBA_BROWSER` | `chromium` | `electron` attaches to a running host over CDP |
 | `SIMBA_TRACE_MEMORY` | off | Replay a goal already done on this site from SQLite |
 | `SIMBA_REPLICA_URL` | per flow | Override the site the flow opens |
 | `SIMBA_OVERLAY_DETECTION` | on | Ablation switch for structural blocker detection |
 | `SIMBA_INFERRED_ROLES` | on | Ablation switch for non-semantic control detection |
+| `SIMBA_SETBACK_PLACEMENT` | `above` | Where a setback sits in the prompt: `above` the element list or `after` it. Ablation arm; see EVALUATION.md, 2026-09-18 |
 | `SIMBA_LIVE_TESTS` | off | Let the two tests that hit a real website run |
 
 The LLM path needs `.env` — see `CLAUDE.md`. It is never committed.

@@ -10,9 +10,10 @@ The frontend connects to /ws, sends `task.start`, and answers each
 Two switches, both environment variables:
 
 - `SIMBA_FLOW` picks the site, the replica URL and the hardcoded plan:
-  `registration` (default) or `billing`. The *goal* comes from the
-  frontend's `task.start`; the flow's own goal is only the fallback when the
-  message carries none.
+  `registration` (default), `billing`, `railways`, or `stubborn` — a
+  registration-replica page whose first control does nothing, for measuring
+  recovery. The *goal* comes from the frontend's `task.start`; the flow's own
+  goal is only the fallback when the message carries none.
 - `SIMBA_USE_HARDCODED_PLAN=1` runs that flow's hardcoded plan instead of the
   LLM — the A/B comparison, and the deterministic fallback for demo day.
 - `SIMBA_TRACE_MEMORY=1` wraps whichever planner was chosen in `TracePlanner`,
@@ -38,6 +39,7 @@ from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
+from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
 from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import HistoryOffered, PastGoal
 
@@ -51,6 +53,9 @@ FLOWS = {
     "billing": (BILLING_TASK, BILLING_PLAN, "http://127.0.0.1:5100"),
     # The only flow that is not a replica we wrote. Read-only.
     "railways": (RAILWAYS_TASK, RAILWAYS_PLAN, RAILWAYS_URL),
+    # A replica page whose first control does nothing, so the loop's recovery
+    # and a planner's use of a setback can be measured. See stubborn_plan.py.
+    "stubborn": (STUBBORN_TASK, STUBBORN_PLAN, STUBBORN_URL),
 }
 
 app = FastAPI()
