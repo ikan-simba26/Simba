@@ -209,9 +209,9 @@ def build_user_prompt(
     # placement changed nothing in 8 of 8 runs; what decided recovery was the
     # options the page left (EVALUATION.md, 2026-09-18). The position stays
     # because it costs nothing and reads better, **not** because it is known
-    # to work. Do not cite it as a finding: the supported half of "Where
-    # information sits is a perception decision" is about emitting what the
-    # input lacks, not about moving what it has.
+    # to work. Do not cite it as a finding: the supported half of "What
+    # perception emits decides what a planner can use" is about emitting what
+    # the input lacks, not about moving what it has.
     if feedback and above:
         parts += [SETBACK_HEADING, f"Problem: {feedback}", ""]
 

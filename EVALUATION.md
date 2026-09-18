@@ -49,7 +49,7 @@ from the version that produced its table.
 | 2026-09-08 | What perception now sees (18 → 24 after typing) | `railways_inference_probe`; the calendar-open count is from `perception_timing_probe` |
 | 2026-09-08 | Profiling `read()` | `perception_timing_probe` |
 | 2026-09-09 | Run 1 and run 2 with the LLM | `railways_llm_run` |
-| 2026-09-09 | The fix: a banner, not a rule; "Where information sits" | `railways_banner_probe` |
+| 2026-09-09 | The fix: a banner, not a rule; "What perception emits" | `railways_banner_probe` |
 | 2026-09-09b | The run that completed on the wrong date | `railways_llm_run` |
 | 2026-09-09b | Setback promoted, one call | `railways_setback_probe` |
 | 2026-09-09b | Qualifiers, duplicate-label table | `railways_qualifier_probe` |
@@ -911,7 +911,8 @@ same page state, one call:
 
 *Superseded 2026-09-18. On a rig where every run reaches this state, placement
 changed 0 of 8 runs. This single call is what the claim rested on, and it does
-not generalise — see "Where information sits is a perception decision".*
+not generalise — see "What perception emits decides what a planner can
+use".*
 
     {"action": "type", "element_id": 12,
      "reasoning": "I am re-entering the correct date into the field to ensure
@@ -1035,7 +1036,11 @@ Two further things this establishes:
 
 ---
 
-## Where information sits is a perception decision
+## What perception emits decides what a planner can use
+
+*Renamed 2026-09-18 from "Where information sits is a perception
+decision", because that title asserted the half of it that eight runs
+falsified. Anything citing the old name means this section.*
 
 **What perception knows is not what a planner uses.** The model is not
 reasoning over a database it can query; it is reading a page of text, once.
@@ -2338,7 +2343,7 @@ outcome was what else was on the page.
 
 ### What this does to the earlier claim
 
-EVALUATION.md's "Where information sits is a perception decision" drew on
+EVALUATION.md's "What perception emits decides what a planner can use" drew on
 three mechanisms plus this one. Two are unaffected: the overlay banner (10/10
 runs, measured) and the calendar qualifiers (the distinction was absent from
 the input) — in both, perception emitted something the model did not have.

@@ -1624,9 +1624,9 @@ the design.
 
 **What it produced immediately.** Eight runs, two page shapes: placement
 changed nothing, and what decided recovery was the options the page left
-(EVALUATION.md, 2026-09-18). That weakens one of the three legs of "Where
-information sits is a perception decision" — the one that always rested on a
-single call.
+(EVALUATION.md, 2026-09-18). That weakens one of the three legs of "What
+perception emits decides what a planner can use" — the one that always rested
+on a single call, and which is withdrawn outright later the same day.
 
 **Cost.** A replica page nothing else links to, which is one more thing to
 keep working, and a switch whose `after` arm exists only to be measured
@@ -1715,8 +1715,9 @@ back to back.
 
 **Date:** 2026-09-18
 
-**Decision.** EVALUATION.md's "Where information sits is a perception
-decision" is split in two. Emitting what the input does not contain —
+**Decision.** EVALUATION.md's "What perception emits decides what a planner
+can use" — renamed today from "Where information sits is a perception
+decision" — is split in two. Emitting what the input does not contain —
 occlusion, a date qualifier — is a supported finding. Moving words the prompt
 already carries, above the element list instead of after it, is not: it is
 recorded as an observation until it is re-run on runs.

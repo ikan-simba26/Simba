@@ -169,7 +169,7 @@ in the input at all*, and no prompt could have supplied it.
 The narrower claim about *position* — the same words moved above the element
 list — was built on two single calls and does not survive runs: on a rig where
 every run needs the correction, placement changed **0 of 8** (2026-09-18).
-EVALUATION.md's *"Where information sits is a perception decision"* now states
+EVALUATION.md's *"What perception emits decides what a planner can use"* now states
 the two halves separately, one supported and one falsified.
 
 **2. Success rate told us nothing.** It was **10/10 in every condition** ever
