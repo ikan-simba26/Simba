@@ -1604,6 +1604,47 @@ makes about verification should be read with that boundary attached.
   environments agreeing on those does not make their DOMs identical, and the
   spacer's actual trigger is still unnamed.
 
+### Wall clock, and what to report instead
+
+- **The same code on the same machine on the same day ranged 3.01s to 6.85s.**
+  Added 2026-09-18, measuring 2026-09-17h. Ten-run means of the hardcoded
+  benchmark, nothing in the repository changing between them: 3.01s at ~15:00,
+  3.93s at ~15:30 with the test suite running alongside, 6.85s at ~23:36 at
+  23% CPU load. That is a **2.3x spread from the environment alone**, and the
+  figure published on 2026-09-06 (5.93s) sits inside it.
+- **Report step count and model calls as the primary metrics.** Both are
+  discrete, both are what the system actually decides, and both have been
+  perfectly stable where timing was not: the 2026-09-05 ablation's two arms
+  each held one path with **zero variance in steps and calls across ten
+  runs** while their mean times differed by 2.3x. Tokens and cost behave the
+  same way, and pass rate is unaffected by load.
+- **Report wall clock second, never alone.** With n, the range, and the
+  conditions block beside it (`tools/evaluation/conditions.py`). A single
+  mean with no range is not a measurement of this system; it is a measurement
+  of this laptop.
+- **Treat any difference under 2.3x as unexplained unless it has both.** Both
+  arms measured in one session, back to back, *and* a named mechanism. A
+  cross-session difference of that size is not evidence of anything.
+
+**Audit of what in this file rests on a wall-clock difference** (done
+2026-09-18, against the 2.3x spread):
+
+| Claim | The difference it rests on | Verdict |
+|---|---|---|
+| "Overlay detection off costs ~25s per run" (2026-09-05) | 44.5s against 19.1s, **2.33x** | **At the boundary, and it survives on its mechanism, not its seconds.** Same session, minutes apart, ten runs per arm, zero variance, and the gap is one Playwright click timeout on an intercepted click. The conclusion it feeds — fewer steps is worse here — is already stated "regardless of the timing". Quote the mechanism; do not quote the 25s as a property of the system |
+| Perception `read()` 0.19s idle against 0.22s with the calendar open, and its phase breakdown (captureSnapshot 0.03s against 0.05s) (2026-09-08) | **1.16x, one run each** | **The difference is not evidence and should not be read as one.** What survives is the magnitude: both reads are about 0.2s, two orders below the cost of a step, which is all the entry needed to claim. "Looking costs nothing" holds; "the calendar costs 30ms more" does not |
+| "Mean time fell 72% (61.3s to 17.1s)", LLM against hardcoded | **3.6x** | **Outside the spread, and independently explained** by five model calls against zero. The direction is safe; the absolute seconds are from 2026-09-05 and are not today's |
+| "3.2x faster", "about 13 seconds for five round trips" (2026-09-06) | derived from the unreproducible 5.93s | **Already withdrawn** (2026-09-17e), not recomputed |
+| Test suite 275.4s against 288.2s (2026-09-17) | **1.05x** | The entry already refuses the comparison: the second run shared the machine with a browser and a `vite` build. No conclusion drawn |
+| Single-run durations quoted throughout (46.1s, 48.9s, 66.9s, 71.8s, 73.4s, 79.5s, 84.4s) | **n = 1** | Descriptive of one run on this machine. No conclusion in this file rests on one, and none should |
+| "The wrong turn cost 3,704 seconds" (2026-09-08) | 62 minutes against a run of about one | **Safe.** A 2.3x factor does not reach an order of magnitude and a half |
+
+**Nothing in this file has to be withdrawn for this reason.** One claim —
+the ~25s overlay cost — needs its mechanism quoted rather than its seconds,
+and one sub-claim, the per-phase perception deltas, should not be read as a
+difference at all. The November benchmark must run its arms back to back in
+one session and publish its conditions block.
+
 ### What the orchestrator cannot promise
 
 - **A success condition has to be written by hand, per plan.** `value_is`

@@ -206,14 +206,17 @@ change was reverted the same day, and the task now requires the date field to
 hold the goal's date. A stop the person can see is worth more than a finish
 they cannot question.
 
-**6. The hardcoded plan is a ceiling, not a baseline.** On the registration
-replica it takes **3 steps** against the LLM's **5 steps**. The times first
-published — 5.9s against 19.1s — do not hold up: the hardcoded arm re-runs at
-3.0s with the very same code, for a reason not established (EVALUATION.md,
-2026-09-17e), and the LLM arm has not been re-run. So no ratio between them
-should be quoted. The finding does not rest on one: the hardcoded plan is
-faster and free because a person already wrote the answer into it, so it
-measures perfect planning, not a rival to the LLM. **There is no honest
+**6. The hardcoded plan is a ceiling, not a baseline — and a wall clock from
+this machine is worth ±2x.** On the registration replica it takes **3 steps**
+against the LLM's **5 steps**. The times first published — 5.9s against 19.1s
+— do not hold up: the same benchmark, same code, same machine, measured
+**3.01s, 3.93s and 6.85s in one day** (EVALUATION.md, 2026-09-17h), so no
+ratio between the arms should be quoted. **Report step count and model calls
+first**; both were perfectly stable — zero variance across ten runs per arm —
+where the timing was not. Wall clock goes second, with its range and its
+conditions block. The finding itself does not rest on a time: the hardcoded
+plan is faster and free because a person already wrote the answer into it, so
+it measures perfect planning, not a rival to the LLM. **There is no honest
 baseline for the LLM yet**; that needs both planners, in one session, on a
 goal neither has seen.
 
@@ -387,9 +390,10 @@ whether it spends model quota or touches the live site — several do both.
 
 Each one prints what it is running under before it starts — commit,
 interpreter, Playwright and Chromium, model, switches, machine and CPU load —
-and the three that write result files write that into the file. Read it before
-trusting a wall clock: on this machine the same benchmark has measured 3.01s
-and 6.85s on one day (EVALUATION.md, 2026-09-17h).
+and the ones that write result files write that into the file. Read it before
+trusting a wall clock: on this machine the same benchmark has measured 3.01s,
+3.93s and 6.85s on one day (EVALUATION.md, 2026-09-17h). Steps and model calls
+are the metrics to lead with.
 
 Most of these scripts drive their own headless browser, which is **not** where
 the product runs. One defect has already existed only in the Electron host

@@ -1675,6 +1675,42 @@ the DOM.
 
 ---
 
+## Step count and model calls are the primary metrics; wall clock is secondary
+
+**Date:** 2026-09-18
+
+**Decision.** Every result reports steps taken, model calls, tokens and pass
+rate as its primary figures. Wall clock is reported second, always with n, the
+range, and the conditions block. No conclusion rests on a wall-clock
+difference under 2.3x unless both arms ran in one session, back to back, with
+a named mechanism for the gap.
+
+**Alternatives.** Keep leading with wall clock, which is what a reader asks
+for first. Drop timing altogether.
+
+**Why this.** The same benchmark, the same code, the same machine, one day:
+3.01s, 3.93s, 6.85s (2026-09-17h). That is a 2.3x spread from the environment,
+and the figure published on 2026-09-06 sits inside it. Steps and model calls
+did not move at all across the same ten-run arms — the 2026-09-05 ablation had
+zero variance in both — so they measure the system, while the seconds measure
+a laptop. Dropping timing is worse than keeping it honestly: a demo has to
+finish in a human amount of time, and a reader is entitled to know roughly
+what that is.
+
+**What it changes in EVALUATION.md.** An audit of every conclusion resting on
+a time difference is in "Known limitations". One claim — overlay detection off
+costing ~25s per run — sits at 2.33x and now stands on its mechanism (one
+Playwright click timeout, both arms minutes apart) rather than its seconds. The
+per-phase perception deltas (0.19s against 0.22s) are withdrawn as a
+difference; their magnitude still carries the claim they were used for.
+
+**Cost.** A table with four leading columns is less quotable than one number,
+and "mean 17.1s, range 11.8–25.7, n=10, conditions in `logs/...`" is a
+mouthful. The November benchmark has to be planned around running its arms
+back to back.
+
+---
+
 ## The inferred-option banner is an observation, not a finding
 
 **Date:** 2026-09-18
