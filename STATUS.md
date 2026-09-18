@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-18 · 323 passing, 7 skipped (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · full suite 459s. Earlier runs of a smaller suite took 329s and 367s on the same tree; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-18 (second pass) · **330 passing, 7 skipped** (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · suite wall clock 711s, and **not a clean measurement**: it shared the machine with this task's edits and two browsers. Earlier runs of a smaller suite took 329s, 367s and 459s on the same tree. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -26,15 +26,34 @@ verification on a date the page had only reformatted (2026-09-17b); a value
 matching the task's declared `About.holds` is now accepted, and that is the
 difference between the two runs.
 
-**The run found the train and did not show it.** The live results' header row
-is extracted as a table of its own, so nothing pairs `Train No.` with `2DN`,
-and the closing screen said "That's done." instead of the answer. Now the most
-important open item in perception.
+**A closing screen now shows the answer, and it shows all of it.** The live
+results' heading strip was extracted as a table of its own, so nothing paired
+`Train No.` with a train; joining them fixed it (2026-09-17i), and on
+2026-09-18 a finding carries *every* value for a label rather than the first,
+so a two-train search reads `2DN, 14DN` (2026-09-18b).
 
-**A published benchmark figure does not reproduce, by 2x.** The hardcoded plan's 5.9s
-from 2026-09-06 re-runs at 3.0s with that very commit. The code and the venv
-are ruled out; the cause is not established. Corrected in EVALUATION.md, with
-the ratios derived from it withdrawn (2026-09-17e).
+**The perception figures are confirmed in the environment that runs them.**
+Every figure in EVALUATION.md before today was measured headless; the
+scrollbar-spacer defect existed only in the Electron host. All three sites
+were re-read both ways on 2026-09-18 and **no serialized figure differs** —
+though the host's raw markup does still carry the spacer, so it was a standing
+difference and not a bad day on the live site (2026-09-18c).
+
+**A published benchmark figure does not reproduce, by 2x, and the cause is
+the machine.** The hardcoded plan's 5.9s from 2026-09-06 re-runs at 3.0s on
+that very commit — and at 3.93s and 6.85s the same day on the same tree
+(2026-09-17h). Code and venv were ruled out; what is left is the environment.
+Steps and model calls are now the primary metrics, wall clock secondary with
+its range (DECISIONS.md). Every conclusion in EVALUATION.md that rested on a
+time difference has been audited: none is withdrawn, one now stands on its
+mechanism rather than its seconds.
+
+**The project's headline perception finding is smaller than it read.**
+"What perception emits decides what a planner can use" is split in two: emitting
+what the input does not contain (occlusion, date qualifiers — 10/10 runs, and
+a distinction no prompt could supply) holds; moving words the prompt already
+carries above the element list is **falsified as stated** at 0 of 8 runs
+(EVALUATION.md, 2026-09-18).
 
 **Every ending reached from a step was unpressable** — found and fixed on
 2026-09-17, present since at least `cc4704f`. After any step, an invisible
@@ -47,6 +66,21 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-18
+
+- **A finding carries every result**, not the first: `values_for`, and
+  `voice.found` showing four values and a count (2026-09-18b).
+- **Every site read twice**, headless and in the host: no serialized figure
+  differs, the raw markup does (2026-09-18c). New script,
+  `tools/evaluation/viewport_perception_probe`.
+- **The prominence rule narrowed** to what the evidence supports, with the
+  position sub-claim withdrawn rather than caveated; `llm.py`, HANDOVER.md and
+  DECISIONS.md brought into line.
+- **Two limitation sections added** to EVALUATION.md — measurement
+  environment, and wall-clock reliability with the audit of what rested on it.
+- **`feat/evaluation-conditions-and-recovery` merged** and `main` pushed at
+  `c33f106`.
 
 ### Changed on 2026-09-17 (third pass)
 
@@ -99,6 +133,12 @@ application's state (EVALUATION.md).
 - Re-read on 2026-09-17: 66 / 39 / 18 elements on the registration replica,
   billing replica and live site — each matching its first measurement. The
   billing probe reproduces its 2026-09-06 table exactly.
+- **Re-read again on 2026-09-18, in the Electron host as well as headless**,
+  with every figure identical in both and matching its first measurement:
+  66/1/65/44, 39 with `P/WITHIN → 14,382`, 18/4/3, and the live results
+  joining 4-wide in both (2026-09-18c).
+- A label's every value, not its first: `values_for`, with `voice.found`
+  showing four and a count.
 
 **In progress**
 - Nothing.
@@ -119,10 +159,16 @@ application's state (EVALUATION.md).
    refused. Verified on the live site — a completed run now shows
    `2DN / Train` on the closing screen (EVALUATION.md, 2026-09-17i). What it
    leaves behind: **content extraction had only ever been measured headless**,
-   and this failed only in the 1280x800 host, so other readings may be
-   viewport-dependent in ways nothing has checked.
-9. `value_for` returns the first matching pair, so even when pairing works
-   "which trains?" shows one train.
+   and this failed only in the 1280x800 host.
+   ~~So other readings may be viewport-dependent in ways nothing has
+   checked.~~ **Checked 2026-09-18**: all three sites read both ways, no
+   serialized figure differs (2026-09-18c). The host's heading strip still
+   carries the spacer the fix absorbs, so the difference is standing, not
+   incidental — and the comparison is shallow, being the serializer's output
+   plus the strips' cell counts rather than the DOM. A perception figure now
+   says which environment produced it.
+9. ~~`value_for` returns the first matching pair, so even when pairing works
+   "which trains?" shows one train.~~ **Fixed 2026-09-18** (2026-09-18b).
 10. Page-side load features for the estimator: not started.
 
 **Blocked**
@@ -162,8 +208,12 @@ application's state (EVALUATION.md).
   two page shapes, **where the setback sits changed nothing**. What decided
   recovery was the options the page left — with a plausible wrong button
   present the model took it 4/4 and the run ended in `help.requested`
-  (EVALUATION.md, 2026-09-18). One of the three legs of "Where information
-  sits is a perception decision" is weaker than it read.
+  (EVALUATION.md, 2026-09-18). That leg of "What perception emits decides
+  what a planner can use" (renamed from "Where information sits is a
+  perception decision") is now **withdrawn** rather than weakened, and the
+  comment beside `build_user_prompt` says the position stays because it costs
+  nothing, not because it works. What would settle it is the same rig against
+  a stronger model.
 - **The held date has never failed a wrong-date run live.** It passed the
   correct date in 2026-09-17f. The wrong-date case is covered only by
   `test_success_conditions.py`.
@@ -287,9 +337,20 @@ application's state (EVALUATION.md).
   recorded contradictory quotas. The 2026-09-17 run hit no rate limit.
 - No LLM run against the billing flow. No LLM baseline on an unseen goal.
   Neither is blocked.
-- **The 5.9s hardcoded figure does not reproduce** and is corrected; its cause is not
-  established (2026-09-17e). The LLM timings from 2026-09-05 were taken the
-  same way and have not been re-run.
+- ~~**The 5.9s hardcoded figure does not reproduce** and is corrected; its
+  cause is not established.~~ **Explained 2026-09-18** as far as this machine
+  allows: 3.01s, 3.93s and 6.85s in one day on one tree is a 2.3x
+  environmental spread, and 5.93s sits inside it (2026-09-17h). Steps and
+  model calls lead every result now; wall clock follows with n, range and
+  conditions (DECISIONS.md). **The audit is done**: no conclusion is
+  withdrawn, the ~25s overlay-detection cost stands on its mechanism rather
+  than its seconds, and the per-phase perception deltas (0.19s against 0.22s)
+  are withdrawn as a difference. The LLM timings from 2026-09-05 were taken
+  the same way and have not been re-run, so their absolute seconds are not
+  today's.
+- **Two limitations are now stated rather than implied**: what environment a
+  perception figure was measured in, and what a wall clock from this machine
+  is worth.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It
@@ -321,8 +382,10 @@ application's state (EVALUATION.md).
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
-- The day's work is committed on `feat/orchestrator-evaluation-scripts`, not
-  merged, and not pushed.
+- ~~The day's work is committed on `feat/orchestrator-evaluation-scripts`,
+  not merged, and not pushed.~~ Merged and pushed 2026-09-18; `main` is at
+  `c33f106`. 2026-09-18's own work is on
+  `feat/evaluation-limits-and-all-results`.
 
 **Blocked**
 - Nothing.
