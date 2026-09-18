@@ -198,15 +198,20 @@ def build_user_prompt(
     # Feedback goes first, in the imperative, above the history and above the
     # element list.
     #
-    # It used to be appended after the page, and a live run showed what that
-    # costs. The model was told in plain words that the date it had set was
-    # the wrong one and that the choice needed committing — and it clicked
-    # search anyway, because the setback was sitting eighteen element lines
-    # below the thing it was about. Same lesson as the overlay banner and the
-    # open-choices banner, in a third place: anything a planner must act on
-    # *at this step* sits above the list, or it competes with the list and
-    # loses. See EVALUATION.md, "Where information sits is a perception
-    # decision".
+    # It used to be appended after the page, and one live decision looked
+    # like it mattered: the model was told in plain words that the date it had
+    # set was the wrong one, and it clicked search anyway with the setback
+    # eighteen element lines below the thing it was about. Re-asked with the
+    # words moved up, it addressed the date.
+    #
+    # That was one call, and it did not hold up. Measured on runs — a replica
+    # page rigged to fail, `SIMBA_SETBACK_PLACEMENT` switching the position —
+    # placement changed nothing in 8 of 8 runs; what decided recovery was the
+    # options the page left (EVALUATION.md, 2026-09-18). The position stays
+    # because it costs nothing and reads better, **not** because it is known
+    # to work. Do not cite it as a finding: the supported half of "Where
+    # information sits is a perception decision" is about emitting what the
+    # input lacks, not about moving what it has.
     if feedback and above:
         parts += [SETBACK_HEADING, f"Problem: {feedback}", ""]
 

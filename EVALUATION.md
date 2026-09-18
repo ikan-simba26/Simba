@@ -903,10 +903,14 @@ It answered:
                    setting the route and date."}
 
 Eighteen element lines sat between the instruction and the end of the prompt.
-This is the prompt-prominence finding for a third time, in a channel where it
-had not been applied: the setback was appended *after* the page. Moved above
-the element list and stated in the imperative, the same decision, same page
-state, one call:
+This looked like the prompt-prominence finding for a third time, in a channel
+where it had not been applied: the setback was appended *after* the page.
+Moved above the element list and stated in the imperative, the same decision,
+same page state, one call:
+
+*Superseded 2026-09-18. On a rig where every run reaches this state, placement
+changed 0 of 8 runs. This single call is what the claim rested on, and it does
+not generalise — see "Where information sits is a perception decision".*
 
     {"action": "type", "element_id": 12,
      "reasoning": "I am re-entering the correct date into the field to ensure
@@ -1032,14 +1036,21 @@ Two further things this establishes:
 
 ## Where information sits is a perception decision
 
-Three times now the same thing has been true, and it is worth stating as a
-finding rather than rediscovering: **what perception knows is not what a
-planner uses. Where it puts it decides that.** The model is not reasoning over
-a database it can query. It is reading a page of text, once, and the position
-of a sentence in that page changes whether the sentence has any effect.
+**What perception knows is not what a planner uses.** The model is not
+reasoning over a database it can query; it is reading a page of text, once.
+What reaches its decision is what perception chose to emit, and where it put
+it.
 
-The cleanest measurement is the inferred-option case, because only one thing
-changed and it changed nothing about the information.
+*Narrowed 2026-09-18, with one sub-claim withdrawn.* This section was written
+as "three times now the same thing has been true". Two of those cases are
+about **information the model had not been given**, and both hold. The rest is
+about **moving words the model already had**, and that has since been tested
+on runs rather than on single calls: it made no difference in eight of eight
+(2026-09-18). The two halves are stated separately below, because they are not
+the same claim and only one of them is supported.
+
+The cleanest measurement is still the inferred-option case, because only one
+thing changed — but read "What does not hold" below before quoting it.
 
 ### The experiment
 
@@ -1087,43 +1098,70 @@ It answered:
 
 One call to fix, and the fix was moving a sentence.
 
-### Why this is a perception finding and not a prompting trick
+### What holds: emitting what the model did not have
 
-Because the same result has now happened three times, in three different
-mechanisms, and only the first was ever framed as prompting:
+Two cases, and in both of them perception put something into the input that
+was not in it before. Neither is a prompting trick, because no prompt could
+have produced the missing fact:
 
-1. **Overlays.** A modal's buttons in a list of sixty are just more buttons.
-   `render_page` prints `AN OVERLAY IS COVERING THE PAGE` above the list and
-   marks the elements `OVERLAY` and `OCCLUDED`. Without it, a run clicks
-   underneath a modal and waits for a click that can never land — measured at
-   10/10 (2026-09-05).
-2. **Inferred options.** This section.
-3. **Calendar days.** The model was given 42 day cells, eleven of the numbers
+1. **Calendar days.** The model was given 42 day cells, eleven of the numbers
    appearing twice, with nothing separating a day of the month on screen from
    a day of the month either side. It picked the 15th of the wrong month. No
    prompt could have fixed that, because *the distinction was not in the
    input at all*. The fix was a qualifier on the element (2026-09-09), which
-   is a change to what perception emits.
+   is a change to what perception emits. **This is the case that settles the
+   argument**: prompting can only rank what is present.
+2. **Overlays.** Whether a control is covered is not derivable from a list of
+   controls. `render_page` prints `AN OVERLAY IS COVERING THE PAGE` and marks
+   the elements `OVERLAY` and `OCCLUDED`; without it a run clicks underneath a
+   modal and waits for a click that can never land. **Measured at 10/10 runs**
+   (2026-09-05) — the only leg of this finding with a run count behind it.
+   Note what the marking adds: occlusion, which the page never declares.
 
-Case 3 is the one that settles the argument. Prompting can only rank what is
-present. Case 1 and case 2 are the same problem one step earlier: the
-information was present but positioned where it did not survive being read.
-A rule in a standing list competes with eight other rules and a page of
-elements; a banner is read at the moment the decision is made.
+So this much of the design rule stands, and it is a perception
+responsibility — it says what `serialize` must emit:
 
-So the design rule, stated plainly:
+> Anything that distinguishes one element from another has to be **on the
+> element**, and any state of the page a planner must respect — covered,
+> disabled, already chosen — has to be emitted at all, because no amount of
+> instruction can separate two lines of text that are identical or supply a
+> fact the input does not contain.
 
-> Anything a planner must act on **at this step** goes above the element
-> list, in the imperative, naming the elements it applies to. Anything that
-> is background belongs in the standing rules. And anything that
-> distinguishes one element from another has to be **on the element**,
-> because no amount of instruction can separate two lines of text that are
-> identical.
+### What does not hold: moving words the model already had
 
-That is a perception responsibility, not a prompt-engineering one. It says
-what `serialize` must emit, what `render_page` must promote, and — as the
-calendar showed — when neither is enough and the element itself has to carry
-more.
+> ~~Anything a planner must act on **at this step** goes above the element
+> list, in the imperative, naming the elements it applies to.~~
+> **Falsified as stated, 2026-09-18.**
+
+That was the other half of the rule, and it rested on two single calls: the
+inferred-option experiment above (one call against two) and the promoted
+setback on 2026-09-09b (one re-asked decision). Both moved words that were
+already in the prompt to a different position, and both got a better answer
+once.
+
+Tested on runs, it does not reproduce. A replica page rigged to fail
+(`/stubborn`) put every run into the state the claim is about, with a setback
+in hand, and `SIMBA_SETBACK_PLACEMENT` decided whether it sat above the
+element list or after it: **0 of 8 runs changed, across two page shapes**
+(2026-09-18). What decided recovery was the options the page left. Offered a
+plausible wrong control labelled "Refresh and try again", the model took it
+four times out of four — having been told in the imperative, directly above
+the list, that its last action had done nothing.
+
+The narrowed statement:
+
+- **For a correction the model already holds, promotion is not known to
+  change anything, and on the one rig where it has been measured it changed
+  nothing.** It costs nothing, so it stays; it is not a result and should not
+  be reported as one.
+- **The inferred-option case is not a third leg of support.** It is n = 1, on
+  a different page, and structurally identical to what the eight runs
+  falsified — the same words, moved. It is recorded here as an observation
+  until it is re-run the way the setback was.
+- **Background versus imperative** — which rules live in the standing prompt
+  and which are promoted above the element list — is therefore an unmeasured
+  design preference, not a finding. It should be described that way wherever
+  it appears.
 
 ### The cost of the alternative
 
@@ -2230,19 +2268,32 @@ outcome was what else was on the page.
 
 ### What this does to the earlier claim
 
-EVALUATION.md's "Where information sits is a perception decision" rests on
-three cases. Two are unaffected: the overlay banner (10/10 runs, measured) and
-the calendar qualifiers (the distinction was absent from the input). The
-third — the promoted setback — rested on **one re-asked decision** on
-2026-09-09, where moving the same words above the list changed the answer.
+EVALUATION.md's "Where information sits is a perception decision" drew on
+three mechanisms plus this one. Two are unaffected: the overlay banner (10/10
+runs, measured) and the calendar qualifiers (the distinction was absent from
+the input) — in both, perception emitted something the model did not have.
+The promoted setback is a different claim, because the words were already in
+the prompt and only their position moved. It rested on **one re-asked
+decision** on 2026-09-09b. The inferred-option banner, which that section
+calls its second case, rests on one call in the same way.
 
 That observation stands as a single call on a different page. It does not
 generalise: on this rig, across eight runs and two page shapes, the promotion
-made no difference at all. The honest statement is now:
+made no difference at all. **The sub-claim is falsified as stated**, not
+qualified —
 
-> Prominence is worth having and costs nothing, and there is no evidence it
+> ~~Anything a planner must act on at this step goes above the element
+> list.~~
+
+— and this replaces it:
+
+> Promotion is worth having and costs nothing, and there is no evidence it
 > changes a run. Whether a planner recovers from a setback is decided by the
 > options the page leaves it, not by where it was told.
+
+The half of the rule that survives is about emitting what the input does not
+contain — occlusion, a qualifier — which is a different mechanism with its own
+evidence. The two are now stated separately in that section.
 
 `SIMBA_SETBACK_PLACEMENT=after` restores the old position, so this can be
 re-run against any model and any page.
@@ -2296,3 +2347,4 @@ Measured on the 2026-09-09 results, rebuilt as markup in a browser:
 `values_for("Train No.")` is `["2DN", "14DN"]` and the finding reads
 `Train 2DN, 14DN`. The billing amount, a label its page uses once, is
 unchanged at `14,382` — asserted end to end against the replica.
+

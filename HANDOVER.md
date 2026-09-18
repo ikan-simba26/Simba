@@ -155,16 +155,22 @@ Empty. See §3.
 Six findings, each with the numbers behind it. The full account of each is in
 [EVALUATION.md](EVALUATION.md).
 
-**1. Where information sits in a prompt decides whether the model uses it.**
-On the registration replica the model clicked "Register" underneath an open
-modal in **10 of 10** runs, although the system prompt told it to dismiss
-overlays first. Once perception printed a banner above the element list
-saying a modal was covering the page, **0 of 10** did; steps went from 6–10 to
-exactly 5, and mean time from **61.3s to 17.1s**. The same thing happened
-with dropdown options on the live site: as a rule in the prompt the model
-ignored it; as a banner above the list it clicked the option first time.
-Three separate cases in all, stated as a design rule in EVALUATION.md, *"Where
-information sits is a perception decision"*.
+**1. What perception emits decides what the model can use — where it sits in
+the prompt is unproven.** On the registration replica the model clicked
+"Register" underneath an open modal in **10 of 10** runs, although the system
+prompt told it to dismiss overlays first. Once perception marked the elements
+`OVERLAY`/`OCCLUDED` and printed a banner, **0 of 10** did; steps went from
+6–10 to exactly 5, and mean time from **61.3s to 17.1s** (that pair of times
+is from one 2026-09-05 session and should be read as ±2x — see finding 6).
+The calendar case is the same mechanism with nothing to argue about: the
+distinction between the 15th of this month and the 15th of the next was *not
+in the input at all*, and no prompt could have supplied it.
+
+The narrower claim about *position* — the same words moved above the element
+list — was built on two single calls and does not survive runs: on a rig where
+every run needs the correction, placement changed **0 of 8** (2026-09-18).
+EVALUATION.md's *"Where information sits is a perception decision"* now states
+the two halves separately, one supported and one falsified.
 
 **2. Success rate told us nothing.** It was **10/10 in every condition** ever
 run on the registration replica — before overlay detection, after it, and

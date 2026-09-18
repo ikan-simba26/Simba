@@ -929,6 +929,15 @@ This matches what the overlay banner and the open-choices banner already do,
 and EVALUATION.md now states the rule the three of them share: anything a
 planner must act on at *this* step sits above the list.
 
+**Revisited 2026-09-18, and the reasoning above is withdrawn while the
+decision stands.** Measured on runs rather than on one re-asked call —
+`/stubborn`, `SIMBA_SETBACK_PLACEMENT`, eight runs, two page shapes —
+placement changed nothing at all, and what decided recovery was the options
+the page left. The position stays because it costs nothing and reads better.
+The rule it was said to share with the two banners has been split in
+EVALUATION.md: emitting what the input lacks is supported, moving what the
+input already has is not.
+
 **Cost.** It buys attention, not competence — given the correction, the model
 re-typed the date, which is exactly what the widget discards. And the
 end-to-end effect is unverified: it changed one decision under test and has
@@ -1624,3 +1633,36 @@ keep working, and a switch whose `after` arm exists only to be measured
 against. The first version of the page measured the wrong thing — it kept the
 site nav, and the model escaped through a live link to the login page — so the
 rig itself needs reading before it is trusted.
+
+---
+
+## The inferred-option banner is an observation, not a finding
+
+**Date:** 2026-09-18
+
+**Decision.** EVALUATION.md's "Where information sits is a perception
+decision" is split in two. Emitting what the input does not contain —
+occlusion, a date qualifier — is a supported finding. Moving words the prompt
+already carries, above the element list instead of after it, is not: it is
+recorded as an observation until it is re-run on runs.
+
+**Alternatives.** Keep the rule as three mutually supporting cases and attach
+the setback result as a caveat. Withdraw the whole section.
+
+**Why this.** The three cases were never the same claim. The calendar
+qualifier added a distinction that was absent from the input, and the overlay
+marking added occlusion, which a page never declares — both measured, one at
+10/10 runs. The inferred-option banner and the promoted setback moved words
+that were already there, and each rested on a single re-asked call. Measured
+on runs, that mechanism changed nothing in 8 of 8 (2026-09-18). A caveat
+would leave a falsified sub-claim readable as a result, which is exactly the
+kind of thing a reader quotes.
+
+Withdrawing the section would be wrong in the other direction: the supported
+half is the strongest perception result the project has, and it is what
+justifies `serialize` emitting qualifiers and occlusion at all.
+
+**Cost.** The project's headline finding is now smaller and harder to
+summarise, and it no longer says anything about prompt layout. `render_page`
+keeps promoting banners on the strength of costing nothing, which is a weaker
+reason than the one written beside the code before today.
