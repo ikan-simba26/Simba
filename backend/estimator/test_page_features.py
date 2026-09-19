@@ -13,18 +13,21 @@ Nothing here asserts that a number is *good*. There is no scoring yet and
 these features are raw by decision (DECISIONS.md, 2026-09-19).
 """
 
+import asyncio
+
 import pytest
-from playwright.sync_api import Page
+from playwright.async_api import async_playwright
 
 from backend.estimator.page_features import (
     FIELD_ROLES,
+    FIELD_TAGS,
     PageFeatures,
     features,
     max_depth,
     reading_grade,
     syllables,
 )
-from backend.perception.serializer import VIEWPORT, read
+from backend.perception.serializer import VIEWPORT, read_async
 from backend.perception.snapshot import ELEMENT_NODE, TEXT_NODE, Document
 
 # --- the arithmetic ---------------------------------------------------------
@@ -218,54 +221,63 @@ def _view():
 
 
 # --- the element-side features, against a real page -------------------------
+#
+# Async, and not because these tests need to be: a live `sync_playwright`
+# session breaks `asyncio.run` in the same thread, and the orchestrator's
+# tests are all `asyncio.run`. A session-scoped sync browser opened by a
+# module that sorts before `orchestrator/` — `estimator/` does — failed 54 of
+# them (`backend/conftest.py`). The replicas come from there; the browser is
+# opened and closed here.
 
 
-def read_features(page: Page, url: str) -> PageFeatures:
-    page.goto(url)
-    view = read(page, VIEWPORT)
-    assert view.document is not None, "the read brought back no snapshot"
-    return features(view, view.document, VIEWPORT)
+async def _read(url: str, drive=None) -> tuple[PageFeatures, list]:
+    """Load a page, optionally do something on it, and measure what is there."""
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        page = await browser.new_page(viewport={"width": VIEWPORT[0],
+                                                "height": VIEWPORT[1]})
+        try:
+            await page.goto(url)
+            if drive is not None:
+                await drive(page)
+            view = await read_async(page, VIEWPORT)
+            assert view.document is not None, "the read brought back no snapshot"
+            return features(view, view.document, VIEWPORT), view.elements
+        finally:
+            await browser.close()
 
 
-def test_the_course_list_matches_what_perception_records_for_it(
-    page: Page, replica: str
-) -> None:
+async def sign_in(page) -> None:
+    await page.get_by_role("textbox", name="Student ID or Username").fill("student")
+    await page.get_by_role("textbox", name="Password").fill("x")
+    await page.get_by_role("button", name="Sign In").click()
+    await page.wait_for_url("**/courses")
+
+
+def test_the_course_list_matches_what_perception_records_for_it(replica: str) -> None:
     """66 elements, one overlay, 44 dead links — the figures in EVALUATION.md
     for this page, counted again through the features."""
-    page.goto(replica)
-    page.get_by_role("textbox", name="Student ID or Username").fill("student")
-    page.get_by_role("textbox", name="Password").fill("x")
-    page.get_by_role("button", name="Sign In").click()
-    page.wait_for_url("**/courses")
+    found, elements = asyncio.run(_read(replica, sign_in))
 
-    view = read(page, VIEWPORT)
-    found = features(view, view.document, VIEWPORT)
-
-    assert found.interactive == len(view.elements) == 66
+    assert found.interactive == len(elements) == 66
     assert found.overlays == 1
-    assert found.links == sum(1 for e in view.elements
+    assert found.links == sum(1 for e in elements
                               if e.role == "link" or e.tag == "a")
     assert found.dead_link_ratio == pytest.approx(
-        sum(1 for e in view.elements if e.dead_link) / found.links, abs=0.001)
+        sum(1 for e in elements if e.dead_link) / found.links, abs=0.001)
     assert found.max_depth > 5
     assert found.words > 50
     assert found.text_density > 0
 
 
-def test_the_login_page_is_the_simpler_of_the_two(page: Page, replica: str) -> None:
+def test_the_login_page_is_the_simpler_of_the_two(replica: str) -> None:
     """Not a score — a sanity check that these numbers move with the page.
 
     A feature that reads the same on a three-field login as on a sixty-element
     course list is not measuring the page.
     """
-    login = read_features(page, replica)
-
-    page.get_by_role("textbox", name="Student ID or Username").fill("student")
-    page.get_by_role("textbox", name="Password").fill("x")
-    page.get_by_role("button", name="Sign In").click()
-    page.wait_for_url("**/courses")
-    view = read(page, VIEWPORT)
-    courses = features(view, view.document, VIEWPORT)
+    login, _ = asyncio.run(_read(replica))
+    courses, _ = asyncio.run(_read(replica, sign_in))
 
     assert login.interactive < courses.interactive
     assert login.text_density < courses.text_density
@@ -279,21 +291,25 @@ def test_the_login_page_is_the_simpler_of_the_two(page: Page, replica: str) -> N
     assert login.links == courses.links
 
 
-def test_the_fields_on_the_billing_form_are_counted(page: Page, billing: str) -> None:
-    found = read_features(page, billing)
+def test_the_fields_on_the_billing_form_are_counted(billing: str) -> None:
+    found, elements = asyncio.run(_read(billing))
 
     assert found.form_fields >= 1
     assert found.interactive > found.form_fields
     # Nothing is covering this page, and nothing is inferred on it either.
     assert found.overlays == 0
+    assert found.inferred == 0
 
 
-def test_a_field_role_counts_even_when_the_tag_does_not(page: Page, replica: str) -> None:
+def test_a_field_role_counts_even_when_the_tag_does_not(replica: str) -> None:
     """The set is roles *or* tags: a library that builds a field out of divs
     reaches perception as a role and nothing else."""
     assert "combobox" in FIELD_ROLES and "textbox" in FIELD_ROLES
-    found = read_features(page, replica)
+
+    found, elements = asyncio.run(_read(replica))
+
     assert found.form_fields == sum(
-        1 for element in read(page, VIEWPORT).elements
-        if element.tag in {"input", "textarea", "select"} or element.role in FIELD_ROLES
+        1 for element in elements
+        if element.tag in FIELD_TAGS or element.role in FIELD_ROLES
     )
+    assert found.form_fields >= 2

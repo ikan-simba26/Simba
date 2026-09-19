@@ -1,13 +1,17 @@
-"""Fixtures shared by the tests that need a browser and a replica.
+"""The replica servers, shared by every backend test that needs one.
 
-They live in a conftest rather than in one test module so every module gets
-the same session-scoped browser. Importing a fixture across modules registers
-it twice and enters `sync_playwright()` twice, which fails.
+They live in a conftest rather than in one test module so that two modules
+asking for a replica get the *same* one. A second copy would be two servers on
+one port: whichever started first would hold 5001 and the other would fail, in
+a way that reads as a broken test rather than as a duplicated fixture.
 
-Moved up from `perception/` on 2026-09-19, when the estimator's tests needed
-the same two replicas. A second copy would have been two servers on one port:
-whichever started first would hold 5001 and the other would fail, in a way
-that reads as a broken test rather than as a duplicated fixture.
+**Only the servers live here.** The sync-API browser stays in
+`perception/conftest.py`, one directory down, and this is not tidiness. A live
+`sync_playwright` session breaks `asyncio.run` in the same thread — "asyncio.run()
+cannot be called from a running event loop" — so a session-scoped sync browser
+visible to `orchestrator/`, whose tests are all `asyncio.run`, fails 54 of them
+the moment a module that sorts earlier opens it. Measured on 2026-09-19, by
+moving it up here and running the suite.
 """
 
 import os
@@ -20,7 +24,6 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page, Playwright
 
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
@@ -63,12 +66,3 @@ def _wait_for(url: str, timeout_s: float = 20.0) -> None:
         except (urllib.error.URLError, ConnectionError):
             time.sleep(0.2)
     raise RuntimeError(f"replica did not start at {url}")
-
-
-@pytest.fixture(scope="session")
-def page(playwright_instance: Playwright) -> Iterator[Page]:
-    # The Playwright instance is shared session-wide; see the root conftest.
-    browser = playwright_instance.chromium.launch()
-    page = browser.new_page(viewport={"width": 1280, "height": 800})
-    yield page
-    browser.close()
