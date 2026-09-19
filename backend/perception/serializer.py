@@ -152,6 +152,12 @@ class PageView:
 
     elements: list[Element] = field(default_factory=list)
     content: Content = field(default_factory=Content)
+    # The parsed snapshot this read was built from, when there was one. Kept
+    # so a caller that needs the page itself — the estimator's features are
+    # counted off the DOM, not off the element list — works from the same
+    # moment as the elements above, rather than capturing a second snapshot
+    # of a page that has moved on. None when the switches turned it off.
+    document: Document | None = None
 
 
 def _wants_snapshot() -> bool:
@@ -251,7 +257,7 @@ def _assemble(
 
     elements = build_elements(ax_nodes, index_dom(document), overlays, parsed)
     content = extract(parsed) if parsed else Content()
-    return PageView(elements=elements, content=content)
+    return PageView(elements=elements, content=content, document=parsed)
 
 
 def build_elements(

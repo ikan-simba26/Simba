@@ -1,8 +1,13 @@
-"""Fixtures shared by the perception tests.
+"""Fixtures shared by the tests that need a browser and a replica.
 
-They live here rather than in one test module so both modules get the same
-session-scoped browser. Importing a fixture across modules registers it twice
-and enters `sync_playwright()` twice, which fails.
+They live in a conftest rather than in one test module so every module gets
+the same session-scoped browser. Importing a fixture across modules registers
+it twice and enters `sync_playwright()` twice, which fails.
+
+Moved up from `perception/` on 2026-09-19, when the estimator's tests needed
+the same two replicas. A second copy would have been two servers on one port:
+whichever started first would hold 5001 and the other would fail, in a way
+that reads as a broken test rather than as a duplicated fixture.
 """
 
 import os
@@ -17,7 +22,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Page, Playwright
 
-REPLICAS = Path(__file__).resolve().parents[2] / "replicas"
+REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"
 
