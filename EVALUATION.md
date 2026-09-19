@@ -2975,6 +2975,30 @@ that step was showing — and the features move with the run, including the
 `overlays: 1` row for the step presented over the modal. A run with no
 recorder writes nothing, which is every other test in the repository.
 
+### Through the real stack, not only the tests
+
+`run.ps1 billing`, driven by `host_overlay_run` pressing the overlay's own
+buttons, 6.5s, **7 rows across 3 steps**:
+
+| Step | Instruction | controls | fields | density | hesitation |
+|---|---|---|---|---|---|
+| 1 | "The site is asking about cookies." | 37 | 1 | 1.73 | 996ms (answered) |
+| 2 | "Let me look up your bill." | 35 | 1 | 1.55 | 54ms, then 2052ms (answered) |
+| 3 | "Now I'll open the full bill." | 39 | 0 | 2.64 | 306 → 3305 → 6304 → 9300ms |
+
+Step 3 was left alone on purpose, and the trail is what it is for: four
+samples, hesitation climbing, the page behind them unchanged. The features
+move with the run — a form page, a filled form page, a results page — which is
+the pairing doing its job.
+
+One thing the same run showed that no test would have: driven against the
+*registration* flow, `host_overlay_run` presses the primary action without
+filling the credential fields, so the sign-in does not happen, the modal never
+opens, and the run ends stuck two steps later. The rows say so plainly — step
+2's page reads `controls: 49, overlays: 0`, which is the login page, not the
+course list — and that is the first time this project's own data has explained
+one of its own failures.
+
 `data/steps.jsonl` is **not committed**: it holds the goals a person typed.
 The corpus beside it is public pages and is.
 
