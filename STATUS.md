@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-19 · **369 passing, 7 skipped** (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · suite wall clock 438s, measured with nothing else running. Earlier runs of a smaller suite took 329s, 367s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-20 · **399 passing, 3 skipped** · suite wall clock 720s. Only 3 skipped because a host happened to be running, so the five Electron tests ran rather than skipping; without one it is 8 skipped (5 host, 2 `SIMBA_LIVE_TESTS=1`, 1 `SIMBA_HOST_TESTS=1`). Earlier runs of smaller suites took 329s, 367s, 438s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -48,7 +48,24 @@ its range (DECISIONS.md). Every conclusion in EVALUATION.md that rested on a
 time difference has been audited: none is withdrawn, one now stands on its
 mechanism rather than its seconds.
 
-**The estimator has started, and it measures nothing about a person yet.**
+**Both channels exist now, and nothing reads either.** Channel A is the
+page: nine raw features per step. Channel B is the person: hesitation, cursor
+path ratio, backtracks, re-reads and help presses, sent by the overlay on
+every step response and on a 3s timer while a step waits — `telemetry` had
+been in CONTRACT.md since 2026-09-04 with no sender. Every sample is written
+beside the page features of the step it belongs to, in `data/steps.jsonl`,
+which is **not committed** because it carries the goals a person typed
+(2026-09-20c). No score, no weights, no user data collected yet.
+
+**Bounds are CSS pixels everywhere.** `snapshot.parse` converts on the way in,
+so overlays, interactivity, content and the estimator all read the same units
+as the frozen viewport. Every recorded perception figure was re-measured in
+both environments afterwards and **not one moved** — but `MIN_COVERAGE = 0.30`
+has been behaving as **0.133 in the host** since the rule existed, because a
+box 1.5x too large covers 2.25x the area. The registration modal read a
+coverage of **2.220** before the fix and 0.986 after (2026-09-20).
+
+**The estimator measures nothing about a person yet.**
 `backend/estimator/page_features.py` reads nine raw features off one page
 read — counts, a density, a depth, a dead-link ratio and a Flesch-Kincaid
 grade — with **no score, no weights and no normalisation**, because those need
@@ -79,6 +96,23 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-20
+
+- **CSS pixels at the source** (`snapshot.parse`), with every recorded
+  perception figure re-measured in both environments: none changed
+  (2026-09-20).
+- **What `MIN_COVERAGE` has actually been measuring**, per environment, stated
+  in EVALUATION.md — 0.30 headless, 0.133 in the host.
+- **The corpus is 34 pages**, including both replicas, `/stubborn`, the live
+  site with its dropdown and calendar open, and seven application-like public
+  pages. `dead_link_ratio` and `form_fields` are no longer flat; `overlays`
+  and `inferred` still are (2026-09-20b).
+- **`controls` is one feature** where `interactive` and `links` were two, with
+  both counts and `link_share` kept.
+- **Channel B is sent and recorded** (2026-09-20c): `frontend/src/telemetry.ts`,
+  `backend/estimator/pairing.py`, `data/steps.jsonl`.
+- **`feat/estimator-features-and-every-result` merged**; `main` at `d239126`.
 
 ### Changed on 2026-09-19
 
@@ -173,18 +207,25 @@ application's state (EVALUATION.md).
 **Open — Nahail's call**
 1. **The DOM is not the application's state.** No defence except driving
    widgets the way a person must.
-1b. **A snapshot's bounds are in device pixels, and every caller has to know
-   it.** The same `<h1>` measures `(256, 120, 768, 32)` headless and
-   `(384, 180, 1152, 48)` in the host, which runs at `devicePixelRatio` 1.5 on
-   this machine — both reporting a CSS viewport of 1280x800. `overlays.py`
-   compares a blocker's area against `1280 × 800` in CSS pixels, so in the
-   host a dialog covering a fifth of the screen scores as though it covered
-   nearly half. Nothing measured has changed outcome because of it — the
-   modals we test with cover the screen either way — but the coverage
-   thresholds are not measuring what they say. Converting inside
-   `snapshot.parse` would fix it for every reader of `bounds` and means
-   re-measuring the recorded figures, so it is **flagged rather than done**
-   (EVALUATION.md, 2026-09-19b). The estimator converts on its own for now.
+1b. ~~A snapshot's bounds are in device pixels, and every caller has to know
+   it.~~ **Fixed 2026-09-20**: `snapshot.parse` converts, `Document` records
+   the ratio, and every recorded figure was re-measured in both environments
+   without moving. What it leaves behind is a threshold question, below.
+2b. **`MIN_COVERAGE` has been two different numbers, and is now one.** As
+   written it is 0.30 of the viewport; in the host it behaved as **0.133**,
+   because a box 1.5x too large in each direction covers 2.25x the area. So
+   the host has been *more* sensitive to mid-sized blockers than the code
+   said, and since the fix it is less sensitive than it was yesterday:
+   anything covering between 13% and 30% is no longer flagged there. Nothing
+   in the three flows sits in that band — the only page-level blocker we have
+   is the registration modal at 98.6% — but **0.30 has never been calibrated
+   against real pages**, and the corpus is the instrument for that.
+2c. **A full-screen modal with no z-index is invisible to the detector.**
+   `the-internet.herokuapp.com/entry_ad` covers 100% of the viewport with a
+   `position: fixed` overlay and `z-index: auto`; `MIN_STACK_LEVEL` requires
+   5, so neither the page-level nor the target-scoped rule sees it. Found by
+   the corpus (2026-09-20b). A fixed element covering the page arguably needs
+   no z-index to be on top, and the rule could say so — Nahail's call.
 2. A modal's content is skipped along with a dropdown's.
 3. Elements with no accessible name are addressable only by ordinal.
 4. Panel headings are found by class-name fragment; a picker that names its
@@ -290,6 +331,9 @@ application's state (EVALUATION.md).
 - **Stopping is not failing** (2026-09-17): the stop ending shows the moment
   stop is pressed.
 - All copy in `copy.ts`; the component scan catches any words.
+- **Telemetry**, five numbers per step, on the answer and on a timer
+  (`src/telemetry.ts`). No keystrokes, no field values, no coordinates leave
+  the renderer.
 - **The closing screen shows every result**, one per line, shrinking the type
   as the list grows. Verified live: two trains, two journey times, nothing the
   site returned missing from the screen (2026-09-19).
@@ -332,12 +376,19 @@ application's state (EVALUATION.md).
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
-- **The page-side features**, raw: `interactive`, `inferred`, `text_density`
+- **The page-side features**, raw: `controls`, `inferred`, `text_density`
   (characters per 1000px² of the viewport), `max_depth`, `overlays`,
-  `form_fields`, `links`, `dead_link_ratio`, `reading_grade`, plus the five
-  counts the derived two are built from. 27 tests, arithmetic and browser.
-- **The first corpus**: 20 public pages, read headless and in the host,
-  `data/corpus.json` with its conditions (`tools/evaluation/collect_corpus`).
+  `form_fields`, `dead_link_ratio`, `reading_grade`, plus the raw counts they
+  are built from — `links`, `non_link_controls`, `dead_links`, `link_share`,
+  characters, words, sentences, syllables. 28 tests, arithmetic and browser.
+- **The corpus**: 34 pages — both replicas, `/stubborn`, the live site in
+  three states, twenty public pages and seven application-like ones — read in
+  both environments, 0 failures (`tools/evaluation/collect_corpus`,
+  `data/corpus.json`).
+- **Channel B**: the overlay sends telemetry on every step response and on a
+  3s timer; the loop pairs each sample with the page features of that step and
+  appends a row to `data/steps.jsonl` (`backend/estimator/pairing.py`). 14
+  tests: 8 on the pairing, 6 driving the built overlay in a browser.
 
 **Open — Nahail's call**
 1. **No score, and deliberately so.** Weights need a calibration and there is
@@ -352,8 +403,15 @@ application's state (EVALUATION.md).
 4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
    the most heuristic number here: block-counted sentences and a vowel-group
    syllable counter (DECISIONS.md).
-5. Nothing consumes the features yet. `telemetry` from the frontend is
-   specified and unsent, so the behavioural half has no input either.
+5. **Nothing consumes either channel.** The rows accumulate; no score reads
+   them, and `load.updated` still only ever comes from the mock.
+6. **No user data exists.** Every telemetry number so far came from a test
+   driving a browser. Whether any of the five separates a page someone coped
+   with from one they did not is the whole question and is unmeasured.
+7. **The definitions are starting guesses**: 8px of movement, ~120° of turn, a
+   3s timer, "re-read" as the pointer re-entering the text. All in
+   `frontend/src/telemetry.ts` so they can be moved together.
+8. **`data/steps.jsonl` grows without bound** and has no rotation.
 
 **Blocked**
 - Nothing.
@@ -369,9 +427,14 @@ application's state (EVALUATION.md).
 - **`Finding.values`** added 2026-09-19: every value for a label, beside the
   one-line `value`. Additive and optional, which CLAUDE.md allows without a
   ratification session — a sender that omits it means `[value]`.
+- **`Telemetry.answered`** added 2026-09-20, same rule: true on the sample
+  that goes with the response, absent on a timer sample. CONTRACT.md now also
+  says how each of the five numbers is measured.
 
 **Open**
-- `telemetry` is specified and nothing sends it.
+- ~~`telemetry` is specified and nothing sends it.~~ **Sent since
+  2026-09-20**, and recorded. Nothing reads it back yet, which is the
+  estimator's item and not the contract's.
 - The examples for `step.presented` ("Not now") and `help.requested` ("Can
   you click it for me? I'll carry on from there.") no longer match what the
   system says. Left for the ratification session.
@@ -416,9 +479,10 @@ application's state (EVALUATION.md).
 - **Two limitations are now stated rather than implied**: what environment a
   perception figure was measured in, and what a wall clock from this machine
   is worth.
-- **The corpus is 20 pages read once.** Enough to choose features, nowhere
-  near enough to calibrate a score, and it contains no page with a modal on
-  it. Extending it is the next thing the estimator needs.
+- **The corpus is 34 pages read once.** Enough to choose features and to
+  show which carry no signal; nowhere near enough to calibrate a score. Five
+  of its rows are pages we wrote, so a feature that separates our replicas
+  from the world may be measuring our HTML habits.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It

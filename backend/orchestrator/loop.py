@@ -24,11 +24,15 @@ from typing import Protocol
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
+from backend.estimator.page_features import PageFeatures
+from backend.estimator.page_features import features as page_features
+from backend.estimator.pairing import Recorder
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import (
     Element,
+    PageView,
     blockers_for_target_async,
     read_async,
 )
@@ -129,7 +133,25 @@ class Connection:
             return message
 
 
-async def perceive(page: Page) -> tuple[list[Element], Snapshot]:
+def features_of(view: PageView) -> PageFeatures | None:
+    """The page's raw features, or None when this read brought no snapshot.
+
+    The ablation switches turn the snapshot off, and a page read without one
+    has no layout to count. A row with no page on it is not written.
+    """
+    return page_features(view, view.document) if view.document is not None else None
+
+
+async def perceive(page: Page) -> tuple[list[Element], Snapshot, PageView]:
+    """Read the page once: the elements, the comparable snapshot, and the view.
+
+    The view comes back as well because the estimator counts its features off
+    the same read — the parsed snapshot is in it — and a second read would be
+    a second CDP round trip describing a page that has had time to move. It is
+    deliberately *not* folded into `Snapshot`, which is compared for equality
+    to decide whether an action changed anything: a field that is a fresh
+    object every read would make every page look different from itself.
+    """
     view = await read_async(page)
     snapshot = Snapshot(
         url=page.url,
@@ -138,7 +160,7 @@ async def perceive(page: Page) -> tuple[list[Element], Snapshot]:
         content=view.content,
         values=tuple(element.value for element in view.elements),
     )
-    return view.elements, snapshot
+    return view.elements, snapshot, view
 
 
 def pick(elements: list[Element], target: Target) -> int | None:
@@ -313,7 +335,7 @@ async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | Non
     deadline = time.monotonic() + VERIFY_TIMEOUT_S
     failure = "the page did not change at all"
     while time.monotonic() < deadline:
-        _, after = await perceive(page)
+        _, after, _ = await perceive(page)
         failure = check(before, after, expect)
         if failure is None:
             return None
@@ -394,7 +416,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
 
     if move is not None and move.operations:
         caption = caption_for(move)
-        elements, _ = await perceive(page)
+        elements, _, _ = await perceive(page)
         operation = move.operations[0]
         element_id = (
             operation.element_id
@@ -437,8 +459,15 @@ async def run_task(
     planner: Planner,
     task: Task,
     start_url: str,
+    recorder: Recorder | None = None,
 ) -> None:
-    """Perceive, decide, present, act, verify, recover. Planner-agnostic."""
+    """Perceive, decide, present, act, verify, recover. Planner-agnostic.
+
+    `recorder` pairs what the page was like with what the person did on it,
+    for the estimator's training set. `app.py` supplies one; a caller that
+    passes none — every test here — runs exactly as before and writes nothing
+    (`backend/estimator/pairing.py`).
+    """
     started = time.monotonic()
     current_state: str | None = None
     history: list[str] = []
@@ -476,7 +505,7 @@ async def run_task(
 
     for _ in range(MAX_STEPS):
         await set_state("thinking")
-        elements, before = await perceive(page)
+        elements, before, view = await perceive(page)
         findings = findings_in(before, task, found)
 
         # Durable verification: everything typed so far has to *still* be
@@ -523,6 +552,18 @@ async def run_task(
 
         steps_taken += 1
         await set_state("waiting")
+        # What the page was like at the moment this step went on screen, kept
+        # for whatever the person then does with it. Written down only if the
+        # caller asked for a recorder: the app does, tests do not
+        # (`backend/estimator/pairing.py`).
+        if recorder is not None:
+            recorder.note_step(
+                steps_taken,
+                goal=task.goal,
+                url=page.url,
+                instruction=move.instruction,
+                features=features_of(view),
+            )
         await connection.send(
             "step.presented",
             StepPresented(
@@ -539,6 +580,12 @@ async def run_task(
         async def answer_questions(message: dict) -> None:
             if message.get("type") == "trust.requested":
                 await send_preview(page, connection, move)
+                return
+            # Channel B, arriving while the step is on screen: one sample on
+            # a timer, and one more with the response itself. Paired with the
+            # page above and written down; never answered, never acted on.
+            if message.get("type") == "telemetry" and recorder is not None:
+                recorder.note_telemetry(message.get("payload") or {})
 
         response = await connection.receive(
             "step.response", step_index=steps_taken, on_other=answer_questions
@@ -558,7 +605,7 @@ async def run_task(
         # The retry: same move, different strategy. Identical for every planner.
         failure = await attempt_move(page, move, input_values, strategy=0, before=before)
         if failure is not None:
-            _, before_retry = await perceive(page)
+            _, before_retry, _ = await perceive(page)
             failure = await attempt_move(page, move, input_values, 1, before_retry)
 
         if failure is not None:
@@ -597,7 +644,7 @@ async def run_task(
         filled = [f for f in filled if f.url == page.url]
         filled += await record_fills(page, move)
 
-    _, final = await perceive(page)
+    _, final, _ = await perceive(page)
     findings = findings_in(final, task, found)
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
@@ -634,7 +681,7 @@ async def attempt_move(
     """Run a Move's operations, then verify. None on success."""
     for operation in move.operations:
         # Perceive fresh each time: the previous operation may have navigated.
-        elements, _ = await perceive(page)
+        elements, _, _ = await perceive(page)
 
         element_id = (
             operation.element_id
@@ -723,7 +770,7 @@ async def record_fills(page: Page, move: Move) -> list[FilledValue]:
     fills = [o for o in move.operations if o.kind == "fill"]
     if not fills:
         return []
-    elements, _ = await perceive(page)
+    elements, _, _ = await perceive(page)
     recorded: list[FilledValue] = []
     for operation in fills:
         element_id = pick(elements, operation.target)
@@ -785,7 +832,7 @@ async def lapsed_value(
     # it sat inside the loop. All the records are being checked against the
     # same instant anyway, so re-reading between them was never buying
     # freshness, only latency.
-    elements, _ = await perceive(page)
+    elements, _, _ = await perceive(page)
 
     for record in watching:
         element_id = pick(elements, Target(record.role, record.label))
@@ -848,7 +895,7 @@ async def verify_typed(
     page: Page, element_id: int, element: Element, expected: str
 ) -> str | None:
     """A typed value is verified by reading it back, not by assuming."""
-    elements, _ = await perceive(page)
+    elements, _, _ = await perceive(page)
     if not any(e.id == element_id for e in elements):
         return None  # the page moved on; the page-level check will judge that
     actual = await resolve(page, elements, element_id).input_value()

@@ -26,6 +26,7 @@ import type {
 } from "@shared/schema";
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
+import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
   seq: number;
@@ -116,6 +117,12 @@ interface Store {
   dismissStepFailure: () => void;
   /** Back to the home screen without dropping the connection. */
   startOver: () => void;
+  /**
+   * Start watching the pointer and sampling on a timer. Called once, by the
+   * app, and returns the function that stops it. Everything it measures is in
+   * `telemetry.ts`.
+   */
+  watchTelemetry: () => () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
   startTask: (goal: string) => void;
@@ -188,6 +195,8 @@ export const useStore = create<Store>((set, get) => {
       // Open immediately; the panel waits for the picture rather than the
       // press feeling like it did nothing.
       set({ trustOpen: true });
+      // The loudest signal channel B has: they stopped and asked.
+      tracker.helpPressed();
       connection.askWhat();
     },
 
@@ -249,6 +258,9 @@ export const useStore = create<Store>((set, get) => {
       connection.startTask(goal);
     },
 
+    watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
+
+
     respond: (actionId, values) => {
       const step = get().step;
       if (!step) return;
@@ -257,6 +269,12 @@ export const useStore = create<Store>((set, get) => {
         action_id: actionId,
         input_values: values,
       };
+      // Before the response, so the backend has the sample in hand when it
+      // pairs this step with the page it was showing — and marked as the one
+      // that ends the step, rather than another timer tick.
+      const sample = tracker.sample();
+      if (sample) connection.sendTelemetry({ ...sample, answered: true });
+      tracker.stop();
       connection.respondToStep(response);
       if (actionId !== GO_AHEAD_ID) {
         // The backend stops on anything but go-ahead (loop.run_task). Say so
@@ -291,6 +309,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set({ state: (message.payload as { state: State }).state });
       return;
     case "step.presented":
+      // A new decision: the clock and the pointer start again (telemetry.ts).
+      tracker.start((message.payload as StepPresented).step_index);
       // A new step gets its own chance to be moved for overflow.
       set({
         step: message.payload as StepPresented,
@@ -329,12 +349,16 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set({ preview: message.payload as PagePreview });
       return;
     case "help.requested":
+      // The run is over; there is no decision on screen to measure.
+      tracker.stop();
       set({ help: message.payload as HelpRequested, step: null });
       return;
     case "task.completed":
+      tracker.stop();
       set({ completed: message.payload as TaskCompleted, step: null });
       return;
     case "task.failed":
+      tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
       set({ failed: message.payload as TaskFailed, step: null });

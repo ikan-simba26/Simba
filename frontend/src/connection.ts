@@ -15,6 +15,7 @@ import type {
   LevelOverride,
   MessageType,
   StepResponse,
+  Telemetry,
   TaskStart,
 } from "@shared/schema";
 
@@ -111,6 +112,18 @@ export class BackendConnection {
   overrideLevel(level: Level, locked: boolean): void {
     const payload: LevelOverride = { level, locked };
     this.send("level.override", payload);
+  }
+
+  /**
+   * Channel B for the estimator: how the person is getting on with this step.
+   *
+   * Sent on every step response and on a timer while one waits (CONTRACT.md).
+   * The backend never answers it, so it is fire-and-forget by design — a
+   * sample lost to a reconnect is one row missing from a training set, not a
+   * step that fails to happen.
+   */
+  sendTelemetry(payload: Telemetry): void {
+    this.send("telemetry", payload);
   }
 
   private send<T>(type: MessageType, payload: T): void {

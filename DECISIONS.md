@@ -2014,3 +2014,67 @@ state it was read in, and an idle row for the same URL sits beside it.
 rows are pages we wrote, and a feature that separates our replicas from the
 world may be measuring our HTML habits. Anything calibrated on this needs the
 `state` and the source of each row in front of it.
+
+---
+
+## Telemetry is sent, and nothing acts on it
+
+**Date:** 2026-09-20
+
+**Decision.** `frontend/src/telemetry.ts` sends the five channel-B numbers on
+every step response and on a 3s timer while a step waits. The backend pairs
+each sample with the page features of that step and appends a row to
+`data/steps.jsonl`. Nothing reads the rows back, and no behaviour changes.
+
+**Alternatives.** Wait until there is an estimator to consume it. Send richer
+signals — keystroke timings, scroll traces, dwell per region. Send on the
+response only.
+
+**Why this.** The estimator needs pairs, and pairs can only be collected while
+someone is using the thing. Waiting for the estimator means the first data
+arrives after the estimator is written, which is the wrong way round: the
+features were built before the score for the same reason (2026-09-19).
+
+Sending on a timer as well as on the response is what makes a slow step
+legible. A single number at the end says "this took 30 seconds"; a trail says
+whether the person was still moving.
+
+Richer signals were rejected on privacy grounds before utility: this project's
+users are people who find interfaces overwhelming, and a keystroke trace of
+someone struggling with a form is not something to hold. The cursor becomes
+two scalars in the renderer, and no field value or coordinate crosses the
+boundary.
+
+**Cost.** A message every three seconds per waiting step, which the backend
+reads and discards into a file — small, but not nothing on a long step. And a
+file that grows without bound, with no rotation and no reader yet.
+
+---
+
+## The rows stay on the machine that recorded them
+
+**Date:** 2026-09-20
+
+**Decision.** `data/steps.jsonl` is in `.gitignore`. `data/corpus.json` is
+committed.
+
+**Alternatives.** Commit both. Commit neither. Strip the goal from each row
+and commit it.
+
+**Why this.** The corpus is thirty-four public pages and our own replicas:
+nothing in it is about a person. The step rows are the opposite — each one
+carries the goal someone typed in their own words, which is the most personal
+thing this system holds, and pairs it with how long they hesitated. That is a
+research artefact, not a repository artefact, and the person whose rows they
+are has not been asked.
+
+Stripping the goal was considered and rejected for now: the goal is what makes
+a row interpretable — a fifteen-second hesitation on "find out what I owe"
+means something different from the same pause on a form nobody asked for — and
+a training set with the interpretation removed is a worse thing to have built.
+The decision to share is a decision for whoever collects real traces, with the
+consent that goes with it.
+
+**Cost.** Nobody can see anyone else's rows, so a defect in the pairing shows
+up only on the machine it happened on, and the November evaluation will have to
+say where its rows came from.

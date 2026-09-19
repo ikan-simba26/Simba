@@ -41,3 +41,9 @@ traces.db
 frontend/dist/
 frontend/dist-electron/
 *.tsbuildinfo
+
+# Channel B's recordings: one row per telemetry sample, paired with the page
+# features of the step it belongs to. It carries the goals a person typed, so
+# it stays on the machine that recorded it — the corpus beside it
+# (data/corpus.json) is public pages and is committed.
+data/steps.jsonl

@@ -2913,3 +2913,80 @@ two counts say different things, and on front pages they say the same thing
 twice. The merge stands as asked and as implemented; whether it should
 survive contact with these three rows is a design question and is flagged, not
 settled here.
+
+---
+
+## 2026-09-20c — channel B exists, and every step now leaves a row
+
+`telemetry` has been in CONTRACT.md since 2026-09-04 and nothing has ever sent
+it, so every estimator discussion has been about one channel. The overlay now
+sends it, and the backend writes it down beside the page features of the step
+it belongs to.
+
+### What is sent, and when
+
+`frontend/src/telemetry.ts`, five numbers, each restarting when a step is
+presented:
+
+| Field | Measured as |
+|---|---|
+| `hesitation_ms` | step presented → sample |
+| `cursor_path_ratio` | path length ÷ start-to-end distance, 1.0 when the pointer never moved |
+| `backtracks` | consecutive segments (≥ 8px) turning more than ~120° |
+| `rereads` | pointer re-entering the step's text after leaving it |
+| `help_presses` | presses of "What are you doing?" |
+
+Sent **on every step response** — before the response, so the backend has it
+when it pairs — and **on a 3s timer while a step waits**. Nothing is sent when
+no step is on screen.
+
+### Measured on the built overlay, in a browser
+
+`frontend/test_telemetry.py` drives the real overlay against a socket that
+records what arrives. Six tests, all passing:
+
+| What it drives | What arrives |
+|---|---|
+| Press go-ahead after ~0.8s | one `telemetry` **before** `step.response`, `answered: true`, `hesitation_ms ≥ 800` |
+| A zigzag across the window, then press | `cursor_path_ratio` **> 2.0**, `backtracks ≥ 1` |
+| One straight move to the button, then press | ratio **1.0–1.3**, `backtracks == 0` |
+| Ask "What are you doing?", close, then press | `help_presses == 1` |
+| Leave the step alone for 7.2s | **≥ 2 samples**, none `answered`, hesitation rising |
+| Answer, then wait 4.8s | exactly **1** sample — an answered step is not re-reported |
+
+The middle two are the pair worth keeping: the same measurement on two
+journeys to the same button. The control was wrong at first and the failure
+was useful — an **L-shaped** path to the button (out, then across) read as
+**28.5**, which is right: it is not a direct move. "Straight" means straight
+at the thing being pressed.
+
+### The rows
+
+`backend/estimator/pairing.py` writes one JSON line per sample:
+
+    {"ts": ..., "task_id": ..., "step_index": 2, "goal": "...", "url": "...",
+     "instruction": "...", "when": "waiting" | "answered",
+     "page": {"controls": 66, "overlays": 1, "text_density": 4.81, ...},
+     "telemetry": {"hesitation_ms": 4200, "cursor_path_ratio": 3.8, ...}}
+
+Measured end to end on the registration replica (`test_pairing.py`): three
+steps, two samples each, **six rows**, each carrying the features of the page
+that step was showing — and the features move with the run, including the
+`overlays: 1` row for the step presented over the modal. A run with no
+recorder writes nothing, which is every other test in the repository.
+
+`data/steps.jsonl` is **not committed**: it holds the goals a person typed.
+The corpus beside it is public pages and is.
+
+### What this is not
+
+- **Nothing reads it.** There is no estimator and no score, by decision. This
+  is a training set accumulating, and `load.updated` still only ever comes
+  from the mock.
+- **No user data has been collected.** Every number so far is from a test
+  driving a browser. What a real person's trace looks like — and whether any
+  of these five separates a page someone coped with from one they did not —
+  is unmeasured, and is the whole question.
+- **The definitions are guesses.** 8px of movement, 120° of turn, a 3s timer,
+  "re-read" as pointer re-entry: each is a starting value, all in one file, and
+  the first person with real traces should expect to move them.

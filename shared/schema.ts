@@ -186,6 +186,12 @@ export interface TrustRequested {}
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface TaskCancel {}
 
+/**
+ * Channel B: how the person is getting on with the step on screen.
+ *
+ * Sent on every step response and on a timer while one waits. `answered` is
+ * additive and optional; absent means a timer sample.
+ */
 export interface Telemetry {
   step_index: number;
   hesitation_ms: number;
@@ -193,6 +199,8 @@ export interface Telemetry {
   backtracks: number;
   rereads: number;
   help_presses: number;
+  /** True on the sample that goes with the answer. Absent means a timer tick. */
+  answered?: boolean;
 }
 
 // --- Envelope ----------------------------------------------------------------

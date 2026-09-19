@@ -35,6 +35,7 @@ from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
 from backend.orchestrator.browser import browser_source, open_page
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
+from backend.estimator.pairing import Recorder, recording_enabled
 from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
@@ -149,7 +150,12 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         store = TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB))
         planner = TracePlanner(store, task, site_of(replica_url), planner)
 
+    # Channel B's other half: every step's page features, paired with whatever
+    # telemetry the overlay sends about it, appended to `data/steps.jsonl`.
+    # `SIMBA_RECORD_STEPS=0` turns it off (`backend/estimator/pairing.py`).
+    recorder = Recorder(task_id="t_skeleton") if recording_enabled() else None
+
     async with open_page(replica_url) as page:
-        await run_task(page, connection, planner, task, replica_url)
+        await run_task(page, connection, planner, task, replica_url, recorder)
 
     await websocket.close()

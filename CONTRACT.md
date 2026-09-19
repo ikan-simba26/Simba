@@ -264,7 +264,7 @@ the level.
 
 ### `telemetry`
 Channel B signals for the estimator. Sent on every step response, and on a
-timer while waiting.
+timer while waiting (every 3s as of 2026-09-20).
 ```json
 {
   "step_index": 2,
@@ -272,11 +272,36 @@ timer while waiting.
   "cursor_path_ratio": 3.8,
   "backtracks": 1,
   "rereads": 2,
-  "help_presses": 0
+  "help_presses": 0,
+  "answered": true
 }
 ```
 `cursor_path_ratio` is total cursor path length divided by straight-line
 distance — 1.0 is a direct move, higher means wandering.
+
+**`answered`** is additive and optional (2026-09-20): true on the sample that
+goes with the step response, absent or false on a timer sample. A step that
+took someone a while leaves a trail of timer samples and one answered one, and
+the trail is the part worth keeping.
+
+Every counter restarts when a step is presented, and nothing is sent while no
+step is waiting. The sender is `frontend/src/telemetry.ts`, and it is the only
+place any of these are defined:
+
+| Field | How it is measured |
+|---|---|
+| `hesitation_ms` | from the step being presented to the sample |
+| `cursor_path_ratio` | pointer path length ÷ distance from where it started to where it ended; 1.0 when it never moved |
+| `backtracks` | consecutive pointer segments (each ≥ 8px) turning by more than about 120° |
+| `rereads` | the pointer re-entering the step's text after having left it |
+| `help_presses` | presses of "What are you doing?" during this step |
+
+The backend never replies to it. It is written down beside the page features
+of the step it belongs to (`backend/estimator/pairing.py`), and nothing reads
+it back yet — there is no estimator, by decision (DECISIONS.md, 2026-09-19).
+
+**No keystrokes, no field values and no coordinates cross the boundary.** The
+cursor becomes two scalars in the renderer before anything is sent.
 
 ---
 

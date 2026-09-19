@@ -228,8 +228,17 @@ class Backend:
                     return
                 for message_type, payload in self.script:
                     if message_type == AWAIT_RESPONSE:
+                        # Everything the overlay says, until the answer
+                        # itself: since 2026-09-20 a telemetry sample goes out
+                        # first, and reading exactly one message here read
+                        # that instead of the response and then waited for a
+                        # step that had already been answered.
                         try:
-                            self.responses.append(json.loads(await ws.recv()))
+                            while True:
+                                said = json.loads(await ws.recv())
+                                self.responses.append(said)
+                                if said.get("type") == "step.response":
+                                    break
                         except websockets.ConnectionClosed:
                             return
                         continue
@@ -366,7 +375,11 @@ def test_stopping_is_not_reported_as_a_failure(
     labels = reach(page, overlay, backend, "stopped by the person")
     text = page.inner_text("body")
 
-    assert backend.responses and backend.responses[0]["payload"]["action_id"] == "cancel"
+    # The step response, not simply the first thing the overlay said: since
+    # 2026-09-20 a telemetry sample goes out just before it (CONTRACT.md).
+    answers = [message for message in backend.responses
+               if message.get("type") == "step.response"]
+    assert answers and answers[0]["payload"]["action_id"] == "cancel"
     assert "I've stopped, as you asked." in text
     assert "I couldn't finish this." not in text
     assert "You asked me to stop." not in text

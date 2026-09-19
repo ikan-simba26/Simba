@@ -29,11 +29,16 @@ const TRANSITION = { duration: 0.3, ease: EASE };
 
 export default function App() {
   const connect = useStore((state) => state.connect);
+  const watchTelemetry = useStore((state) => state.watchTelemetry);
   useDebugShortcut();
 
   useEffect(() => {
     connect();
   }, [connect]);
+
+  // Channel B, for as long as the window is up: the pointer is watched and a
+  // sample goes out on a timer while a step waits (`telemetry.ts`).
+  useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
     <div className="flex min-h-full justify-center bg-canvas px-6 py-24">

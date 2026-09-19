@@ -213,12 +213,20 @@ class TaskCancel(BaseModel):
 
 
 class Telemetry(BaseModel):
+    """Channel B: how the person is getting on with the step on screen.
+
+    Sent on every step response and on a timer while one waits. `answered`
+    tells the two apart — additive and optional (added 2026-09-20), so a
+    sender that omits it is read as a timer sample.
+    """
+
     step_index: int
     hesitation_ms: int
     cursor_path_ratio: float
     backtracks: int
     rereads: int
     help_presses: int
+    answered: bool = False
 
 
 # --- Envelope ----------------------------------------------------------------
