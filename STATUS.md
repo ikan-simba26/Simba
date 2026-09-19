@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-18 (second pass) · **330 passing, 7 skipped** (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · suite wall clock 711s, and **not a clean measurement**: it shared the machine with this task's edits and two browsers. Earlier runs of a smaller suite took 329s, 367s and 459s on the same tree. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-19 · **369 passing, 7 skipped** (5 need an Electron host, 2 need `SIMBA_LIVE_TESTS=1`) · suite wall clock 438s, measured with nothing else running. Earlier runs of a smaller suite took 329s, 367s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -48,6 +48,19 @@ its range (DECISIONS.md). Every conclusion in EVALUATION.md that rested on a
 time difference has been audited: none is withdrawn, one now stands on its
 mechanism rather than its seconds.
 
+**The estimator has started, and it measures nothing about a person yet.**
+`backend/estimator/page_features.py` reads nine raw features off one page
+read — counts, a density, a depth, a dead-link ratio and a Flesch-Kincaid
+grade — with **no score, no weights and no normalisation**, because those need
+a corpus to calibrate against. `data/corpus.json` is the first one: 20 public
+pages, read in both environments, 0 failures. **Three of the nine features
+cannot tell those pages apart** and are flagged as such (2026-09-19b).
+
+**A closing screen shows every result now, checked on the live site.** A
+finding carries both the one line the step screen shows and the list the
+ending shows; a two-train search put both trains and both journey times on the
+screen, and the site view confirmed nothing was missing (2026-09-19).
+
 **The project's headline perception finding is smaller than it read.**
 "What perception emits decides what a planner can use" is split in two: emitting
 what the input does not contain (occlusion, date qualifiers — 10/10 runs, and
@@ -66,6 +79,19 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-19
+
+- **Every result on the closing screen**: `Finding.values`, additive and
+  optional in the contract; verified live through the host (2026-09-19).
+- **`backend/estimator/page_features.py`**, nine raw features, 27 tests.
+- **`tools/evaluation/collect_corpus`** and the first corpus: 20 pages, both
+  environments, `data/corpus.json` (2026-09-19b).
+- **Bounds are device pixels**, found by the two-environment rule. The
+  estimator converts; perception still does not (below).
+- **`PageView` carries the parsed snapshot**, so a caller that needs the page
+  itself works from the same read.
+- **`feat/evaluation-limits-and-all-results` merged**; `main` at `d455ad2`.
 
 ### Changed on 2026-09-18
 
@@ -139,6 +165,7 @@ application's state (EVALUATION.md).
   joining 4-wide in both (2026-09-18c).
 - A label's every value, not its first: `values_for`, with `voice.found`
   showing four and a count.
+- `PageView` carries the parsed snapshot the read was built from.
 
 **In progress**
 - Nothing.
@@ -146,6 +173,18 @@ application's state (EVALUATION.md).
 **Open — Nahail's call**
 1. **The DOM is not the application's state.** No defence except driving
    widgets the way a person must.
+1b. **A snapshot's bounds are in device pixels, and every caller has to know
+   it.** The same `<h1>` measures `(256, 120, 768, 32)` headless and
+   `(384, 180, 1152, 48)` in the host, which runs at `devicePixelRatio` 1.5 on
+   this machine — both reporting a CSS viewport of 1280x800. `overlays.py`
+   compares a blocker's area against `1280 × 800` in CSS pixels, so in the
+   host a dialog covering a fifth of the screen scores as though it covered
+   nearly half. Nothing measured has changed outcome because of it — the
+   modals we test with cover the screen either way — but the coverage
+   thresholds are not measuring what they say. Converting inside
+   `snapshot.parse` would fix it for every reader of `bounds` and means
+   re-measuring the recorded figures, so it is **flagged rather than done**
+   (EVALUATION.md, 2026-09-19b). The estimator converts on its own for now.
 2. A modal's content is skipped along with a dropdown's.
 3. Elements with no accessible name are addressable only by ordinal.
 4. Panel headings are found by class-name fragment; a picker that names its
@@ -251,6 +290,9 @@ application's state (EVALUATION.md).
 - **Stopping is not failing** (2026-09-17): the stop ending shows the moment
   stop is pressed.
 - All copy in `copy.ts`; the component scan catches any words.
+- **The closing screen shows every result**, one per line, shrinking the type
+  as the list grows. Verified live: two trains, two journey times, nothing the
+  site returned missing from the screen (2026-09-19).
 
 **In progress**
 - Nothing.
@@ -266,6 +308,13 @@ application's state (EVALUATION.md).
   does not show what is about to be typed. Pre-filling it belongs with the
   credential vault.
 - **"Click element 13."** reached the screen in the watched run.
+- **A long list of results scrolls the ending.** The overflow guard drops a
+  detail level when a *step* will not fit; the closing screen has no such
+  guard, so past roughly eight values the answer runs off the bottom. Nothing
+  has measured where the line is.
+- **The step screen shows one finding**, as one line that stops at four
+  values. That is the design, not an oversight — but it means a run in
+  progress can show "and 2 more" for a while before the ending shows them.
 - "I'm showing a bit more again." is also what an overflow drop says.
 - "Step 2 of 6" uses a word `copy.ts` forbids.
 - A found value is shown as the page wrote it (`15-09-2026`).
@@ -283,17 +332,31 @@ application's state (EVALUATION.md).
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
-- Nothing, deliberately deferred until the skeleton ran end to end, which it
-  does.
+- **The page-side features**, raw: `interactive`, `inferred`, `text_density`
+  (characters per 1000px² of the viewport), `max_depth`, `overlays`,
+  `form_fields`, `links`, `dead_link_ratio`, `reading_grade`, plus the five
+  counts the derived two are built from. 27 tests, arithmetic and browser.
+- **The first corpus**: 20 public pages, read headless and in the host,
+  `data/corpus.json` with its conditions (`tools/evaluation/collect_corpus`).
 
-**Open**
-- Not started. It needs page-side load features from perception (also
-  Nahail's, also not started) and `telemetry` from the frontend (specified,
-  unsent). The frontend already honours `load.updated` and the level lock.
+**Open — Nahail's call**
+1. **No score, and deliberately so.** Weights need a calibration and there is
+   no user data at all. What exists is measurement (DECISIONS.md).
+2. **Three features carry no signal on the corpus**: `overlays` is 0 on all
+   20 pages, `inferred` on 18, `dead_link_ratio` on 16. The overlay result is
+   the detector being right — public sites put cookie banners *in* the page
+   flow, not over it — so what it needs is a corpus with real modals in it,
+   which means our own replicas and applications rather than front pages.
+3. **`links` and `interactive` are nearly the same signal** on these pages.
+   Two features carrying one signal is a weighting problem waiting to happen.
+4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
+   the most heuristic number here: block-counted sentences and a vowel-group
+   syllable counter (DECISIONS.md).
+5. Nothing consumes the features yet. `telemetry` from the frontend is
+   specified and unsent, so the behavioural half has no input either.
 
 **Blocked**
-- Nothing. Previously listed as blocked on the load features, which are
-  simply the first piece of the same unstarted work.
+- Nothing.
 
 ---
 
@@ -303,7 +366,9 @@ application's state (EVALUATION.md).
 - Both schema files mirror every message. `step.failed`, `findings` and
   `history.offered` added; `history.offered` recorded as pending
   ratification with its reasoning and costs.
-- No schema file changed on 2026-09-17.
+- **`Finding.values`** added 2026-09-19: every value for a label, beside the
+  one-line `value`. Additive and optional, which CLAUDE.md allows without a
+  ratification session — a sender that omits it means `[value]`.
 
 **Open**
 - `telemetry` is specified and nothing sends it.
@@ -351,6 +416,9 @@ application's state (EVALUATION.md).
 - **Two limitations are now stated rather than implied**: what environment a
   perception figure was measured in, and what a wall clock from this machine
   is worth.
+- **The corpus is 20 pages read once.** Enough to choose features, nowhere
+  near enough to calibrate a score, and it contains no page with a modal on
+  it. Extending it is the next thing the estimator needs.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It
@@ -382,10 +450,11 @@ application's state (EVALUATION.md).
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
-- ~~The day's work is committed on `feat/orchestrator-evaluation-scripts`,
-  not merged, and not pushed.~~ Merged and pushed 2026-09-18; `main` is at
-  `c33f106`. 2026-09-18's own work is on
-  `feat/evaluation-limits-and-all-results`.
+- `main` is at `d455ad2` (2026-09-18's work, merged and pushed). 2026-09-19's
+  work is on `feat/estimator-features-and-every-result`, not merged.
+- `tools/evaluation/host_overlay_run` drives the overlay of a running stack,
+  which is how an interface claim gets checked live. It presses the step's own
+  primary action and nothing else.
 
 **Blocked**
 - Nothing.

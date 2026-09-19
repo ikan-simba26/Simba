@@ -2702,6 +2702,20 @@ flagged item below.
   60-element course list with a modal over it. Found by a test assertion that
   turned out to be wrong about the pages rather than about the code
   (`test_page_features.py`).
+- **Sharing the browser fixture broke 54 orchestrator tests.** The estimator's
+  tests need the same two replicas perception's do, so the fixtures moved up
+  to `backend/conftest.py` — and took the session-scoped *sync* Playwright
+  browser with them. A live `sync_playwright` session breaks `asyncio.run` in
+  the same thread, every orchestrator test is an `asyncio.run`, and
+  `estimator/` sorts before `orchestrator/`: **54 failed and 18 errored**, all
+  of them "asyncio.run() cannot be called from a running event loop". The
+  replicas are plain subprocesses and stay shared; the browser went back down
+  to `perception/conftest.py` and the estimator's browser tests are async like
+  the orchestrator's. **369 passed, 7 skipped, 438s** after.
+
+  Worth recording for a reason beyond the fix: the failure had nothing to do
+  with what was being built, appeared only in the *whole* suite, and would
+  have been invisible to anyone running one module at a time.
 
 ### What this does not do
 
