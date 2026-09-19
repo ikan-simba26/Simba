@@ -12,24 +12,35 @@ are weights chosen from intuition, and they then decide what the corpus is
 allowed to say. So: collect first (`tools/evaluation/collect_corpus`), look at
 the spread, and only then argue about what a load score is.
 
-The nine features, and what each one is:
+The features, and what each one is:
 
 | Feature | Unit | Read from |
 |---|---|---|
-| `interactive` | count | the elements perception offers a planner |
+| `controls` | count | every element perception offers a planner, links included |
 | `inferred` | count | of those, the ones whose role was worked out from layout |
 | `text_density` | characters per 1000px² | text boxes inside the viewport |
 | `max_depth` | count | the deepest element in the DOM |
 | `overlays` | count | things covering the page (`overlays.analyse`) |
 | `form_fields` | count | inputs, textareas, selects and field roles |
-| `links` | count | links, live and dead |
 | `dead_link_ratio` | 0–1 | dead links over links |
 | `reading_grade` | US school grade | Flesch–Kincaid over the visible text, counted per block |
 
-`characters`, `words`, `sentences` and `syllables` come back too. They are the
-raw counts the density and the grade are built from, and without them neither
-derived number can be checked or recomputed later under a different
-definition.
+**`controls` is one feature where there were two.** `interactive` and `links`
+were separate until 2026-09-20, and on the first corpus they were the same
+signal wearing two hats: 19 of 20 pages differed in both, and on most of them
+the two numbers were within a few percent, because a public page's controls
+are nearly all links. Two features carrying one signal get weighted twice.
+
+They are *not* the same thing on an application — a form is controls without
+links — so both raw counts still travel in every row, and
+`link_share = links / controls` is what says whether a corpus has pages that
+separate them. Below about 0.6 on a real page, they are worth splitting again;
+the collector reports the range it saw.
+
+`links`, `non_link_controls`, `dead_links`, `characters`, `words`, `sentences`
+and `syllables` come back as raw counts. They are what the features are built
+from, and without them neither a derived number nor a merge can be checked or
+undone later.
 
 **Viewport.** Density is per *visible* area, which is why CLAUDE.md freezes
 the viewport at 1280x800: change it and the density changes without the page
@@ -95,26 +106,38 @@ _VOWELS = "aeiouy"
 class PageFeatures:
     """One page, as raw numbers. Nothing here is scaled or scored."""
 
-    interactive: int
+    controls: int
     inferred: int
     text_density: float
     max_depth: int
     overlays: int
     form_fields: int
-    links: int
     dead_link_ratio: float
     reading_grade: float
 
-    # The raw counts the two derived numbers are built from, so both can be
-    # recomputed later without reading the page again.
+    # The raw counts the features are built from, so a derived number can be
+    # recomputed — and the merge of `links` into `controls` undone — without
+    # reading the page again.
+    links: int
+    non_link_controls: int
+    dead_links: int
     characters: int
     viewport_characters: int
     words: int
     sentences: int
     syllables: int
 
+    @property
+    def link_share(self) -> float:
+        """How much of what this page offers is a link.
+
+        Near 1 on a page of links, near 0 on a form. What decides whether
+        `controls` should go back to being two features.
+        """
+        return round(self.links / self.controls, 3) if self.controls else 0.0
+
     def as_dict(self) -> dict[str, float]:
-        return asdict(self)
+        return {**asdict(self), "link_share": self.link_share}
 
 
 # --- the words on the page --------------------------------------------------
@@ -324,7 +347,9 @@ def features(
     area_units = (viewport[0] * viewport[1]) / AREA_UNIT
 
     return PageFeatures(
-        interactive=len(elements),
+        # Links included: they are controls, and on a public page they are
+        # most of them. `links` and `non_link_controls` are below.
+        controls=len(elements),
         inferred=sum(1 for element in elements if element.inferred),
         text_density=round(in_viewport / area_units, 3) if area_units else 0.0,
         max_depth=max_depth(document),
@@ -333,11 +358,13 @@ def features(
         # before anything else on it.
         overlays=len(analyse(document, viewport).blockers),
         form_fields=len(fields),
-        links=len(links),
         # 0.0 when there are no links at all. `links` is beside it, so the
         # difference between "no dead links" and "no links" stays readable.
         dead_link_ratio=round(len(dead) / len(links), 3) if links else 0.0,
         reading_grade=grade,
+        links=len(links),
+        non_link_controls=len(elements) - len(links),
+        dead_links=len(dead),
         characters=len(text),
         viewport_characters=in_viewport,
         words=words,

@@ -279,10 +279,11 @@ def test_the_course_list_matches_what_perception_records_for_it(replica: str) ->
     for this page, counted again through the features."""
     found, elements = drive_and_read(replica, sign_in)
 
-    assert found.interactive == len(elements) == 66
+    assert found.controls == len(elements) == 66
     assert found.overlays == 1
     assert found.links == sum(1 for e in elements
                               if e.role == "link" or e.tag == "a")
+    assert found.non_link_controls == found.controls - found.links
     assert found.dead_link_ratio == pytest.approx(
         sum(1 for e in elements if e.dead_link) / found.links, abs=0.001)
     assert found.max_depth > 5
@@ -299,7 +300,7 @@ def test_the_login_page_is_the_simpler_of_the_two(replica: str) -> None:
     login, _ = drive_and_read(replica)
     courses, _ = drive_and_read(replica, sign_in)
 
-    assert login.interactive < courses.interactive
+    assert login.controls < courses.controls
     assert login.text_density < courses.text_density
     assert login.max_depth < courses.max_depth
     assert login.form_fields >= 2 and courses.form_fields == 0
@@ -309,16 +310,36 @@ def test_the_login_page_is_the_simpler_of_the_two(replica: str) -> None:
     # because it is the kind of thing a corpus has to show before anything is
     # built on it (EVALUATION.md, 2026-09-19b).
     assert login.links == courses.links
+    # Which is also why these two pages are exactly the case `link_share`
+    # exists for: same links, different controls.
+    assert login.link_share > courses.link_share
 
 
 def test_the_fields_on_the_billing_form_are_counted(billing: str) -> None:
     found, elements = drive_and_read(billing)
 
     assert found.form_fields >= 1
-    assert found.interactive > found.form_fields
+    assert found.controls > found.form_fields
     # Nothing is covering this page, and nothing is inferred on it either.
     assert found.overlays == 0
     assert found.inferred == 0
+
+
+def test_one_feature_for_controls_with_both_counts_kept(replica: str) -> None:
+    """`controls` is links and everything else, and the parts survive.
+
+    Merged on 2026-09-20 because on the first corpus the two were the same
+    signal — a public page's controls are nearly all links. `link_share` is
+    what would say a page separates them again (EVALUATION.md, 2026-09-20b).
+    """
+    found, elements = drive_and_read(replica)
+
+    assert found.controls == len(elements)
+    assert found.links + found.non_link_controls == found.controls
+    assert found.link_share == pytest.approx(found.links / found.controls, abs=0.001)
+    # The login page is mostly nav links with three fields under them.
+    assert 0.5 < found.link_share < 1.0
+    assert found.as_dict()["link_share"] == found.link_share
 
 
 def test_a_field_role_counts_even_when_the_tag_does_not(replica: str) -> None:
