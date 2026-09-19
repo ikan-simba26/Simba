@@ -59,6 +59,8 @@ from the version that produced its table.
 | 2026-09-18c | Headless against the host, all three sites | `viewport_perception_probe` (needs the host and both replicas; two live searches per environment) |
 | 2026-09-19 | The closing screen, read off the screen | `host_overlay_run` (drives the overlay of a running stack; live search when the flow is railways) |
 | 2026-09-19b | The twenty-page corpus, and every feature's range | `collect_corpus` (20 public pages, read in both environments; writes `data/corpus.json`) |
+| 2026-09-20 | Every recorded perception figure, re-measured after the CSS-pixel change | `viewport_perception_probe` |
+| 2026-09-20b | The 34-page corpus, driven states included | `collect_corpus` (starts the replicas itself; two live reads of the railways page) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
 
@@ -2809,3 +2811,105 @@ Three things follow, and the middle one is the uncomfortable one:
 3. **0.30 has never been calibrated against real pages.** It was a guess that
    has been quietly behaving as two different guesses. The corpus is the
    instrument for fixing that, and this is flagged rather than settled.
+
+---
+
+## 2026-09-20b — a corpus with modals, fields and dead links in it
+
+The first corpus was twenty public front pages and three of the nine features
+were flat on it (2026-09-19b). That was a fact about the corpus, not about the
+features: a front page has no modal up, almost nothing whose role has to be
+worked out from layout, and no `href="#"` nav — and those are exactly what a
+SIMBA run meets. So the corpus now has **34 pages**, including ours.
+
+| Group | Pages |
+|---|---|
+| Ours | registration login, its course list **with the modal up**, `/stubborn`, the billing form, the billing result |
+| The live site, in the states a run passes through | railways idle, **station list open**, **calendar open** |
+| Public, one paragraph to a wall of links | the previous 20, unchanged |
+| Public but application-like | `the-internet/entry_ad` (modal on load), its index, a demo bank, a login, a shop, and Bootstrap's and Element Plus's dialog pages **with the dialog opened** |
+
+Driven states are read after the drive: a `sign_in`, a click on a date field,
+a click on "Launch demo modal". Nothing is submitted. **34 pages, 0 failures,
+both environments.** Conditions in `data/corpus.json`.
+
+### Ours, and the application-like ones
+
+| Page | controls | link share | inferred | overlays | fields | dead | density | depth | grade |
+|---|---|---|---|---|---|---|---|---|---|
+| registration login | 49 | 0.92 | 0 | 0 | 3 | **0.978** | 2.57 | 8 | 9.9 |
+| registration course list, modal up | 66 | 0.68 | 0 | **1** | 0 | 0.978 | 4.81 | 11 | 6.4 |
+| `/stubborn` | 27 | 0.93 | 0 | 0 | 0 | **0.960** | 0.75 | 6 | 10.0 |
+| billing form | 37 | 0.84 | 0 | 0 | 1 | 0.935 | 1.73 | 9 | 8.6 |
+| billing result | 39 | 0.92 | 0 | 0 | 0 | 0.889 | 2.64 | 9 | 7.7 |
+| railways idle | 18 | 0.67 | 0 | 0 | 3 | 0.25 | 0.10 | 21 | 10.6 |
+| railways, station list open | 24 | 0.50 | **6** | 0 | 3 | 0.25 | 0.17 | 21 | 10.6 |
+| railways, calendar open | 66 | **0.18** | **42** | 0 | 3 | 0.25 | 0.19 | 21 | 10.3 |
+| `the-internet/entry_ad` (modal up) | 3 | 0.67 | 1 | **0** | 0 | 0.5 | 0.28 | 9 | 5.1 |
+| demo bank (Altoro Mutual) | 45 | 0.96 | 0 | 0 | 2 | 0.0 | 2.46 | 13 | 8.1 |
+| a login (Swag Labs) | 3 | **0.00** | 0 | 0 | 3 | 0.0 | 0.15 | 12 | 8.1 |
+| a shop (OpenCart demo) | 101 | 0.75 | 0 | 0 | 1 | 0.026 | 0.39 | 15 | 5.1 |
+| Bootstrap docs, modal open | 282 | 0.80 | 0 | **2** | 0 | 0.0 | 1.48 | 16 | 9.9 |
+| Element Plus docs, dialog open | 300 | 0.72 | 0 | **1** | **25** | 0.0 | 0.93 | 20 | 8.5 |
+
+### What the extension bought, feature by feature
+
+| Feature | Before (20 public) | Now (34) | Verdict |
+|---|---|---|---|
+| `dead_link_ratio` | 0.0 on 16/20 — **flagged** | 0.0–0.978, **nonzero on 13/34**, 11 distinct | **No longer flat.** Our replicas sit at 0.89–0.98, the railways site at 0.25, a shop at 0.026 |
+| `form_fields` | 0 on 11/20, borderline | 0–25, **nonzero on 17/34** | **No longer flat.** A component library's docs page has 25 |
+| `overlays` | 0 on 20/20 — **flagged** | 0–2, nonzero on **3/34** — still flagged | Better, still thin. Three pages in the world's corpus have a detected modal |
+| `inferred` | 0 on 18/20 — **flagged** | 0–42, nonzero on **6/34** — still flagged | Better, still thin, and the two big values are both the same live page in two states |
+| `controls` | 0–827 | 0–827 | Unchanged, and still the widest |
+| `text_density` | 0.096–3.51 | 0.096–**4.81** | The course list with its modal is the densest page in the corpus |
+| `reading_grade` | 3.91–13.68, CV 0.27 | 3.91–13.68, CV 0.25 | Unchanged, still the narrowest real spread |
+
+### The two that are still flat, and why
+
+- **`overlays`: 3 of 34.** Two of those three are documentation pages for
+  dialog components, opened on purpose. The interesting one is the page that
+  should have counted and did not: `the-internet.herokuapp.com/entry_ad` puts
+  up a **`position: fixed` overlay covering 100% of the viewport** and
+  perception reports nothing, because the element's `z-index` is `auto` and
+  `MIN_STACK_LEVEL` requires 5. A modal that does not bother to set a
+  z-index — it does not need one, being fixed and last in the DOM — is
+  invisible to both the page-level and the target-scoped rule. That is a
+  detector gap, found by a corpus, which is what a corpus is for. Flagged for
+  perception's owner rather than changed here.
+- **`inferred`: 6 of 34**, and 42 of the 48 inferred elements in the whole
+  corpus are one live page's calendar. Non-semantic controls are rare on
+  well-built public pages and normal on the applications this project is for.
+  This feature will only get a distribution from more application pages, and
+  the ones that are freely readable without a login are mostly demo sites.
+
+### Both environments still agree
+
+**7 of 34 pages differ**, every one of them a live page that changed between
+the two passes: ±1 link on python.org and Wikipedia, a different front page
+on BBC News (77 controls against 116, and 77 inferred against 0 — it serves
+different markup run to run), a few characters on Hacker News. **None of ours
+differs, and none of the driven states differs.**
+
+### `links` and `interactive` are one feature now — and this corpus already separates them
+
+Merged on 2026-09-20 into `controls`, on the evidence of the first corpus,
+where the two were the same signal: a public page's controls are nearly all
+links. `links`, `non_link_controls` and `dead_links` remain in every row, so
+the merge can be undone from the data without re-reading anything, and
+`link_share = links / controls` is the measure of whether it should be.
+
+The extended corpus answers that immediately, and against the merge:
+
+| Page | links | controls | `link_share` |
+|---|---|---|---|
+| a login (Swag Labs) | 0 | 3 | **0.00** |
+| railways, calendar open | 12 | 66 | **0.18** |
+| railways, station list open | 12 | 24 | **0.50** |
+| `httpbin.org/html` | 0 | 0 | 0.00 (nothing to divide) |
+| everything else | — | — | 0.67–1.00, median **0.92** |
+
+So: on the pages this project exists for — a form, a picker, a dropdown — the
+two counts say different things, and on front pages they say the same thing
+twice. The merge stands as asked and as implemented; whether it should
+survive contact with these three rows is a design question and is flagged, not
+settled here.

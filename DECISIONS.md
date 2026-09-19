@@ -1955,3 +1955,62 @@ that anyone adding an async browser test in `backend/` has to know. The
 orchestrator's tests have the same latent fragility — they are all
 `asyncio.run` — and are left alone because nothing has tripped them; if that
 changes, the same thread helper is the fix.
+
+---
+
+## `controls` is one feature, and the parts are kept
+
+**Date:** 2026-09-20
+
+**Decision.** `interactive` and `links` merge into `controls` — every element
+perception offers a planner, links included. `links`, `non_link_controls`,
+`dead_links` and `link_share` stay in every row as raw counts.
+
+**Alternatives.** Keep two features. Keep two and weight them jointly later.
+Drop `links` entirely.
+
+**Why this.** On the first corpus the two carried one signal: 19 of 20 pages
+differed in both and the numbers were within a few percent, because a public
+page's controls are nearly all links. Two features carrying one signal get
+weighted twice, and a score built on that double-counts a nav.
+
+Keeping the parts is the half that matters. A merge that throws away its
+inputs cannot be undone without re-reading every page, and the extended corpus
+proved that the same day: a login page reads 0 links against 3 controls, the
+railways calendar 12 against 66. The merge is right for front pages and wrong
+for applications, and the data now says so in `link_share`.
+
+**Cost.** One number where there were two, and a score built on `controls`
+alone cannot tell a wall of links from a form until somebody puts `link_share`
+back in. **Flagged for review with a recommendation to split again** —
+EVALUATION.md, 2026-09-20b.
+
+---
+
+## The corpus contains our own pages, and pages driven into a state
+
+**Date:** 2026-09-20
+
+**Decision.** `collect_corpus` reads 34 pages: both replicas (including the
+course list with its modal up and `/stubborn`), the live railways page in
+three states, twenty public pages, and seven application-like public ones —
+several of them driven first, by signing in, opening a picker or opening a
+dialog. The collector starts the replicas itself when their ports are free.
+
+**Alternatives.** Public pages only, as the first corpus was. Ours only.
+Idle pages only, with no driving.
+
+**Why this.** Three features were flat on twenty front pages, and it was the
+corpus that was wrong: a front page has no modal, no inferred control and no
+dead-link nav, and a SIMBA run meets all three within two steps. Adding ours
+took `dead_link_ratio` from flat to eleven distinct values and `form_fields`
+from borderline to seventeen pages, and driving the railways page produced the
+only rows in the corpus with a meaningful number of inferred controls.
+
+Driving costs honesty about what is being measured, so each row records the
+state it was read in, and an idle row for the same URL sits beside it.
+
+**Cost.** The corpus is no longer twenty comparable strangers: five of its 34
+rows are pages we wrote, and a feature that separates our replicas from the
+world may be measuring our HTML habits. Anything calibrated on this needs the
+`state` and the source of each row in front of it.
