@@ -349,22 +349,43 @@ function Completed() {
  * The value leads and the label follows underneath, small — the number is
  * what was asked for, and "Your bill" is only there to say what the number
  * is. The other way round makes the reader find the answer inside a sentence.
+ *
+ * Every result, one per line. A search that returns three trains was asked
+ * about three trains, and `value` — the one line the step screen shows — stops
+ * at four and counts the rest, so reading it here would hide results on the
+ * one screen that exists to show them. `values` is the whole list; a message
+ * from before it existed has none, and then the line is the answer.
+ *
+ * The type shrinks as the list grows rather than the list shortening. One
+ * value keeps the full size, because one value is the billing case and it
+ * should look exactly as it did. Enough of them and the screen scrolls, which
+ * is a smaller failure on an ending than an answer that is not all there.
  */
 export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
   return (
     <div className="flex flex-col gap-5">
-      {findings.map((finding, index) => (
-        <div key={finding.label} className="flex flex-col gap-1">
-          <span
-            className="font-medium leading-[1.15] tracking-[-0.01em] text-ink"
-            // The first finding is the answer; any others support it.
-            style={{ fontSize: index === 0 ? size : Math.round(size * 0.6) }}
-          >
-            {finding.value}
-          </span>
-          <span className="text-[15px] text-muted">{finding.label}</span>
-        </div>
-      ))}
+      {findings.map((finding, index) => {
+        const values = finding.values?.length ? finding.values : [finding.value];
+        // The first finding is the answer; any others support it.
+        const lead = index === 0 ? size : Math.round(size * 0.6);
+        const scale = values.length > 4 ? 0.55 : values.length > 1 ? 0.75 : 1;
+        return (
+          <div key={finding.label} className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
+              {values.map((value) => (
+                <span
+                  key={value}
+                  className="font-medium leading-[1.15] tracking-[-0.01em] text-ink"
+                  style={{ fontSize: Math.round(lead * scale) }}
+                >
+                  {value}
+                </span>
+              ))}
+            </div>
+            <span className="text-[15px] text-muted">{finding.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

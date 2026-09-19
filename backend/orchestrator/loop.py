@@ -262,7 +262,9 @@ def unmet(after: Snapshot, task: "Task") -> str | None:
     return None
 
 
-def findings_in(snapshot: Snapshot, task: "Task", known: dict[str, str]) -> list[Finding]:
+def findings_in(
+    snapshot: Snapshot, task: "Task", known: dict[str, list[str]]
+) -> list[Finding]:
     """Update what has been found, and return it in the task's own order.
 
     Accumulated across the run rather than read from the final page, because
@@ -275,15 +277,22 @@ def findings_in(snapshot: Snapshot, task: "Task", known: dict[str, str]) -> list
     has seen.
 
     Every value the page gives a label, not the first: a results table has a
-    row per result, and "which trains run?" is answered by all of them. How
-    that reads as one line — and where it stops and counts the rest — is
-    `voice.found`.
+    row per result, and "which trains run?" is answered by all of them.
+
+    `known` holds the values themselves, and each `Finding` carries both forms
+    of them: `value`, the one line `voice.found` builds, which stops at four
+    and counts the rest, and `values`, all of them. The step screen shows one
+    finding in large type while the run is still going; the closing screen is
+    the answer and shows every result. Keeping only the line here was the
+    display-side half of the same defect the content channel had
+    (EVALUATION.md, 2026-09-18b).
     """
     for answer in task.about.finds:
         values = snapshot.content.values_for(answer.reads)
         if values:
-            known[answer.name] = voice.found(values)
-    return [Finding(label=answer.name, value=known[answer.name])
+            known[answer.name] = values
+    return [Finding(label=answer.name, value=voice.found(known[answer.name]),
+                    values=known[answer.name])
             for answer in task.about.finds if answer.name in known]
 
 
@@ -440,7 +449,7 @@ async def run_task(
     completed: list[Move] = []
     filled: list[FilledValue] = []
     # What the task was asked to find out, as it turns up. See `findings_in`.
-    found: dict[str, str] = {}
+    found: dict[str, list[str]] = {}
 
     async def set_state(state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.

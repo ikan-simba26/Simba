@@ -40,6 +40,7 @@ land in the wrong month — the kind of failure that looks like a perception
 bug and is not.
 """
 
+import os
 from datetime import date
 
 from backend.orchestrator.loop import Task
@@ -57,12 +58,31 @@ from shared.schema import StepField
 
 RAILWAYS_URL = "https://www.pakrailways.gov.pk/train"
 
-ORIGIN = "LAHORE CANTT"
-DESTINATION = "KARACHI CANTT"
-# Enough of the name to narrow the list without matching only one station —
-# "LAH" brings back six, which is the case worth exercising.
-ORIGIN_QUERY = "LAH"
-DESTINATION_QUERY = "KARACHI"
+# The route, overridable so a verification run can pick one with several
+# trains on it without editing the plan. The defaults are what every recorded
+# railways number was measured on and do not change; an override is for a run
+# that needs a particular shape of result — LAHORE CANTT to KARACHI CANTT
+# returned two trains on 2026-09-09 and one on 2026-09-18, and "does the
+# closing screen show every result" cannot be answered by a route that
+# happens to have one.
+ORIGIN = os.environ.get("SIMBA_RAILWAYS_FROM", "LAHORE CANTT")
+DESTINATION = os.environ.get("SIMBA_RAILWAYS_TO", "KARACHI CANTT")
+
+
+def _query(station: str, recorded: str) -> str:
+    """Enough of a station's name to narrow the list without matching one.
+
+    The recorded queries are kept exactly for the recorded route — "LAH"
+    brings back six stations, which is the case worth exercising, and a
+    different prefix would quietly measure a different thing. An overridden
+    station gets six characters of its name, which is a prefix and not a whole
+    station for every name on the list.
+    """
+    return recorded if station in ("LAHORE CANTT", "KARACHI CANTT") else station[:6]
+
+
+ORIGIN_QUERY = os.environ.get("SIMBA_RAILWAYS_FROM_QUERY") or _query(ORIGIN, "LAH")
+DESTINATION_QUERY = os.environ.get("SIMBA_RAILWAYS_TO_QUERY") or _query(DESTINATION, "KARACHI")
 
 # Far enough ahead to be a real timetable query rather than a same-day edge,
 # and computed so the flow does not expire.

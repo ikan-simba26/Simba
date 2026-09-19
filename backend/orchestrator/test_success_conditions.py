@@ -261,3 +261,72 @@ def test_one_value_reads_exactly_as_it_did_before() -> None:
                 about=About(finds=(Answer("Your bill", reads="P/WITHIN"),)))
 
     assert [(f.label, f.value) for f in findings_in(page, task, {})] == [("Your bill", "14,382")]
+
+
+# --- and the message carries the values themselves --------------------------
+#
+# `value` is one line, and one line has to stop somewhere: past four values it
+# counts the rest. That is right for the step screen, which shows a finding
+# while the run is still going, and wrong for the closing screen, which is the
+# answer. So the message carries both.
+
+
+def test_a_finding_carries_the_values_as_well_as_the_line() -> None:
+    page = Snapshot(
+        url="u", title="t", labels=(), values=(),
+        content=Content(pairs=[
+            Pair("Train No.", "2DN"), Pair("Duration", "22 h 16 min"),
+            Pair("Train No.", "14DN"), Pair("Duration", "24 h 16 min"),
+        ]),
+    )
+
+    found = findings_in(page, RAILWAYS_TASK, {})
+
+    assert [f.values for f in found] == [["2DN", "14DN"],
+                                         ["22 h 16 min", "24 h 16 min"]]
+    assert found[0].value == "2DN, 14DN"
+
+
+def test_nothing_is_dropped_however_many_results_there_are() -> None:
+    """Nine trains: the line counts the rest, the list keeps all nine."""
+    trains = [f"{n}UP" for n in range(1, 10)]
+    page = Snapshot(
+        url="u", title="t", labels=(), values=(),
+        content=Content(pairs=[Pair("Train No.", train) for train in trains]),
+    )
+    task = Task(goal="g", estimated_steps=1,
+                about=About(finds=(Answer("Train", reads="Train No."),)))
+
+    found = findings_in(page, task, {})
+
+    assert found[0].values == trains
+    assert found[0].value.endswith("and 5 more")
+
+
+def test_one_value_arrives_as_a_list_of_one() -> None:
+    """A screen that shows every value needs no special case for one."""
+    page = Snapshot(url="u", title="t", labels=(),
+                    content=Content(pairs=[Pair("P/WITHIN", "14,382")]))
+    task = Task(goal="g", estimated_steps=1,
+                about=About(finds=(Answer("Your bill", reads="P/WITHIN"),)))
+
+    found = findings_in(page, task, {})
+
+    assert found[0].values == ["14,382"]
+    assert found[0].value == "14,382"
+
+
+def test_the_values_are_remembered_with_the_line() -> None:
+    """The run's memory holds the list, so a page that no longer shows the
+    results does not shrink the answer back to one line."""
+    task = Task(goal="g", estimated_steps=1,
+                about=About(finds=(Answer("Train", reads="Train No."),)))
+    known: dict[str, list[str]] = {}
+    results = Snapshot(url="u", title="t", labels=(), content=Content(
+        pairs=[Pair("Train No.", "2DN"), Pair("Train No.", "14DN")]))
+    later = Snapshot(url="u2", title="t", labels=(), content=Content())
+
+    findings_in(results, task, known)
+    found = findings_in(later, task, known)
+
+    assert found[0].values == ["2DN", "14DN"]

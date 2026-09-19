@@ -126,8 +126,20 @@ The main message.
 `primary` | `secondary` | `destructive`.
 
 `findings` is what the task has been asked to find out, as far as it has got —
-`[{ "label": "Your bill", "value": "14,382" }]`. Empty for a task that changes
-something rather than finding something out, which is most of them.
+`[{ "label": "Your bill", "value": "14,382", "values": ["14,382"] }]`. Empty
+for a task that changes something rather than finding something out, which is
+most of them.
+
+`value` is one line and `values` is every value the page gave that label, in
+page order. They differ when a results table has a row per result: `value`
+reads `2DN, 14DN` and stops at four with `and 2 more`, while `values` holds
+all of them. The step screen shows `value`, because a run in progress shows
+its finding in large type beside the instruction; the closing screen shows
+`values`, because it is the answer.
+
+**`values` is additive and optional** (added 2026-09-19, and the kind of
+change CLAUDE.md allows without a ratification session). A sender that omits
+it means `[value]`, and a reader that ignores it behaves exactly as before.
 
 `label` is for a person to read, not the page's own column heading: the
 billing replica calls that column `P/WITHIN`. The plan supplies the readable

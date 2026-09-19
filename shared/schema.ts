@@ -70,7 +70,10 @@ export interface HistoryOffered {
  */
 export interface Finding {
   label: string;
+  /** One line: the values joined, counting the rest past four. */
   value: string;
+  /** Every value, in page order. Optional and additive; absent means [value]. */
+  values?: string[];
 }
 
 export interface StepField {

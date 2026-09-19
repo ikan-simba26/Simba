@@ -107,8 +107,10 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
 
     completed = connection.payload_of("task.completed")
     assert completed["findings"] == [
-        {"label": "Your bill", "value": "14,382"},
-        {"label": "Due", "value": "15-09-2026"},
+        # Both forms of each answer: the line the step screen shows, and the
+        # list the closing screen shows. One value, so they say the same thing.
+        {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
+        {"label": "Due", "value": "15-09-2026", "values": ["15-09-2026"]},
     ]
     # And it was shown while the run was still going, from the step it turned up on.
     assert connection.of("step.presented")[-1]["findings"] == completed["findings"]

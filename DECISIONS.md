@@ -1742,3 +1742,64 @@ justifies `serialize` emitting qualifiers and occlusion at all.
 summarise, and it no longer says anything about prompt layout. `render_page`
 keeps promoting banners on the strength of costing nothing, which is a weaker
 reason than the one written beside the code before today.
+
+---
+
+## A finding carries both the line and the list
+
+**Date:** 2026-09-19
+
+**Decision.** `Finding` gains `values: string[]`, additive and optional, next
+to the existing one-line `value`. The step screen shows `value`; the closing
+screen shows `values`. A message without `values` is read as `[value]`.
+
+**Alternatives.** Keep one string and stop truncating it. Split the string in
+the frontend on ", ". Send only the list and let each screen join it.
+
+**Why this.** The two screens want different things from the same answer. A
+run in progress shows its finding beside the instruction, in large type, while
+the person decides whether to press go-ahead — twenty values there is the
+clutter this project exists to remove. The ending *is* the answer, and an
+answer with results missing is the defect we were fixing.
+
+Not one string, because the truncation has to exist somewhere and a single
+string forces both screens to live with the same choice. Not splitting on
+", " in the frontend, because values contain commas — `LAHORE CANTT, KARACHI
+CANTT` is one value — and a display that guesses where a value ends will
+eventually guess wrong in front of someone. Not the list alone, because
+`voice.py` is the single source of the words the backend puts on screen, and
+joining in the frontend would put a second one there.
+
+**Cost.** Two representations of one answer travel in every message, and they
+can disagree if a future sender builds them separately. `findings_in` builds
+both from the same list, which is the only place they are built.
+
+---
+
+## The railways route is overridable, and its defaults are not
+
+**Date:** 2026-09-19
+
+**Decision.** `SIMBA_RAILWAYS_FROM` / `SIMBA_RAILWAYS_TO` (and the two
+`_QUERY` variants) override the route the hardcoded railways plan searches
+for. Unset, it is LAHORE CANTT to KARACHI CANTT with the recorded queries
+`LAH` and `KARACHI`, exactly as every recorded railways number was measured.
+
+**Alternatives.** Edit the plan for a run that needs a different route. Add a
+second plan. Leave it fixed and answer multi-result questions with scripted
+messages only.
+
+**Why this.** "Does the closing screen show every result?" cannot be answered
+on a route that returns one, and what a live route returns is not ours to
+choose: LAHORE CANTT to KARACHI CANTT returned two trains on 2026-09-09 and
+one on 2026-09-18. Editing the plan for a run is how a benchmark quietly stops
+being comparable. An override leaves the recorded configuration untouched and
+visible in the conditions block.
+
+The query prefix is derived for an overridden station (six characters) and
+kept verbatim for the two recorded ones, because `LAH` returning six stations
+is itself part of what the default run exercises.
+
+**Cost.** One more environment variable, and a route that is not the recorded
+one produces numbers that are not comparable with the recorded ones — the
+conditions block records the switches but not, today, the route.

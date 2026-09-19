@@ -75,10 +75,23 @@ class Finding(BaseModel):
     `label` is for a person to read, not the page's own column heading: the
     billing replica calls the amount `P/WITHIN`, and nobody outside a billing
     department knows what that means. The plan supplies the readable name.
+
+    Two forms of the same answer, because two screens want different things:
+
+      * `value` is one line. A results table has a row per result, so it is
+        the values joined, and past four it counts the rest — the step screen
+        shows a finding while the run is still going, in large type, beside
+        the instruction, and twenty values there is clutter.
+      * `values` is every one of them, in the order the page listed them. The
+        closing screen is the answer and shows them all.
+
+    `values` is optional and additive: a sender that does not set it is read
+    as `[value]`, which is what every finding was before 2026-09-19.
     """
 
     label: str
     value: str
+    values: List[str] = []
 
 
 class StepField(BaseModel):

@@ -57,6 +57,7 @@ from the version that produced its table.
 | "Durable verification, justified" | The two live lapses | `railways_llm_run` (the 2026-09-09 runs) |
 | 2026-09-17 | What perception reads today | `serializer_samples` (headless only) |
 | 2026-09-18c | Headless against the host, all three sites | `viewport_perception_probe` (needs the host and both replicas; two live searches per environment) |
+| 2026-09-19 | The closing screen, read off the screen | `host_overlay_run` (drives the overlay of a running stack; live search when the flow is railways) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
 
@@ -2505,3 +2506,69 @@ change (2026-09-18b) working on a live page for the first time, in the host, wit
 trains in the finding.
 
 Six read-only searches today, across both environments and both routes.
+
+---
+
+## 2026-09-19 — the closing screen shows every result, verified on the live site
+
+2026-09-18b fixed the reading: `values_for` returns every value a page gives a
+label, and a finding's text became `2DN, 14DN` instead of `2DN`. What it did
+not fix is that a finding is still **one string**, built by `voice.found`,
+which stops at four values and counts the rest. That is right for the step
+screen — a run in progress shows its finding in large type beside the
+instruction — and wrong for the closing screen, which is the answer. A search
+returning five trains would have ended on "and 1 more".
+
+### The change
+
+`Finding` carries both forms, and `values` is an additive optional field of
+the kind CLAUDE.md allows without a ratification session:
+
+| | | |
+|---|---|---|
+| `value` | one line, stops at four | what the step screen shows |
+| `values` | every value, page order | what the closing screen shows |
+
+A message without `values` means `[value]`, so nothing that already speaks
+this contract has to change.
+
+### Measured
+
+**In a browser, from source.** `test_terminal_states.py` gains an ending
+carrying five trains whose one-line form says "and 1 more". Every train is on
+the screen and the summary line is not, from the working screen and through a
+step: **2 tests, both passing**. With `Findings` reverted to read `value`,
+**2 of 2 fail** — the test catches the thing it exists for.
+
+**Live, through the Electron host.** `run.ps1 railways` with
+`SIMBA_RAILWAYS_TO=RAWALPINDI` (a route with more than one train on it), the
+hardcoded plan, no model. `tools/evaluation/host_overlay_run` typed the goal,
+pressed the step buttons and read the closing screen off the screen:
+
+    Here's what I found
+    39UP
+    1UP
+    Train
+    6 h 38 min
+    6 h 3 min
+    Journey
+
+Read back through the host's site view with the same serializer, the site was
+showing `Train No. → ['39UP', '1UP']` and `Duration → ['6 h 38 min', '6 h 3
+min']`. **Nothing the site returned was missing from the screen.** 9 presses,
+34.3s for the run (one run, this machine — 2026-09-17h). Screenshot in
+`logs/host-overlay-20260919-155018.png`.
+
+### What this leaves
+
+- **Only two results were available to test with live.** Five was tested in
+  the browser, from a scripted message. The live route returned two, which is
+  enough to show the defect is gone and not enough to show what twenty look
+  like on a screen this size.
+- **A long list scrolls.** The overflow guard drops a detail level when a
+  *step* will not fit; the closing screen has no such guard, so past roughly
+  eight values the ending scrolls. Scrolling an answer is a smaller failure
+  than hiding part of it, but it is a failure, and nothing has measured where
+  the line is.
+- **The step screen still shows one finding**, the first, as its one line.
+  That is the design (`StepShell`), not an oversight.

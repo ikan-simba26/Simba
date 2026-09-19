@@ -87,6 +87,21 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                          {"label": "Due", "value": "15-09-2026"}],
         }),
     ],
+    # A search that returned several results. The closing screen is the
+    # answer, so it shows all of them; `value` is the one-line form the step
+    # screen shows while the run is still going, and it stops at four.
+    "completed with several results": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/results", "duration_ms": 1,
+            "steps_taken": 3, "llm_calls": 0, "replayed": False,
+            "findings": [
+                {"label": "Train", "value": "39UP, 1UP, 7UP, 27UP and 1 more",
+                 "values": ["39UP", "1UP", "7UP", "27UP", "101UP"]},
+                {"label": "Journey", "value": "6 h 38 min, 6 h 3 min",
+                 "values": ["6 h 38 min", "6 h 3 min"]},
+            ],
+        }),
+    ],
     # The backend's summary really is the goal and then the final URL. It was
     # rendered here in 26px type until 2026-09-17.
     "completed without an answer": [
@@ -287,6 +302,29 @@ def test_everything_on_an_ending_leads_somewhere(
         page.wait_for_function(
             f"() => document.body.innerText.includes({json.dumps(GREETING)})", timeout=5000
         )
+
+
+MULTIPLE = ["39UP", "1UP", "7UP", "27UP", "101UP"]
+
+
+@pytest.mark.parametrize("name", ["completed with several results",
+                                  "completed with several results, after a step"])
+def test_a_closing_screen_shows_every_result(
+    name: str, page: Page, overlay: str, backend: Backend
+) -> None:
+    """Five trains came back, so five trains are on the screen.
+
+    The run that prompted this found two and showed one, because the value
+    was the first pair on the page (EVALUATION.md, 2026-09-18b). Reading the
+    list out of the message rather than the summary line is what makes the
+    fifth train visible: the line itself stops at four.
+    """
+    reach(page, overlay, backend, name)
+    text = page.inner_text("body")
+
+    for train in MULTIPLE:
+        assert train in text, f"{train} missing from the closing screen: {text}"
+    assert "and 1 more" not in text, "the closing screen showed the summary line"
 
 
 @pytest.mark.parametrize("name", list(ENDINGS))
