@@ -1803,3 +1803,96 @@ is itself part of what the default run exercises.
 **Cost.** One more environment variable, and a route that is not the recorded
 one produces numbers that are not comparable with the recorded ones — the
 conditions block records the switches but not, today, the route.
+
+---
+
+## The estimator measures before it scores
+
+**Date:** 2026-09-19
+
+**Decision.** `backend/estimator/page_features.py` returns raw values only:
+nine features plus the five counts the two derived ones are built from. No
+weighting, no normalisation, no load score. `tools/evaluation/collect_corpus`
+collects them over a list of pages, in both environments, into
+`data/corpus.json`.
+
+**Alternatives.** Ship a score now with weights chosen by hand, and tune it
+later. Normalise each feature to 0–1 against a guessed maximum.
+
+**Why this.** A score needs a corpus to calibrate against and there is none,
+so any weights today are intuition with a number stuck on it — and once they
+exist, every later measurement gets read as agreeing or disagreeing with them.
+The first twenty pages already show why that would have gone wrong: three of
+the nine features carry no signal on public pages at all (`overlays` is 0 on
+every one of them), and two more are nearly the same feature. Weights written
+last week would have weighted those.
+
+Normalising has the same problem one step earlier: dividing by a maximum
+nobody has measured is a weight in disguise. The raw counts survive a change
+of mind; a normalised number does not.
+
+**Cost.** Nothing consumes these features yet, so the module is measurement
+with no product behind it until the score exists. The corpus is 20 pages read
+once, which is enough to choose features and nowhere near enough to calibrate
+one.
+
+---
+
+## Sentences are counted per block, and script text is not text
+
+**Date:** 2026-09-19
+
+**Decision.** The Flesch–Kincaid grade counts each visible block — paragraph,
+heading, list item, cell — as at least one sentence, and skips text inside
+`script`, `style`, `noscript`, `template`, `head`, `title`, `meta` and `link`.
+
+**Alternatives.** Count sentence terminators across the whole page, which is
+what the formula says. Strip non-rendered text by computed style, as
+everything else in perception does.
+
+**Why this.** Both alternatives were tried first and both produced numbers
+that were obviously wrong rather than subtly wrong, which is the only luck in
+this entry. Terminators across the page made `lite.cnn.com` grade **293** and
+Wikipedia's main page **110**: a page of links has no full stops, so the
+formula read it as one enormous sentence. Formatting is punctuation on a web
+page.
+
+Filtering by computed style does not work for script text, because a
+`display: none` element is not in the layout tree at all and therefore has no
+computed style in the snapshot — "no style" means "nothing hiding it" for
+every ordinary node, and the check has to be by tag instead. Counted as prose,
+script source put **23,422 words** on a page of headlines.
+
+**Cost.** Two departures from the textbook formula, so a grade here is not
+directly comparable with one from another tool. The raw `words`, `sentences`
+and `syllables` travel with every row so anyone can recompute.
+
+---
+
+## Perception's bounds are device pixels, and callers have to know
+
+**Date:** 2026-09-19
+
+**Decision.** `page_features` takes a `device_pixel_ratio` and converts every
+box before asking whether it is on the screen. The corpus collector reads
+`window.devicePixelRatio` from each page rather than assuming it.
+
+**Alternatives.** Convert inside `snapshot.parse`, so bounds are CSS pixels
+everywhere. Assume 1 and accept the error.
+
+**Why this.** `DOMSnapshot` returns bounds in device pixels: the same `<h1>`
+is `(256, 120, 768, 32)` headless and `(384, 180, 1152, 48)` in the Electron
+host, which runs at 1.5 on this machine, while both report a CSS viewport of
+1280x800. Assuming 1 made the host measure a viewport 1.5x too small and read
+18 of 20 corpus pages as thinner than they are.
+
+Converting inside `parse` is probably the right long-term answer and is not
+this task's to make: `overlays.py`, `interactivity.py` and `content.py` all
+read bounds, their thresholds were tuned against the numbers as they are, and
+every recorded perception figure was taken with them. That is a perception
+change with a re-measurement attached, and it belongs to the module's owner.
+Flagged rather than done.
+
+**Cost.** A caller can get it wrong, silently, and the error is invisible
+unless someone compares two environments. Until `parse` converts, every new
+reader of `bounds` has the same trap waiting for it.

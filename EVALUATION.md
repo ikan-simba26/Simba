@@ -58,6 +58,7 @@ from the version that produced its table.
 | 2026-09-17 | What perception reads today | `serializer_samples` (headless only) |
 | 2026-09-18c | Headless against the host, all three sites | `viewport_perception_probe` (needs the host and both replicas; two live searches per environment) |
 | 2026-09-19 | The closing screen, read off the screen | `host_overlay_run` (drives the overlay of a running stack; live search when the flow is railways) |
+| 2026-09-19b | The twenty-page corpus, and every feature's range | `collect_corpus` (20 public pages, read in both environments; writes `data/corpus.json`) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
 
@@ -2572,3 +2573,139 @@ min']`. **Nothing the site returned was missing from the screen.** 9 presses,
   the line is.
 - **The step screen still shows one finding**, the first, as its one line.
   That is the design (`StepShell`), not an oversight.
+
+---
+
+## 2026-09-19b — the estimator's raw features, and twenty pages measured with them
+
+The estimator has never had a number to work from. `backend/estimator/` was
+empty, deliberately, until the skeleton ran end to end (CLAUDE.md), and it
+does. This is the measurement half and nothing else: raw counts, **no score,
+no weights, no normalisation**, because weights picked before there is a
+corpus are weights picked from intuition and they then decide what the corpus
+is allowed to say.
+
+`python -m tools.evaluation.collect_corpus`, 20 public pages, read in a
+headless Chromium and through the Electron host's site view (the rule from
+2026-09-18c). Conditions in `data/corpus.json`: commit `f01a897`, Python
+3.12.3, Playwright 1.62.0, load 39%, 2026-09-19 16:15. **0 of 20 pages failed
+to read** in either environment.
+
+### The corpus, headless
+
+| Page | interactive | inferred | density | depth | overlays | fields | links | dead | grade | words |
+|---|---|---|---|---|---|---|---|---|---|---|
+| example.com | 1 | 0 | 0.12 | 6 | 0 | 0 | 1 | 0.0 | 9.2 | 19 |
+| info.cern.ch (the first website) | 25 | 0 | 0.91 | 6 | 0 | 0 | 25 | 0.0 | 7.8 | 153 |
+| httpbin.org/html | 0 | 0 | **3.51** | **5** | 0 | 0 | **0** | 0.0 | **13.7** | 605 |
+| text.npr.org | 28 | 0 | 1.07 | 8 | 0 | 0 | 28 | 0.0 | 7.3 | 258 |
+| lite.cnn.com | 106 | 0 | 1.97 | 10 | 0 | 0 | 106 | 0.009 | 8.4 | 1306 |
+| danluu.com | 210 | 0 | 1.30 | 6 | 0 | 0 | 210 | 0.0 | 7.3 | 1218 |
+| pakrailways.gov.pk/train | 18 | 0 | **0.10** | 21 | 0 | 3 | 12 | **0.25** | 10.6 | 1061 |
+| quotes.toscrape.com | 55 | 0 | 0.84 | 11 | 0 | 0 | 55 | 0.0 | 5.4 | 278 |
+| books.toscrape.com | 114 | 0 | 0.64 | 16 | 0 | 0 | 94 | 0.0 | **3.9** | 272 |
+| python.org | 153 | 5 | 1.05 | 17 | 0 | 1 | 151 | 0.007 | 6.8 | 1126 |
+| pypi.org | 55 | 0 | 0.54 | 14 | 0 | 1 | 52 | 0.0 | 8.9 | 253 |
+| developer.mozilla.org | 147 | 2 | 1.74 | 18 | 0 | 1 | 131 | 0.0 | 7.0 | 1816 |
+| wikipedia.org/wiki/Cognitive_load | **827** | 0 | 2.14 | **45** | 0 | **12** | **806** | 0.001 | 10.1 | **7416** |
+| wikipedia.org/wiki/Main_Page | 260 | 0 | 1.82 | 23 | 0 | 12 | 246 | 0.0 | 7.6 | 1627 |
+| gov.uk | 88 | 0 | 0.45 | 20 | 0 | 1 | 79 | 0.0 | 7.7 | 861 |
+| gov.uk/browse/benefits | 56 | 0 | 0.53 | 20 | 0 | 0 | 49 | 0.0 | 7.9 | 681 |
+| nhs.uk | 53 | 0 | 0.52 | 16 | 0 | 1 | 49 | 0.0 | 5.4 | 449 |
+| news.ycombinator.com | 230 | 0 | **2.37** | 16 | 0 | 1 | 229 | 0.0 | 7.1 | 511 |
+| arxiv.org/list/cs.HC/recent | 493 | 0 | 1.78 | 13 | 0 | 0 | 493 | 0.0 | 11.2 | 2296 |
+| bbc.co.uk/news | 116 | 0 | 0.56 | 23 | 0 | 0 | 108 | 0.0 | 6.4 | 1340 |
+
+### The range of each feature, and which are useless as they stand
+
+| Feature | Min | Median | Max | CV | Distinct | Verdict |
+|---|---|---|---|---|---|---|
+| `interactive` | 0 | 97 | 827 | 1.26 | 19/20 | Wide, and it separates every page |
+| `links` | 0 | 86.5 | 806 | 1.29 | 19/20 | Wide — and almost the same signal as `interactive` |
+| `text_density` | 0.096 | 0.98 | 3.51 | 0.71 | 20/20 | Wide, and it ranks pages differently from the counts |
+| `max_depth` | 5 | 16 | 45 | 0.56 | 14/20 | Usable |
+| `reading_grade` | 3.91 | 7.67 | 13.68 | 0.27 | 19/20 | Usable, but the narrowest real spread here |
+| `form_fields` | 0 | 0 | 12 | 2.14 | 4 values | Borderline: 0 on 11 of 20 |
+| `inferred` | 0 | 0 | 5 | 3.29 | 3 values | **Flagged: 0 on 18 of 20** |
+| `dead_link_ratio` | 0.0 | 0.0 | 0.25 | 4.07 | 5 values | **Flagged: 0.0 on 16 of 20** |
+| `overlays` | 0 | 0 | 0 | 0.0 | 1 value | **Flagged: 0 on 20 of 20** |
+
+**Three features cannot tell these pages apart.** Flagged by the collector
+itself, which marks a feature when one value covers three quarters of the
+corpus — a rule that catches `inferred` and `dead_link_ratio`, both of which
+have a *large* coefficient of variation precisely because they are zero
+almost everywhere and then jump.
+
+- **`overlays` is 0 on every page, and the detector is right.** gov.uk and
+  nhs.uk both show a cookie banner covering **41% of the viewport** — and both
+  are `position: static`, in the page's flow, pushing the content down rather
+  than covering it. `overlays.analyse` looks for something *stacked over* the
+  page, which is what a click has to get past. So the feature is not broken;
+  it is measuring something that public front pages rarely do, and 20 pages
+  bought no information at all. It needs a corpus with real modals in it — the
+  registration replica has one — or it is not a feature.
+- **`inferred` is 0 except on python.org (5) and MDN (2).** Non-semantic
+  controls are much rarer on well-built public pages than on the two
+  applications this project actually drives: the railways site has 6 inferred
+  options as soon as a dropdown opens, and 42 when the calendar does
+  (2026-09-08). Idle pages are the wrong place to measure it.
+- **`dead_link_ratio` is 0.0 on 16 of 20**, and its one real value is the
+  railways site at 0.25. Our own registration replica sits at 0.978. Public
+  sites do not leave `href="#"` lying about; the pages that need SIMBA might.
+- **`links` and `interactive` move together** — 19 of 20 pages differ in both,
+  and the two columns are within a few percent of each other on most rows.
+  Two features carrying one signal is a weighting problem waiting to happen,
+  and whoever builds the score should treat them as one until a page shows
+  otherwise.
+
+### Both environments agree, once device pixels are accounted for
+
+**16 of 20 pages read identically** headless and in the host. The four that
+differ are all live pages whose content changed between the two passes
+(`lite.cnn.com`, Hacker News, BBC News, and Wikipedia's main page, which also
+disagreed on `form_fields`, 12 against 4 — unexplained, and the one difference
+here that is not obviously the clock).
+
+Getting there took a real defect out of the way, and it is one the
+two-environment rule caught exactly as intended:
+
+> **A snapshot's bounds are in device pixels; the viewport is in CSS pixels.**
+> On example.com the same `<h1>` measures `(256, 120, 768, 32)` headless and
+> `(384, 180, 1152, 48)` in the host, which runs at `devicePixelRatio` 1.5 on
+> this machine's display. Both report `innerWidth/innerHeight` of exactly
+> 1280x800.
+
+Before that was handled, the host counted a viewport 1.5x too small and read
+every page as thinner than it is — **18 of 20 pages disagreed**, Wikipedia's
+article by 2.7x (2192 characters against 814). `page_features` now takes the
+ratio and converts. **This is not only the estimator's problem**: see the
+flagged item below.
+
+### What failed on the way, and what it changed
+
+- **Script source was being counted as prose.** A `<script>` is not in the
+  layout tree, so it has no computed style in the snapshot, so "nothing is
+  hiding this" was true of it. `lite.cnn.com` — a page of headlines — measured
+  **23,422 words and reading grade 98.5**, BBC News 18,370 words and grade
+  32.2. With `NOT_RENDERED` skipped by tag: **1,306 words, grade 8.4** and
+  **1,340 words, grade 6.4**. Every grade in the table above is from after the
+  fix; the corpus was collected three times because of it.
+- **Sentences are counted per block, not per page.** The first run graded
+  `lite.cnn.com` at 293 and Wikipedia's main page at 110, because a page of
+  links has almost no full stops and Flesch–Kincaid then reads the whole page
+  as one enormous sentence. A block — a paragraph, a heading, a list item —
+  counts as at least one sentence, which is what formatting means on a web
+  page. The raw `words`, `sentences` and `syllables` are in every row so a
+  different rule can be applied later without re-reading anything.
+- **The two replica pages share a 45-link nav**, so `links` and
+  `dead_link_ratio` read *identically* on a three-field login and on a
+  60-element course list with a modal over it. Found by a test assertion that
+  turned out to be wrong about the pages rather than about the code
+  (`test_page_features.py`).
+
+### What this does not do
+
+No score, no weights, no normalisation, and no claim that any of these
+features predicts anything about a person. There is no user data, and nothing
+here has been compared against how hard anybody found a page. A corpus of 20
+pages read once is a starting point for choosing features, not a calibration.
