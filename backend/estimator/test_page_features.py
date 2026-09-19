@@ -14,6 +14,7 @@ these features are raw by decision (DECISIONS.md, 2026-09-19).
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from playwright.async_api import async_playwright
@@ -160,25 +161,28 @@ def test_text_outside_the_viewport_is_read_but_not_counted_as_density() -> None:
     assert found.text_density == pytest.approx(9 / 1024, abs=0.001)
 
 
-def test_a_box_in_device_pixels_is_converted_before_it_is_judged() -> None:
-    """The host reads at 1.5 device pixels to the CSS pixel, and its bounds
-    come back in device pixels while the viewport is in CSS ones.
+def test_a_box_is_read_as_css_pixels_because_parse_converted_it() -> None:
+    """The host reads at 1.5 device pixels to the CSS pixel, and CDP sends
+    boxes in the first of those units.
 
     Measured on example.com's `<h1>`: `(256, 120, 768, 32)` headless,
     `(384, 180, 1152, 48)` in the host, same page, same CSS layout
-    (EVALUATION.md, 2026-09-19b). Without the conversion the host counts a
-    viewport 1.5x too small and every page reads as thinner than it is.
+    (EVALUATION.md, 2026-09-19b). `snapshot.parse` divides by the ratio on the
+    way in (2026-09-20), so everything here is CSS pixels and this module has
+    no ratio of its own — see `test_snapshot.py` for the conversion itself.
     """
     document = document_of(
         (-1, ELEMENT_NODE, "HTML", ""),
         (0, ELEMENT_NODE, "P", ""), (1, TEXT_NODE, "#text", "near the fold"),
     )
-    # CSS y = 700, which is on a 800-tall screen. In device pixels at 1.5 it
-    # is 1050, which is not.
-    document.bounds[1] = (0.0, 1050.0, 300.0, 30.0)
+    # CSS y = 700, which is on an 800-tall screen.
+    document.bounds[1] = (0.0, 700.0, 300.0, 30.0)
+    assert features(_view(), document, VIEWPORT).viewport_characters == 13
 
-    assert features(_view(), document, VIEWPORT, 1.5).viewport_characters == 13
-    assert features(_view(), document, VIEWPORT, 1.0).viewport_characters == 0
+    # And the same box where the conversion did not happen: 1050 device
+    # pixels is off the bottom of a CSS viewport, and reads as off the screen.
+    document.bounds[1] = (0.0, 1050.0, 300.0, 30.0)
+    assert features(_view(), document, VIEWPORT).viewport_characters == 0
 
 
 def test_script_source_is_not_reading_material() -> None:
@@ -230,6 +234,22 @@ def _view():
 # opened and closed here.
 
 
+def drive_and_read(url: str, drive=None) -> tuple[PageFeatures, list]:
+    """`_read`, run on a thread of its own.
+
+    `asyncio.run` fails while a sync Playwright session is alive in the same
+    thread, and perception's tests keep one open for the whole session. Which
+    of the two runs first depends on how pytest was invoked — `pytest` sorts
+    `estimator/` before `perception/` and everything passes, `pytest
+    backend/perception backend/estimator` does not — and a test that depends
+    on the order of the command line is a test that will fail on somebody
+    else's machine. A worker thread has no sync session in it, so neither
+    order matters (`backend/conftest.py`).
+    """
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(_read(url, drive))).result()
+
+
 async def _read(url: str, drive=None) -> tuple[PageFeatures, list]:
     """Load a page, optionally do something on it, and measure what is there."""
     async with async_playwright() as playwright:
@@ -257,7 +277,7 @@ async def sign_in(page) -> None:
 def test_the_course_list_matches_what_perception_records_for_it(replica: str) -> None:
     """66 elements, one overlay, 44 dead links — the figures in EVALUATION.md
     for this page, counted again through the features."""
-    found, elements = asyncio.run(_read(replica, sign_in))
+    found, elements = drive_and_read(replica, sign_in)
 
     assert found.interactive == len(elements) == 66
     assert found.overlays == 1
@@ -276,8 +296,8 @@ def test_the_login_page_is_the_simpler_of_the_two(replica: str) -> None:
     A feature that reads the same on a three-field login as on a sixty-element
     course list is not measuring the page.
     """
-    login, _ = asyncio.run(_read(replica))
-    courses, _ = asyncio.run(_read(replica, sign_in))
+    login, _ = drive_and_read(replica)
+    courses, _ = drive_and_read(replica, sign_in)
 
     assert login.interactive < courses.interactive
     assert login.text_density < courses.text_density
@@ -292,7 +312,7 @@ def test_the_login_page_is_the_simpler_of_the_two(replica: str) -> None:
 
 
 def test_the_fields_on_the_billing_form_are_counted(billing: str) -> None:
-    found, elements = asyncio.run(_read(billing))
+    found, elements = drive_and_read(billing)
 
     assert found.form_fields >= 1
     assert found.interactive > found.form_fields
@@ -306,7 +326,7 @@ def test_a_field_role_counts_even_when_the_tag_does_not(replica: str) -> None:
     reaches perception as a role and nothing else."""
     assert "combobox" in FIELD_ROLES and "textbox" in FIELD_ROLES
 
-    found, elements = asyncio.run(_read(replica))
+    found, elements = drive_and_read(replica)
 
     assert found.form_fields == sum(
         1 for element in elements

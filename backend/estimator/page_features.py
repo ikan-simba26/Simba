@@ -37,14 +37,11 @@ changing. Only text whose box falls inside the viewport counts, and the page
 is assumed to be at the top of its scroll, which is how every read in this
 project happens.
 
-**Device pixels.** A snapshot's bounds are in *device* pixels and the viewport
-is in CSS pixels, and they are the same thing only while the device pixel
-ratio is 1. Headless it is; in the Electron host on a display at 150% it is
-1.5, and the same `<h1>` on example.com measures `(256, 120, 768, 32)` in one
-and `(384, 180, 1152, 48)` in the other (2026-09-19b). Pass
-`device_pixel_ratio` and every box is divided by it before being asked whether
-it is on the screen. Without it the host counted a viewport 1.5x too small and
-read every page as thinner than it is — up to 2.7x thinner on Wikipedia.
+**Pixels.** Everything here is CSS pixels. `snapshot.parse` converts the
+snapshot's device-pixel boxes on the way in (2026-09-20), so this module reads
+`document.bounds` and the frozen 1280x800 viewport in the same units without
+knowing anything about the display. It did carry a `device_pixel_ratio`
+argument for a day, which is exactly the kind of thing every caller forgets.
 
 **Reading grade is over all visible text**, not only what is in the viewport.
 How hard a page is to read is a property of the page; how much of it is on
@@ -192,20 +189,19 @@ def reading_grade(text: str | Sequence[str]) -> tuple[float, int, int, int]:
 # --- the page ---------------------------------------------------------------
 
 
-def _inside(box: Rect, viewport: tuple[int, int], scale: float = 1.0) -> bool:
+def _inside(box: Rect, viewport: tuple[int, int]) -> bool:
     """Whether a box shows any of itself in the viewport, unscrolled.
 
-    `scale` is the device pixel ratio: bounds arrive in device pixels and the
-    viewport is in CSS pixels, so the box is converted before the comparison.
+    Both are CSS pixels: `snapshot.parse` converted the box on the way in.
     """
-    x, y, width, height = (value / scale for value in box)
+    x, y, width, height = box
     if width <= 0 or height <= 0:
         return False
     return x < viewport[0] and y < viewport[1] and x + width > 0 and y + height > 0
 
 
 def _visible_text(
-    document: Document, viewport: tuple[int, int], scale: float = 1.0
+    document: Document, viewport: tuple[int, int]
 ) -> tuple[list[str], int]:
     """The visible text as blocks, and how much of it is in the viewport.
 
@@ -266,7 +262,7 @@ def _visible_text(
         # in, so its box is the right answer for "is this on screen".
         parent = document.parents[index] if index < len(document.parents) else -1
         box = document.bounds.get(index) or document.bounds.get(parent)
-        if box is not None and _inside(box, viewport, scale):
+        if box is not None and _inside(box, viewport):
             in_viewport += len(value)
     return [" ".join(blocks[owner]) for owner in order], in_viewport
 
@@ -294,7 +290,6 @@ def features(
     view: PageView,
     document: Document,
     viewport: tuple[int, int] = VIEWPORT,
-    device_pixel_ratio: float = 1.0,
 ) -> PageFeatures:
     """The raw features of one page read.
 
@@ -302,9 +297,8 @@ def features(
     is the parsed snapshot from the same read — the two have to describe one
     moment, or the counts belong to different pages.
 
-    `device_pixel_ratio` is `window.devicePixelRatio` on the page being read.
-    It is 1 in a headless browser and 1.5 in the host on this machine, and
-    getting it wrong scales the density by exactly that much.
+    Lengths are CSS pixels throughout: `document.bounds` were converted when
+    the snapshot was parsed, and `document.device_pixel_ratio` says what by.
 
     A `document` is required rather than optional: every text feature needs
     it, and a call with `SIMBA_OVERLAY_DETECTION=0` and
@@ -324,7 +318,7 @@ def features(
     fields = [element for element in elements
               if element.tag in FIELD_TAGS or element.role in FIELD_ROLES]
 
-    blocks, in_viewport = _visible_text(document, viewport, device_pixel_ratio)
+    blocks, in_viewport = _visible_text(document, viewport)
     grade, words, sentences, counted = reading_grade(blocks)
     text = " ".join(blocks)
     area_units = (viewport[0] * viewport[1]) / AREA_UNIT

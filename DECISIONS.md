@@ -1896,3 +1896,62 @@ Flagged rather than done.
 **Cost.** A caller can get it wrong, silently, and the error is invisible
 unless someone compares two environments. Until `parse` converts, every new
 reader of `bounds` has the same trap waiting for it.
+
+---
+
+## Lengths are CSS pixels, converted where they enter
+
+**Date:** 2026-09-20
+
+**Decision.** `snapshot.parse` divides every box by the device pixel ratio, so
+`Document.bounds` are CSS pixels and every caller — overlays, interactivity,
+content, the estimator — reads the same units as the frozen 1280x800 viewport.
+`Document.device_pixel_ratio` records what was divided by. The ratio comes from
+`Page.getLayoutMetrics`, not from the page.
+
+**Alternatives.** Pass the ratio to each caller, as the estimator did for a
+day. Leave the boxes in device pixels and scale the viewport instead. Use
+`window.devicePixelRatio`.
+
+**Why this.** A convention that every caller has to remember is a convention
+that holds until the next caller. There are four already and the numbers are
+invisible unless two environments are compared, which is how this survived two
+weeks (2026-09-19b).
+
+`window.devicePixelRatio` is the obvious source and is wrong: under Playwright's
+`device_scale_factor` emulation the page reports 1.5 while CDP reports CSS
+pixels, so dividing by it would break the test suite's own browser while fixing
+the host. `getLayoutMetrics` reports the viewport in both units, which is the
+thing actually being asked, and needs no JavaScript on the page being read.
+
+**Cost.** One more CDP call per read. Every figure taken before today was taken
+under the old behaviour — re-measured, and none of them moved (2026-09-20).
+And `MIN_COVERAGE` now means in the host what it always said it meant, which
+makes the host *less* sensitive to mid-sized blockers than it was yesterday.
+
+---
+
+## A test that needs a browser says which kind, and runs where it can
+
+**Date:** 2026-09-20
+
+**Decision.** Perception's tests use the shared sync browser. The estimator's
+read pages through `asyncio.run` **on a worker thread**. The one test that
+needs the real Electron host is skipped unless `SIMBA_HOST_TESTS=1`.
+
+**Alternatives.** Make everything sync. Make everything async. Rely on pytest's
+alphabetical order, which happens to work.
+
+**Why this.** A live `sync_playwright` session breaks `asyncio.run` in the same
+thread. `pytest` sorts `estimator/` before `orchestrator/` before
+`perception/`, so the whole suite passes — and `pytest backend/perception
+backend/estimator` fails four tests, because the order of the command line
+decides which session is open first. A test that depends on how it was invoked
+will fail on somebody else's machine and look like a real defect. A worker
+thread has no sync session in it, so neither order matters.
+
+**Cost.** One thread per browser read in the estimator's tests, and a rule
+that anyone adding an async browser test in `backend/` has to know. The
+orchestrator's tests have the same latent fragility — they are all
+`asyncio.run` — and are left alone because nothing has tripped them; if that
+changes, the same thread helper is the fix.

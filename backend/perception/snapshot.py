@@ -49,6 +49,15 @@ class Document:
     `nodes` arrays — because that is the only key the snapshot uses
     internally. `backend_id` converts to the id the rest of perception and
     the accessibility tree speak in.
+
+    **`bounds` are CSS pixels**, converted on the way in by `parse`. CDP sends
+    them in device pixels, which is the same thing only while the device pixel
+    ratio is 1 — true headless, false in the Electron host on a display at
+    150%, where the same `<h1>` measured `(384, 180, 1152, 48)` against
+    `(256, 120, 768, 32)` (EVALUATION.md, 2026-09-19b). Every other length in
+    this project is CSS pixels: the frozen 1280x800 viewport, a coverage
+    fraction, a text density. One of them had to convert and this is the one,
+    because it is the only place the numbers enter.
     """
 
     strings: list[str]
@@ -66,6 +75,10 @@ class Document:
     # knowing it costs nothing extra, and without it perception cannot see
     # the one thing a filled form has that an empty one does not.
     input_values: dict[int, str] = field(default_factory=dict)
+    #: What `bounds` were divided by to get CSS pixels. Recorded so a reader
+    #: can tell a page that was read at 1 from one read at 1.5, and so a test
+    #: can assert the conversion happened rather than assuming it.
+    device_pixel_ratio: float = 1.0
 
     def __len__(self) -> int:
         return len(self.parents)
@@ -162,8 +175,17 @@ class Document:
         return " > ".join(reversed(steps))
 
 
-def parse(snapshot: dict[str, Any] | None) -> Document | None:
-    """Unpack the first document of a captureSnapshot payload, or None."""
+def parse(
+    snapshot: dict[str, Any] | None, device_pixel_ratio: float = 1.0
+) -> Document | None:
+    """Unpack the first document of a captureSnapshot payload, or None.
+
+    `device_pixel_ratio` is what the page reported when the snapshot was
+    taken; every box is divided by it, so callers get CSS pixels and none of
+    them has to remember a ratio. `serializer.read` supplies it from the page
+    itself. The default of 1 is what a headless browser reports, and is also
+    what a hand-built document in a test wants.
+    """
     if not snapshot:
         return None
     documents = snapshot.get("documents") or []
@@ -200,12 +222,16 @@ def parse(snapshot: dict[str, Any] | None) -> Document | None:
 
     bounds: dict[int, Rect] = {}
     styles: dict[int, dict[str, str]] = {}
+    # A ratio of 0 would mean dividing every box by nothing; treat an absent
+    # or nonsensical value as 1 rather than losing the layout entirely.
+    scale = float(device_pixel_ratio) if device_pixel_ratio else 1.0
     for position, node_index in enumerate(layout.get("nodeIndex", [])):
         raw_bounds = layout.get("bounds", [])
         raw_styles = layout.get("styles", [])
         if position < len(raw_bounds):
             box = raw_bounds[position]
-            bounds[node_index] = (box[0], box[1], box[2], box[3])
+            bounds[node_index] = (box[0] / scale, box[1] / scale,
+                                  box[2] / scale, box[3] / scale)
         if position < len(raw_styles):
             styles[node_index] = dict(
                 zip(COMPUTED_STYLES, [text(s) for s in raw_styles[position]])
@@ -238,6 +264,7 @@ def parse(snapshot: dict[str, Any] | None) -> Document | None:
         children=children,
         index_of_backend_id={b: i for i, b in enumerate(backend_ids)},
         input_values=input_values,
+        device_pixel_ratio=scale,
     )
 
 

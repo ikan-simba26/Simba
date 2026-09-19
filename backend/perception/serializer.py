@@ -177,15 +177,17 @@ def read(page: Page, viewport: tuple[int, int] = VIEWPORT) -> PageView:
         ax_nodes = cdp.send("Accessibility.getFullAXTree")["nodes"]
         document = cdp.send("DOM.getDocument", {"depth": -1})["root"]
         snapshot = None
+        ratio = 1.0
         if _wants_snapshot():
             cdp.send("DOMSnapshot.enable")
             snapshot = cdp.send(
                 "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
             )
+            ratio = pixel_ratio(cdp.send("Page.getLayoutMetrics"))
     finally:
         cdp.detach()
 
-    return _assemble(ax_nodes, document, snapshot, viewport)
+    return _assemble(ax_nodes, document, snapshot, viewport, ratio)
 
 
 async def serialize_async(
@@ -205,15 +207,17 @@ async def read_async(
         ax_nodes = (await cdp.send("Accessibility.getFullAXTree"))["nodes"]
         document = (await cdp.send("DOM.getDocument", {"depth": -1}))["root"]
         snapshot = None
+        ratio = 1.0
         if _wants_snapshot():
             await cdp.send("DOMSnapshot.enable")
             snapshot = await cdp.send(
                 "DOMSnapshot.captureSnapshot", {"computedStyles": COMPUTED_STYLES}
             )
+            ratio = pixel_ratio(await cdp.send("Page.getLayoutMetrics"))
     finally:
         await cdp.detach()
 
-    return _assemble(ax_nodes, document, snapshot, viewport)
+    return _assemble(ax_nodes, document, snapshot, viewport, ratio)
 
 
 async def read_content_async(
@@ -246,13 +250,34 @@ async def blockers_for_target_async(
     return analyse(snapshot, viewport, target=element.backend_node_id)
 
 
+def pixel_ratio(metrics: dict[str, Any]) -> float:
+    """How many device pixels the page is drawing per CSS pixel.
+
+    From `Page.getLayoutMetrics`, which reports the same viewport twice — once
+    in device pixels and once in CSS pixels — rather than from
+    `window.devicePixelRatio`, so no JavaScript is run on the page being read.
+    A snapshot's boxes are in the first of those units and everything else in
+    this project is in the second.
+
+    Returns 1.0 when the metrics are missing or nonsensical, which is what a
+    headless browser reports anyway.
+    """
+    css = (metrics.get("cssLayoutViewport") or {}).get("clientWidth")
+    device = (metrics.get("layoutViewport") or {}).get("clientWidth")
+    if not css or not device:
+        return 1.0
+    ratio = float(device) / float(css)
+    return ratio if ratio > 0 else 1.0
+
+
 def _assemble(
     ax_nodes: list[dict[str, Any]],
     document: dict[str, Any],
     snapshot: dict[str, Any] | None,
     viewport: tuple[int, int],
+    device_pixel_ratio: float = 1.0,
 ) -> PageView:
-    parsed = parse(snapshot) if snapshot else None
+    parsed = parse(snapshot, device_pixel_ratio) if snapshot else None
     overlays = analyse(parsed, viewport) if parsed and overlay_detection_enabled() else None
 
     elements = build_elements(ax_nodes, index_dom(document), overlays, parsed)

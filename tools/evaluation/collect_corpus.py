@@ -116,13 +116,14 @@ async def read_features(page, url: str) -> dict:
         view = await read_async(page, VIEWPORT)
         if view.document is None:
             return {"url": url, "error": "no snapshot; are the switches off?"}
-        # Bounds come back in device pixels, and the host runs at 1.5 on this
-        # machine where headless runs at 1. Read per page rather than assumed:
-        # it is a property of the display, not of the script (2026-09-19b).
-        ratio = float(await page.evaluate("() => window.devicePixelRatio") or 1.0)
-        found: PageFeatures = features(view, view.document, VIEWPORT, ratio)
+        found: PageFeatures = features(view, view.document, VIEWPORT)
+        # The ratio the read was taken at, recorded rather than applied: since
+        # 2026-09-20 `snapshot.parse` converts the boxes and every length here
+        # is CSS pixels. Kept in the row because a corpus should say what the
+        # display was doing.
         return {"url": url, "title": (await page.title())[:80],
-                "device_pixel_ratio": ratio, **found.as_dict()}
+                "device_pixel_ratio": view.document.device_pixel_ratio,
+                **found.as_dict()}
     except PlaywrightError as refused:
         return {"url": url, "error": f"{type(refused).__name__}: {str(refused)[:120]}"}
 

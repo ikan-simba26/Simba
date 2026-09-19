@@ -2723,3 +2723,89 @@ No score, no weights, no normalisation, and no claim that any of these
 features predicts anything about a person. There is no user data, and nothing
 here has been compared against how hard anybody found a page. A corpus of 20
 pages read once is a starting point for choosing features, not a calibration.
+
+---
+
+## 2026-09-20 — bounds are CSS pixels everywhere, and what `MIN_COVERAGE` has actually been measuring
+
+Yesterday the estimator worked around the device-pixel trap by taking a ratio
+from its caller (2026-09-19b). That is the fix that keeps working until
+somebody forgets, and `overlays.py`, `interactivity.py` and `content.py` all
+read the same boxes. So the conversion moved to where the numbers enter:
+`snapshot.parse` divides every box by the ratio, `Document` records what it
+divided by, and every caller now reads CSS pixels without knowing anything
+about the display.
+
+### Where the ratio comes from, and the trap in the obvious answer
+
+**Not `window.devicePixelRatio`.** Playwright's `device_scale_factor` is an
+emulation: the page reports 1.5 and CDP still reports every box in CSS pixels.
+Dividing by what the page says would have been wrong in exactly the
+environment the test suite runs in — measured at 1.0, 1.5 and 2.0, boxes
+identical at all three.
+
+The ratio comes from `Page.getLayoutMetrics`, which reports the same viewport
+twice:
+
+| | `layoutViewport` | `cssLayoutViewport` | ratio | boxes |
+|---|---|---|---|---|
+| Headless, plain | 1280x800 | 1280x800 | 1.0 | CSS |
+| Headless, `device_scale_factor=1.5` | 1280x800 | 1280x800 | 1.0 | CSS |
+| Electron host, 150% display | **1920x1200** | 1280x800 | **1.5** | **device** |
+
+So a headless browser cannot reproduce the host's condition at all, which is
+why this survived two weeks of headless measurement. `test_snapshot.py` covers
+the conversion, the emulation case, and — skipped unless `SIMBA_HOST_TESTS=1`
+and a host is up — the real one.
+
+### Every recorded perception figure, re-measured in both environments
+
+`python -m tools.evaluation.viewport_perception_probe`, after the change:
+
+| Page | Figures | Headless | In the host | Against the first recorded |
+|---|---|---|---|---|
+| registration `/courses`, modal up | 66 elements / 1 overlay / 65 occluded / 44 dead; 3 headings, 1 table, 20 rows, 177 pairs | unchanged | identical | unchanged |
+| billing `/bill` | 39 / 32 dead; 5 headings, 3 tables, 19 rows, 70 pairs; `P/WITHIN → 14,382` | unchanged | identical | unchanged |
+| railways `/train` idle | 18 / 4 unnamed / 3 dead | unchanged | identical | unchanged |
+| railways results (LHR→KHI) | 2 tables, 2 rows, joined 4-wide, 4 pairs, `Train No. → ['2DN']` | unchanged | identical | — |
+
+**Not one figure changed.** The reason is worth saying rather than being
+relieved about: every overlay this project has ever measured is a full-screen
+modal, and a full-screen modal is over the threshold whichever units it is
+measured in. The conversion changes what happens in the band between, and
+nothing we have sits in that band.
+
+### What the threshold has been measuring, per environment
+
+`MIN_COVERAGE = 0.30` is a fraction of the viewport's area. A box 1.5x too
+large in each direction covers **2.25x** as much area, so:
+
+| Environment | Ratio | Area factor | `MIN_COVERAGE` as written | What it actually required |
+|---|---|---|---|---|
+| Headless (and any 1x display) | 1.0 | 1.00 | 0.30 | **0.30 of the screen** |
+| The Electron host, 150% display | 1.5 | 2.25 | 0.30 | **0.133 of the screen** |
+
+Measured on the registration replica's modal, which is the one page-level
+blocker in the project:
+
+    headless  coverage 1.000   (unchanged by the fix)
+    host      coverage 0.986   (read as 2.220 before it)
+
+A coverage of **2.220** — a backdrop covering 222% of the screen — is the
+clearest statement of the bug there is, and nothing ever printed it because
+`blocked` is a boolean.
+
+Three things follow, and the middle one is the uncomfortable one:
+
+1. **The number in the code described the headless case only.** In the host —
+   the environment the product runs in — the page-level rule has been firing
+   at 13.3% since the rule existed.
+2. **The fix makes the host less sensitive, not more.** Anything covering
+   between 13.3% and 30% of the screen was flagged in the host yesterday and
+   is not today. Nothing in the three flows is in that band: the two small
+   blockers on record are the billing cookie bar at **6.6%** and the live
+   railways dropdown at **~2%**, both below either threshold, which is why the
+   target-scoped rule was written in the first place (2026-09-05).
+3. **0.30 has never been calibrated against real pages.** It was a guess that
+   has been quietly behaving as two different guesses. The corpus is the
+   instrument for fixing that, and this is flagged rather than settled.
