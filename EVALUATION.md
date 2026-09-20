@@ -3190,10 +3190,21 @@ The other two are second blockers on pages a declared z-index already caught.
 That is a smaller result than "a whole class of modals was invisible" and it
 is the accurate one.
 
-**No existing detection regressed.** All 8 blocked pages under the new rule
-are pages with a real modal up; the page count at 0.30 went from 7 to 8, and
-the page that joined is `entry_ad`. Nothing that was detected before stopped
-being detected — the rule only adds candidates — and the suite is green at
+**No existing detection regressed**, and this is checked against the previous
+corpus rather than argued from the shape of the code. The 34 pages that appear
+in both the 2026-09-20b corpus and this one, compared row by row on `overlays`:
+
+| | Pages |
+|---|---|
+| Lost an overlay | **0** |
+| Unchanged | 32 |
+| Gained one | 2 — `entry_ad` 0→1, `element-plus.org` 1→2 |
+
+Both gains are correct: `entry_ad`'s modal at `z-index: auto`, and Element
+Plus's `.el-overlay-dialog`, which sits inside the `.el-overlay` the old rule
+already found. All 8 blocked pages under the new rule are pages with a real
+modal up. Nothing that was detected before stopped being detected — the rule
+only adds candidates — and the suite is green at
 **403 passed, 8 skipped, 0 failed** in 481s, with 8 new tests covering the
 fixed case, the sticky case, the `absolute` non-case, and a fixed strip under
 the threshold that must *not* become a page-level blocker.
