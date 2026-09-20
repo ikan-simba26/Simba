@@ -50,9 +50,9 @@ SAMPLE = {
 }
 
 FEATURES = PageFeatures(
-    controls=66, inferred=0, text_density=4.81, max_depth=11, overlays=1,
-    form_fields=0, dead_link_ratio=0.978, reading_grade=6.41,
-    links=45, non_link_controls=21, dead_links=44, characters=5299,
+    interactive=21, links=45, inferred=0, text_density=4.81, max_depth=11,
+    overlays=1, form_fields=0, dead_link_ratio=0.978, reading_grade=6.41,
+    controls=66, dead_links=44, characters=5299,
     viewport_characters=4929, words=680, sentences=202, syllables=1192,
 )
 

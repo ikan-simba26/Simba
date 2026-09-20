@@ -283,7 +283,7 @@ def test_the_course_list_matches_what_perception_records_for_it(replica: str) ->
     assert found.overlays == 1
     assert found.links == sum(1 for e in elements
                               if e.role == "link" or e.tag == "a")
-    assert found.non_link_controls == found.controls - found.links
+    assert found.interactive == found.controls - found.links
     assert found.dead_link_ratio == pytest.approx(
         sum(1 for e in elements if e.dead_link) / found.links, abs=0.001)
     assert found.max_depth > 5
@@ -325,21 +325,47 @@ def test_the_fields_on_the_billing_form_are_counted(billing: str) -> None:
     assert found.inferred == 0
 
 
-def test_one_feature_for_controls_with_both_counts_kept(replica: str) -> None:
-    """`controls` is links and everything else, and the parts survive.
+def test_interactive_and_links_are_two_features_that_do_not_overlap(
+    replica: str,
+) -> None:
+    """Split again on 2026-09-20, and disjoint this time.
 
-    Merged on 2026-09-20 because on the first corpus the two were the same
-    signal — a public page's controls are nearly all links. `link_share` is
-    what would say a page separates them again (EVALUATION.md, 2026-09-20b).
+    Merged that morning because the first corpus made them one signal, then
+    reversed the same day because the extended corpus separates them on
+    exactly the pages SIMBA targets (EVALUATION.md, 2026-09-20d). The part
+    that is new rather than restored: `interactive` excludes links, so a nav
+    link is counted once. Before the merge it was counted in both.
     """
     found, elements = drive_and_read(replica)
 
-    assert found.controls == len(elements)
-    assert found.links + found.non_link_controls == found.controls
+    assert found.links == sum(1 for e in elements
+                              if e.role == "link" or e.tag == "a")
+    assert found.interactive == len(elements) - found.links
+    # Disjoint, and together the whole of what perception offers a planner.
+    assert found.interactive + found.links == found.controls == len(elements)
+    # No element is in both halves.
+    assert found.interactive == sum(1 for e in elements
+                                    if not (e.role == "link" or e.tag == "a"))
     assert found.link_share == pytest.approx(found.links / found.controls, abs=0.001)
     # The login page is mostly nav links with three fields under them.
     assert 0.5 < found.link_share < 1.0
     assert found.as_dict()["link_share"] == found.link_share
+
+
+def test_the_two_halves_move_apart_on_a_form(replica: str, billing: str) -> None:
+    """The whole reason for the split, asserted rather than described.
+
+    A form and a page of links are the two shapes, and one number cannot be
+    both. `interactive` has to be able to rise while `links` does not.
+    """
+    login, _ = drive_and_read(replica)
+    courses, _ = drive_and_read(replica, sign_in)
+
+    # Same nav, same footer: `links` says these two pages are identical.
+    assert login.links == courses.links
+    # And `interactive` does not.
+    assert courses.interactive > login.interactive
+    assert courses.link_share < login.link_share
 
 
 def test_a_field_role_counts_even_when_the_tag_does_not(replica: str) -> None:
