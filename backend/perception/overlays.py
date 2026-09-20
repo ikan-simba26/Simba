@@ -27,6 +27,24 @@ the billing replica's cookie bar (6.6% of the viewport, sitting on six live
 links) and the live railways dropdown (~2%, sitting on the field the next
 step needed). Coverage was never the right question for those — it was
 whether the thing in the way is in the way *of what we are doing*.
+
+**What counts as "stacked above the page"** is the other half, and it was an
+assumption until the corpus caught it. A declared `z-index` of at least
+`MIN_STACK_LEVEL` is one way an element says it is on top. It is not the only
+one: `position: fixed` and `position: sticky` lift an element out of the flow
+and paint it against the viewport, so a fixed box the size of the screen is
+on top of the page whether or not anyone wrote a `z-index` for it. It does
+not need one, being fixed and last in the DOM, and plenty of real modals do
+not bother — `the-internet.herokuapp.com/entry_ad` covers 100% of the
+viewport at `z-index: auto`, and this module reported nothing on it for as
+long as it existed (EVALUATION.md, 2026-09-20b).
+
+So a fixed or sticky element over `MIN_COVERAGE` is a page-level blocker
+whatever its z-index. `absolute` is deliberately *not* in that set: an
+absolutely positioned box sits in normal paint order, so covering the
+viewport says nothing about being on top of it — that is every stretched
+background and every hero image on the web, and entry_ad's own `.underlay`.
+An `absolute` element still has to declare itself with a z-index, as before.
 """
 
 from dataclasses import dataclass, field
@@ -41,14 +59,24 @@ from backend.perception.snapshot import (
     visible,
 )
 
-__all__ = ["COMPUTED_STYLES", "Blocker", "OverlayReport", "MIN_COVERAGE",
-           "MIN_STACK_LEVEL", "STACKED_POSITIONS", "analyse"]
+__all__ = ["COMPUTED_STYLES", "Blocker", "Candidate", "OverlayReport",
+           "MIN_COVERAGE", "MIN_STACK_LEVEL", "STACKED_POSITIONS",
+           "LIFTED_POSITIONS", "analyse", "candidates"]
 
 STACKED_POSITIONS = {"fixed", "absolute"}
+#: Positions that are painted against the viewport rather than in the flow.
+#: One of these plus enough coverage is a blocker on its own: the element is
+#: on top of the page whether or not it declared a z-index. A subset of
+#: `STACKED_POSITIONS` only by accident — `sticky` is here and not there,
+#: because it does not participate in the declared-stacking rule.
+LIFTED_POSITIONS = {"fixed", "sticky"}
 # A z-index this far above the page is a deliberate "put me on top".
 MIN_STACK_LEVEL = 5
 # Fraction of the viewport an element must cover before it counts as blocking
 # the page as a whole. Not used at all when a target is named.
+#
+# Calibrated against the corpus on 2026-09-20 and left at 0.30 — see
+# EVALUATION.md, 2026-09-20d, for the distribution it was chosen from.
 MIN_COVERAGE = 0.30
 
 
@@ -58,7 +86,10 @@ class Blocker:
 
     backend_node_id: int
     rect: Rect
-    z_index: int
+    #: None when the element never declared one. A blocker found by its
+    #: position alone has no z-index to report, and reporting 0 for that
+    #: would be a number nobody wrote.
+    z_index: int | None
     coverage: float
     reason: str
     # True when this was found by overlapping the named target rather than by
@@ -66,6 +97,34 @@ class Blocker:
     # fired, and so the page-level meaning of `blocked` does not quietly
     # change into something broader.
     scoped_to_target: bool = False
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """One element painted above the page, before any rule has judged it.
+
+    `analyse` narrows these down to blockers. It is a named type rather than a
+    local tuple so that a calibration probe can see exactly what the detector
+    saw — a threshold measured against a reimplementation of the candidate set
+    is measuring the reimplementation (`tools/evaluation/overlay_coverage_probe`).
+    """
+
+    node_index: int
+    backend_node_id: int
+    rect: Rect
+    coverage: float
+    position: str
+    #: None when the element never declared one, which is `z-index: auto`.
+    z_index: int | None
+    #: True when a declared z-index is what put it above the page. False when
+    #: its position alone did, which is the `fixed`/`sticky` case.
+    declared: bool
+    tag: str
+
+    @property
+    def lifted(self) -> bool:
+        """Painted against the viewport rather than in the flow."""
+        return self.position in LIFTED_POSITIONS
 
 
 @dataclass
@@ -86,6 +145,54 @@ class OverlayReport:
         return [b for b in self.blockers if b.scoped_to_target]
 
 
+def candidates(document: Document, viewport: tuple[int, int]) -> list[Candidate]:
+    """Everything painted above the page, with how much of it each covers.
+
+    Two ways in, and an element only needs one:
+
+      * a declared `z-index` of at least `MIN_STACK_LEVEL` while positioned
+        `fixed` or `absolute` — the element saying "put me on top";
+      * `position: fixed` or `position: sticky` at any z-index — the layout
+        saying it, because both are painted against the viewport rather than
+        in the flow.
+
+    No coverage threshold is applied here. That is the caller's question, and
+    keeping it out is what lets the probe report the distribution the
+    threshold is chosen from.
+    """
+    viewport_area = float(viewport[0] * viewport[1]) or 1.0
+    found: list[Candidate] = []
+    for node_index, style in document.styles.items():
+        if not visible(style):
+            continue
+        position = style.get("position") or ""
+        z_index = _int_or_none(style.get("z-index"))
+        declared = (
+            position in STACKED_POSITIONS
+            and z_index is not None
+            and z_index >= MIN_STACK_LEVEL
+        )
+        if not declared and position not in LIFTED_POSITIONS:
+            continue
+        bounds = document.bounds.get(node_index)
+        if bounds is None:
+            continue
+        _, _, width, height = bounds
+        found.append(
+            Candidate(
+                node_index=node_index,
+                backend_node_id=document.backend_id(node_index),
+                rect=bounds,
+                coverage=(width * height) / viewport_area,
+                position=position,
+                z_index=z_index,
+                declared=declared,
+                tag=document.tag(node_index),
+            )
+        )
+    return found
+
+
 def analyse(
     snapshot: dict | Document | None,
     viewport: tuple[int, int],
@@ -97,12 +204,19 @@ def analyse(
     Give it one and the target-scoped rule applies as well: anything stacked
     above the page and overlapping that element is reported, however small.
     Leave it None and this behaves exactly as it always did.
+
+    **The target-scoped rule still asks for a declared z-index.** A fixed
+    element with no z-index reaches the page-level rule only, so the two rules
+    do not have the same candidate set. That is deliberate and narrow: a
+    fixed header overlapping the target is genuinely in the way, but so is
+    every decorative full-screen layer with `pointer-events: none`, and the
+    page-level rule at least requires such a thing to be huge before it says
+    anything. Widening the target rule is flagged, not taken
+    (EVALUATION.md, 2026-09-20d).
     """
     document = snapshot if isinstance(snapshot, Document) else parse(snapshot)
     if document is None:
         return OverlayReport()
-
-    viewport_area = float(viewport[0] * viewport[1]) or 1.0
 
     target_index = (
         document.index_of_backend_id.get(target) if target is not None else None
@@ -117,49 +231,34 @@ def analyse(
     blockers: list[Blocker] = []
     blocker_indexes: list[int] = []
 
-    for node_index, style in document.styles.items():
-        if not visible(style):
-            continue
-        if style.get("position") not in STACKED_POSITIONS:
-            continue
-
-        z_index = _int_or_none(style.get("z-index"))
-        if z_index is None or z_index < MIN_STACK_LEVEL:
-            continue
-
-        bounds = document.bounds.get(node_index)
-        if bounds is None:
-            continue
-        _, _, width, height = bounds
-        coverage = (width * height) / viewport_area
-
-        covers_page = coverage >= MIN_COVERAGE
+    for candidate in candidates(document, viewport):
+        covers_page = candidate.coverage >= MIN_COVERAGE
         covers_target = (
-            target_rect is not None
-            and node_index not in target_lineage
-            and overlaps(bounds, target_rect)
+            candidate.declared
+            and target_rect is not None
+            and candidate.node_index not in target_lineage
+            and overlaps(candidate.rect, target_rect)
         )
         if not covers_page and not covers_target:
             continue
 
-        blocker_indexes.append(node_index)
+        blocker_indexes.append(candidate.node_index)
+        percent = round(candidate.coverage * 100)
+        where = f"{candidate.position} at z-index {_z_label(candidate.z_index)}"
         if covers_page:
-            reason = (
-                f"{style['position']} at z-index {z_index}, "
-                f"covering {round(coverage * 100)}% of the viewport"
-            )
+            reason = f"{where}, covering {percent}% of the viewport"
         else:
             reason = (
-                f"{style['position']} at z-index {z_index}, overlapping the "
-                f"element this step needs (only {round(coverage * 100)}% of "
-                f"the viewport, so the page-level rule does not see it)"
+                f"{where}, overlapping the element this step needs "
+                f"(only {percent}% of the viewport, so the page-level rule "
+                f"does not see it)"
             )
         blockers.append(
             Blocker(
-                backend_node_id=document.backend_id(node_index),
-                rect=bounds,
-                z_index=z_index,
-                coverage=round(coverage, 3),
+                backend_node_id=candidate.backend_node_id,
+                rect=candidate.rect,
+                z_index=candidate.z_index,
+                coverage=round(candidate.coverage, 3),
                 reason=reason,
                 scoped_to_target=not covers_page,
             )
@@ -178,6 +277,11 @@ def analyse(
             for i in _occluded_indexes(document, blockers, blocker_indexes)
         },
     )
+
+
+def _z_label(z_index: int | None) -> str:
+    """What to call a z-index in a reason, including not having one."""
+    return "auto" if z_index is None else str(z_index)
 
 
 def _overlay_indexes(document: Document, blocker_indexes: list[int]) -> set[int]:

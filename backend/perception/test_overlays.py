@@ -251,3 +251,159 @@ def test_no_target_behaves_exactly_as_before(bill: Page) -> None:
 
     assert analyse(snapshot, VIEWPORT).blockers == []
     assert analyse(snapshot, VIEWPORT, target=None).blockers == []
+
+
+# --- a full-screen fixed element, with no z-index at all --------------------
+#
+# Both rules above start by asking for a declared `z-index` of at least
+# `MIN_STACK_LEVEL`, and that turned out to be an assumption rather than a
+# requirement. `the-internet.herokuapp.com/entry_ad` puts up a
+# `position: fixed` modal covering the whole viewport with `z-index: auto` —
+# it does not need one, being fixed and last in the DOM — and the corpus read
+# zero overlays on it (EVALUATION.md, 2026-09-20b).
+#
+# So a *fixed or sticky* element that covers enough of the viewport is a
+# blocker whatever its z-index. Those two positions are lifted out of the
+# normal flow and painted against the viewport; `absolute` is not, which is
+# why it is deliberately left out below.
+
+ENTRY_AD = """
+<style>
+  body { margin: 0; }
+  #page { height: 2000px; }
+  #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+           background: rgba(0,0,0,0.5); }
+  #dialog { position: absolute; top: 200px; left: 340px;
+            width: 600px; height: 400px; background: #fff; }
+</style>
+<div id="page"><button id="buried">Buy now</button></div>
+<div id="modal"><div id="dialog"><button id="shut">Close</button></div></div>
+"""
+
+STICKY_SHEET = """
+<style>
+  body { margin: 0; }
+  #sticky { position: sticky; top: 0; width: 1280px; height: 600px;
+            background: #eee; }
+</style>
+<div id="sticky"><button id="shut">Close</button></div>
+<div style="height: 2000px"><button id="buried">Buy now</button></div>
+"""
+
+#: A fixed strip along the bottom, no z-index — the shape the page-level rule
+#: is *supposed* to ignore, because the page around it is still usable.
+FIXED_STRIP = """
+<style>
+  body { margin: 0; }
+  #bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
+         background: #333; }
+</style>
+<div style="height: 2000px"><button id="buried">Buy now</button></div>
+<div id="bar"><button id="accept">Accept</button></div>
+"""
+
+#: The same full-viewport box, `absolute` instead of `fixed`. This is every
+#: hero image and every stretched background on the web, and it is also
+#: entry_ad's own `.underlay`, which is a child of the fixed modal and gets
+#: picked up as part of it rather than on its own.
+ABSOLUTE_SHEET = """
+<style>
+  body { margin: 0; }
+  #sheet { position: absolute; top: 0; left: 0; width: 1280px; height: 800px;
+           background: #eee; }
+</style>
+<div id="sheet"></div>
+<div style="height: 2000px"><button id="buried">Buy now</button></div>
+"""
+
+
+def built(page: Page, markup: str) -> Page:
+    """A page from a string, so these cases need no network and no replica."""
+    page.goto("about:blank")
+    page.set_content(markup)
+    page.wait_for_timeout(100)
+    return page
+
+
+def test_a_fixed_full_screen_element_blocks_without_any_z_index(page: Page) -> None:
+    """The entry_ad shape: fixed, 100% of the viewport, `z-index: auto`."""
+    report = analyse(snapshot_of(built(page, ENTRY_AD)), VIEWPORT)
+
+    assert report.blocked, "a full-screen fixed modal was reported as nothing"
+    blocker = report.blockers[0]
+    assert blocker.coverage >= MIN_COVERAGE
+    assert not blocker.scoped_to_target, "this is the page-level rule, not the target one"
+
+
+def test_the_reason_says_there_was_no_z_index_rather_than_inventing_one(
+    page: Page,
+) -> None:
+    """A reader of the log has to be able to tell which rule fired."""
+    report = analyse(snapshot_of(built(page, ENTRY_AD)), VIEWPORT)
+
+    assert "z-index auto" in report.blockers[0].reason
+    assert "covering 100% of the viewport" in report.blockers[0].reason
+
+
+def test_what_is_behind_a_z_less_modal_is_occluded_and_its_own_button_is_not(
+    page: Page,
+) -> None:
+    elements = serialize(built(page, ENTRY_AD))
+
+    assert find(elements, "Close").overlay
+    assert not find(elements, "Close").occluded, "the dismiss button must stay reachable"
+    assert find(elements, "Buy now").occluded, "a click here cannot land"
+
+
+def test_a_sticky_element_over_the_threshold_blocks_too(page: Page) -> None:
+    """`sticky` is not in `STACKED_POSITIONS` and is lifted all the same."""
+    report = analyse(snapshot_of(built(page, STICKY_SHEET)), VIEWPORT)
+
+    assert report.blocked
+    assert report.blockers[0].coverage >= MIN_COVERAGE
+
+
+def test_a_fixed_strip_under_the_threshold_is_still_not_a_page_blocker(
+    page: Page,
+) -> None:
+    """The page-level rule keeps its meaning: is the page as a whole unusable.
+
+    Without this the new rule would flag every cookie bar and every sticky
+    header on the web as a modal. The bar is still caught by the
+    target-scoped rule when a step reaches under it — that is what the
+    billing replica's cookie bar tests above are.
+    """
+    report = analyse(snapshot_of(built(page, FIXED_STRIP)), VIEWPORT)
+
+    assert not report.blocked
+
+
+def test_an_absolute_sheet_with_no_z_index_is_not_a_blocker(page: Page) -> None:
+    """`absolute` sits in normal paint order, so covering is not stacking.
+
+    A stretched background `div` covers the whole viewport and is underneath
+    everything. Requiring a declared `z-index` of it is the only thing that
+    separates it from a modal.
+    """
+    report = analyse(snapshot_of(built(page, ABSOLUTE_SHEET)), VIEWPORT)
+
+    assert not report.blocked
+
+
+def test_the_declared_modal_is_still_found_exactly_once(courses: Page) -> None:
+    """No regression: the replica's modal has a z-index and is one blocker.
+
+    Its backdrop and dialog must not now arrive as two, which is what a
+    second rule matching the same subtree would do.
+    """
+    report = analyse(snapshot_of(courses), VIEWPORT)
+
+    assert len([b for b in report.blockers if not b.scoped_to_target]) == 1
+    assert report.blockers[0].coverage > 0.9
+
+
+def test_a_page_with_nothing_on_it_is_still_clear(replica: str, page: Page) -> None:
+    """The other half of no-regression: the login page gains no blocker."""
+    page.goto(replica + "/")
+
+    assert not analyse(snapshot_of(page), VIEWPORT).blocked
