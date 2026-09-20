@@ -99,17 +99,28 @@ application's state (EVALUATION.md).
 
 ### Changed on 2026-09-20
 
+- **`MIN_COVERAGE` is measured**, not guessed: 45 pages, 96 candidates, every
+  real blocker at 1.000 and the largest non-blocker at 0.234, with nothing
+  between. Kept at 0.30 (2026-09-20d, `tools/evaluation/overlay_coverage_probe`,
+  `data/overlay_coverage.json`).
+- **A fixed or sticky element covering the page is a blocker without a
+  z-index.** `the-internet/entry_ad` is detected at last; it is the only page
+  in the corpus whose detection depended on the change.
+- **`interactive` and `links` are two features again**, disjoint this time,
+  with `controls` kept as their total. The merge made this morning is recorded
+  as instructed, implemented and reversed (DECISIONS.md).
+- **The corpus is 45 pages**, eleven of them new application-like ones, and
+  every row carries a `kind`: 19 public, 18 demo, 5 ours, 3 target. `inferred`
+  is no longer flat; `overlays` still is, on 37 of 45.
 - **CSS pixels at the source** (`snapshot.parse`), with every recorded
   perception figure re-measured in both environments: none changed
   (2026-09-20).
 - **What `MIN_COVERAGE` has actually been measuring**, per environment, stated
   in EVALUATION.md — 0.30 headless, 0.133 in the host.
-- **The corpus is 34 pages**, including both replicas, `/stubborn`, the live
-  site with its dropdown and calendar open, and seven application-like public
-  pages. `dead_link_ratio` and `form_fields` are no longer flat; `overlays`
-  and `inferred` still are (2026-09-20b).
-- **`controls` is one feature** where `interactive` and `links` were two, with
-  both counts and `link_share` kept.
+- ~~**The corpus is 34 pages**~~ superseded the same day; see above.
+  `dead_link_ratio` and `form_fields` stopped being flat here (2026-09-20b).
+- ~~**`controls` is one feature** where `interactive` and `links` were two.~~
+  **Reversed the same day** on the corpus's own evidence.
 - **Channel B is sent and recorded** (2026-09-20c): `frontend/src/telemetry.ts`,
   `backend/estimator/pairing.py`, `data/steps.jsonl`.
 - **`feat/estimator-features-and-every-result` merged**; `main` at `d239126`.
@@ -199,6 +210,10 @@ application's state (EVALUATION.md).
   joining 4-wide in both (2026-09-18c).
 - A label's every value, not its first: `values_for`, with `voice.found`
   showing four and a count.
+- **Overlay detection measured against a corpus** rather than against the
+  replicas alone: `overlays.candidates` is the candidate set as a named thing,
+  and `tools/evaluation/overlay_coverage_probe` enumerates it with no
+  threshold so the distribution can be read (2026-09-20d).
 - `PageView` carries the parsed snapshot the read was built from.
 
 **In progress**
@@ -211,21 +226,32 @@ application's state (EVALUATION.md).
    it.~~ **Fixed 2026-09-20**: `snapshot.parse` converts, `Document` records
    the ratio, and every recorded figure was re-measured in both environments
    without moving. What it leaves behind is a threshold question, below.
-2b. **`MIN_COVERAGE` has been two different numbers, and is now one.** As
-   written it is 0.30 of the viewport; in the host it behaved as **0.133**,
-   because a box 1.5x too large in each direction covers 2.25x the area. So
-   the host has been *more* sensitive to mid-sized blockers than the code
-   said, and since the fix it is less sensitive than it was yesterday:
-   anything covering between 13% and 30% is no longer flagged there. Nothing
-   in the three flows sits in that band — the only page-level blocker we have
-   is the registration modal at 98.6% — but **0.30 has never been calibrated
-   against real pages**, and the corpus is the instrument for that.
-2c. **A full-screen modal with no z-index is invisible to the detector.**
-   `the-internet.herokuapp.com/entry_ad` covers 100% of the viewport with a
-   `position: fixed` overlay and `z-index: auto`; `MIN_STACK_LEVEL` requires
-   5, so neither the page-level nor the target-scoped rule sees it. Found by
-   the corpus (2026-09-20b). A fixed element covering the page arguably needs
-   no z-index to be on top, and the rule could say so — Nahail's call.
+2b. ~~**`MIN_COVERAGE` has been two different numbers**, and 0.30 has never
+   been calibrated against real pages.~~ **Measured 2026-09-20d** over 45
+   pages and 96 candidates. The corpus is bimodal with an empty middle: every
+   real blocker covers **1.000**, the largest thing that is not one covers
+   **0.234** (a docs sidebar), and nothing lies between. Kept at 0.30.
+   What it leaves behind, and it is deliberately not written as settled: the
+   measurement **bounds** the value rather than choosing it — anything in
+   (0.234, 0.90] behaves identically — and the reason the middle is empty is
+   that **every modal in the corpus is full-screen**. No drawer, bottom sheet
+   or 40% consent wall has ever been measured by this project. The first one
+   is the first real test.
+2c. ~~**A full-screen modal with no z-index is invisible to the detector.**~~
+   **Fixed 2026-09-20d.** `fixed` and `sticky` now reach the page-level rule
+   on their position alone; `absolute` still has to declare a z-index,
+   because it sits in normal paint order. `entry_ad` is detected, and is the
+   only page in the corpus that needed the change. What it leaves behind:
+   **the two rules no longer share a candidate set** — the target-scoped rule
+   still wants a declared z-index, so a small fixed element with no z-index
+   sitting on the element a step needs is still invisible to it. Widening it
+   would admit every decorative full-screen layer with `pointer-events:
+   none`, which perception cannot see at all (`pointer-events` is not in
+   `COMPUTED_STYLES`). Flagged, not taken — Nahail's call.
+2d. **`MIN_STACK_LEVEL = 5` is as unmeasured as 0.30 was.** Nothing in the
+   corpus depends on it — every declared blocker sits at z-index 100 or
+   above and the nearest candidate below is at 2 — so it was not urgent, but
+   it is the same kind of guess and is now the only one left in this module.
 2. A modal's content is skipped along with a dropdown's.
 3. Elements with no accessible name are addressable only by ordinal.
 4. Panel headings are found by class-name fragment; a picker that names its
@@ -376,15 +402,18 @@ application's state (EVALUATION.md).
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
-- **The page-side features**, raw: `controls`, `inferred`, `text_density`
-  (characters per 1000px² of the viewport), `max_depth`, `overlays`,
-  `form_fields`, `dead_link_ratio`, `reading_grade`, plus the raw counts they
-  are built from — `links`, `non_link_controls`, `dead_links`, `link_share`,
-  characters, words, sentences, syllables. 28 tests, arithmetic and browser.
-- **The corpus**: 34 pages — both replicas, `/stubborn`, the live site in
-  three states, twenty public pages and seven application-like ones — read in
-  both environments, 0 failures (`tools/evaluation/collect_corpus`,
-  `data/corpus.json`).
+- **The page-side features**, raw: `interactive`, `links`, `inferred`,
+  `text_density` (characters per 1000px² of the viewport), `max_depth`,
+  `overlays`, `form_fields`, `dead_link_ratio`, `reading_grade` — nine — plus
+  the raw counts they are built from: `controls`, `dead_links`, `link_share`,
+  characters, words, sentences, syllables. `interactive` and `links` are
+  disjoint, so nothing is counted twice. 29 tests, arithmetic and browser.
+- **The corpus**: 45 pages — both replicas, `/stubborn`, the live site in
+  three states, nineteen public pages and eighteen application-like ones, ten
+  of them driven into a state first — 0 failures. Every row carries a `kind`
+  (`tools/evaluation/collect_corpus`, `data/corpus.json`). **Headless only
+  since 2026-09-20d**; the host half has not been re-run since the corpus
+  grew, and the standing rule says it should be (DECISIONS.md, 2026-09-18c).
 - **Channel B**: the overlay sends telemetry on every step response and on a
   3s timer; the loop pairs each sample with the page features of that step and
   appends a row to `data/steps.jsonl` (`backend/estimator/pairing.py`). 14
@@ -393,13 +422,20 @@ application's state (EVALUATION.md).
 **Open — Nahail's call**
 1. **No score, and deliberately so.** Weights need a calibration and there is
    no user data at all. What exists is measurement (DECISIONS.md).
-2. **Three features carry no signal on the corpus**: `overlays` is 0 on all
-   20 pages, `inferred` on 18, `dead_link_ratio` on 16. The overlay result is
-   the detector being right — public sites put cookie banners *in* the page
-   flow, not over it — so what it needs is a corpus with real modals in it,
-   which means our own replicas and applications rather than front pages.
-3. **`links` and `interactive` are nearly the same signal** on these pages.
-   Two features carrying one signal is a weighting problem waiting to happen.
+2. **One feature still carries almost no signal**: `overlays` is 0 on 37 of
+   45 pages. Down from 20 of 20, and the remaining thinness is honest — five
+   of the eight nonzero rows are component libraries asked to show a dialog,
+   which is a corpus of demonstrations of modals rather than a sample of
+   pages that have them. `inferred` is no longer flat (14 of 45) but its mass
+   is three `demo` rows: MUI 305, SweetAlert2 107, Ant Design 59.
+3. ~~**`links` and `interactive` are nearly the same signal.**~~ **Settled
+   2026-09-20d, twice.** Merged in the morning on the 20-page corpus, split
+   again the same day on the 45-page one, where nine of the 44 pages with any
+   controls sit under `link_share` 0.6 — a login at 0.00, a 15-field practice
+   form at 0.083, the railways calendar at 0.182. Both counts still travel in
+   every row either way.
+3b. **Nine features, 45 rows.** That ratio is worse than it was and matters
+   the moment anyone fits a weight to it.
 4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
    the most heuristic number here: block-counted sentences and a vowel-group
    syllable counter (DECISIONS.md).
@@ -479,10 +515,16 @@ application's state (EVALUATION.md).
 - **Two limitations are now stated rather than implied**: what environment a
   perception figure was measured in, and what a wall clock from this machine
   is worth.
-- **The corpus is 34 pages read once.** Enough to choose features and to
-  show which carry no signal; nowhere near enough to calibrate a score. Five
-  of its rows are pages we wrote, so a feature that separates our replicas
-  from the world may be measuring our HTML habits.
+- **The corpus is 45 pages read once.** Enough to choose features, to show
+  which carry no signal, and to bound one threshold; nowhere near enough to
+  calibrate a score. Five rows are pages we wrote and **eighteen are demo
+  sites**, so a feature that separates them from the world may be measuring
+  our HTML habits or a component gallery's. Every row says which it is.
+- **One threshold is now measured and the rest are not.** `MIN_COVERAGE` was
+  compared against 45 pages (2026-09-20d) and kept at 0.30; `MIN_STACK_LEVEL`,
+  the telemetry constants and every definition in `page_features` remain as
+  chosen. The measurement also bounds rather than picks, because the corpus
+  has no mid-sized overlay in it at all.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It

@@ -2797,6 +2797,30 @@ A coverage of **2.220** — a backdrop covering 222% of the screen — is the
 clearest statement of the bug there is, and nothing ever printed it because
 `blocked` is a boolean.
 
+**So the threshold comparison was meaningless in the host until today.**
+Not merely miscalibrated: `coverage >= MIN_COVERAGE` was comparing a number
+that could exceed 1.0 against a fraction of a viewport, which is not a
+comparison of two like things at all. Every page-level verdict the Electron
+host has ever reached was reached that way, and the host is the environment
+the product runs in. Headless — where the whole test suite runs — was correct
+throughout, which is exactly why this lasted.
+
+**It produced no wrong outcome, and that is luck of a specific kind.** Every
+modal this project has ever measured is full-screen: the registration
+replica's backdrop at 1.000, `entry_ad`'s at 1.000, the two component-library
+dialogs. A box that covers the whole viewport is over 0.30 at a ratio of 1.0
+and still over it at 2.220, so the comparison returned the right answer while
+being incapable of being wrong. That is **a property of the test set, not of
+the detector** — the detector had no working notion of "30% of the screen" in
+the host, and would have reported the same `blocked` for anything between
+13.3% and 30% that a correct implementation would have let through. Nothing
+in the corpus sat in that band, which is a fact about the corpus.
+
+The two lessons are separable and both stand: a threshold has to be compared
+against a number in the same units (fixed 2026-09-20), and a detector tested
+only on the easy end of its range has not been tested at the threshold at all.
+The second is what the calibration below is for.
+
 Three things follow, and the middle one is the uncomfortable one:
 
 1. **The number in the code described the headless case only.** In the host —
@@ -3014,3 +3038,221 @@ The corpus beside it is public pages and is.
 - **The definitions are guesses.** 8px of movement, 120° of turn, a 3s timer,
   "re-read" as pointer re-entry: each is a starting value, all in one file, and
   the first person with real traces should expect to move them.
+
+---
+
+## 2026-09-20d — `MIN_COVERAGE` measured at last, and a modal that needed no z-index
+
+Two things that had been flagged and not done. `MIN_COVERAGE = 0.30` had
+never been compared against a real page, and a full-screen modal with no
+z-index was invisible to the detector (2026-09-20, 2026-09-20b). Both are now
+measured, on the same 45-page corpus, with
+`python -m tools.evaluation.overlay_coverage_probe` — which enumerates the
+detector's own candidate set with **no coverage threshold applied at all** and
+writes every candidate to `data/overlay_coverage.json` with its coverage,
+position, z-index and text, so the judging can be done by eye and checked by
+somebody else.
+
+**45 pages, 0 failures, 96 candidates painted above a page.**
+
+### The distribution, and why it settles the question so quickly
+
+| Coverage band | Candidates | Of which `fixed`/`sticky` with no z-index |
+|---|---|---|
+| 0.00–0.01 | 51 | 15 |
+| 0.01–0.05 | 2 | 1 |
+| 0.05–0.10 | 17 | 9 |
+| 0.10–0.20 | 11 | 10 |
+| 0.20–0.30 | 2 | 0 |
+| **0.30–0.90** | **0** | 0 |
+| 0.90+ | **13** | 3 |
+
+The corpus is **bimodal with nothing in the middle**. Every one of the 13 real
+blockers covers exactly **1.000** of the viewport. The largest thing that is
+*not* a blocker covers **0.234**. Between 0.234 and 1.000 there is not one
+element on 45 pages.
+
+**The 13 at 1.000**, every one a modal or its backdrop, on 8 pages:
+
+| Page | Blockers | What they are |
+|---|---|---|
+| registration replica, signed in | 1 | `#deadline-modal`, `fixed` z-index 100 |
+| `the-internet/entry_ad` | 1 | `div.modal`, `fixed`, **z-index `auto`** |
+| `demoqa.com/modal-dialogs` | 2 | backdrop z 1050 + dialog z 1055 |
+| `getbootstrap.com` modal docs | 2 | backdrop z 1050 + dialog z 1055 |
+| `element-plus.org` dialog docs | 2 | `.el-overlay` z 2018 + `.el-overlay-dialog`, **z `auto`** |
+| `mui.com` dialog docs | 2 | `.MuiDialog-root` z 1300 + `.MuiBackdrop-root`, **z `-1`** |
+| `ant.design` modal docs | 2 | `.ant-modal-mask` + `.ant-modal-wrap`, both z 1000 |
+| `sweetalert2.github.io` | 1 | `.swal2-container` z 1060 |
+
+**And everything in 0.08–0.234 is furniture.** Not one borderline case, not
+one judgement call — the entire band is sticky headers, sticky sidebars and
+tables of contents:
+
+| Coverage | Page | What it is |
+|---|---|---|
+| 0.234 | `mui.com` | the docs navigation sidebar |
+| 0.208 | `element-plus.org` | the docs navigation sidebar |
+| 0.192 | `ant.design` | the components sidebar |
+| 0.179 | `sweetalert2.github.io` | `nav.sidebar-nav` |
+| 0.176 | `developer.mozilla.org` | the article's right-hand "In this article" |
+| 0.176 | `mui.com` | "Contents" |
+| 0.153 | `en.wikipedia.org` | Vector's pinned contents panel |
+| 0.141 | `getbootstrap.com` | `aside.bd-sidebar` |
+| 0.121 | `developer.mozilla.org` | the page header |
+| 0.109 | railways, calendar open | the date picker panel |
+| 0.101 | `bbc.co.uk/news` | the BBC header |
+| 0.085 | railways | the site header |
+
+### The sweep: what a higher value misses and a lower one falsely flags
+
+| Threshold | Pages called blocked | Blockers | What changes at this value |
+|---|---|---|---|
+| 0.90 | 8 | 13 | — |
+| 0.50 | 8 | 13 | nothing |
+| 0.40 | 8 | 13 | nothing |
+| **0.30** | **8** | **13** | **nothing — the value in the code** |
+| 0.25 | 8 | 13 | nothing |
+| 0.20 | 8 | 15 | two docs sidebars become "blockers" on pages already blocked |
+| 0.15 | **10** | 21 | **Wikipedia and MDN are now blocked pages** |
+| 0.10 | **12** | 26 | BBC News and the railways calendar join |
+| 0.05 | **19** | 43 | our own billing cookie bar, the demoqa form, 19 pages in all |
+
+**What 0.30 misses: nothing in this corpus.** There is no element anywhere
+between 0.234 and 1.000, so nothing is sitting just under the line.
+
+**What a lower value would falsely flag**, in order of how bad it gets:
+
+- **0.25** — nothing. Identical to 0.30.
+- **0.20** — the MUI and Element Plus documentation sidebars start counting as
+  blockers. No page's verdict changes, because both pages already have a real
+  modal up, but `overlays` rises and everything behind a sidebar starts being
+  reported as occluded.
+- **0.15** — the first real damage. **MDN and Wikipedia become blocked
+  pages.** Both are ordinary articles with nothing in the way; what gets
+  flagged is a sticky table of contents. A planner told the page is blocked
+  looks for something to dismiss, and there is nothing.
+- **0.10** — BBC News joins on its own header, and the railways calendar joins
+  on its date picker panel. The date picker is a genuine overlay, but it is
+  the *target-scoped* rule's business — it is why that rule exists — and
+  calling the whole page unusable because a picker is open is wrong.
+- **0.05** — 19 of 45 pages, including our own billing replica on its cookie
+  bar. "Blocked" would stop meaning anything.
+
+### Recommendation: keep 0.30, and be honest about what that is worth
+
+**Keep it.** It is inside the empty band, it misses nothing, it falsely flags
+nothing, and there is no reason to move a number that is already right.
+
+**What it costs to say that.** The corpus **bounds** this threshold rather
+than choosing it. Any value in (0.234, 0.90] produces identical results on all
+45 pages, so this measurement cannot distinguish 0.25 from 0.85 — it can only
+rule out 0.20 and below. Calling 0.30 "calibrated" would be overclaiming; it
+is **measured, and not contradicted**, which is a weaker and truer thing.
+
+The reason the band is empty is worth naming, because it is the limitation
+and not the result: **every modal in the corpus is full-screen.** Not one
+half-screen drawer, bottom sheet, corner dialog or 40%-of-the-screen consent
+wall appears on 45 pages. Those exist in the world, and the first one this
+project meets is the first real test of where the line goes. Until then 0.30
+is a number that has been shown not to be wrong, on a corpus with no hard
+cases in it — which is the same shape of claim as the one 2026-09-20 had to
+withdraw about the device-pixel bug, and is recorded here in those terms
+deliberately.
+
+### The missing rule, and the one page that needed it
+
+`entry_ad` put up a `position: fixed` modal covering 100% of the viewport at
+`z-index: auto`, and the detector reported nothing, because both rules began
+by demanding a declared z-index of at least `MIN_STACK_LEVEL` (2026-09-20b).
+
+Fixed: `fixed` and `sticky` now reach the page-level rule on their position
+alone. Both are painted against the viewport rather than laid out in the flow,
+so a fixed box the size of the screen is on top of the page whether anyone
+wrote a z-index for it or not. `absolute` is deliberately excluded — it sits
+in normal paint order, so covering the viewport says nothing about being above
+it. That exclusion is doing real work: `entry_ad`'s own `.underlay` is
+`absolute` at `z-index: auto` covering 1.000, and so is every stretched
+background on the web.
+
+**What the new rule actually caught**, measured rather than assumed — 38 of
+the 96 candidates are found by position alone, and 3 of those are over the
+threshold:
+
+| Element | Page | Why the old rule missed it |
+|---|---|---|
+| `div#modal` | `the-internet/entry_ad` | `z-index: auto` |
+| `.el-overlay-dialog` | `element-plus.org` | `z-index: auto` |
+| `.MuiBackdrop-root` | `mui.com` | `z-index: -1` |
+
+**Exactly one page — `entry_ad` — is detected only because of this change.**
+The other two are second blockers on pages a declared z-index already caught.
+That is a smaller result than "a whole class of modals was invisible" and it
+is the accurate one.
+
+**No existing detection regressed.** All 8 blocked pages under the new rule
+are pages with a real modal up; the page count at 0.30 went from 7 to 8, and
+the page that joined is `entry_ad`. Nothing that was detected before stopped
+being detected — the rule only adds candidates — and the suite is green at
+**403 passed, 8 skipped, 0 failed** in 481s, with 8 new tests covering the
+fixed case, the sticky case, the `absolute` non-case, and a fixed strip under
+the threshold that must *not* become a page-level blocker.
+
+One correction to something said in passing while this was being measured:
+`ant.design`'s modal was observed reporting zero overlays in a trial run, and
+that was read as a second instance of the same gap. It is not — both its
+blockers carry `z-index: 1000` and the old rule would have found them. The
+trial had simply caught the page with its modal shut. The gap has one
+instance in this corpus, not two.
+
+### The corpus that this was measured on, and what the extension bought
+
+Extended from 34 pages to **45** for this, by adding eleven application-like
+pages — demo banks, practice login and registration forms, a todo app with
+state in it, and three more component galleries whose dialogs are opened.
+Read headless, **45 pages, 0 failures**. Every row now carries a `kind`:
+**19 public, 18 demo, 5 ours, 3 target**.
+
+| Feature | 34 pages (2026-09-20b) | 45 pages | Verdict |
+|---|---|---|---|
+| `overlays` | nonzero on **3/34**, 2 distinct — flagged | nonzero on **8/45**, 3 distinct — still flagged | Better, still the thinnest. Two of the five new ones are the detector change, not the corpus |
+| `inferred` | nonzero on **6/34**, and 42 of 48 were one page | nonzero on **14/45**, 9 distinct, max **305** | **No longer flat.** The mass is still concentrated: MUI 305, SweetAlert2 107, Ant Design 59 |
+| `form_fields` | nonzero on 17/34, max 25 | nonzero on **25/45**, max 25 | Wider |
+| `dead_link_ratio` | nonzero on 13/34 | nonzero on **15/45**, 13 distinct | Unchanged in character |
+| `link_share` | 4 pages under 0.6 | **9** of the 44 pages with controls | The split's evidence roughly doubled |
+
+**`overlays` is the one still flagged**, at 0 on 37 of 45 pages, and the
+honest reading is that five of its eight nonzero rows are component libraries
+being asked to show a dialog. That is a corpus of demonstrations of modals,
+not a sample of pages that have them. The feature now has a distribution;
+whether it has a *representative* one is a different question and the answer
+is no.
+
+**Where the spread came from is itself a caveat.** Both of the features that
+improved did so almost entirely on `demo` rows — which is why the label
+exists. 305 inferred controls on a Material UI documentation page is a real
+measurement of a page built out of `div`s, and it is not evidence about what
+an application a person actually uses looks like.
+
+### What this does not do
+
+- **Headless only.** The standing rule is that perception figures are taken
+  in both environments (2026-09-18c), and the host half was not run for this
+  probe. The reason it is defensible is narrow and should be checked rather
+  than trusted: since `snapshot.parse` converts on the way in, coverage is a
+  ratio of CSS pixels to a frozen CSS-pixel viewport and no longer depends on
+  the display — which is precisely the claim that was false until today, and
+  so is the claim most worth re-testing in the host before anyone leans on
+  these numbers.
+- **It does not calibrate the target-scoped rule**, which has no coverage
+  threshold to calibrate. It also still requires a declared z-index, so a
+  fixed element with `z-index: auto` sitting on the one element a step needs
+  reaches the page-level rule and not that one. Widening it is flagged below
+  rather than taken, because the same change would admit every decorative
+  full-screen layer with `pointer-events: none` — a property this detector
+  cannot currently see, since `pointer-events` is not among `COMPUTED_STYLES`.
+- **It does not touch `MIN_STACK_LEVEL`.** 5 is as unmeasured today as 0.30
+  was yesterday. Nothing in this corpus depends on it — every declared
+  blocker is at z-index 100 or above, and the nearest candidate below is at
+  z-index 2 — so it was not the pressing one, but it is the same kind of
+  guess.

@@ -2078,3 +2078,187 @@ consent that goes with it.
 **Cost.** Nobody can see anyone else's rows, so a defect in the pairing shows
 up only on the machine it happened on, and the November evaluation will have to
 say where its rows came from.
+
+---
+
+## `interactive` and `links` are two features again, and the merge is on the record
+
+**Date:** 2026-09-20
+
+**Decision.** Reverse the merge made earlier the same day. `interactive` and
+`links` are two features; `controls` stays in every row as their total, with
+`link_share` beside it. The merge was **instructed, implemented, and then
+reversed on the corpus's own evidence** — recorded here in that order, because
+a decision that was taken and undone within a day is exactly the kind that
+otherwise survives only as a confusing diff.
+
+**What happened, in order.**
+
+1. The merge was asked for and made (`b03cd99`, and the entry above,
+   "`controls` is one feature, and the parts are kept"). The reasoning was
+   sound about the evidence available: on the first corpus of twenty public
+   front pages, `interactive` and `links` moved together on 19 of 20 and
+   agreed within a few percent, because a public page's controls are nearly
+   all links. Two features carrying one signal get weighted twice.
+2. The corpus was extended the same day, and it contradicts the merge. The
+   pages where the two counts diverge are not incidental — they are the page
+   types SIMBA exists to operate:
+
+   | Page | `links` | `controls` | `link_share` |
+   |---|---|---|---|
+   | a login (Swag Labs) | 0 | 3 | **0.00** |
+   | railways, calendar open | 12 | 66 | **0.18** |
+   | railways, station list open | 12 | 24 | **0.50** |
+   | everything else | — | — | 0.67–1.00, median **0.92** |
+
+3. So the merge is reversed. A form, a date picker and a dropdown are
+   controls that are not links, and one number cannot be both a wall of links
+   and a form.
+
+**Alternatives.** Keep the merge and put `link_share` back as a third feature
+— rejected, because that is two numbers to reconstruct one, and a ratio
+behaves badly where the denominator is 0 (`httpbin.org/html` has no controls
+at all). Keep `controls` as the only feature and let the score sort it out —
+rejected, because a score cannot recover a distinction the features threw
+away. Split, and drop `controls` — rejected, because the total is what makes
+either half interpretable and what lets the merge be redone from the data.
+
+**Why this, and what is new rather than restored.** The split is **disjoint**,
+which the pre-merge version was not. Before the merge, `interactive` was
+*every* element perception offers a planner — links included — with `links`
+beside it as a subset. A nav link was therefore counted in both, which is the
+literal double-counting the merge was reaching for and the one real defect in
+the original pair. `interactive` is now the controls that are **not** links,
+so `interactive + links == controls` and nothing is counted twice.
+
+**Cost.** Nine scored features where there were eight, on a corpus of 45
+pages, which is a worse ratio of features to rows than yesterday and matters
+when weights are fitted. The evidence for the split is also thin in one
+respect worth saying: three of the four separating pages are two URLs — the
+railways page in two states and a login — so this rests on a handful of rows
+rather than a trend. It rests on the *right* handful, being the shapes SIMBA
+actually drives, but a corpus with more application pages should be looked at
+again before any weight is fitted. The extension on 2026-09-20d adds eleven
+such pages and the separation widens rather than narrows: **nine** of the 44
+pages with any controls now sit under `link_share` 0.6, up from four, and the
+lowest is a 15-field practice form at **0.083**.
+
+---
+
+## A fixed or sticky element that covers the page is a blocker without a z-index
+
+**Date:** 2026-09-20
+
+**Decision.** `position: fixed` and `position: sticky` reach the page-level
+overlay rule on their position alone, at any z-index, once they cover
+`MIN_COVERAGE`. `position: absolute` still has to declare a `z-index` of at
+least `MIN_STACK_LEVEL`, as it always did. The target-scoped rule is
+unchanged and still requires a declared z-index.
+
+**Alternatives.** Leave it, and accept that a modal without a z-index is
+invisible. Drop the z-index requirement altogether, for every position.
+Include `absolute` in the new rule. Widen the target-scoped rule the same way.
+
+**Why this.** A declared z-index is *one* way an element says it is on top,
+and the code had been treating it as the only way. `fixed` and `sticky` are
+painted against the viewport rather than laid out in the flow, so a fixed box
+the size of the screen is on top of the page whether anyone wrote a z-index
+for it or not — and real modals frequently do not, because being fixed and
+last in the DOM is already enough. `the-internet/entry_ad` is exactly that
+and the detector read zero overlays on it.
+
+`absolute` is excluded because it sits in normal paint order: covering the
+viewport says nothing about being above it. That exclusion earns its keep on
+the very page that motivated the change — `entry_ad`'s own `.underlay` is
+`absolute` at `z-index: auto` covering 100% of the viewport, as is every
+stretched background and hero image on the web.
+
+The target-scoped rule was left alone deliberately, and this is the part worth
+arguing with. A fixed header overlapping the one element a step needs really
+is in the way, so extending the rule there is defensible. It would also admit
+every decorative full-screen layer with `pointer-events: none`, which this
+detector cannot see — `pointer-events` is not in `COMPUTED_STYLES` — and the
+target-scoped rule has no size floor to catch the mistake. The page-level rule
+at least requires such a thing to cover a third of the screen first.
+
+**Cost.** The candidate set grew from "declared stacking only" to include 38
+more elements across the corpus — sticky headers, sidebars and tables of
+contents — and they are held back by the coverage threshold alone. That makes
+`MIN_COVERAGE` load-bearing in a way it was not before: lower it to 0.15 and
+Wikipedia's contents panel becomes a blocker. The threshold was measured the
+same day for this reason (EVALUATION.md, 2026-09-20d). The asymmetry between
+the two rules is also a thing someone now has to hold in their head, and it is
+written at the top of `analyse` because of that.
+
+---
+
+## `MIN_COVERAGE` stays at 0.30, and the corpus bounds it rather than picking it
+
+**Date:** 2026-09-20
+
+**Decision.** Keep `MIN_COVERAGE = 0.30`, now measured against 45 pages
+instead of guessed at. Record that the measurement **bounds** the value rather
+than selecting it.
+
+**Alternatives.** 0.25, 0.20, 0.15 — a more sensitive detector. 0.50 — a more
+conservative one. Make it configurable per site. Replace coverage with
+"covers the centre of the viewport".
+
+**Why this.** The corpus is bimodal with nothing in the middle. All 13 real
+blockers cover **1.000** of the viewport; the largest element that is not a
+blocker covers **0.234**, a documentation sidebar. There is not one element
+between those two numbers on 45 pages. 0.30 therefore misses nothing and
+falsely flags nothing, and every value in (0.234, 0.90] would do exactly the
+same — so there is no reason to move it, and no evidence that would justify
+moving it anywhere in particular.
+
+What the corpus *does* settle is the lower end. At 0.15, MDN and Wikipedia
+become blocked pages on the strength of a sticky table of contents; at 0.10,
+BBC News joins on its header; at 0.05, nineteen of the forty-five pages are
+blocked, including our own billing replica on its cookie bar.
+
+**Cost, and it is the important half.** "Calibrated" would be an overclaim.
+This measurement cannot tell 0.25 from 0.85, because the data between them is
+empty, and the data is empty for a reason that is a limitation and not a
+result: **every modal in the corpus is full-screen.** No half-screen drawer,
+bottom sheet, corner dialog or 40% consent wall appears anywhere in it. The
+first one this project meets is the first real test of where the line belongs,
+and the claim on record until then is the weaker and truer one — 0.30 has been
+shown not to be wrong on a corpus containing no hard cases. That is the same
+shape of claim the device-pixel entry had to withdraw earlier the same day,
+and it is recorded in those terms on purpose.
+
+---
+
+## Every corpus row says what kind of page it is
+
+**Date:** 2026-09-20
+
+**Decision.** Each row in `data/corpus.json` carries a `kind`: `ours`,
+`target`, `public` or `demo`. A corpus built from a URL file, which has no
+labels to give, is marked `unlabelled` rather than assumed to be `public`.
+
+**Alternatives.** No label, and work it out from the URL. Two labels, ours
+and not-ours. A per-row free-text note.
+
+**Why this.** The corpus grew from 34 pages to 45 by adding application-like
+pages, because that is the only way `overlays` and `inferred` get a
+distribution — a front page has no modal and no non-semantic control, and a
+SIMBA run meets both within two steps. The pages that supply them are demo
+sites and component galleries, and those are **not evidence about the web**.
+A component library's documentation page is a page *about* dialogs; a practice
+form is a form built to be easy to drive. Eighteen of the 45 rows are now like
+that, and anything fitted on this corpus has to be able to ask which rows it
+is learning from.
+
+Working it out from the URL was rejected because the distinction is not in the
+URL: `demo.opencart.com` and `www.nhs.uk` are both real servers, and what
+separates them is why the page exists.
+
+**Cost.** The labels are a judgement made once, by one person, and they are
+not obviously right at the edges — `getbootstrap.com` is documentation that
+real developers read, and it is labelled `demo` because what the corpus takes
+from it is a dialog opened on purpose. Anyone using `kind` as a filter is
+inheriting that judgement. The row count per kind is recorded in the
+conditions block so at least the make-up is visible without re-reading 45
+pages.
