@@ -18,7 +18,13 @@ blocker" has no programmatic ground truth — if it did, the threshold would
 not be needed. So this produces the distribution and the identifying detail,
 and a person reads it. The reading is written up in EVALUATION.md, 2026-09-20d.
 
-**The sweep** at the end answers the two questions a threshold has to answer:
+**`MIN_STACK_LEVEL` too**, since it is the same kind of guess. It cannot be
+measured from `candidates()`, because `candidates()` has already applied it —
+an `absolute` element at z-index 3 is not in that set. So the probe walks
+`positioned()`, every positioned element with no rule applied, and reports
+the z-index of the things that are blockers against the things that are not.
+
+**The sweep** answers the two questions a coverage threshold has to answer:
 what a higher value misses, and what a lower one falsely flags. For each
 candidate threshold it reports how many pages would be called blocked and
 which pages join or leave, so the cost of moving the number is visible rather
@@ -47,8 +53,9 @@ from backend.perception.overlays import (
     LIFTED_POSITIONS,
     MIN_COVERAGE,
     MIN_STACK_LEVEL,
+    STACKED_POSITIONS,
     Candidate,
-    candidates,
+    positioned,
 )
 from backend.perception.serializer import VIEWPORT, read_async
 from tools.evaluation.collect_corpus import (
@@ -73,6 +80,13 @@ WORTH_PRINTING = 0.01
 #: closely enough to show where pages enter and leave.
 SWEEP = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.75, 0.90]
 
+#: What counts as a real blocker when splitting the z-index distribution.
+#: Not `MIN_COVERAGE`: using the threshold under test to define the thing
+#: being tested would make the answer circular. This is set where the corpus
+#: has a genuine gap, and every element above it has been eyeballed and is a
+#: modal, a drawer or a consent wall.
+BLOCKER_COVERAGE = 0.30
+
 
 def describe(document, candidate: Candidate) -> dict:
     """One candidate, with enough about it to judge it by eye.
@@ -90,6 +104,9 @@ def describe(document, candidate: Candidate) -> dict:
         # Which of the two ways in it took. `declared` alone was the whole
         # candidate set before 2026-09-20d.
         "found_by": "z-index" if candidate.declared else "position",
+        # Whether either rule admits it as things stand. False on a row means
+        # the detector cannot see this element at all today.
+        "a_candidate": candidate.declared or candidate.lifted,
         "tag": candidate.tag,
         "id": attributes.get("id", ""),
         "class": attributes.get("class", "")[:60],
@@ -111,7 +128,9 @@ async def read_candidates(page, url: str, drive=None, kind: str = "") -> dict:
         if view.document is None:
             return {"url": url, "state": name_of(drive), "kind": kind,
                     "error": "no snapshot; are the switches off?"}
-        found = candidates(view.document, VIEWPORT)
+        # `positioned`, not `candidates`: the rules are what is being
+        # measured, so the population has to be the one they select from.
+        found = positioned(view.document, VIEWPORT)
         return {
             "url": url,
             "state": name_of(drive),
@@ -184,26 +203,51 @@ def print_candidates(rows: list[dict]) -> None:
         print()
 
 
+def only_candidates(rows: list[dict]) -> list[dict]:
+    """The elements a rule actually admits, out of every positioned one.
+
+    The file records `positioned()` — everything — because that is what the
+    z-index question needs. The coverage threshold governs `candidates()`
+    only, and mixing the two makes a distribution that cannot be compared
+    with the run before it: on 2026-09-20e the same corpus read as 3019
+    elements or 270 candidates depending on which was meant.
+    """
+    return [c for row in rows if "error" not in row
+            for c in row["candidates"] if c["a_candidate"]]
+
+
 def distribution(rows: list[dict]) -> None:
     """The spread of coverage over every candidate in the corpus."""
-    values = [c["coverage"] for row in rows if "error" not in row
-              for c in row["candidates"]]
+    values = [c["coverage"] for c in only_candidates(rows)]
     if not values:
         print("no candidates at all — that is itself the finding")
         return
+    positioned_total = sum(len(r["candidates"]) for r in rows if "error" not in r)
     print(f"=== {len(values)} candidates over "
-          f"{sum(1 for r in rows if 'error' not in r)} pages ===")
+          f"{sum(1 for r in rows if 'error' not in r)} pages "
+          f"(out of {positioned_total} positioned elements) ===")
     print(f"  min {min(values):.4f}   median {statistics.median(values):.4f}   "
           f"mean {statistics.fmean(values):.4f}   max {max(values):.4f}")
+    admitted = only_candidates(rows)
     bands = [(0.0, 0.01), (0.01, 0.05), (0.05, 0.10), (0.10, 0.20),
-             (0.20, 0.30), (0.30, 0.50), (0.50, 0.90), (0.90, 1e9)]
+             (0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.90), (0.90, 1e9)]
     print("\n  coverage band      candidates   of which fixed/sticky with no z-index")
     for low, high in bands:
-        inside = [c for row in rows if "error" not in row
-                  for c in row["candidates"] if low <= c["coverage"] < high]
+        inside = [c for c in admitted if low <= c["coverage"] < high]
         lifted = [c for c in inside if c["found_by"] == "position"]
         label = f"{low:.2f}-{high:.2f}" if high < 1e9 else f"{low:.2f}+    "
-        print(f"  {label:<18}{len(inside):>11}{len(lifted):>40}")
+        note = "   <- the band that was empty" if 0.30 <= low < 0.90 else ""
+        print(f"  {label:<18}{len(inside):>11}{len(lifted):>40}{note}")
+
+    # And every one of them, since this is the band under examination.
+    inband = sorted((c for c in admitted if 0.30 <= c["coverage"] < 0.90),
+                    key=lambda c: -c["coverage"])
+    print(f"\n  {len(inband)} candidates between 0.30 and 0.90:")
+    for c in inband:
+        name = c["id"] or c["class"] or c["tag"]
+        print(f"    {c['coverage']:.4f}  {c['position']:<8}"
+              f"z={str(c['z_index'] if c['z_index'] is not None else 'auto'):<12}"
+              f"{name[:40]:<42}{c['text'][:28]!r}")
 
 
 def sweep_of(rows: list[dict]) -> list[dict]:
@@ -220,11 +264,12 @@ def sweep_of(rows: list[dict]) -> list[dict]:
     for threshold in sorted(SWEEP, reverse=True):
         blocked = {
             _where(row).strip() for row in good
-            if any(c["coverage"] >= threshold for c in row["candidates"])
+            if any(c["a_candidate"] and c["coverage"] >= threshold
+                   for c in row["candidates"])
         }
         blockers = sum(
             1 for row in good for c in row["candidates"]
-            if c["coverage"] >= threshold
+            if c["a_candidate"] and c["coverage"] >= threshold
         )
         summary.append({"threshold": threshold, "pages_blocked": len(blocked),
                         "blockers": blockers, "joined": sorted(blocked - previous)})
@@ -241,6 +286,80 @@ def print_sweep(summary: list[dict]) -> None:
         joined = ", ".join(j[:34] for j in line["joined"][:3]) or "-"
         print(f"{line['threshold']:<12.2f}{line['pages_blocked']:>15}"
               f"{line['blockers']:>11}   {joined}{mark}")
+
+
+def z_indexes(rows: list[dict]) -> None:
+    """What `MIN_STACK_LEVEL` is separating, and what it is not.
+
+    A "real blocker" here is an element over `MIN_COVERAGE` that a person
+    would have to deal with — which on this corpus is the same set as
+    "coverage >= 0.9", because the corpus has no mid-sized ones. Said out
+    loud because it makes the comparison below narrower than it looks.
+    """
+    everything = [c for row in rows if "error" not in row for c in row["candidates"]]
+    if not everything:
+        print("no positioned elements at all")
+        return
+
+    blockers = [c for c in everything if c["coverage"] >= BLOCKER_COVERAGE]
+    others = [c for c in everything if c["coverage"] < BLOCKER_COVERAGE]
+
+    print(f"\n=== z-index, over {len(everything)} positioned elements ===")
+    print("`absolute` is the position the rule actually gates: `fixed` and "
+          f"`sticky` get in\nwithout a z-index, so only an `absolute` element "
+          f"is ever excluded by MIN_STACK_LEVEL={MIN_STACK_LEVEL}.\n")
+
+    def spread(name: str, rows_: list[dict]) -> None:
+        declared = [c["z_index"] for c in rows_ if c["z_index"] is not None]
+        auto = len(rows_) - len(declared)
+        if declared:
+            print(f"  {name:<28} {len(rows_):>4} elements, {auto:>4} with no "
+                  f"z-index, declared min {min(declared)} / max {max(declared)}")
+        else:
+            print(f"  {name:<28} {len(rows_):>4} elements, {auto:>4} with no "
+                  f"z-index, none declared")
+
+    spread(f"blockers (>= {BLOCKER_COVERAGE})", blockers)
+    spread("everything else", others)
+
+    print("\n  z-index band        blockers   not blockers")
+    bands = [(None, None), (-(10**9), 0), (0, 1), (1, 5), (5, 50), (50, 1000),
+             (1000, 10**9)]
+    for low, high in bands:
+        if low is None:
+            label = "auto (none declared)"
+            inb = [c for c in blockers if c["z_index"] is None]
+            oth = [c for c in others if c["z_index"] is None]
+        else:
+            label = f"{low} to {high - 1}" if high < 10**9 else f"{low}+"
+            inb = [c for c in blockers
+                   if c["z_index"] is not None and low <= c["z_index"] < high]
+            oth = [c for c in others
+                   if c["z_index"] is not None and low <= c["z_index"] < high]
+        print(f"  {label:<20}{len(inb):>9}{len(oth):>15}")
+
+    # The only rows MIN_STACK_LEVEL decides: absolute, with a declared
+    # z-index. Everything else gets in or stays out for other reasons.
+    gated = [c for c in everything
+             if c["position"] in STACKED_POSITIONS
+             and c["position"] not in LIFTED_POSITIONS
+             and c["z_index"] is not None]
+    print(f"\n  Rows MIN_STACK_LEVEL actually decides "
+          f"(`absolute` with a declared z-index): {len(gated)}")
+    for c in sorted(gated, key=lambda c: -c["coverage"])[:12]:
+        verdict = "IN " if c["z_index"] >= MIN_STACK_LEVEL else "OUT"
+        big = " <- over MIN_COVERAGE" if c["coverage"] >= MIN_COVERAGE else ""
+        print(f"    {verdict} z={c['z_index']:<8} coverage {c['coverage']:.4f}  "
+              f"{c['tag']} {(c['id'] or c['class'])[:34]}{big}")
+
+    # What would change if the level moved.
+    print("\n  threshold   absolute elements admitted   of those, over "
+          f"{MIN_COVERAGE}")
+    for level in (0, 1, 2, 3, 5, 10, 50, 100):
+        admitted = [c for c in gated if c["z_index"] >= level]
+        over = [c for c in admitted if c["coverage"] >= MIN_COVERAGE]
+        mark = "  <- the value in the code" if level == MIN_STACK_LEVEL else ""
+        print(f"  {level:<12}{len(admitted):>22}{len(over):>29}{mark}")
 
 
 async def main() -> None:
@@ -273,6 +392,7 @@ async def main() -> None:
     print_candidates(rows)
     distribution(rows)
     print_sweep(summary)
+    z_indexes(rows)
 
 
 if __name__ == "__main__":

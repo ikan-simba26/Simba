@@ -16,7 +16,9 @@ from backend.perception.overlays import (
     MIN_COVERAGE,
     MIN_STACK_LEVEL,
     analyse,
+    positioned,
 )
+from backend.perception.snapshot import parse
 from backend.perception.serializer import is_dead_link, serialize
 from backend.perception.test_serializer import find, labels
 
@@ -407,3 +409,157 @@ def test_a_page_with_nothing_on_it_is_still_clear(replica: str, page: Page) -> N
     page.goto(replica + "/")
 
     assert not analyse(snapshot_of(page), VIEWPORT).blocked
+
+
+# --- the page is not covering itself ----------------------------------------
+#
+# Found on 2026-09-20e by extending the corpus. The Guardian and Spiegel both
+# put `position: fixed` on `<body>` while their consent wall is up — it is the
+# standard way to stop the page behind a modal from scrolling — and a fixed
+# `<body>` is a fixed element covering the whole viewport, so the rule added
+# earlier the same day flagged it.
+#
+# It is not a near miss. `body`'s box is the *document*, not the viewport, so
+# it came back at coverage **27.17** on the Guardian and **43.61** on Spiegel:
+# 2717% of the screen. And because `_overlay_indexes` takes a blocker's whole
+# subtree, flagging `body` marks every element on the page as belonging to an
+# overlay, which is the worst possible answer — a planner is told the entire
+# page is a dialog.
+
+SCROLL_LOCKED = """
+<style>
+  html { height: 100%; }
+  body { position: fixed; top: 0; left: 0; width: 100%; margin: 0; }
+  #wall { position: fixed; top: 100px; left: 240px; width: 800px; height: 600px;
+          background: #fff; z-index: 50; }
+</style>
+<div style="height: 3000px"><button id="buried">Buy now</button></div>
+<div id="wall"><button id="agree">I agree</button></div>
+"""
+
+
+def test_a_scroll_locked_body_is_not_a_blocker(page: Page) -> None:
+    """`position: fixed` on `<body>` is a scroll lock, not an overlay."""
+    report = analyse(snapshot_of(built(page, SCROLL_LOCKED)), VIEWPORT)
+
+    tags = {b.backend_node_id for b in report.blockers}
+    assert tags, "the consent wall itself should still be found"
+    for blocker in report.blockers:
+        assert "fixed at z-index auto" not in blocker.reason or blocker.coverage < 5, (
+            f"something enormous was flagged: {blocker.reason}"
+        )
+    # The wall is the blocker, and it is the only one.
+    assert len(report.blockers) == 1
+    assert report.blockers[0].coverage == pytest.approx(0.469, abs=0.01)
+
+
+def test_the_page_behind_a_wall_is_still_occluded_when_body_is_locked(
+    page: Page,
+) -> None:
+    """The real bite: flagging `body` marks the whole page as overlay.
+
+    `_overlay_indexes` takes a blocker's entire subtree, so a blocked `body`
+    puts every element on the page in `overlay_ids` and leaves `occluded_ids`
+    empty — exactly inverting what perception is supposed to say.
+    """
+    elements = serialize(built(page, SCROLL_LOCKED))
+
+    assert find(elements, "I agree").overlay, "the wall's own button"
+    assert not find(elements, "I agree").occluded
+    assert not find(elements, "Buy now").overlay, "the page is not the overlay"
+
+
+def test_the_root_element_is_never_a_candidate(page: Page) -> None:
+    """`html` too, for the same reason and by the same route."""
+    page.goto("about:blank")
+    page.set_content(
+        "<style>html { position: fixed; width: 100%; height: 100%; }</style>"
+        "<div style='height: 2000px'><button>Buy now</button></div>"
+    )
+    page.wait_for_timeout(100)
+
+    assert not analyse(snapshot_of(page), VIEWPORT).blocked
+
+
+# --- coverage is of the screen, not of the element --------------------------
+#
+# Found on 2026-09-20e by putting pages with partial-coverage overlays in the
+# corpus. `coverage` was `(width * height) / viewport_area` with nothing
+# asking where the box actually was, so a big element far down a long page
+# scored as though it were covering the screen:
+#
+#   Guardian   div.dcr-1lss6kd   rect (490, 19167, 700, 570)   coverage 0.389
+#   Spiegel    div.WSwWMedB      rect (136, 14308, 1008, 456)  coverage 0.449
+#
+# Nineteen thousand pixels down the page is not "covering 39% of the
+# viewport". Five of the twelve candidates that first appeared in the
+# 0.30-0.90 band were this, which would have made a threshold measured on
+# them meaningless.
+#
+# Every overlay the project had measured before was a full-screen modal at
+# (0, 0), where the element's own area and its share of the screen are the
+# same number, which is why this survived.
+
+FAR_DOWN_THE_PAGE = """
+<style>
+  body { margin: 0; }
+  #big { position: absolute; top: 9000px; left: 0; width: 1000px; height: 700px;
+         background: #ccc; z-index: 40; }
+</style>
+<div style="height: 12000px"><button id="buried">Buy now</button></div>
+<div id="big">A promo panel nine thousand pixels down</div>
+"""
+
+#: Half on screen, half below it: 1280x800 starting at y=400, so exactly half
+#: of its area is visible and the other half is not.
+HALF_OFF_THE_BOTTOM = """
+<style>
+  body { margin: 0; }
+  #sheet { position: fixed; top: 400px; left: 0; width: 1280px; height: 800px;
+           background: #eee; z-index: 40; }
+</style>
+<div style="height: 3000px"><button id="buried">Buy now</button></div>
+<div id="sheet">A sheet hanging off the bottom</div>
+"""
+
+
+def test_a_big_element_far_below_the_fold_covers_nothing(page: Page) -> None:
+    """700x570 at y=9000 is 0% of the screen, not 39% of it."""
+    report = analyse(snapshot_of(built(page, FAR_DOWN_THE_PAGE)), VIEWPORT)
+
+    assert not report.blocked, (
+        "an element nine thousand pixels down was called a page-level blocker"
+    )
+
+
+def test_coverage_is_the_part_on_screen(page: Page) -> None:
+    """Half off the bottom is half the coverage its area would suggest."""
+    document = parse(snapshot_of(built(page, HALF_OFF_THE_BOTTOM)))
+    sheet = [c for c in positioned(document, VIEWPORT) if c.tag == "div"
+             and c.rect[3] > 700]
+
+    assert sheet, "the sheet itself was not found"
+    # Its own area is 1280x800 = one whole viewport; only 1280x400 is visible.
+    assert sheet[0].coverage == pytest.approx(0.5, abs=0.01)
+
+
+def test_a_full_screen_modal_still_reads_one(courses: Page) -> None:
+    """The clip must not move the number for anything already measured."""
+    report = analyse(snapshot_of(courses), VIEWPORT)
+
+    assert report.blockers[0].coverage == pytest.approx(1.0, abs=0.02)
+
+
+def test_the_blockers_rect_is_still_the_whole_element(page: Page) -> None:
+    """Only `coverage` is clipped. Occlusion needs the real box.
+
+    Whether a click can land is decided by `centre_inside` against the
+    blocker's rect, and clipping that would stop a sheet hanging off the
+    bottom of the screen from occluding what is under its visible half.
+    """
+    report = analyse(snapshot_of(built(page, HALF_OFF_THE_BOTTOM)), VIEWPORT)
+
+    assert report.blocked
+    assert report.blockers[0].rect[3] == pytest.approx(800, abs=1), (
+        "the rect was clipped; it should be the element's real box"
+    )

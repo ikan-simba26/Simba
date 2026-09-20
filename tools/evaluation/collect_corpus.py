@@ -133,6 +133,37 @@ async def add_a_todo(page) -> None:
     await page.wait_for_timeout(500)
 
 
+# --- overlays that cover part of the page, not all of it --------------------
+#
+# Every modal the corpus had covered the whole viewport, which is why the
+# coverage calibration found an empty band between 0.30 and 0.90 and had to
+# say so as a limitation rather than a result (EVALUATION.md, 2026-09-20d).
+# These four shapes are the band: a bottom sheet, a side drawer, a consent
+# wall over a third of the screen, a sticky banner.
+#
+# **They were chosen because they land there.** That makes this part of the
+# corpus a deliberate sample and not a random one: it can show the band is
+# reachable, and it cannot say how often real pages fall in it.
+
+
+async def open_a_bottom_sheet(page) -> None:
+    """MUI's drawer anchored to the bottom: a sheet over ~46% of the screen."""
+    await page.get_by_role("button", name="bottom", exact=True).first.click()
+    await page.wait_for_timeout(1500)
+
+
+async def open_a_side_drawer(page) -> None:
+    """Bootstrap's offcanvas: a 400px panel with a full backdrop behind it."""
+    await page.get_by_role(
+        "button", name="Enable both scrolling & backdrop").first.click()
+    await page.wait_for_timeout(1500)
+
+
+async def open_an_antd_drawer(page) -> None:
+    await page.get_by_role("button", name="Open").first.click()
+    await page.wait_for_timeout(1500)
+
+
 #: The corpus: `(url, drive, kind)`, ordered roughly by how much each page
 #: puts in front of you. The order is a guess — the point of collecting is to
 #: find out whether the numbers agree with it — and nothing downstream may
@@ -231,6 +262,24 @@ STARTER_LIST: list[tuple[str, object, str]] = [
     ("https://mui.com/material-ui/react-dialog/", open_a_mui_dialog, DEMO),
     ("https://ant.design/components/modal", open_an_antd_modal, DEMO),
     ("https://sweetalert2.github.io/", open_a_sweetalert, DEMO),
+    # --- overlays that cover only part of the page ---------------------------
+    #
+    # Added 2026-09-20e, and selected for the property being tested: each one
+    # puts a blocker between 0.30 and 0.90 of the viewport, the band the
+    # coverage calibration had nothing in. See `open_a_bottom_sheet` above for
+    # what that does and does not license anyone to conclude.
+    ("https://mui.com/material-ui/react-drawer/", open_a_bottom_sheet, DEMO),
+    ("https://getbootstrap.com/docs/5.3/components/offcanvas/",
+     open_a_side_drawer, DEMO),
+    ("https://ant.design/components/drawer", open_an_antd_drawer, DEMO),
+    # Two live news sites whose consent walls cover a third to a half. Real
+    # pages serving real readers, so `public` — and the most fragile rows in
+    # the corpus, because what a consent manager shows depends on where the
+    # request came from and what it has seen before. A run from a fresh
+    # context gets the wall; a run that somehow does not will read 0 overlays
+    # here, and that is a fact about the run, not the page.
+    ("https://www.theguardian.com/international", None, PUBLIC),
+    ("https://www.spiegel.de/", None, PUBLIC),
 ]
 
 #: The features to summarise, in the order the report prints them. After the

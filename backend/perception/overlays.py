@@ -17,6 +17,15 @@ two different questions being asked.
   backdrop covers most of the viewport; a toast covers a sliver. This is the
   rule that answers "is there a dialog in the way", and it stays as it was.
 
+  Coverage is the share of the *screen* an element hides, so the box is
+  clipped to the viewport before the fraction is taken. That is not the same
+  as its own area, and the difference only shows up on a long page: the
+  Guardian has a 700x570 panel nine thousand pixels down, which is 39% of a
+  viewport's worth of area and 0% of anything anyone can see. Until
+  2026-09-20e this module called that a blocker, and could not have known —
+  every overlay it had ever measured was a full-screen modal at (0, 0),
+  where the two numbers are equal.
+
   **Target-scoped.** Pass a `target` and size stops mattering: anything
   stacked above the page that *overlaps the element the next move is about
   to touch* is blocking that move, at any size. A 220x180 dropdown is 2% of
@@ -45,6 +54,16 @@ absolutely positioned box sits in normal paint order, so covering the
 viewport says nothing about being on top of it — that is every stretched
 background and every hero image on the web, and entry_ad's own `.underlay`.
 An `absolute` element still has to declare itself with a z-index, as before.
+
+**`html` and `body` are never candidates.** A page cannot be covering
+itself, and both are routinely given `position: fixed` as a scroll lock —
+the standard trick for stopping the page behind a modal from scrolling. That
+made the page its own blocker: `body`'s box is the *document*, so the
+Guardian reported coverage **27.17** and Spiegel **43.61** (EVALUATION.md,
+2026-09-20e). Worse than the number, `_overlay_indexes` takes a blocker's
+whole subtree, so flagging `body` marks every element on the page as part of
+an overlay and leaves nothing occluded — the exact inverse of what
+perception is for.
 """
 
 from dataclasses import dataclass, field
@@ -61,9 +80,14 @@ from backend.perception.snapshot import (
 
 __all__ = ["COMPUTED_STYLES", "Blocker", "Candidate", "OverlayReport",
            "MIN_COVERAGE", "MIN_STACK_LEVEL", "STACKED_POSITIONS",
-           "LIFTED_POSITIONS", "analyse", "candidates"]
+           "LIFTED_POSITIONS", "ROOT_TAGS", "analyse", "candidates",
+           "positioned"]
 
 STACKED_POSITIONS = {"fixed", "absolute"}
+#: Never candidates, whatever they are positioned as. The page is not on top
+#: of itself, and a scroll-locked `body` is a page holding still, not a
+#: dialog.
+ROOT_TAGS = {"html", "body"}
 #: Positions that are painted against the viewport rather than laid out in
 #: the flow. One of these plus enough coverage is a blocker on its own: the
 #: element is on top of the page whether or not it declared a z-index.
@@ -79,17 +103,17 @@ MIN_STACK_LEVEL = 5
 # Fraction of the viewport an element must cover before it counts as blocking
 # the page as a whole. Not used at all when a target is named.
 #
-# Measured on 2026-09-20 against the 45-page corpus rather than left as the
-# guess it had been since the rule was written, and kept at 0.30 on the
-# result. 96 candidates: every real blocker covers **1.000**, the largest
-# thing that is not one covers **0.234** (a documentation sidebar), and the
-# band between them is **empty**.
+# Measured against the corpus twice. On 45 pages (2026-09-20d) every blocker
+# covered 1.000 and the largest non-blocker 0.234, with nothing between — a
+# gap that flattered the number, because every overlay in that corpus was a
+# full-screen modal. Five pages with partial-coverage overlays were added and
+# the gap closed: a bottom sheet at 0.461, two side drawers at 0.312, a
+# sticky banner at 0.369 (2026-09-20e).
 #
-# So the evidence bounds this number rather than picking it — anything in
-# (0.234, 0.90] behaves identically on everything we have seen, and 0.30 is
-# already inside that. What the corpus does rule out is going lower: 0.15
-# calls Wikipedia and MDN blocked. EVALUATION.md, 2026-09-20d, has the
-# distribution, the sweep, and what this calibration cannot tell you.
+# 0.30 still separates them, and now with almost no margin: the nearest real
+# blocker is a drawer at **0.312**. That is 4% clear of the line rather than
+# 200%, and the next corpus with a 0.28 drawer in it will move this number.
+# EVALUATION.md, 2026-09-20e, has both distributions.
 MIN_COVERAGE = 0.30
 
 
@@ -158,6 +182,51 @@ class OverlayReport:
         return [b for b in self.blockers if b.scoped_to_target]
 
 
+def positioned(document: Document, viewport: tuple[int, int]) -> list[Candidate]:
+    """Every positioned, visible element, before any rule has judged it.
+
+    `html` and `body` are left out — see `ROOT_TAGS` — and nothing else is.
+    No z-index requirement and no coverage threshold: this is the population
+    the rules select *from*, which is what a probe needs in order to measure
+    what the rules exclude. `MIN_STACK_LEVEL` cannot be calibrated against a
+    set that has already had `MIN_STACK_LEVEL` applied to it.
+    """
+    viewport_area = float(viewport[0] * viewport[1]) or 1.0
+    found: list[Candidate] = []
+    for node_index, style in document.styles.items():
+        if not visible(style):
+            continue
+        position = style.get("position") or ""
+        if position not in STACKED_POSITIONS and position not in LIFTED_POSITIONS:
+            continue
+        if document.tag(node_index) in ROOT_TAGS:
+            continue
+        bounds = document.bounds.get(node_index)
+        if bounds is None:
+            continue
+        z_index = _int_or_none(style.get("z-index"))
+        found.append(
+            Candidate(
+                node_index=node_index,
+                backend_node_id=document.backend_id(node_index),
+                # The whole box, unclipped. Occlusion is decided against this
+                # and must not be: a sheet hanging off the bottom of the
+                # screen still covers what is under its visible half.
+                rect=bounds,
+                coverage=_on_screen_area(bounds, viewport) / viewport_area,
+                position=position,
+                z_index=z_index,
+                declared=(
+                    position in STACKED_POSITIONS
+                    and z_index is not None
+                    and z_index >= MIN_STACK_LEVEL
+                ),
+                tag=document.tag(node_index),
+            )
+        )
+    return found
+
+
 def candidates(document: Document, viewport: tuple[int, int]) -> list[Candidate]:
     """Everything painted above the page, with how much of it each covers.
 
@@ -173,37 +242,7 @@ def candidates(document: Document, viewport: tuple[int, int]) -> list[Candidate]
     keeping it out is what lets the probe report the distribution the
     threshold is chosen from.
     """
-    viewport_area = float(viewport[0] * viewport[1]) or 1.0
-    found: list[Candidate] = []
-    for node_index, style in document.styles.items():
-        if not visible(style):
-            continue
-        position = style.get("position") or ""
-        z_index = _int_or_none(style.get("z-index"))
-        declared = (
-            position in STACKED_POSITIONS
-            and z_index is not None
-            and z_index >= MIN_STACK_LEVEL
-        )
-        if not declared and position not in LIFTED_POSITIONS:
-            continue
-        bounds = document.bounds.get(node_index)
-        if bounds is None:
-            continue
-        _, _, width, height = bounds
-        found.append(
-            Candidate(
-                node_index=node_index,
-                backend_node_id=document.backend_id(node_index),
-                rect=bounds,
-                coverage=(width * height) / viewport_area,
-                position=position,
-                z_index=z_index,
-                declared=declared,
-                tag=document.tag(node_index),
-            )
-        )
-    return found
+    return [c for c in positioned(document, viewport) if c.declared or c.lifted]
 
 
 def analyse(
@@ -290,6 +329,23 @@ def analyse(
             for i in _occluded_indexes(document, blockers, blocker_indexes)
         },
     )
+
+
+def _on_screen_area(rect: Rect, viewport: tuple[int, int]) -> float:
+    """How much of a box is inside the viewport, in square CSS pixels.
+
+    The page is read at the top of its scroll, which is how every read in
+    this project happens, so "inside the viewport" means inside
+    `(0, 0, width, height)`. A box entirely below the fold returns 0.
+    """
+    x, y, width, height = rect
+    if width <= 0 or height <= 0:
+        return 0.0
+    left = max(x, 0.0)
+    top = max(y, 0.0)
+    right = min(x + width, float(viewport[0]))
+    bottom = min(y + height, float(viewport[1]))
+    return max(right - left, 0.0) * max(bottom - top, 0.0)
 
 
 def _z_label(z_index: int | None) -> str:
