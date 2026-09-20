@@ -64,19 +64,32 @@ __all__ = ["COMPUTED_STYLES", "Blocker", "Candidate", "OverlayReport",
            "LIFTED_POSITIONS", "analyse", "candidates"]
 
 STACKED_POSITIONS = {"fixed", "absolute"}
-#: Positions that are painted against the viewport rather than in the flow.
-#: One of these plus enough coverage is a blocker on its own: the element is
-#: on top of the page whether or not it declared a z-index. A subset of
-#: `STACKED_POSITIONS` only by accident — `sticky` is here and not there,
-#: because it does not participate in the declared-stacking rule.
+#: Positions that are painted against the viewport rather than laid out in
+#: the flow. One of these plus enough coverage is a blocker on its own: the
+#: element is on top of the page whether or not it declared a z-index.
+#:
+#: Not a subset of `STACKED_POSITIONS`, and the two are not interchangeable.
+#: They overlap at `fixed` and differ at both ends — `absolute` takes part in
+#: the declared-stacking rule but not this one, because being absolutely
+#: positioned says nothing about paint order, and `sticky` takes part in this
+#: one but not that one.
 LIFTED_POSITIONS = {"fixed", "sticky"}
 # A z-index this far above the page is a deliberate "put me on top".
 MIN_STACK_LEVEL = 5
 # Fraction of the viewport an element must cover before it counts as blocking
 # the page as a whole. Not used at all when a target is named.
 #
-# Calibrated against the corpus on 2026-09-20 and left at 0.30 — see
-# EVALUATION.md, 2026-09-20d, for the distribution it was chosen from.
+# Measured on 2026-09-20 against the 45-page corpus rather than left as the
+# guess it had been since the rule was written, and kept at 0.30 on the
+# result. 96 candidates: every real blocker covers **1.000**, the largest
+# thing that is not one covers **0.234** (a documentation sidebar), and the
+# band between them is **empty**.
+#
+# So the evidence bounds this number rather than picking it — anything in
+# (0.234, 0.90] behaves identically on everything we have seen, and 0.30 is
+# already inside that. What the corpus does rule out is going lower: 0.15
+# calls Wikipedia and MDN blocked. EVALUATION.md, 2026-09-20d, has the
+# distribution, the sweep, and what this calibration cannot tell you.
 MIN_COVERAGE = 0.30
 
 

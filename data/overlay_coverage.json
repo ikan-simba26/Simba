@@ -1,0 +1,2102 @@
+{
+  "conditions": {
+    "taken_at": "2026-09-20T16:42:37+05:00",
+    "git": {
+      "commit": "def89480e8c5",
+      "branch": "feat/perception-blocker-coverage-calibration",
+      "dirty": true
+    },
+    "python": {
+      "version": "3.12.3",
+      "executable": "D:\\simba\\backend\\venv\\Scripts\\python.exe",
+      "project_venv": true
+    },
+    "playwright": "1.62.0",
+    "provider": "openai",
+    "model": "gemini-3.1-flash-lite",
+    "model_from": ".env",
+    "switches": {
+      "SIMBA_FLOW": null,
+      "SIMBA_USE_HARDCODED_PLAN": null,
+      "SIMBA_TRACE_MEMORY": null,
+      "SIMBA_BROWSER": null,
+      "SIMBA_OVERLAY_DETECTION": null,
+      "SIMBA_INFERRED_ROLES": null,
+      "SIMBA_SETBACK_PLACEMENT": null,
+      "SIMBA_LLM_PROVIDER": null,
+      "SIMBA_LLM_EFFORT": null,
+      "SIMBA_REPLICA_URL": null
+    },
+    "machine": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "cpus": 8,
+      "load_percent": 13
+    },
+    "viewport": [
+      1280,
+      800
+    ],
+    "min_coverage": 0.3,
+    "min_stack_level": 5,
+    "settle_ms": 2500
+  },
+  "results": {
+    "pages": [
+      {
+        "url": "http://127.0.0.1:5000/",
+        "state": "as it loads",
+        "kind": "ours",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "http://127.0.0.1:5000/",
+        "state": "sign in",
+        "kind": "ours",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 100,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "deadline-modal",
+            "class": "modal-overlay",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "Registration Alert The add/drop deadline for Fall 2026 is",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "http://127.0.0.1:5000/stubborn",
+        "state": "as it loads",
+        "kind": "ours",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "http://127.0.0.1:5100/",
+        "state": "as it loads",
+        "kind": "ours",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0663,
+            "position": "fixed",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "cookie-bar",
+            "class": "cookie-bar",
+            "rect": [
+              0,
+              747,
+              1280,
+              53
+            ],
+            "text": "This site uses cookies to remember your reference number and to measur",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(4)"
+          }
+        ]
+      },
+      {
+        "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
+        "state": "as it loads",
+        "kind": "ours",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0663,
+            "position": "fixed",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "cookie-bar",
+            "class": "cookie-bar",
+            "rect": [
+              0,
+              747,
+              1280,
+              53
+            ],
+            "text": "This site uses cookies to remember your reference number and to measur",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(4)"
+          }
+        ]
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "as it loads",
+        "kind": "target",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.085,
+            "position": "fixed",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "header",
+            "id": "",
+            "class": "el-header",
+            "rect": [
+              0,
+              0,
+              1280,
+              68
+            ],
+            "text": "Home Train Timings Tickets Order My \u0632\u0628\u0627\u0646 \u0627\u0631\u062f\u0648 English Log in",
+            "css_path": " body:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > header:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the station list",
+        "kind": "target",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.085,
+            "position": "fixed",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "header",
+            "id": "",
+            "class": "el-header",
+            "rect": [
+              0,
+              0,
+              1280,
+              68
+            ],
+            "text": "Home Train Timings Tickets Order My \u0632\u0628\u0627\u0646 \u0627\u0631\u062f\u0648 English Log in",
+            "css_path": " body:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0462,
+            "position": "absolute",
+            "z_index": 2003,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "el-select-dropdown el-popper",
+            "rect": [
+              311,
+              217,
+              217,
+              218
+            ],
+            "text": "DAHARKI MIRPUR MATHELO KOT LAKHPAT SAMASATA JN. KOT RADHA KISHEN SHUJA",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2)"
+          }
+        ]
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the calendar",
+        "kind": "target",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.1085,
+            "position": "absolute",
+            "z_index": 2001,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "el-picker-panel el-date-picker el-popper",
+            "rect": [
+              790,
+              218,
+              324,
+              343
+            ],
+            "text": "2026 September Sun Mon Tue Wed Thu Fri Sat 30 31",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.085,
+            "position": "fixed",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "header",
+            "id": "",
+            "class": "el-header",
+            "rect": [
+              0,
+              0,
+              1280,
+              68
+            ],
+            "text": "Home Train Timings Tickets Order My \u0632\u0628\u0627\u0646 \u0627\u0631\u062f\u0648 English Log in",
+            "css_path": " body:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > header:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://example.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://httpbin.org/html",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://text.npr.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://lite.cnn.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://danluu.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://quotes.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://books.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://www.python.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0023,
+            "position": "absolute",
+            "z_index": 50,
+            "found_by": "z-index",
+            "tag": "ul",
+            "id": "launch-shell",
+            "class": "launch-shell menu",
+            "rect": [
+              568,
+              237,
+              45,
+              53
+            ],
+            "text": ">_",
+            "css_path": "type(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > ul:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://pypi.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0045,
+            "position": "absolute",
+            "z_index": 12,
+            "found_by": "z-index",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              -10000,
+              0,
+              52,
+              89
+            ],
+            "text": "Skip to main content",
+            "css_path": ""
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 12,
+            "found_by": "z-index",
+            "tag": "a",
+            "id": "",
+            "class": "skip-to-content",
+            "rect": [
+              -10000,
+              0,
+              1,
+              1
+            ],
+            "text": "Skip to main content",
+            "css_path": "html > body:nth-of-type(1) > a:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 9,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "sticky-notifications",
+            "class": "stick-to-top js-stick-to-top",
+            "rect": [
+              0,
+              0,
+              1280,
+              0
+            ],
+            "text": "<div class=\"notification-bar notification-bar--warning\" role=\"status\">",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.1755,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "aside",
+            "id": "",
+            "class": "layout__right-sidebar reference-layout__toc",
+            "rect": [
+              1009,
+              189,
+              256,
+              702
+            ],
+            "text": "In this article Beginner's tutorials",
+            "css_path": "(1) > div:nth-of-type(2) > div:nth-of-type(1) > main:nth-of-type(1) > aside:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.1755,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "aside",
+            "id": "main-sidebar",
+            "class": "layout__left-sidebar",
+            "rect": [
+              0,
+              189,
+              256,
+              702
+            ],
+            "text": ".visually-hidden{border:0!important;clip-path:inset(50%)!important;hei",
+            "css_path": "tml > body:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > aside:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.1211,
+            "position": "sticky",
+            "z_index": 100,
+            "found_by": "position",
+            "tag": "header",
+            "id": "",
+            "class": "page-layout__header",
+            "rect": [
+              0,
+              91,
+              1265,
+              98
+            ],
+            "text": "MDN",
+            "css_path": "html > body:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0165,
+            "position": "sticky",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "left-sidebar__header",
+            "rect": [
+              16,
+              189,
+              224,
+              76
+            ],
+            "text": ".visually-hidden{border:0!important;clip-path:inset(50%)!important;hei",
+            "css_path": "e(2) > div:nth-of-type(1) > aside:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "ul",
+            "id": "",
+            "class": "a11y-menu",
+            "rect": [
+              2,
+              -320,
+              1261,
+              0
+            ],
+            "text": "Skip to main content Skip to search",
+            "css_path": "html > body:nth-of-type(1) > ul:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "sticky",
+            "z_index": 100,
+            "found_by": "position",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ""
+          }
+        ]
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Cognitive_load",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.1527,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "vector-sticky-pinned-container",
+            "rect": [
+              32,
+              258,
+              208,
+              752
+            ],
+            "text": "Contents move to sidebar hide (Top)",
+            "css_path": "ype(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.091,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "vector-sticky-pinned-container",
+            "rect": [
+              1040,
+              258,
+              196,
+              476
+            ],
+            "text": "Appearance move to sidebar",
+            "css_path": "pe(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0001,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "p-dock-bottom",
+            "class": "mw-portlet mw-portlet-dock-bottom emptyPortlet",
+            "rect": [
+              1246,
+              787,
+              26,
+              5
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(5)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "3) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ") > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 800,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "rt-overlay",
+            "rect": [
+              0,
+              0,
+              1280,
+              0
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(6)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 450,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "mw-teleport-target",
+            "class": "vector-body",
+            "rect": [
+              0,
+              16195,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(7)"
+          }
+        ]
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Main_Page",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.091,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "vector-sticky-pinned-container",
+            "rect": [
+              1040,
+              258,
+              196,
+              476
+            ],
+            "text": "Appearance move to sidebar",
+            "css_path": "pe(1) > div:nth-of-type(3) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0001,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "p-dock-bottom",
+            "class": "mw-portlet mw-portlet-dock-bottom emptyPortlet",
+            "rect": [
+              1246,
+              787,
+              26,
+              5
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(5)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ") > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 800,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "rt-overlay",
+            "rect": [
+              0,
+              0,
+              1280,
+              0
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(6)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 450,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "mw-teleport-target",
+            "class": "vector-body",
+            "rect": [
+              0,
+              3922,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(7)"
+          }
+        ]
+      },
+      {
+        "url": "https://www.gov.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://www.gov.uk/browse/benefits",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://www.nhs.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://news.ycombinator.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://arxiv.org/list/cs.HC/recent",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.007,
+            "position": "absolute",
+            "z_index": 200,
+            "found_by": "z-index",
+            "tag": "a",
+            "id": "",
+            "class": "ds-skip-link",
+            "rect": [
+              8,
+              -100,
+              180,
+              40
+            ],
+            "text": "Skip to main content",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > a:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0029,
+            "position": "absolute",
+            "z_index": 200,
+            "found_by": "z-index",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              24,
+              -90,
+              148,
+              20
+            ],
+            "text": "Skip to main content",
+            "css_path": ""
+          }
+        ]
+      },
+      {
+        "url": "https://www.bbc.co.uk/news",
+        "state": "as it loads",
+        "kind": "public",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.1013,
+            "position": "sticky",
+            "z_index": 4000,
+            "found_by": "position",
+            "tag": "header",
+            "id": "bbc-header",
+            "class": "Header-styles__HeaderStyled-sc-36071384-0 lkxsBq",
+            "rect": [
+              0,
+              0,
+              1280,
+              81
+            ],
+            "text": "British Broadcasting Corporation",
+            "css_path": "ml > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0925,
+            "position": "sticky",
+            "z_index": 3000,
+            "found_by": "position",
+            "tag": "nav",
+            "id": "main-navigation-container",
+            "class": "Navigation-styles__NavigationContainerStyled-sc-f1c1fa10-9 g",
+            "rect": [
+              0,
+              81,
+              1280,
+              74
+            ],
+            "text": "Home News Sport Business Technology Health Culture Arts Travel Earth A",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.004,
+            "position": "absolute",
+            "z_index": 2000,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "IndexCardContentTypeLabel-styles__ContentTypeLabelStyled-sc-",
+            "rect": [
+              332,
+              1843,
+              64,
+              64
+            ],
+            "text": "",
+            "css_path": "-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.0016,
+            "position": "absolute",
+            "z_index": 2000,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "IndexCardContentTypeLabel-styles__ContentTypeLabelStyled-sc-",
+            "rect": [
+              16,
+              1016,
+              40,
+              40
+            ],
+            "text": "",
+            "css_path": "ype(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)"
+          }
+        ]
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/entry_ad",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "modal",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "This is a modal window It's commonly used to encourage a user to take ",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2)"
+          }
+        ]
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "http://demo.testfire.net/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://parabank.parasoft.com/parabank/index.htm",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://demo.applitools.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1200,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "oxd-toaster_1",
+            "class": "oxd-toast-container oxd-toast-container--bottom",
+            "rect": [
+              12,
+              784,
+              400,
+              0
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)"
+          }
+        ]
+      },
+      {
+        "url": "https://www.saucedemo.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://demo.opencart.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://practice.expandtesting.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.0963,
+            "position": "sticky",
+            "z_index": 1020,
+            "found_by": "position",
+            "tag": "header",
+            "id": "",
+            "class": "navbar navbar-expand-md navbar-dark sticky-top main-navbar",
+            "rect": [
+              0,
+              50,
+              1280,
+              77
+            ],
+            "text": "SUT Practice",
+            "css_path": "html > body:nth-of-type(1) > header:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://demoqa.com/automation-practice-form",
+        "state": "as it loads",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 0.075,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "footer",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              740,
+              1280,
+              60
+            ],
+            "text": "\u00a9 2013- 2026 TOOLSQA.COM | ALL RIGHTS RESERVED.",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > footer:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "react-select-2-live-region",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              417,
+              473,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "pe(1) > div:nth-of-type(6) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              417,
+              473,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "pe(1) > div:nth-of-type(6) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "react-select-3-live-region",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              417,
+              746,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "e(1) > div:nth-of-type(10) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              417,
+              746,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "e(1) > div:nth-of-type(10) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "react-select-4-live-region",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              661,
+              746,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "e(1) > div:nth-of-type(10) > div:nth-of-type(3) > div:nth-of-type(1) > span:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 9999,
+            "found_by": "z-index",
+            "tag": "span",
+            "id": "",
+            "class": "css-7pg0cj-a11yText",
+            "rect": [
+              661,
+              746,
+              1,
+              1
+            ],
+            "text": "",
+            "css_path": "e(1) > div:nth-of-type(10) > div:nth-of-type(3) > div:nth-of-type(1) > span:nth-of-type(2)"
+          }
+        ]
+      },
+      {
+        "url": "https://demoqa.com/modal-dialogs",
+        "state": "open a demoqa modal",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1050,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "fade modal-backdrop show",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1055,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "fade modal show",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "Small Modal This is a small modal. It has very less content Close",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(3)"
+          },
+          {
+            "coverage": 0.075,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "footer",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              740,
+              1280,
+              60
+            ],
+            "text": "\u00a9 2013- 2026 TOOLSQA.COM | ALL RIGHTS RESERVED.",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > footer:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://todomvc.com/examples/react/dist/",
+        "state": "add a todo",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": []
+      },
+      {
+        "url": "https://getbootstrap.com/docs/5.3/components/modal/",
+        "state": "open a bootstrap modal",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1055,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "exampleModalLive",
+            "class": "modal fade show",
+            "rect": [
+              0,
+              1979,
+              1280,
+              800
+            ],
+            "text": "Modal title Woo-hoo, you\u2019re reading this text in a modal! Close Save c",
+            "css_path": "pe(1) > div:nth-of-type(2) > main:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(6)"
+          },
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1050,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "modal-backdrop fade show",
+            "rect": [
+              0,
+              1979,
+              1280,
+              800
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(4)"
+          },
+          {
+            "coverage": 0.1412,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "aside",
+            "id": "",
+            "class": "bd-sidebar",
+            "rect": [
+              20,
+              2059,
+              205,
+              704
+            ],
+            "text": "Browse docs Getting started Introduction Download",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > aside:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.132,
+            "position": "sticky",
+            "z_index": 2,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "bd-toc mt-3 mb-5 my-lg-0 mb-lg-5 px-sm-1 text-body-secondary",
+            "rect": [
+              1059,
+              2059,
+              197,
+              688
+            ],
+            "text": "On this page On this page",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.08,
+            "position": "sticky",
+            "z_index": 1020,
+            "found_by": "position",
+            "tag": "header",
+            "id": "",
+            "class": "navbar navbar-expand-lg bd-navbar sticky-top",
+            "rect": [
+              0,
+              1979,
+              1280,
+              64
+            ],
+            "text": "Browse Bootstrap Search K Bootstrap Docs",
+            "css_path": "html > body:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0055,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "position-fixed",
+            "rect": [
+              0,
+              19557,
+              189,
+              30
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(3)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              1979,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ""
+          }
+        ]
+      },
+      {
+        "url": "https://element-plus.org/en-US/component/dialog.html",
+        "state": "open an element plus dialog",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 2018,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "el-overlay el-modal-dialog",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "Tips This is a message Cancel Confirm",
+            "css_path": "ype(1) > div:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "el-overlay-dialog",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "Tips This is a message Cancel Confirm",
+            "css_path": "ype(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.2078,
+            "position": "fixed",
+            "z_index": 11,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "el-scrollbar sidebar",
+            "rect": [
+              0,
+              55,
+              266,
+              800
+            ],
+            "text": "Sponsored by Overview Overview Basic Button Border Color Layout Contai",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.0688,
+            "position": "sticky",
+            "z_index": 12,
+            "found_by": "position",
+            "tag": "header",
+            "id": "",
+            "class": "navbar has-sidebar",
+            "rect": [
+              0,
+              0,
+              1280,
+              55
+            ],
+            "text": "2.14.6 Search Ctrl K Guide Component Resource Playground",
+            "css_path": "ml > body:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0017,
+            "position": "absolute",
+            "z_index": 999,
+            "found_by": "z-index",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              24,
+              19,
+              103,
+              17
+            ],
+            "text": "Skip to content",
+            "css_path": ""
+          },
+          {
+            "coverage": 0.0003,
+            "position": "absolute",
+            "z_index": 999,
+            "found_by": "z-index",
+            "tag": "a",
+            "id": "",
+            "class": "skip-link visually-hidden",
+            "rect": [
+              12,
+              12,
+              24,
+              12
+            ],
+            "text": "Skip to content",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > a:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://mui.com/material-ui/react-dialog/",
+        "state": "open a mui dialog",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1300,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "MuiDialog-root MuiModal-root css-x4rwjo",
+            "rect": [
+              0,
+              609,
+              1280,
+              800
+            ],
+            "text": "Set backup account username@gmail.com user02@gmail.com Add account",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(7)"
+          },
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": -1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "MuiBackdrop-root MuiModal-backdrop MuiDialog-backdrop css-14",
+            "rect": [
+              0,
+              609,
+              1280,
+              800
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(7) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.2344,
+            "position": "fixed",
+            "z_index": 1200,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDraw",
+            "rect": [
+              0,
+              609,
+              300,
+              800
+            ],
+            "text": "Material UI v9.4.0 Getting started Components All components Inputs Au",
+            "css_path": "ype(1) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.1756,
+            "position": "sticky",
+            "z_index": null,
+            "found_by": "position",
+            "tag": "nav",
+            "id": "",
+            "class": "css-1bqd2re",
+            "rect": [
+              1038,
+              666,
+              242,
+              743
+            ],
+            "text": "Contents Introduction Basics Alerts Transitions Form dialogs Customiza",
+            "css_path": "pe(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > nav:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0769,
+            "position": "fixed",
+            "z_index": 1400,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "MuiPaper-root MuiPaper-outlined MuiPaper-rounded css-1geaq7q",
+            "rect": [
+              924,
+              1161,
+              340,
+              232
+            ],
+            "text": "Cookie preferences We use cookies to understand site usage and improve",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(5)"
+          },
+          {
+            "coverage": 0.0546,
+            "position": "fixed",
+            "z_index": 1100,
+            "found_by": "z-index",
+            "tag": "header",
+            "id": "",
+            "class": "MuiPaper-root MuiPaper-elevation MuiPaper-elevation4 MuiAppB",
+            "rect": [
+              300,
+              609,
+              980,
+              57
+            ],
+            "text": "\ud83d\ude80 Material UI and MUI X v9 are out! Check out the announcement blogpos",
+            "css_path": "ml > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.006,
+            "position": "fixed",
+            "z_index": 1501,
+            "found_by": "z-index",
+            "tag": "a",
+            "id": "",
+            "class": "MuiTypography-root MuiTypography-inherit MuiLink-root MuiLin",
+            "rect": [
+              16,
+              529,
+              146,
+              42
+            ],
+            "text": "Skip to content",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0022,
+            "position": "fixed",
+            "z_index": 1501,
+            "found_by": "z-index",
+            "tag": "#text",
+            "id": "",
+            "class": "",
+            "rect": [
+              33,
+              540,
+              112,
+              20
+            ],
+            "text": "Skip to content",
+            "css_path": ""
+          },
+          {
+            "coverage": 0.0016,
+            "position": "fixed",
+            "z_index": 10,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "mui-fixed MuiBox-root css-1f23llj",
+            "rect": [
+              1216,
+              1345,
+              40,
+              40
+            ],
+            "text": "",
+            "css_path": "pe(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(2) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(3) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(4) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(5) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(6) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(7) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(8) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "e(1) > ul:nth-of-type(1) > li:nth-of-type(9) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "absolute",
+            "z_index": 5,
+            "found_by": "z-index",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              609,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "(1) > ul:nth-of-type(1) > li:nth-of-type(10) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "sticky",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "MuiCode-copy-container",
+            "rect": [
+              361,
+              1098,
+              616,
+              0
+            ],
+            "text": "Copy (or Ctrl + C )",
+            "css_path": "ype(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://ant.design/components/modal",
+        "state": "open an antd modal",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "ant-modal-mask",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1000,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "ant-modal-wrap",
+            "rect": [
+              0,
+              0,
+              1280,
+              800
+            ],
+            "text": "Basic Modal Some contents... Some contents... Some contents... Cancel ",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(2)"
+          },
+          {
+            "coverage": 0.1917,
+            "position": "sticky",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "div",
+            "id": "",
+            "class": "ant-col acss-u4hfj8 ant-col-xs-24 ant-col-sm-24 ant-col-md-6",
+            "rect": [
+              0,
+              96,
+              267,
+              736
+            ],
+            "text": "Components Overview Changelog v6.6.5 General Button FloatButton Icon T",
+            "css_path": "pe(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0983,
+            "position": "fixed",
+            "z_index": 10,
+            "found_by": "z-index",
+            "tag": "section",
+            "id": "",
+            "class": "acss-1feyapq",
+            "rect": [
+              1124,
+              92,
+              148,
+              680
+            ],
+            "text": "When To Use Examples Basic Asynchronously close Customized Footer mask",
+            "css_path": ") > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(2) > section:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.08,
+            "position": "sticky",
+            "z_index": 1000,
+            "found_by": "position",
+            "tag": "header",
+            "id": "",
+            "class": "acss-qo92fo clearfix",
+            "rect": [
+              0,
+              0,
+              1280,
+              64
+            ],
+            "text": "Ant Design Ctrl K Design Development Components Blog Resources 6.6.5 \u4e2d",
+            "css_path": "ml > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.001,
+            "position": "absolute",
+            "z_index": 1010,
+            "found_by": "z-index",
+            "tag": "button",
+            "id": "",
+            "class": "ant-modal-close semantic-mark-close",
+            "rect": [
+              738,
+              12326,
+              32,
+              32
+            ],
+            "text": "",
+            "css_path": "(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.001,
+            "position": "absolute",
+            "z_index": 1010,
+            "found_by": "z-index",
+            "tag": "button",
+            "id": "",
+            "class": "ant-modal-close",
+            "rect": [
+              856,
+              112,
+              32,
+              32
+            ],
+            "text": "",
+            "css_path": "(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::before",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ") > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ::before:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "4) > div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::before",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ") > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > ::before:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "4) > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::before",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": ") > div:nth-of-type(3) > div:nth-of-type(3) > div:nth-of-type(1) > ::before:nth-of-type(1)"
+          },
+          {
+            "coverage": 0.0,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "::after",
+            "id": "",
+            "class": "",
+            "rect": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "",
+            "css_path": "4) > div:nth-of-type(3) > div:nth-of-type(3) > div:nth-of-type(1) > ::after:nth-of-type(1)"
+          }
+        ]
+      },
+      {
+        "url": "https://sweetalert2.github.io/",
+        "state": "open a sweetalert",
+        "kind": "demo",
+        "device_pixel_ratio": 1.0,
+        "candidates": [
+          {
+            "coverage": 1.0,
+            "position": "fixed",
+            "z_index": 1060,
+            "found_by": "z-index",
+            "tag": "div",
+            "id": "",
+            "class": "swal2-container swal2-center swal2-backdrop-show",
+            "rect": [
+              0,
+              689,
+              1280,
+              800
+            ],
+            "text": "\u00d7 SweetAlert2 is working! OK No Cancel",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(3)"
+          },
+          {
+            "coverage": 0.179,
+            "position": "fixed",
+            "z_index": 1,
+            "found_by": "position",
+            "tag": "nav",
+            "id": "",
+            "class": "sidebar-nav mobile-hidden",
+            "rect": [
+              0,
+              689,
+              265,
+              692
+            ],
+            "text": "Examples Recipe Gallery Installation Usage Integrations Themes Configu",
+            "css_path": "html > body:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)"
+          }
+        ]
+      }
+    ],
+    "sweep": [
+      {
+        "threshold": 0.05,
+        "pages_blocked": 19,
+        "blockers": 43,
+        "joined": [
+          "127.0.0.1:5100/",
+          "127.0.0.1:5100/bill?reference=04141234567890",
+          "demoqa.com/automation-practice-form",
+          "en.wikipedia.org/wiki/Main_Page",
+          "practice.expandtesting.com/",
+          "www.pakrailways.gov.pk/train",
+          "www.pakrailways.gov.pk/train [open the station list]"
+        ]
+      },
+      {
+        "threshold": 0.1,
+        "pages_blocked": 12,
+        "blockers": 26,
+        "joined": [
+          "www.bbc.co.uk/news",
+          "www.pakrailways.gov.pk/train [open the calendar]"
+        ]
+      },
+      {
+        "threshold": 0.15,
+        "pages_blocked": 10,
+        "blockers": 21,
+        "joined": [
+          "developer.mozilla.org/en-US/docs/Web/HTML",
+          "en.wikipedia.org/wiki/Cognitive_load"
+        ]
+      },
+      {
+        "threshold": 0.2,
+        "pages_blocked": 8,
+        "blockers": 15,
+        "joined": []
+      },
+      {
+        "threshold": 0.25,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": []
+      },
+      {
+        "threshold": 0.3,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": []
+      },
+      {
+        "threshold": 0.4,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": []
+      },
+      {
+        "threshold": 0.5,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": []
+      },
+      {
+        "threshold": 0.75,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": []
+      },
+      {
+        "threshold": 0.9,
+        "pages_blocked": 8,
+        "blockers": 13,
+        "joined": [
+          "127.0.0.1:5000/ [sign in]",
+          "ant.design/components/modal [open an antd modal]",
+          "demoqa.com/modal-dialogs [open a demoqa modal]",
+          "element-plus.org/en-US/component/dialog.html [open an element plus dialog]",
+          "getbootstrap.com/docs/5.3/components/modal/ [open a bootstrap modal]",
+          "mui.com/material-ui/react-dialog/ [open a mui dialog]",
+          "sweetalert2.github.io/ [open a sweetalert]",
+          "the-internet.herokuapp.com/entry_ad"
+        ]
+      }
+    ]
+  }
+}

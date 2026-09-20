@@ -520,8 +520,14 @@ async def main() -> None:
               f" (share {row['link_share']})")
 
     out = REPO_ROOT / "data" / "corpus.json"
+    # Which environments this corpus was actually read in. `"host": []` on its
+    # own reads like "the host found nothing" rather than "the host was not
+    # asked", and the standing rule is that both are read (DECISIONS.md,
+    # 2026-09-18c), so a run that skipped one says so beside its numbers.
+    environments = ["headless"] + (["host"] if host else [])
     record(out, {"headless": headless, "host": host},
            pages=len(pages), viewport=list(VIEWPORT), settle_ms=SETTLE_MS,
+           environments=environments,
            flat_features=flat, separating_pages=len(separating),
            pages_with_no_controls=len(empty), made_of=dict(made_of))
     print(f"wrote {out}")
