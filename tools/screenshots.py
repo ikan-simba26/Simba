@@ -53,11 +53,18 @@ def step(index: int, total: int, instruction: str, detail: str = "", fields=(),
 
 REFERENCE_FIELD = {"id": "reference", "label": "Reference No.", "type": "text",
                    "value": "04141234567890"}
-BILL = [{"label": "Your bill", "value": "14,382", "values": ["14,382"]},
-        {"label": "Due", "value": "15 October 2026", "values": ["15 October 2026"]}]
-TRAINS = [{"label": "Train", "value": "2DN, 14DN", "values": ["2DN", "14DN"]},
-          {"label": "Journey", "value": "18h 30m, 20h 5m",
-           "values": ["18h 30m", "20h 5m"]}]
+# The answers as the sites print them, taken from the mock, which takes them
+# from the replica. Retyped here once, as "15 October 2026", and the design
+# comparison then showed a due date the page has never said.
+from tools.mock_backend import BILL_AMOUNT, BILL_DUE, JOURNEY, TRAIN  # noqa: E402
+
+BILL = [{"label": "Your bill", "value": BILL_AMOUNT, "values": [BILL_AMOUNT]},
+        {"label": "Due", "value": BILL_DUE, "values": [BILL_DUE]}]
+# Several results, to show how the closing screen lists them: the live
+# answer and a second train in the same format.
+TRAINS = [{"label": "Train", "value": f"{TRAIN}, 14DN", "values": [TRAIN, "14DN"]},
+          {"label": "Journey", "value": f"{JOURNEY}, 20 h 5 min",
+           "values": [JOURNEY, "20 h 5 min"]}]
 
 STARTED = [("task.started", {"goal": GOAL, "estimated_steps": 3}),
            ("state.changed", {"state": "thinking"})]

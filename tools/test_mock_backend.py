@@ -137,6 +137,27 @@ def test_something_ambiguous_is_asked_about(mock: str) -> None:
     assert set(answer(received)["flows"]) == {"billing", "registration"}
 
 
+def test_the_bill_is_what_the_replica_says_character_for_character(mock: str) -> None:
+    """The demo cannot show an answer the page does not.
+
+    It did: "15 October 2026" for a bill the replica says is due
+    "15-09-2026". A wrong date on the answer screen is the failure this
+    project exists to prevent, and the demo is where most people first see it.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "billing_replica", REPO / "replicas" / "billing" / "app.py")
+    replica = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(replica)
+
+    received = converse(mock, {"goal": "pay my bill"})
+    found = {f["label"]: f["values"] for f in completed(received)["findings"]}
+
+    assert found["Your bill"] == [replica.BILL["payable_within"]]
+    assert found["Due"] == [replica.BILL["due_date"]]
+
+
 def test_registration_changes_something_and_finds_nothing(mock: str) -> None:
     """It used to carry the billing flow's answer."""
     received = converse(mock, {"goal": "Register for CS-401"})

@@ -135,6 +135,22 @@ def from_plan(plan) -> list[StepPresented]:
     ]
 
 
+#: The answers, exactly as the sites print them.
+#:
+#: The bill is the billing replica's own `BILL["payable_within"]` and
+#: `BILL["due_date"]`, character for character, and `test_mock_backend`
+#: fails if they drift. Until 2026-09-21 this said "15 October 2026": the
+#: wrong month, in a format the page never uses, on the screen that exists
+#: to give the person the answer — invented while writing the demo, and shown
+#: on demo day. The product was never wrong; the demo of it was.
+#:
+#: Railways has no replica. These are the values the live site returned on
+#: 2026-09-21 for Lahore to Karachi, in its own format (EVALUATION.md).
+BILL_AMOUNT = "14,382"
+BILL_DUE = "15-09-2026"
+TRAIN = "2DN"
+JOURNEY = "22 h 16 min"
+
 #: One script per flow: (steps, findings, the step the answer turns up on).
 #: Registration changes something and finds nothing; the other two are asked
 #: a question, and the answer travels with every step from where it is found.
@@ -143,17 +159,16 @@ SCRIPTS: dict[str, tuple[list[StepPresented], list[Finding], int]] = {
     "billing": (
         from_plan(BILLING_PLAN),
         [
-            Finding(label="Your bill", value="14,382", values=["14,382"]),
-            Finding(label="Due", value="15 October 2026", values=["15 October 2026"]),
+            Finding(label="Your bill", value=BILL_AMOUNT, values=[BILL_AMOUNT]),
+            Finding(label="Due", value=BILL_DUE, values=[BILL_DUE]),
         ],
         3,
     ),
     "railways": (
         from_plan(RAILWAYS_PLAN),
         [
-            Finding(label="Train", value="2DN, 14DN", values=["2DN", "14DN"]),
-            Finding(label="Journey", value="18h 30m, 20h 5m",
-                    values=["18h 30m", "20h 5m"]),
+            Finding(label="Train", value=TRAIN, values=[TRAIN]),
+            Finding(label="Journey", value=JOURNEY, values=[JOURNEY]),
         ],
         5,
     ),
