@@ -2443,3 +2443,83 @@ flagged, not taken. The theme follows the system with no in-app choice. And
 three contrast-driven changes alter deliberate behaviours slightly: the
 waiting recede is 0.8 instead of 0.55 (3.8:1 failed), the level-2 step count
 0.75 instead of 0.4, and the resting level dots 0.7 instead of 0.4.
+
+---
+
+## Demo data is the site's own values, pinned by a test
+
+**Date:** 2026-09-21
+
+**Decision.** The mock's billing answer is the replica's `BILL["payable_within"]`
+and `BILL["due_date"]`, character for character, and `test_mock_backend`
+fails if they drift. The screenshot tool takes its values from the mock. The
+mock's railways answer is what the live site returned on 2026-09-21, in the
+site's own format.
+
+**Alternatives.** Import the replica into the mock at runtime. Keep readable
+invented values and label them as samples.
+
+**Why this.** The mock said the bill was due "15 October 2026"; the replica
+says "15-09-2026". Wrong month and wrong format, on the answer screen, in the
+demo — which is where most people first see the product. The product was
+right throughout (it showed 15-09-2026 through the real stack), and nothing
+in it reformats a found value, but a demo that shows a date the page never
+said teaches the opposite. Importing the replica would make the mock need
+Flask; a test catches the drift without that.
+
+**Cost.** The railways values are one day's live answer and will go stale
+as the timetable changes; they are labelled as such in the mock.
+
+---
+
+## The keyword fallback asks when two flows are named
+
+**Date:** 2026-09-21
+
+**Decision.** If the keywords find a strong word for two or more flows, the
+answer is "which one?" with those flows, whatever the counts. Place names
+still only add weight and never make a second flow on their own.
+
+**Alternatives.** Keep winner-takes-all. Start both flows in turn.
+
+**Why this.** Winner-takes-all ran billing for "I have a payment due and a
+class to sign up for" and dropped the course. Starting both would be two
+tasks from one sentence, which the loop does not support and a person would
+not expect. One question costs one press.
+
+**Cost.** Requests that mention a second flow's word in passing now get a
+question too — "pay my bill for the university" asks which.
+
+---
+
+## The overlay scaled for its audience, in Atkinson Hyperlegible Next
+
+**Date:** 2026-09-21
+
+**Decision.** Type, buttons, cards and fields about 27% larger (body 18 →
+23px, display 38 → 48, hero 56 → 72, buttons 64 → 80px), the column 680 →
+880px. The face is Atkinson Hyperlegible Next, bundled (two woff2 files,
+53 KB). The home screen's text box is always shown, below the cards. "What are
+you doing?" is a secondary button with an icon. The trust panel opens on a
+close-up of the target, with the whole page one button away.
+
+**Alternatives.** The original Atkinson Hyperlegible (weights 400 and 700
+only). Fetch the font from Google Fonts. Keep the revealed box. A zoomable
+picture the person pans themselves.
+
+**Why this.** The first design was sized for a general audience in a narrow
+column that left most of a 1280x800 window empty. The Next release is the same
+family from the same designers, and ships every weight this design uses;
+the original would have rendered 500 and 600 as 700. Fetching a font into a
+host that may be offline risks a silent fallback mid-task. Hiding the text box
+made asking in your own words look secondary and could hide it mid-sentence.
+A grey underlined link is the control this audience is least likely to see as
+pressable, on the question that makes the system trustworthy. And a whole
+page shrunk into the panel made the ringed button the size of a word; panning
+is a skill, a close-up is not.
+
+**Cost.** Less fits: the step count at level 2 is 16px against 23px body, and
+a level-1 step with a field and a notice uses most of the window, so the
+overflow guard has less room before it drops a level. The level dots and
+"What are you doing?" now share one row under the card to make that room.
+One new dependency, asked for.

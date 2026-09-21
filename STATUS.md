@@ -99,6 +99,14 @@ application's state (EVALUATION.md).
 
 ### Changed on 2026-09-21
 
+- **Later the same day:** `main` has the design branch and the perception
+  branch (479 passed, 9 skipped on the merged tree). The mock showed the bill
+  due "15 October 2026" — invented demo data; the replica and the product say
+  15-09-2026 — and is now pinned to the replica by a test. The overlay is
+  scaled about 27% for its audience in Atkinson Hyperlegible Next, with the
+  text box always on the home screen, "What are you doing?" as a button, and a
+  close-up in the trust panel. The keyword fallback asks when two flows are
+  named (EVALUATION.md, 2026-09-21b).
 - **Three overlay-detector defects fixed**, all found by adding partial-coverage
   pages: a scroll-locked `body` read as a blocker (coverage 27.17); coverage
   counted area below the fold; and the first fix for that clipped to the top
@@ -345,7 +353,8 @@ application's state (EVALUATION.md).
 - Nothing.
 
 **Open — Raham's call**
-- **The keyword fallback runs one half of a two-part request.** "I have a
+- ~~**The keyword fallback runs one half of a two-part request.**~~
+  **Fixed 2026-09-21b**: two flows named is a question. "I have a
   payment due and a class to sign up for" went to billing when the model
   timed out: two bill words beat one class word. Nothing wrong was started,
   but only one of two things asked for was. Options: treat any second flow
@@ -431,7 +440,8 @@ application's state (EVALUATION.md).
 - Nothing.
 
 **Open — Aly's call**
-- **The typeface is the system's.** A face designed for low-vision and
+- ~~**The typeface is the system's.**~~ **Atkinson Hyperlegible Next since
+  2026-09-21b**, bundled. A face designed for low-vision and
   dyslexic readers (Atkinson Hyperlegible) would likely read better for this
   audience; it is a font file, so a dependency, and was not added.
 - **The theme follows the operating system** with no choice in the overlay.

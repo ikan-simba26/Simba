@@ -3624,3 +3624,70 @@ same picture: there was one theme.
   measurements', not a person's with a cognitive disability.
 - **The host window is 1263px wide on scrollable pages** (2026-09-20e); the
   overlay itself never scrolls, so it is unaffected, but it is still open.
+
+---
+
+## 2026-09-21b — the due date, the merge, and the overlay at the audience's size
+
+### The due date on the closing screen
+
+The comparison page showed the bill due "15 October 2026"; the real-stack run
+showed "15-09-2026". Traced to the source:
+
+| Where | Says |
+|---|---|
+| `replicas/billing/app.py`, `BILL["due_date"]` | `15-09-2026` |
+| The replica's results page, `DUE DT` column | `15-09-2026`, printed verbatim |
+| The real product, through the Electron host (2026-09-21) | **15-09-2026** |
+| `tools/mock_backend.py`, until today | "15 October 2026" |
+| `tools/screenshots.py`, until today | "15 October 2026" |
+| `tools/mock_backend.py`, before 2026-09-21 | "15 September" |
+
+**Both the value and the format were wrong, and only in demo data.** The
+product never reformatted anything: `content.py` reads the cell's text and the
+overlay prints it. "15 October 2026" was invented while writing the mock's
+billing script on 2026-09-21 — the wrong month, in a format the page never
+uses — and copied into the screenshot tool, so the published comparison put it
+on the answer screen. Fixed: both take the replica's values, and a new test
+fails if the mock's answer differs from `BILL` by a character. The previous
+comparison page still shows the wrong date and is superseded by this one.
+
+### The merge
+
+`feat/interface-design-system` fast-forwarded `main`; the perception branch
+merged on top. Conflicts only in the three append-only records, where both
+had added entries at the end; resolved by keeping both, perception first, in
+the order the work was done. **479 passed, 9 skipped** on the merged tree
+before the merge was committed.
+
+### The overlay at the audience's size
+
+Every screen again, before and after, both themes (`python -m
+tools.screenshots before2|after2`): before is `main` after the merge, with
+the corrected demo data, so the comparison shows only interface changes.
+
+| | Before | After |
+|---|---|---|
+| Body text | 18px | 23px |
+| Focal size (display / hero) | 38 / 56px | 48 / 72px |
+| Large button | 64px | 80px |
+| Column | 680px of 1280 | 880px of 1280 |
+| Face | Segoe UI | Atkinson Hyperlegible Next |
+| Home: own words | behind "Ask for something new" with history | always shown, below the cards |
+| "What are you doing?" | grey underlined link | secondary button with an icon |
+| Trust panel | whole page, target ringed at its real size | close-up on the target, whole page one button away |
+
+The overflow guard's budget is the risk in a scale-up, and the densest screens
+were checked in the captures: the level-1 step with a field and a notice ends
+at y≈760 of 800, the step with a finding at y≈750, the home screen at y≈725.
+All fit without the guard dropping a level. `test_levels` holds on the new
+geometry: level 3 is never taller than level 2, the three are distinct, and
+a longer step is taller at every level.
+
+### The keyword fallback
+
+Two flows named by strong words is now a question. The case from 2026-09-21 —
+"I have a payment due and a class to sign up for", which ran billing when the
+model timed out — asks which; so do "pay my electricity bill and then find me
+a train" and "register for CS-401 and check the train times". A place name
+alone still does not make a second flow.
