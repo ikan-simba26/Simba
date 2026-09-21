@@ -97,6 +97,22 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-09-21
+
+- **Three overlay-detector defects fixed**, all found by adding partial-coverage
+  pages: a scroll-locked `body` read as a blocker (coverage 27.17); coverage
+  counted area below the fold; and the first fix for that clipped to the top
+  of the page and zeroed every driven full-screen modal. Coverage is now
+  on-screen area at the page's scroll position (EVALUATION.md, 2026-09-20e).
+- **The corpus is 50 pages and read in both environments.** `overlays` agrees
+  on all 49 comparable pages; 16 differ elsewhere, most from live content and
+  five from the host's **1263px** layout width (a classic scrollbar).
+- **The 0.30–0.50 coverage band is occupied** — bottom sheet 0.461, sticky
+  banner 0.369, side drawer 0.3125 — and 0.30 still separates everything,
+  now by 0.013.
+- **`MIN_STACK_LEVEL` measured**: the data bounds it to 3–2001; kept at 5.
+- **First labels**: `data/labels.json`, **4 of 50 pages**, all passes.
+
 ### Changed on 2026-09-20
 
 - **`MIN_COVERAGE` is measured**, not guessed: 45 pages, 96 candidates, every
@@ -248,10 +264,18 @@ application's state (EVALUATION.md).
    would admit every decorative full-screen layer with `pointer-events:
    none`, which perception cannot see at all (`pointer-events` is not in
    `COMPUTED_STYLES`). Flagged, not taken — Nahail's call.
-2d. **`MIN_STACK_LEVEL = 5` is as unmeasured as 0.30 was.** Nothing in the
-   corpus depends on it — every declared blocker sits at z-index 100 or
-   above and the nearest candidate below is at 2 — so it was not urgent, but
-   it is the same kind of guess and is now the only one left in this module.
+2d. ~~**`MIN_STACK_LEVEL = 5` is as unmeasured as 0.30 was.**~~ **Measured
+   2026-09-21.** It decides no page-level verdict in the corpus — every
+   page-level blocker is `fixed` or `sticky` — so its only job is the
+   target-scoped rule. The data bounds it to **3–2001**: below 3 the
+   Guardian's z=2 link cards are admitted; above 2001 the railways date
+   picker is lost. Kept at 5. The upper bound is two elements from one site.
+2e. **`MIN_COVERAGE` now has 0.013 of margin.** 0.30 separates every
+   blocker from every non-blocker in 50 pages, but the nearest blocker is a
+   side drawer at 0.3125, and a default 378px Ant Design drawer would sit at
+   0.295. 0.273 is the middle of the remaining gap. Flagged, not changed.
+2f. **Coverage on scrolled pages** is correct as of 2026-09-21
+   (`Document.scroll`); `text_density` in the estimator is not — see below.
 2. A modal's content is skipped along with a dropdown's.
 3. Elements with no accessible name are addressable only by ordinal.
 4. Panel headings are found by class-name fragment; a picker that names its
@@ -408,12 +432,14 @@ application's state (EVALUATION.md).
   the raw counts they are built from: `controls`, `dead_links`, `link_share`,
   characters, words, sentences, syllables. `interactive` and `links` are
   disjoint, so nothing is counted twice. 29 tests, arithmetic and browser.
-- **The corpus**: 45 pages — both replicas, `/stubborn`, the live site in
-  three states, nineteen public pages and eighteen application-like ones, ten
-  of them driven into a state first — 0 failures. Every row carries a `kind`
-  (`tools/evaluation/collect_corpus`, `data/corpus.json`). **Headless only
-  since 2026-09-20d**; the host half has not been re-run since the corpus
-  grew, and the standing rule says it should be (DECISIONS.md, 2026-09-18c).
+- **The corpus**: 50 pages — 21 public, 21 demo, 5 ours, 3 target — in
+  **both environments** (2026-09-21). Spiegel failed on DNS headless and read
+  in the host; 16 pages differ between environments, none on `overlays`
+  (`tools/evaluation/collect_corpus`, `data/corpus.json`).
+- **Labels**: `data/labels.json`, from `tools/evaluation/label_corpus`. Raw
+  counts per flow — steps, retries, verification failures, recovery, seconds —
+  on the page each flow starts from. **4 of 50 pages labelled**; 43 have
+  features and no label.
 - **Channel B**: the overlay sends telemetry on every step response and on a
   3s timer; the loop pairs each sample with the page features of that step and
   appends a row to `data/steps.jsonl` (`backend/estimator/pairing.py`). 14
@@ -434,8 +460,15 @@ application's state (EVALUATION.md).
    controls sit under `link_share` 0.6 — a login at 0.00, a 15-field practice
    form at 0.083, the railways calendar at 0.182. Both counts still travel in
    every row either way.
-3b. **Nine features, 45 rows.** That ratio is worse than it was and matters
-   the moment anyone fits a weight to it.
+3b. **Nine features, 50 rows, 4 labels.** Nothing can be fitted to this. All
+   four labels are passes; one is the rig built to fail and one is a single
+   live run. More labels need more *plans*, not more runs.
+3c. **`text_density` assumes the top of the page.** `_inside` ignores the
+   scroll offset, so the ten driven rows measure the top of the document.
+   Same fix as perception's coverage, then a re-collection.
+3d. **The host lays pages out at 1263px on scrollable pages**, not 1280: a
+   classic scrollbar headless does not have. Density differs 3–18% on long
+   pages because of it. Recommended: hide the site view's scrollbar.
 4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
    the most heuristic number here: block-counted sentences and a vowel-group
    syllable counter (DECISIONS.md).
@@ -520,11 +553,11 @@ application's state (EVALUATION.md).
   calibrate a score. Five rows are pages we wrote and **eighteen are demo
   sites**, so a feature that separates them from the world may be measuring
   our HTML habits or a component gallery's. Every row says which it is.
-- **One threshold is now measured and the rest are not.** `MIN_COVERAGE` was
-  compared against 45 pages (2026-09-20d) and kept at 0.30; `MIN_STACK_LEVEL`,
-  the telemetry constants and every definition in `page_features` remain as
-  chosen. The measurement also bounds rather than picks, because the corpus
-  has no mid-sized overlay in it at all.
+- **Both detector thresholds are measured and the rest are not.**
+  `MIN_COVERAGE` (0.30, 0.013 of margin) and `MIN_STACK_LEVEL` (5, bounded
+  3–2001) against 50 pages (2026-09-20e); the telemetry constants and every
+  definition in `page_features` remain as chosen.
+- **The first `y` exists and is not usable yet**: 4 of 50 pages.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It

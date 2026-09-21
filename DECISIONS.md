@@ -2262,3 +2262,84 @@ from it is a dialog opened on purpose. Anyone using `kind` as a filter is
 inheriting that judgement. The row count per kind is recorded in the
 conditions block so at least the make-up is visible without re-reading 45
 pages.
+
+---
+
+## Coverage is measured on the screen, where the page is scrolled to
+
+**Date:** 2026-09-21
+
+**Decision.** An overlay's coverage is the part of its box inside the visible
+viewport — clipped to `(scroll_x, scroll_y, 1280, 800)` in document
+coordinates — over the viewport's area. `html` and `body` are never
+candidates. The blocker's `rect` stays the whole, unclipped box.
+
+**Alternatives.** Leave coverage as the element's own area. Clip to the top of
+the page. Take `getBoundingClientRect` from the page instead of the snapshot.
+
+**Why this.** Area-over-area called a panel nineteen thousand pixels down the
+Guardian 39% of the screen. Clipping to the top of the page fixed that and
+broke every driven read, because a drive scrolls. The snapshot already carries
+the scroll offset, in the same device pixels as the boxes, so converting it
+where the boxes are converted keeps the one-place-for-units rule
+(2026-09-20). A second round-trip to the page was rejected because it reads a
+different moment from the snapshot the rest of perception uses.
+
+The rect stays whole because occlusion is a different question: a sheet
+hanging off the bottom of the screen still covers what is under its visible
+half.
+
+**Cost.** `page_features._inside` makes the same top-of-page assumption for
+`text_density` and was not changed here — flagged, EVALUATION.md 2026-09-20e.
+
+---
+
+## The partial-coverage pages are chosen, and say so
+
+**Date:** 2026-09-21
+
+**Decision.** Five pages were added because each puts a blocker between 0.30
+and 0.90 of the viewport. Their comment in `collect_corpus` says they were
+selected for the property being tested.
+
+**Alternatives.** Sample pages at random and wait for the band to fill.
+
+**Why this.** The question was whether the band *can* be occupied and whether
+0.30 separates what occupies it. That needs pages known to be in it. A random
+sample of 50 front pages had none.
+
+**Cost.** The corpus can no longer say how *often* a page has a partial
+overlay; five of fifty is a choice, not a rate. Two of the five are live
+consent walls, which depend on where the request came from — Spiegel failed
+on DNS in one run and read in another.
+
+---
+
+## Labels are raw counts, attributed to the page a flow starts on
+
+**Date:** 2026-09-21
+
+**Decision.** `data/labels.json` records, per flow: steps, attempts, retries,
+verification failures, step failures, whether recovery fired, whether it gave
+up, and seconds — median, min and max over the runs — with every run kept.
+The label is given to the corpus row where the flow **starts**, in its
+undriven state. Pages the flow passes through are marked, not labelled. Rows
+no plan reaches carry their features and `difficulty: null`. Three runs per
+replica flow, one on the live site.
+
+**Alternatives.** A single difficulty score. Split a run's cost across the
+pages it visited, step by step. Drop unlabelled rows. Ten runs everywhere.
+
+**Why this.** A score now would be the weights-before-data mistake the
+estimator has refused since 2026-09-19. Splitting per page needs each step
+attributed to the page it acted on, and a step that navigates belongs to two;
+that is worth doing, and not by inference in a join. Dropping the 43
+unlabelled rows would make a training set that looks healthy and is 8%
+labelled. One live run follows CLAUDE.md on live sites.
+
+`retries` and `verification_failures` come from wrapping `attempt_move` and
+`verify` for the length of one run, because a retry that succeeds sends no
+message and a harness reading messages would report none.
+
+**Cost.** Four labelled pages. The label measures a *task* on a page, not the
+page, so a different goal on the same page would give a different number.

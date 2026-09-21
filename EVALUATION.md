@@ -3267,3 +3267,246 @@ an application a person actually uses looks like.
   blocker is at z-index 100 or above, and the nearest candidate below is at
   z-index 2 — so it was not the pressing one, but it is the same kind of
   guess.
+
+---
+
+## 2026-09-20e — partial overlays, three detector defects, the host corpus, and the first labels
+
+Finished 2026-09-21. Four questions: does the corpus read the same in the
+Electron host; does the coverage gap survive pages built to land in it; what
+does `MIN_STACK_LEVEL` actually separate; and how hard is each page for the
+agent. The second question found three defects in the detector before it
+could be answered, and they come first because every number after them
+depends on them.
+
+### Three defects the partial-coverage pages exposed
+
+All three were invisible while every overlay in the corpus was a full-screen
+modal at the origin, which is the same shape as the device-pixel bug: a test
+set that only ever exercises the easy end of a range.
+
+| # | Defect | Found as | Effect | Fixed |
+|---|---|---|---|---|
+| 1 | A scroll-locked `<body>` (`position: fixed`, standard behind a consent wall) became a candidate under the position rule added in 2026-09-20d | Guardian coverage **27.17**, Spiegel **43.61** | `body`'s whole subtree marked as overlay — every element on the page reported as part of a dialog, nothing occluded | `html`/`body` never candidates (`ROOT_TAGS`) |
+| 2 | Coverage was the element's own area over the viewport's, with no check it was on screen | Guardian panel at y=**19167** scoring 0.389; Spiegel's at y=14308 scoring 0.449 | 5 of the first 12 candidates in the 0.30–0.90 band were below the fold | Box clipped to the viewport before the fraction is taken |
+| 3 | **My fix for #2** clipped to (0, 0, 1280, 800), assuming every read is at the top of the page | Diffing each page's largest candidate against the previous run: Bootstrap's modal **1.000 → 0.000**, SweetAlert 1.000 → 0.139, MUI dialog 1.000 → 0.239 | Every driven read is scrolled — Playwright scrolls a button into view before clicking it — and CDP boxes are in document coordinates, so full-screen backdrops sat at y=900 and clipped to nothing | `Document.scroll` recorded; clip is to where the page actually is |
+
+Defect 3 was committed (`49e665a`) and caught before anything was built on
+it, by the diff rather than by a test. It is recorded because it is the most
+useful thing in this entry: a fix for an off-screen measurement that was
+itself only correct off-screen.
+
+**The scroll offset arrives in device pixels, like the boxes.** Measured in
+the host at a ratio of 1.5, scrolled to 1234 CSS pixels: CDP reported
+`scrollOffsetY` **1851**. `parse` divides it with the boxes. A host-gated test
+(`test_the_host_scroll_offset_comes_back_css`) keeps that measurement
+runnable, and it passes against the real host.
+
+**Headless and host agree on overlays after all three fixes** — see the host
+corpus below, where `overlays` differs on **0 of 49** pages at ratios 1.0 and
+1.5, including the scrolled, driven ones. That is the host validation the
+scroll fix needed.
+
+### Does the gap survive? Partly.
+
+Five pages added, selected **because** they put a blocker in the band — a
+bottom sheet (MUI drawer, bottom), two side drawers (Bootstrap offcanvas, Ant
+Design), and two live consent walls (the Guardian, Spiegel). That makes this
+part of the corpus a deliberate sample: it shows the band is reachable and
+says nothing about how often real pages fall in it.
+
+`python -m tools.evaluation.overlay_coverage_probe`, 50 pages, 49 read
+(Spiegel failed on DNS this run), 236 candidates among 2769 positioned
+elements:
+
+| Band | Candidates, 45 pages (20d) | Candidates, 50 pages (now) |
+|---|---|---|
+| 0.20–0.30 | 2 | 2 |
+| **0.30–0.40** | **0** | **3** |
+| **0.40–0.50** | **0** | **1** |
+| **0.50–0.90** | **0** | **0** |
+| 0.90+ | 13 | 15 |
+
+**Everything in 0.30–0.90 is a real blocker:**
+
+| Coverage | Page | What |
+|---|---|---|
+| 0.461 | MUI drawer docs | the bottom sheet |
+| 0.369 | the Guardian | sticky top ad banner (two nested elements, same box) |
+| 0.3125 | Bootstrap offcanvas docs | the side drawer |
+
+**And the largest non-blocker is still a docs sidebar, at 0.234.** Everything
+from 0.15 to 0.234 is navigation furniture — MUI, Element Plus, Ant Design,
+SweetAlert2 and MDN sidebars and contents panels.
+
+So: **the gap between 0.30 and 0.50 has closed, with real blockers; 0.50–0.90
+is still empty.** 0.30 still separates everything in the corpus — it misses no
+blocker and flags no furniture — but the margin is now **0.013 above the
+nearest blocker** and 0.066 above the largest non-blocker, against 0.77 and
+0.066 before. The midpoint of the gap that remains is **0.273**.
+
+What the sweep says, over the detector's own candidates:
+
+| Threshold | Pages blocked | Blockers | Change |
+|---|---|---|---|
+| 0.90–0.50 | 10 | 15 | — |
+| 0.40 | 10 | 16 | + bottom sheet |
+| **0.30** | **10** | **19** | + Guardian banner, Bootstrap drawer |
+| 0.25 | 10 | 19 | nothing |
+| 0.20 | 10 | 21 | + two MUI docs sidebars (pages already blocked) |
+| 0.15 | 13 | 29 | Ant Design, MDN — sidebars; **false** |
+
+**What this cannot tell you, still.** The Ant Design drawer — whose default
+width, 378px, is **0.295** of this viewport — did not open in this run. It
+did in two earlier ones (at 0.3116 including its frame). If a real 378px
+drawer arrives on screen at 0.295 it is **under** the line. That is the
+concrete case to test next, and the reason 0.273 is recommended below rather
+than left as a number in a table.
+
+### `MIN_STACK_LEVEL`: what it gates, and what the data bounds
+
+The level only ever decides one thing: whether an `absolute` element with a
+declared z-index is admitted. `fixed` and `sticky` get in regardless since
+2026-09-20d. So the population is the 508 `absolute` elements with a declared
+z-index, not everything.
+
+**It decides no page-level verdict in this corpus.** After the clip, not one
+`absolute` element with a declared z-index covers 0.30 of the screen. Every
+page-level blocker is `fixed` or `sticky`. Its whole remaining job is the
+target-scoped rule, which has no size floor — so every admitted element,
+however small, can refuse a move.
+
+Every `absolute` declared-z element showing ≥1% of the screen, all eight:
+
+| z-index | Coverage | Page | What | Blocker? |
+|---|---|---|---|---|
+| 1 | 0.234 | `entry_ad` | the dialog box inside `#modal` | inside one — its parent is caught |
+| 2 | 0.110, 0.035 ×3 | the Guardian | article link cards | **no** |
+| 12 | 0.073 | the Guardian | a content panel | **no — admitted today** |
+| 2001 | 0.109 | railways | the date picker | **yes** |
+| 2005 | 0.046 | railways | the station dropdown | **yes** |
+
+The z-index distribution, for completeness: 359 non-blockers declare 1–4,
+123 declare 5–49, 10 declare 50–999, 43 declare 1000+.
+
+**What the data bounds: 3 ≤ `MIN_STACK_LEVEL` ≤ 2001.** Below 3 the
+Guardian's link cards are admitted to the target-scoped rule, and a click on
+anything they overlap is refused. Above 2001 the railways date picker drops
+out, and that is the case the target-scoped rule was written for. 5 is
+inside. Anything from 13 to 2001 would be strictly cleaner on this corpus —
+it would also drop the Guardian's z=12 panel — but the upper side rests on
+**two elements from one site**, which is not a bound anyone should move a
+constant on.
+
+Recommendation: **keep 5.** The lower bound is solid and has margin; the
+upper bound is a lead, not a finding.
+
+### The host half of the corpus
+
+Read through the Electron host's site view (Electron 32.3.3, Chromium 128, a
+display at 150%), 50 pages, and compared field by field against headless.
+
+**16 of 50 differ. `overlays` differs on none.**
+
+| Cause | Pages | Fields |
+|---|---|---|
+| **The host's layout is 1263 wide, not 1280** | Wikipedia ×2 (+18%, +17%), practice.expandtesting (3.6×), lite.cnn, Hacker News (−3%) | `text_density`, `viewport_characters` |
+| Live content changed between the two passes | python.org, Wikipedia, opencart, the Guardian, Bootstrap ×2, MUI, Ant modal | ±1 link, a few characters, reading grade in the second decimal |
+| BBC News serves different markup per request (known, 2026-09-20b) | BBC | 116 against 241 controls, 0 against 73 inferred |
+| The drive reached a different state | Ant Design drawer | 439 against 257 controls |
+| The page rendered no text in the host | OrangeHRM | every field 0 |
+| DNS failure in headless only | Spiegel | read in the host, failed headless |
+
+**The first row is a finding, not noise.** CLAUDE.md freezes the viewport at
+1280x800 because density is per visible area. In the host, a scrollable page
+gets a classic 17px scrollbar and its layout width is **1263**; headless
+Chromium uses overlay scrollbars and keeps 1280. Measured directly:
+`document.documentElement.clientWidth` reads 1280 headless and 1263 in the
+host on the same Wikipedia page. Text reflows into a narrower column, so the
+same page puts more or fewer characters above the fold. The viewport is
+frozen in one environment and 17px narrower in the other, and the difference
+is in the product's environment.
+
+### The first labels
+
+`python -m tools.evaluation.label_corpus` runs the hardcoded planner over every
+corpus page that has a plan and writes `data/labels.json` with the conditions
+block. Three runs per replica flow, one against the live site (CLAUDE.md).
+**No score** — raw counts, per the standing decision that the estimator
+measures before it scores. Retries and verification failures are read by
+wrapping `attempt_move` and `verify`, because a retry that succeeds sends no
+message.
+
+**4 of 50 pages have a usable label (8%).**
+
+| Label source | Pages |
+|---|---|
+| `agent_run` — a flow starts here and was measured | **4** |
+| `driven_state_of_a_labelled_page` — same URL, different state | 3 |
+| `features_only` — no plan reaches it | **43** |
+
+| Flow | Runs | Pass | Steps | Attempts | Retries | Verify failures | Recovery | Seconds (median) |
+|---|---|---|---|---|---|---|---|---|
+| registration | 3 | 100% | 3 | 3 | 0 | 0 | no | 5.7 |
+| billing | 3 | 100% | 3 | 3 | 0 | 0 | no | 3.2 |
+| stubborn | 3 | 100% | 2 | 3 | 1 | 2 | **yes** | 12.8 |
+| railways (live) | 1 | 100% | 5 | 8 | 3 | 0 | no | 202.0 |
+
+Every local run was identical across its three repeats in every count, and
+within 0.5s on the clock.
+
+**What the distribution looks like: four points, and two of them are not
+evidence about pages.**
+
+- **Every label is a pass.** Pass rate cannot separate anything in this set.
+- **The stubborn row is difficult because we built it to be.** It is the
+  setback rig from 2026-09-18 — a button that does nothing on purpose. Its
+  retries and its recovery are the rig working.
+- **The railways row is difficult because it is live and slow.** Its three
+  retries were all first-strategy timeouts (`fill` on From and To, a
+  `click`) that the second strategy recovered, and each cost a 10-second
+  timeout. That is 30 of its 202 seconds, and one sample.
+- **That leaves registration and billing**, both our own replicas, both
+  3 steps, 0 retries, 0 failures, 3–6 seconds. The only "natural" difficulty
+  signal is that the two replicas are easy.
+
+**This is not yet a training target.** A `y` with four values, all passes,
+two engineered and one a single live sample, cannot fit anything, and the
+features beside it have 43 rows with no `y` at all. The way to more labels is
+more plans, not more runs: a label needs a task, and 46 of the 50 pages have
+none. Recorded as the headline because it is the thing the next month's work
+has to change.
+
+Two joins the file declines to make, on purpose. The registration run passes
+through the course list, which is a corpus row (`/`, signed in); it is marked
+`driven_state_of_a_labelled_page` rather than given the run's label, because a
+task-level count cannot be split across the pages it crossed. And the billing
+run reaches its results page by POST at `/bill`, while the corpus has the
+same page by GET at `/bill?reference=…`; an exact-URL join does not call
+those the same page, and neither should anything built on this.
+
+### Flagged, not settled
+
+- **`text_density` makes the same top-of-page assumption the clip did.**
+  `page_features._inside` counts text inside `(0, 0, 1280, 800)`, so on a
+  driven, scrolled read it measures the top of the document rather than what
+  was on screen. The 10 driven rows' `text_density` and `viewport_characters`
+  are affected. Recommendation: the same one-line change, using
+  `document.scroll` — cost is a re-collection of the corpus. Estimator's
+  owner's call.
+- **The host viewport is 1263 wide on scrollable pages.** Options: hide the
+  site view's scrollbar (a style injected into the site view, frontend); run
+  headless with classic scrollbars so both agree at 1263; or accept and record
+  per-environment density. Recommendation: hide it in the site view — the
+  user never sees that view, and it restores the 1280 CLAUDE.md promises.
+  Cost: a frontend change and one more thing injected into a real site.
+- **`MIN_COVERAGE`: consider 0.27.** 0.30 sits 0.013 above the nearest real
+  blocker and 0.066 above the nearest non-blocker; 0.273 is the middle of the
+  gap, and it would catch a default 378px Ant Design drawer (0.295) that 0.30
+  would miss. Cost: one untested number for another until a corpus has a
+  drawer in that 0.27–0.30 range. Left at 0.30.
+- **`ELECTRON_RUN_AS_NODE=1` breaks `run.ps1` from an editor terminal.**
+  VS Code and other Electron-based editors set it for child processes;
+  `electron .` then runs as plain Node and fails with an ESM loader error
+  that names nothing useful. The host was started here with the variable
+  unset. `run.ps1` could clear it before `Start-Host`.
