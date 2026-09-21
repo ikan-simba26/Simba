@@ -89,11 +89,15 @@
 }
 
 @theme {
-  /* One family: the system's own sans. It is what the person already reads
-     every day, and it needs no font file (CLAUDE.md: no dependency added
-     without asking — see DECISIONS.md for the typeface question). */
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
-    "Helvetica Neue", Arial, sans-serif;
+  /* Atkinson Hyperlegible Next, from the Braille Institute: letterforms drawn
+     so that the easily confused ones — I l 1, 0 O, b d p q — cannot be
+     mistaken for each other. Bundled with the overlay, not fetched: the host
+     may be offline and the font must never silently fall back mid-task. The
+     variable build, because this design uses 500 and 600 and the original
+     family ships only 400 and 700. The system sans behind it only for the
+     first frame, before the bundled face has loaded. */
+  --font-sans: "Atkinson Hyperlegible Next Variable", "Segoe UI Variable Text",
+    "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 
   /* The type scale. A 1.25 ratio from an 18px body, rounded to whole pixels.
      Each screen has exactly one size at `display` or above: its focal point. */
