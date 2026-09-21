@@ -3684,6 +3684,8 @@ All fit without the guard dropping a level. `test_levels` holds on the new
 geometry: level 3 is never taller than level 2, the three are distinct, and
 a longer step is taller at every level.
 
+Suite on the finished branch: **485 passed, 9 skipped, 0 failed**, 650s.
+
 ### The keyword fallback
 
 Two flows named by strong words is now a question. The case from 2026-09-21 —
