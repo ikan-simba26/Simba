@@ -320,6 +320,10 @@ export const TRUST = {
   hide: "Hide the page",
   /** The picture's description, for a screen reader. */
   picture: "The page as it is right now",
+  /** From the close-up out to the whole page. */
+  whole: "Show the whole page",
+  /** And back in to the thing about to be touched. */
+  closeUp: "Show it close up",
   close: "Close",
 } as const;
 
@@ -374,6 +378,8 @@ export const LABELS: Record<string, string> = {
   "level.choose3": LEVEL.choose(3),
   "trust.hide": TRUST.hide,
   "trust.close": TRUST.close,
+  "trust.whole": TRUST.whole,
+  "trust.closeUp": TRUST.closeUp,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,
   "flow.railways": FLOWS.railways,

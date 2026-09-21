@@ -135,6 +135,9 @@ SCREENS: list[tuple[str, object, list, list[str]]] = [
     # Pressed Start; the backend has not decided yet. Numbered last so 1-20
     # line up with a capture taken before this screen existed.
     ("21-reading-the-request", "goal", [HOLD], []),
+    ("22-trust-panel-whole-page", "goal",
+     [*at(("step.presented", LOOKUP)), TRUST, ("page.preview", "PREVIEW"), HOLD],
+     ["trust", "whole"]),
 ]
 
 
@@ -258,13 +261,14 @@ def capture(label: str) -> Path:
                 page.wait_for_timeout(700)
                 ok = True
                 try:
-                    if "reveal" in before:
-                        page.get_by_role("button", name="Ask for something new").click()
+                    reveal = page.get_by_role("button", name="Ask for something new")
+                    if "reveal" in before and reveal.count():
+                        reveal.click()
                     if start == "goal" or isinstance(start, tuple):
                         text = start[1] if isinstance(start, tuple) else GOAL
                         box = page.get_by_role("textbox").first
-                        if not box.is_visible():
-                            page.get_by_role("button", name="Ask for something new").click()
+                        if not box.is_visible() and reveal.count():
+                            reveal.click()
                         box.fill(text)
                         page.keyboard.press("Enter")
                     if "go" in before or "stop" in before or "trust" in before:
@@ -276,6 +280,9 @@ def capture(label: str) -> Path:
                         page.get_by_role("button", name="Stop this").click()
                     if "trust" in before:
                         page.get_by_role("button", name="What are you doing?").click()
+                    if "whole" in before:
+                        page.wait_for_timeout(1200)
+                        page.get_by_role("button", name="Show the whole page").click()
                 except Exception as error:  # noqa: BLE001 - a screen that cannot be reached is reported
                     ok = False
                     print(f"  {theme:<5} {name}: could not reach ({type(error).__name__})")

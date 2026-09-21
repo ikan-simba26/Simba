@@ -57,16 +57,13 @@ def page(playwright_instance: Playwright) -> Iterator[Page]:
 def ask(page: Page, overlay: str, mock: str, goal: str) -> None:  # noqa: F811
     """Type a goal into the home screen, the way a person would.
 
-    The mock always offers history, so the box is behind "Ask for something
-    new" once `history.offered` has landed. Waiting for that button, rather
-    than for a fixed half-second, is what makes this deterministic: before,
-    the check could run before the history arrived, see the box, and then
-    type into a box that was about to hide itself.
+    The box is always on the home screen since 2026-09-21. It used to hide
+    behind "Ask for something new" whenever there was history, and this
+    helper had to wait for that button to be deterministic.
     """
     page.goto(f"{overlay}?ws={mock}")
-    page.get_by_role("button", name="Ask for something new").click(timeout=10000)
     box = page.get_by_role("textbox", name="What would you like me to do?")
-    box.fill(goal)
+    box.fill(goal, timeout=10000)
     page.keyboard.press("Enter")
 
 
