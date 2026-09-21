@@ -141,12 +141,18 @@ class Instrumented:
         self.retries = 0
         self.verification_failures = 0
         self.failures: list[str] = []
+        # Every URL a move was attempted on, in order. A corpus page the run
+        # passes through is only recognisable by this; the final URL alone
+        # misses the billing lookup's results page, which is a corpus row.
+        self.urls: list[str] = []
         self._attempt_move = loop_module.attempt_move
         self._verify = loop_module.verify
 
     def __enter__(self) -> "Instrumented":
         async def attempt_move(page, move, input_values, strategy, before):
             self.attempts += 1
+            if not self.urls or self.urls[-1] != page.url:
+                self.urls.append(page.url)
             if strategy >= 1:
                 self.retries += 1
             failure = await self._attempt_move(page, move, input_values, strategy, before)
@@ -202,6 +208,7 @@ async def one_run(browser, plan, task, start_url: str, index: int) -> dict:
         "gave_up_reason": help_requested[0]["reason"] if help_requested else None,
         "seconds": seconds,
         "final_url": final_url,
+        "urls": counted.urls + ([final_url] if counted.urls[-1:] != [final_url] else []),
         "error": error,
         "failures": counted.failures,
     }
@@ -277,8 +284,9 @@ def join(corpus_rows: list[dict], labels: dict[str, dict]) -> list[dict]:
     visited: dict[str, str] = {}
     for start_url, label in labels.items():
         for run in label["each_run"]:
-            if run["final_url"] and run["final_url"] != start_url:
-                visited.setdefault(run["final_url"], label["flow"])
+            for url in run["urls"]:
+                if url != start_url:
+                    visited.setdefault(url, label["flow"])
 
     out = []
     for row in corpus_rows:
@@ -303,7 +311,8 @@ def join(corpus_rows: list[dict], labels: dict[str, dict]) -> list[dict]:
         elif row["url"] in visited:
             entry["label_source"] = "visited_during"
             entry["difficulty"] = None
-            entry["note"] = f"a {visited[row['url']]} run ended here"
+            entry["note"] = (f"a {visited[row['url']]} run passed through this "
+                             f"page; its cost is in that flow's label, not split out")
         else:
             entry["label_source"] = "features_only"
             entry["difficulty"] = None

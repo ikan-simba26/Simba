@@ -106,14 +106,14 @@ MIN_STACK_LEVEL = 5
 # Measured against the corpus twice. On 45 pages (2026-09-20d) every blocker
 # covered 1.000 and the largest non-blocker 0.234, with nothing between — a
 # gap that flattered the number, because every overlay in that corpus was a
-# full-screen modal. Five pages with partial-coverage overlays were added and
-# the gap closed: a bottom sheet at 0.461, two side drawers at 0.312, a
-# sticky banner at 0.369 (2026-09-20e).
+# full-screen modal. Five pages with partial-coverage overlays went in and
+# the gap between 0.30 and 0.50 filled with real blockers: a bottom sheet at
+# 0.461, a sticky banner at 0.369, a side drawer at 0.3125 (2026-09-20e).
 #
-# 0.30 still separates them, and now with almost no margin: the nearest real
-# blocker is a drawer at **0.312**. That is 4% clear of the line rather than
-# 200%, and the next corpus with a 0.28 drawer in it will move this number.
-# EVALUATION.md, 2026-09-20e, has both distributions.
+# 0.30 still separates them, with far less room: 0.013 above the nearest
+# blocker and 0.066 above the largest non-blocker (a docs sidebar at 0.234).
+# Measured on screen, clipped to where the page is scrolled. EVALUATION.md,
+# 2026-09-20e, has both distributions.
 MIN_COVERAGE = 0.30
 
 
