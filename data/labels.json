@@ -1,0 +1,1513 @@
+{
+  "conditions": {
+    "taken_at": "2026-09-21T14:45:21+05:00",
+    "git": {
+      "commit": "31b2eda4b647",
+      "branch": "feat/perception-blocker-coverage-calibration",
+      "dirty": true
+    },
+    "python": {
+      "version": "3.12.3",
+      "executable": "D:\\simba\\backend\\venv\\Scripts\\python.exe",
+      "project_venv": true
+    },
+    "playwright": "1.62.0",
+    "provider": "openai",
+    "model": "gemini-3.1-flash-lite",
+    "model_from": ".env",
+    "switches": {
+      "SIMBA_FLOW": null,
+      "SIMBA_USE_HARDCODED_PLAN": null,
+      "SIMBA_TRACE_MEMORY": null,
+      "SIMBA_BROWSER": null,
+      "SIMBA_OVERLAY_DETECTION": null,
+      "SIMBA_INFERRED_ROLES": null,
+      "SIMBA_SETBACK_PLACEMENT": null,
+      "SIMBA_LLM_PROVIDER": null,
+      "SIMBA_LLM_EFFORT": null,
+      "SIMBA_REPLICA_URL": null
+    },
+    "machine": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "cpus": 8,
+      "load_percent": 24
+    },
+    "corpus_taken_at": "2026-09-21T14:38:51+05:00",
+    "corpus_pages": 50,
+    "runs_local": 3,
+    "runs_live": 1,
+    "labelled": 4,
+    "viewport": [
+      1280,
+      800
+    ]
+  },
+  "results": {
+    "pages": [
+      {
+        "url": "http://127.0.0.1:5000/",
+        "state": "as it loads",
+        "kind": "ours",
+        "features": {
+          "interactive": 4,
+          "links": 45,
+          "inferred": 0,
+          "text_density": 2.569,
+          "max_depth": 8,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.978,
+          "reading_grade": 9.9
+        },
+        "label_source": "agent_run",
+        "difficulty": {
+          "flow": "registration",
+          "runs": 3,
+          "completed": 3,
+          "pass_rate": 1.0,
+          "steps_taken": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "attempts": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "retries": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "verification_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "step_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "recovery_triggered": false,
+          "gave_up": 0,
+          "seconds": {
+            "median": 5.7,
+            "min": 5.4,
+            "max": 5.9
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:5000/",
+        "state": "sign in",
+        "kind": "ours",
+        "features": {
+          "interactive": 21,
+          "links": 45,
+          "inferred": 0,
+          "text_density": 4.813,
+          "max_depth": 11,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.978,
+          "reading_grade": 6.41
+        },
+        "label_source": "driven_state_of_a_labelled_page",
+        "difficulty": null,
+        "note": "the registration flow starts at this URL, but this row is the page after 'sign in'"
+      },
+      {
+        "url": "http://127.0.0.1:5000/stubborn",
+        "state": "as it loads",
+        "kind": "ours",
+        "features": {
+          "interactive": 2,
+          "links": 25,
+          "inferred": 0,
+          "text_density": 0.746,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.96,
+          "reading_grade": 9.96
+        },
+        "label_source": "agent_run",
+        "difficulty": {
+          "flow": "stubborn",
+          "runs": 3,
+          "completed": 3,
+          "pass_rate": 1.0,
+          "steps_taken": {
+            "median": 2,
+            "min": 2,
+            "max": 2
+          },
+          "attempts": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "retries": {
+            "median": 1,
+            "min": 1,
+            "max": 1
+          },
+          "verification_failures": {
+            "median": 2,
+            "min": 2,
+            "max": 2
+          },
+          "step_failures": {
+            "median": 1,
+            "min": 1,
+            "max": 1
+          },
+          "recovery_triggered": true,
+          "gave_up": 0,
+          "seconds": {
+            "median": 12.8,
+            "min": 12.7,
+            "max": 13.0
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:5100/",
+        "state": "as it loads",
+        "kind": "ours",
+        "features": {
+          "interactive": 6,
+          "links": 31,
+          "inferred": 0,
+          "text_density": 1.728,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.935,
+          "reading_grade": 8.59
+        },
+        "label_source": "agent_run",
+        "difficulty": {
+          "flow": "billing",
+          "runs": 3,
+          "completed": 3,
+          "pass_rate": 1.0,
+          "steps_taken": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "attempts": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "retries": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "verification_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "step_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "recovery_triggered": false,
+          "gave_up": 0,
+          "seconds": {
+            "median": 3.2,
+            "min": 3.1,
+            "max": 3.4
+          }
+        }
+      },
+      {
+        "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
+        "state": "as it loads",
+        "kind": "ours",
+        "features": {
+          "interactive": 3,
+          "links": 36,
+          "inferred": 0,
+          "text_density": 2.635,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.889,
+          "reading_grade": 7.7
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "as it loads",
+        "kind": "target",
+        "features": {
+          "interactive": 6,
+          "links": 12,
+          "inferred": 0,
+          "text_density": 0.096,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.58
+        },
+        "label_source": "agent_run",
+        "difficulty": {
+          "flow": "railways",
+          "runs": 1,
+          "completed": 1,
+          "pass_rate": 1.0,
+          "steps_taken": {
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
+          "attempts": {
+            "median": 8,
+            "min": 8,
+            "max": 8
+          },
+          "retries": {
+            "median": 3,
+            "min": 3,
+            "max": 3
+          },
+          "verification_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "step_failures": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "recovery_triggered": false,
+          "gave_up": 0,
+          "seconds": {
+            "median": 202.0,
+            "min": 202.0,
+            "max": 202.0
+          }
+        }
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the station list",
+        "kind": "target",
+        "features": {
+          "interactive": 12,
+          "links": 12,
+          "inferred": 6,
+          "text_density": 0.171,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.58
+        },
+        "label_source": "driven_state_of_a_labelled_page",
+        "difficulty": null,
+        "note": "the railways flow starts at this URL, but this row is the page after 'open the station list'"
+      },
+      {
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the calendar",
+        "kind": "target",
+        "features": {
+          "interactive": 54,
+          "links": 12,
+          "inferred": 42,
+          "text_density": 0.193,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.32
+        },
+        "label_source": "driven_state_of_a_labelled_page",
+        "difficulty": null,
+        "note": "the railways flow starts at this URL, but this row is the page after 'open the calendar'"
+      },
+      {
+        "url": "https://example.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 1,
+          "inferred": 0,
+          "text_density": 0.122,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.24
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 25,
+          "inferred": 0,
+          "text_density": 0.907,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.79
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://httpbin.org/html",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 0,
+          "inferred": 0,
+          "text_density": 3.509,
+          "max_depth": 5,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 13.68
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://text.npr.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 28,
+          "inferred": 0,
+          "text_density": 1.056,
+          "max_depth": 8,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.38
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://lite.cnn.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 106,
+          "inferred": 0,
+          "text_density": 1.991,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.009,
+          "reading_grade": 8.56
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://danluu.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 210,
+          "inferred": 0,
+          "text_density": 1.304,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.32
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://quotes.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 55,
+          "inferred": 0,
+          "text_density": 0.844,
+          "max_depth": 11,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.39
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://books.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 20,
+          "links": 94,
+          "inferred": 0,
+          "text_density": 0.638,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 3.91
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.python.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 2,
+          "links": 150,
+          "inferred": 5,
+          "text_density": 1.044,
+          "max_depth": 17,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.007,
+          "reading_grade": 6.81
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://pypi.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 3,
+          "links": 52,
+          "inferred": 0,
+          "text_density": 0.541,
+          "max_depth": 14,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.79
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 16,
+          "links": 131,
+          "inferred": 2,
+          "text_density": 1.744,
+          "max_depth": 18,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.96
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Cognitive_load",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 21,
+          "links": 806,
+          "inferred": 0,
+          "text_density": 2.141,
+          "max_depth": 45,
+          "overlays": 0,
+          "form_fields": 12,
+          "dead_link_ratio": 0.001,
+          "reading_grade": 10.13
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Main_Page",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 14,
+          "links": 268,
+          "inferred": 0,
+          "text_density": 1.61,
+          "max_depth": 22,
+          "overlays": 0,
+          "form_fields": 12,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.03
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.gov.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 9,
+          "links": 79,
+          "inferred": 0,
+          "text_density": 0.451,
+          "max_depth": 20,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.71
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.gov.uk/browse/benefits",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 7,
+          "links": 49,
+          "inferred": 0,
+          "text_density": 0.527,
+          "max_depth": 20,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.89
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.nhs.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 4,
+          "links": 49,
+          "inferred": 0,
+          "text_density": 0.52,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.36
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://news.ycombinator.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 1,
+          "links": 229,
+          "inferred": 0,
+          "text_density": 2.459,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.22
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://arxiv.org/list/cs.HC/recent",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 0,
+          "links": 473,
+          "inferred": 0,
+          "text_density": 1.534,
+          "max_depth": 13,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 11.47
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.bbc.co.uk/news",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 8,
+          "links": 108,
+          "inferred": 0,
+          "text_density": 0.557,
+          "max_depth": 23,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.25
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/entry_ad",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 1,
+          "links": 2,
+          "inferred": 1,
+          "text_density": 0.282,
+          "max_depth": 9,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.5,
+          "reading_grade": 5.1
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 0,
+          "links": 46,
+          "inferred": 0,
+          "text_density": 0.398,
+          "max_depth": 8,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 10.77
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://the-internet.herokuapp.com/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 5,
+          "links": 2,
+          "inferred": 2,
+          "text_density": 0.23,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.28
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "http://demo.testfire.net/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 2,
+          "links": 43,
+          "inferred": 0,
+          "text_density": 2.455,
+          "max_depth": 13,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.06
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://parabank.parasoft.com/parabank/index.htm",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 3,
+          "links": 33,
+          "inferred": 0,
+          "text_density": 0.48,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.8
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://demo.applitools.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 3,
+          "links": 5,
+          "inferred": 0,
+          "text_density": 0.043,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.6,
+          "reading_grade": 5.68
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 4,
+          "links": 5,
+          "inferred": 1,
+          "text_density": 0.144,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.71
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.saucedemo.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 3,
+          "links": 0,
+          "inferred": 0,
+          "text_density": 0.147,
+          "max_depth": 12,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.07
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://demo.opencart.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 0,
+          "links": 2,
+          "inferred": 0,
+          "text_density": 0.25,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.34
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://practice.expandtesting.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 10,
+          "links": 223,
+          "inferred": 8,
+          "text_density": 0.431,
+          "max_depth": 19,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.1
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://demoqa.com/automation-practice-form",
+        "state": "as it loads",
+        "kind": "demo",
+        "features": {
+          "interactive": 22,
+          "links": 2,
+          "inferred": 6,
+          "text_density": 0.317,
+          "max_depth": 18,
+          "overlays": 0,
+          "form_fields": 15,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.18
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://demoqa.com/modal-dialogs",
+        "state": "open a demoqa modal",
+        "kind": "demo",
+        "features": {
+          "interactive": 10,
+          "links": 6,
+          "inferred": 6,
+          "text_density": 0.261,
+          "max_depth": 18,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.05
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://todomvc.com/examples/react/dist/",
+        "state": "add a todo",
+        "kind": "demo",
+        "features": {
+          "interactive": 3,
+          "links": 14,
+          "inferred": 0,
+          "text_density": 0.656,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.55
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://getbootstrap.com/docs/5.3/components/modal/",
+        "state": "open a bootstrap modal",
+        "kind": "demo",
+        "features": {
+          "interactive": 56,
+          "links": 226,
+          "inferred": 0,
+          "text_density": 1.477,
+          "max_depth": 16,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.91
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://element-plus.org/en-US/component/dialog.html",
+        "state": "open an element plus dialog",
+        "kind": "demo",
+        "features": {
+          "interactive": 85,
+          "links": 215,
+          "inferred": 0,
+          "text_density": 0.933,
+          "max_depth": 20,
+          "overlays": 2,
+          "form_fields": 25,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.46
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://mui.com/material-ui/react-dialog/",
+        "state": "open a mui dialog",
+        "kind": "demo",
+        "features": {
+          "interactive": 154,
+          "links": 154,
+          "inferred": 305,
+          "text_density": 1.077,
+          "max_depth": 23,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.06
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://ant.design/components/modal",
+        "state": "open an antd modal",
+        "kind": "demo",
+        "features": {
+          "interactive": 99,
+          "links": 179,
+          "inferred": 8,
+          "text_density": 1.313,
+          "max_depth": 26,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.006,
+          "reading_grade": 7.16
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://sweetalert2.github.io/",
+        "state": "open a sweetalert",
+        "kind": "demo",
+        "features": {
+          "interactive": 2,
+          "links": 106,
+          "inferred": 107,
+          "text_density": 0.408,
+          "max_depth": 15,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.14
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://mui.com/material-ui/react-drawer/",
+        "state": "open a bottom sheet",
+        "kind": "demo",
+        "features": {
+          "interactive": 140,
+          "links": 129,
+          "inferred": 262,
+          "text_density": 0.924,
+          "max_depth": 23,
+          "overlays": 3,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.29
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
+        "state": "open a side drawer",
+        "kind": "demo",
+        "features": {
+          "interactive": 40,
+          "links": 197,
+          "inferred": 0,
+          "text_density": 1.175,
+          "max_depth": 15,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 10.66
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://ant.design/components/drawer",
+        "state": "open an antd drawer",
+        "kind": "demo",
+        "features": {
+          "interactive": 196,
+          "links": 243,
+          "inferred": 138,
+          "text_density": 1.235,
+          "max_depth": 24,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.004,
+          "reading_grade": 6.83
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.theguardian.com/international",
+        "state": "as it loads",
+        "kind": "public",
+        "features": {
+          "interactive": 14,
+          "links": 257,
+          "inferred": 8,
+          "text_density": 0.557,
+          "max_depth": 21,
+          "overlays": 3,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.65
+        },
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      },
+      {
+        "url": "https://www.spiegel.de/",
+        "state": "as it loads",
+        "kind": "public",
+        "features": null,
+        "label_source": "features_only",
+        "difficulty": null,
+        "note": "no plan exists for this page, so nothing has driven it"
+      }
+    ],
+    "flows": {
+      "http://127.0.0.1:5000/": {
+        "flow": "registration",
+        "runs": 3,
+        "completed": 3,
+        "pass_rate": 1.0,
+        "steps_taken": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "attempts": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "retries": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "verification_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "step_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "recovery_triggered": false,
+        "gave_up": 0,
+        "seconds": {
+          "median": 5.7,
+          "min": 5.4,
+          "max": 5.9
+        },
+        "each_run": [
+          {
+            "run": 1,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 5.9,
+            "final_url": "http://127.0.0.1:5000/register",
+            "urls": [
+              "http://127.0.0.1:5000/",
+              "http://127.0.0.1:5000/courses",
+              "http://127.0.0.1:5000/register"
+            ],
+            "error": null,
+            "failures": []
+          },
+          {
+            "run": 2,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 5.7,
+            "final_url": "http://127.0.0.1:5000/register",
+            "urls": [
+              "http://127.0.0.1:5000/",
+              "http://127.0.0.1:5000/courses",
+              "http://127.0.0.1:5000/register"
+            ],
+            "error": null,
+            "failures": []
+          },
+          {
+            "run": 3,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 5.4,
+            "final_url": "http://127.0.0.1:5000/register",
+            "urls": [
+              "http://127.0.0.1:5000/",
+              "http://127.0.0.1:5000/courses",
+              "http://127.0.0.1:5000/register"
+            ],
+            "error": null,
+            "failures": []
+          }
+        ]
+      },
+      "http://127.0.0.1:5000/stubborn": {
+        "flow": "stubborn",
+        "runs": 3,
+        "completed": 3,
+        "pass_rate": 1.0,
+        "steps_taken": {
+          "median": 2,
+          "min": 2,
+          "max": 2
+        },
+        "attempts": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "retries": {
+          "median": 1,
+          "min": 1,
+          "max": 1
+        },
+        "verification_failures": {
+          "median": 2,
+          "min": 2,
+          "max": 2
+        },
+        "step_failures": {
+          "median": 1,
+          "min": 1,
+          "max": 1
+        },
+        "recovery_triggered": true,
+        "gave_up": 0,
+        "seconds": {
+          "median": 12.8,
+          "min": 12.7,
+          "max": 13.0
+        },
+        "each_run": [
+          {
+            "run": 1,
+            "completed": true,
+            "steps_taken": 2,
+            "attempts": 3,
+            "retries": 1,
+            "verification_failures": 2,
+            "step_failures": 1,
+            "recovery_triggered": true,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 12.8,
+            "final_url": "http://127.0.0.1:5000/courses",
+            "urls": [
+              "http://127.0.0.1:5000/stubborn",
+              "http://127.0.0.1:5000/courses"
+            ],
+            "error": null,
+            "failures": [
+              "the page did not change at all",
+              "the page did not change at all"
+            ]
+          },
+          {
+            "run": 2,
+            "completed": true,
+            "steps_taken": 2,
+            "attempts": 3,
+            "retries": 1,
+            "verification_failures": 2,
+            "step_failures": 1,
+            "recovery_triggered": true,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 13.0,
+            "final_url": "http://127.0.0.1:5000/courses",
+            "urls": [
+              "http://127.0.0.1:5000/stubborn",
+              "http://127.0.0.1:5000/courses"
+            ],
+            "error": null,
+            "failures": [
+              "the page did not change at all",
+              "the page did not change at all"
+            ]
+          },
+          {
+            "run": 3,
+            "completed": true,
+            "steps_taken": 2,
+            "attempts": 3,
+            "retries": 1,
+            "verification_failures": 2,
+            "step_failures": 1,
+            "recovery_triggered": true,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 12.7,
+            "final_url": "http://127.0.0.1:5000/courses",
+            "urls": [
+              "http://127.0.0.1:5000/stubborn",
+              "http://127.0.0.1:5000/courses"
+            ],
+            "error": null,
+            "failures": [
+              "the page did not change at all",
+              "the page did not change at all"
+            ]
+          }
+        ]
+      },
+      "http://127.0.0.1:5100/": {
+        "flow": "billing",
+        "runs": 3,
+        "completed": 3,
+        "pass_rate": 1.0,
+        "steps_taken": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "attempts": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "retries": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "verification_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "step_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "recovery_triggered": false,
+        "gave_up": 0,
+        "seconds": {
+          "median": 3.2,
+          "min": 3.1,
+          "max": 3.4
+        },
+        "each_run": [
+          {
+            "run": 1,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 3.4,
+            "final_url": "http://127.0.0.1:5100/bill/detail?reference=04141234567890",
+            "urls": [
+              "http://127.0.0.1:5100/",
+              "http://127.0.0.1:5100/bill",
+              "http://127.0.0.1:5100/bill/detail?reference=04141234567890"
+            ],
+            "error": null,
+            "failures": []
+          },
+          {
+            "run": 2,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 3.2,
+            "final_url": "http://127.0.0.1:5100/bill/detail?reference=04141234567890",
+            "urls": [
+              "http://127.0.0.1:5100/",
+              "http://127.0.0.1:5100/bill",
+              "http://127.0.0.1:5100/bill/detail?reference=04141234567890"
+            ],
+            "error": null,
+            "failures": []
+          },
+          {
+            "run": 3,
+            "completed": true,
+            "steps_taken": 3,
+            "attempts": 3,
+            "retries": 0,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 3.1,
+            "final_url": "http://127.0.0.1:5100/bill/detail?reference=04141234567890",
+            "urls": [
+              "http://127.0.0.1:5100/",
+              "http://127.0.0.1:5100/bill",
+              "http://127.0.0.1:5100/bill/detail?reference=04141234567890"
+            ],
+            "error": null,
+            "failures": []
+          }
+        ]
+      },
+      "https://www.pakrailways.gov.pk/train": {
+        "flow": "railways",
+        "runs": 1,
+        "completed": 1,
+        "pass_rate": 1.0,
+        "steps_taken": {
+          "median": 5,
+          "min": 5,
+          "max": 5
+        },
+        "attempts": {
+          "median": 8,
+          "min": 8,
+          "max": 8
+        },
+        "retries": {
+          "median": 3,
+          "min": 3,
+          "max": 3
+        },
+        "verification_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "step_failures": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "recovery_triggered": false,
+        "gave_up": 0,
+        "seconds": {
+          "median": 202.0,
+          "min": 202.0,
+          "max": 202.0
+        },
+        "each_run": [
+          {
+            "run": 1,
+            "completed": true,
+            "steps_taken": 5,
+            "attempts": 8,
+            "retries": 3,
+            "verification_failures": 0,
+            "step_failures": 0,
+            "recovery_triggered": false,
+            "gave_up": false,
+            "gave_up_reason": null,
+            "seconds": 202.0,
+            "final_url": "https://www.pakrailways.gov.pk/train",
+            "urls": [
+              "https://www.pakrailways.gov.pk/train"
+            ],
+            "error": null,
+            "failures": [
+              "fill on 'From' failed: Locator.fill: Timeout 10000ms exceeded.",
+              "fill on 'To' failed: Locator.fill: Timeout 10000ms exceeded.",
+              "click on '' failed: Locator.click: Timeout 10000ms exceeded."
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -79,6 +79,15 @@ class Document:
     #: can tell a page that was read at 1 from one read at 1.5, and so a test
     #: can assert the conversion happened rather than assuming it.
     device_pixel_ratio: float = 1.0
+    #: Where the page was scrolled to when the snapshot was taken, in CSS
+    #: pixels. Every box in `bounds` is in *document* coordinates, so the
+    #: visible viewport is `(scroll[0], scroll[1], width, height)`, not
+    #: `(0, 0, width, height)`. A driven read is almost never at the top: a
+    #: click on a button half-way down scrolls it into view first. CDP sends
+    #: this in device pixels, like the boxes — measured in the host at 1.5,
+    #: scrolled to 1234 CSS pixels, it reported 1851 (EVALUATION.md,
+    #: 2026-09-20e) — so it is converted here with them.
+    scroll: tuple[float, float] = (0.0, 0.0)
 
     def __len__(self) -> int:
         return len(self.parents)
@@ -265,6 +274,8 @@ def parse(
         index_of_backend_id={b: i for i, b in enumerate(backend_ids)},
         input_values=input_values,
         device_pixel_ratio=scale,
+        scroll=(float(document.get("scrollOffsetX", 0) or 0) / scale,
+                float(document.get("scrollOffsetY", 0) or 0) / scale),
     )
 
 

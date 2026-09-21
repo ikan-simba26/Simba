@@ -104,21 +104,95 @@ async def open_an_element_plus_dialog(page) -> None:
     await page.wait_for_timeout(1200)
 
 
-#: The corpus: `(url, drive)`, ordered roughly by how much each page puts in
-#: front of you. The order is a guess — the point of collecting is to find out
-#: whether the numbers agree with it — and nothing downstream may assume it.
+async def open_a_mui_dialog(page) -> None:
+    await page.get_by_role("button", name="Open simple dialog").first.click()
+    await page.wait_for_timeout(1200)
+
+
+async def open_an_antd_modal(page) -> None:
+    await page.get_by_role("button", name="Open Modal").first.click()
+    await page.wait_for_timeout(1200)
+
+
+async def open_a_sweetalert(page) -> None:
+    """A library whose entire product is the overlay."""
+    await page.get_by_role("button", name="Try me!").first.click()
+    await page.wait_for_timeout(1200)
+
+
+async def open_a_demoqa_modal(page) -> None:
+    await page.get_by_role("button", name="Small modal").click()
+    await page.wait_for_timeout(1200)
+
+
+async def add_a_todo(page) -> None:
+    """An app with state in it, rather than an empty one."""
+    box = page.get_by_placeholder("What needs to be done?")
+    await box.fill("buy tickets")
+    await box.press("Enter")
+    await page.wait_for_timeout(500)
+
+
+# --- overlays that cover part of the page, not all of it --------------------
+#
+# Every modal the corpus had covered the whole viewport, which is why the
+# coverage calibration found an empty band between 0.30 and 0.90 and had to
+# say so as a limitation rather than a result (EVALUATION.md, 2026-09-20d).
+# These four shapes are the band: a bottom sheet, a side drawer, a consent
+# wall over a third of the screen, a sticky banner.
+#
+# **They were chosen because they land there.** That makes this part of the
+# corpus a deliberate sample and not a random one: it can show the band is
+# reachable, and it cannot say how often real pages fall in it.
+
+
+async def open_a_bottom_sheet(page) -> None:
+    """MUI's drawer anchored to the bottom: a sheet over ~46% of the screen."""
+    await page.get_by_role("button", name="bottom", exact=True).first.click()
+    await page.wait_for_timeout(1500)
+
+
+async def open_a_side_drawer(page) -> None:
+    """Bootstrap's offcanvas: a 400px panel with a full backdrop behind it."""
+    await page.get_by_role(
+        "button", name="Enable both scrolling & backdrop").first.click()
+    await page.wait_for_timeout(1500)
+
+
+async def open_an_antd_drawer(page) -> None:
+    await page.get_by_role("button", name="Open").first.click()
+    await page.wait_for_timeout(1500)
+
+
+#: The corpus: `(url, drive, kind)`, ordered roughly by how much each page
+#: puts in front of you. The order is a guess — the point of collecting is to
+#: find out whether the numbers agree with it — and nothing downstream may
+#: assume it.
 #:
-#: Three kinds of page, deliberately:
+#: **`kind` is a label on the row, not a judgement of it.** Anything
+#: calibrated on this corpus has to be able to ask "how much of this is our
+#: own HTML" and "how much of this is a demo site built to be automated", and
+#: it can only ask that if every row says which it is:
 #:
-#:   * **Ours.** Both replicas, the pages a flow actually walks, plus
-#:     `/stubborn`. These are the only pages on the list with a modal up, a
-#:     nav that is 97.8% dead links, and a form as the main event.
-#:   * **The live site this project drives**, idle and in the two states its
-#:     run passes through — station list open, calendar open — because
-#:     inferred controls exist only while a panel is open.
-#:   * **Public pages**, from one paragraph to a wall of links, including
-#:     application-like ones: demo banks, a shop, a login, and two component
-#:     libraries whose dialogs can be opened.
+#:   * `ours` — the two replicas. Pages we wrote, so a feature that separates
+#:     them from the world may be measuring our own habits.
+#:   * `target` — the live site this project drives, idle and in the two
+#:     states its run passes through. The only rows that are the real thing.
+#:   * `public` — real pages serving real users, from one paragraph to a wall
+#:     of links. Nobody built these to be read by a program.
+#:   * `demo` — **sandboxes and component galleries.** Freely readable
+#:     application-like pages: demo banks, practice login forms, and
+#:     documentation whose dialogs can be opened. These are where a corpus of
+#:     public pages gets its modals and its non-semantic controls from, and
+#:     they are labelled because they are *not* evidence about the web at
+#:     large. A component library's docs page is a page *about* dialogs,
+#:     which is not the same thing as a page with a dialog on it, and a
+#:     practice form is a form built to be easy to drive.
+#:
+#: The application-like pages exist because three features were flat on a
+#: corpus of front pages (EVALUATION.md, 2026-09-19b). A front page has no
+#: modal, no inferred control and no form; a SIMBA run meets all three within
+#: two steps.
 #:
 #: The replicas have to be up: `python replicas/registration/app.py` (:5000)
 #: and `python replicas/billing/app.py` (:5100). The collector starts them
@@ -127,64 +201,105 @@ REGISTRATION = "http://127.0.0.1:5000"
 BILLING = "http://127.0.0.1:5100"
 REFERENCE = "04141234567890"
 
-STARTER_LIST: list[tuple[str, object]] = [
+OURS, TARGET, PUBLIC, DEMO = "ours", "target", "public", "demo"
+
+STARTER_LIST: list[tuple[str, object, str]] = [
     # --- ours ---------------------------------------------------------------
-    (f"{REGISTRATION}/", None),
-    (f"{REGISTRATION}/", sign_in),                     # the course list, modal up
-    (f"{REGISTRATION}/stubborn", None),                # the rig: 24 dead links
-    (f"{BILLING}/", None),                             # a form as the main event
-    (f"{BILLING}/bill?reference={REFERENCE}", None),   # its result
+    (f"{REGISTRATION}/", None, OURS),
+    (f"{REGISTRATION}/", sign_in, OURS),               # the course list, modal up
+    (f"{REGISTRATION}/stubborn", None, OURS),          # the rig: 24 dead links
+    (f"{BILLING}/", None, OURS),                       # a form as the main event
+    (f"{BILLING}/bill?reference={REFERENCE}", None, OURS),   # its result
     # --- the live site, in the states a run passes through -------------------
-    ("https://www.pakrailways.gov.pk/train", None),
-    ("https://www.pakrailways.gov.pk/train", open_the_station_list),
-    ("https://www.pakrailways.gov.pk/train", open_the_calendar),
+    ("https://www.pakrailways.gov.pk/train", None, TARGET),
+    ("https://www.pakrailways.gov.pk/train", open_the_station_list, TARGET),
+    ("https://www.pakrailways.gov.pk/train", open_the_calendar, TARGET),
     # --- public pages, simple to cluttered -----------------------------------
-    ("https://example.com/", None),
-    ("http://info.cern.ch/hypertext/WWW/TheProject.html", None),
-    ("https://httpbin.org/html", None),
-    ("https://text.npr.org/", None),
-    ("https://lite.cnn.com/", None),
-    ("https://danluu.com/", None),
-    ("https://quotes.toscrape.com/", None),
-    ("https://books.toscrape.com/", None),
-    ("https://www.python.org/", None),
-    ("https://pypi.org/", None),
-    ("https://developer.mozilla.org/en-US/docs/Web/HTML", None),
-    ("https://en.wikipedia.org/wiki/Cognitive_load", None),
-    ("https://en.wikipedia.org/wiki/Main_Page", None),
-    ("https://www.gov.uk/", None),
-    ("https://www.gov.uk/browse/benefits", None),
-    ("https://www.nhs.uk/", None),
-    ("https://news.ycombinator.com/", None),
-    ("https://arxiv.org/list/cs.HC/recent", None),
-    ("https://www.bbc.co.uk/news", None),
-    # --- public pages that behave like applications --------------------------
-    ("https://the-internet.herokuapp.com/entry_ad", None),      # modal on load
-    ("https://the-internet.herokuapp.com/", None),              # its index
+    ("https://example.com/", None, PUBLIC),
+    ("http://info.cern.ch/hypertext/WWW/TheProject.html", None, PUBLIC),
+    ("https://httpbin.org/html", None, PUBLIC),
+    ("https://text.npr.org/", None, PUBLIC),
+    ("https://lite.cnn.com/", None, PUBLIC),
+    ("https://danluu.com/", None, PUBLIC),
+    ("https://quotes.toscrape.com/", None, PUBLIC),
+    ("https://books.toscrape.com/", None, PUBLIC),
+    ("https://www.python.org/", None, PUBLIC),
+    ("https://pypi.org/", None, PUBLIC),
+    ("https://developer.mozilla.org/en-US/docs/Web/HTML", None, PUBLIC),
+    ("https://en.wikipedia.org/wiki/Cognitive_load", None, PUBLIC),
+    ("https://en.wikipedia.org/wiki/Main_Page", None, PUBLIC),
+    ("https://www.gov.uk/", None, PUBLIC),
+    ("https://www.gov.uk/browse/benefits", None, PUBLIC),
+    ("https://www.nhs.uk/", None, PUBLIC),
+    ("https://news.ycombinator.com/", None, PUBLIC),
+    ("https://arxiv.org/list/cs.HC/recent", None, PUBLIC),
+    ("https://www.bbc.co.uk/news", None, PUBLIC),
+    # --- demo sites and component galleries ----------------------------------
+    #
+    # Labelled `demo` rather than `public` deliberately; see `kind` above.
+    # These are the rows that carry the corpus's modals, its fields and most
+    # of its non-semantic controls.
+    ("https://the-internet.herokuapp.com/entry_ad", None, DEMO),  # modal on load
+    ("https://the-internet.herokuapp.com/", None, DEMO),          # its index
+    ("https://the-internet.herokuapp.com/login", None, DEMO),     # a two-field form
     # http, not https: its certificate expired years ago, and a cert error
     # leaves the tab on chrome-error:// where even about:blank is refused.
-    ("http://demo.testfire.net/", None),                        # a demo bank
-    ("https://www.saucedemo.com/", None),                       # a login
-    ("https://demo.opencart.com/", None),                       # a shop
-    ("https://getbootstrap.com/docs/5.3/components/modal/", open_a_bootstrap_modal),
-    ("https://element-plus.org/en-US/component/dialog.html", open_an_element_plus_dialog),
+    ("http://demo.testfire.net/", None, DEMO),                    # a demo bank
+    ("https://parabank.parasoft.com/parabank/index.htm", None, DEMO),  # another
+    ("https://demo.applitools.com/", None, DEMO),                 # a demo login
+    ("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+     None, DEMO),                                                 # an HR app's login
+    ("https://www.saucedemo.com/", None, DEMO),                   # a login
+    ("https://demo.opencart.com/", None, DEMO),                   # a shop
+    ("https://practice.expandtesting.com/", None, DEMO),          # a practice index
+    ("https://demoqa.com/automation-practice-form", None, DEMO),  # 15 fields
+    ("https://demoqa.com/modal-dialogs", open_a_demoqa_modal, DEMO),
+    ("https://todomvc.com/examples/react/dist/", add_a_todo, DEMO),  # an app, with state
+    ("https://getbootstrap.com/docs/5.3/components/modal/",
+     open_a_bootstrap_modal, DEMO),
+    ("https://element-plus.org/en-US/component/dialog.html",
+     open_an_element_plus_dialog, DEMO),
+    ("https://mui.com/material-ui/react-dialog/", open_a_mui_dialog, DEMO),
+    ("https://ant.design/components/modal", open_an_antd_modal, DEMO),
+    ("https://sweetalert2.github.io/", open_a_sweetalert, DEMO),
+    # --- overlays that cover only part of the page ---------------------------
+    #
+    # Added 2026-09-20e, and selected for the property being tested: each one
+    # puts a blocker between 0.30 and 0.90 of the viewport, the band the
+    # coverage calibration had nothing in. See `open_a_bottom_sheet` above for
+    # what that does and does not license anyone to conclude.
+    ("https://mui.com/material-ui/react-drawer/", open_a_bottom_sheet, DEMO),
+    ("https://getbootstrap.com/docs/5.3/components/offcanvas/",
+     open_a_side_drawer, DEMO),
+    ("https://ant.design/components/drawer", open_an_antd_drawer, DEMO),
+    # Two live news sites whose consent walls cover a third to a half. Real
+    # pages serving real readers, so `public` — and the most fragile rows in
+    # the corpus, because what a consent manager shows depends on where the
+    # request came from and what it has seen before. A run from a fresh
+    # context gets the wall; a run that somehow does not will read 0 overlays
+    # here, and that is a fact about the run, not the page.
+    ("https://www.theguardian.com/international", None, PUBLIC),
+    ("https://www.spiegel.de/", None, PUBLIC),
 ]
 
 #: The features to summarise, in the order the report prints them. After the
 #: blank the raw counts the features are built from, kept so a later
-#: definition — or an undoing of the `controls` merge — can be computed
+#: definition — or a re-merging of `interactive` and `links` — can be computed
 #: without reading the pages again.
-FEATURES = ["controls", "inferred", "text_density", "max_depth", "overlays",
-            "form_fields", "dead_link_ratio", "reading_grade",
-            "link_share", "links", "non_link_controls", "dead_links",
+FEATURES = ["interactive", "links", "inferred", "text_density", "max_depth",
+            "overlays", "form_fields", "dead_link_ratio", "reading_grade",
+            "link_share", "controls", "dead_links",
             "characters", "viewport_characters", "words", "sentences", "syllables"]
 
 #: The features proper — what an estimator would be built on. The rest of
 #: `FEATURES` is working out.
-SCORED = FEATURES[:8]
+SCORED = FEATURES[:9]
 
 #: Below this share of links among a page's controls, the two counts are
-#: saying different things and `controls` is worth splitting again.
+#: saying different things. The corpus put four pages under it, which is why
+#: `interactive` and `links` are two features again (EVALUATION.md,
+#: 2026-09-20d). Still reported: if a later corpus puts nothing under it, the
+#: merge becomes arguable again and the number should say so.
 SEPARATES_AT = 0.6
 
 #: A feature whose values barely move cannot tell two pages apart. Flagged at
@@ -216,7 +331,7 @@ async def reset(page) -> None:
             await page.wait_for_timeout(800)
 
 
-async def read_features(page, url: str, drive=None) -> dict:
+async def read_features(page, url: str, drive=None, kind: str = PUBLIC) -> dict:
     """One page, loaded, driven into the state worth reading, and measured.
 
     Failures come back as rows too: "this kind of page could not be read" is
@@ -233,19 +348,20 @@ async def read_features(page, url: str, drive=None) -> dict:
             await page.wait_for_timeout(600)
         view = await read_async(page, VIEWPORT)
         if view.document is None:
-            return {"url": url, "error": "no snapshot; are the switches off?"}
+            return {"url": url, "state": name_of(drive), "kind": kind,
+                    "error": "no snapshot; are the switches off?"}
         found: PageFeatures = features(view, view.document, VIEWPORT)
         # The ratio the read was taken at, recorded rather than applied: since
         # 2026-09-20 `snapshot.parse` converts the boxes and every length here
         # is CSS pixels. Kept in the row because a corpus should say what the
         # display was doing.
-        return {"url": url, "state": name_of(drive),
+        return {"url": url, "state": name_of(drive), "kind": kind,
                 "title": (await page.title())[:80],
                 "device_pixel_ratio": view.document.device_pixel_ratio,
                 **found.as_dict()}
     except PlaywrightError as refused:
         await reset(page)
-        return {"url": url, "state": name_of(drive),
+        return {"url": url, "state": name_of(drive), "kind": kind,
                 "error": f"{type(refused).__name__}: {str(refused)[:120]}"}
 
 
@@ -261,8 +377,8 @@ async def in_headless(pages: list[tuple]) -> list[dict]:
             user_agent=UA, viewport={"width": VIEWPORT[0], "height": VIEWPORT[1]})
         page = await context.new_page()
         rows = []
-        for url, drive in pages:
-            rows.append(await read_features(page, url, drive))
+        for url, drive, kind in pages:
+            rows.append(await read_features(page, url, drive, kind))
             print(f"  headless {_where(rows[-1])} -> {_say(rows[-1])}", flush=True)
         await browser.close()
         return rows
@@ -278,8 +394,8 @@ async def in_host(pages: list[tuple]) -> list[dict]:
         if site is None:
             raise SystemExit("no site view in the host — is it up? (run.ps1)")
         rows = []
-        for url, drive in pages:
-            rows.append(await read_features(site, url, drive))
+        for url, drive, kind in pages:
+            rows.append(await read_features(site, url, drive, kind))
             print(f"  host     {_where(rows[-1])} -> {_say(rows[-1])}", flush=True)
         await browser.close()
         return rows
@@ -293,7 +409,8 @@ def _where(row: dict) -> str:
 def _say(row: dict) -> str:
     if "error" in row:
         return f"FAILED {row['error']}"
-    return (f"{row['controls']} controls ({row['link_share']} links), "
+    return (f"{row['interactive']} interactive + {row['links']} links "
+            f"(share {row['link_share']}), "
             f"{row['inferred']} inferred, {row['overlays']} overlays, "
             f"density {row['text_density']}, grade {row['reading_grade']}")
 
@@ -407,7 +524,9 @@ def replicas_running() -> Iterator[None]:
 async def main() -> None:
     arguments = [argument for argument in sys.argv[1:] if argument != "--headless-only"]
     headless_only = "--headless-only" in sys.argv[1:]
-    pages = ([(url, None) for url in
+    # A URL file carries no labels, so its rows are marked `unlabelled`
+    # rather than silently counted as `public`.
+    pages = ([(url, None, "unlabelled") for url in
               Path(arguments[0]).read_text(encoding="utf-8").split()]
              if arguments else STARTER_LIST)
 
@@ -431,18 +550,35 @@ async def main() -> None:
 
     print("\nBarely varies, so of no use to an estimator as it stands:",
           ", ".join(flat) or "nothing")
+    made_of = Counter(row.get("kind", "unlabelled") for row in headless)
+    print("What the corpus is made of: "
+          + ", ".join(f"{count} {kind}" for kind, count in made_of.most_common()))
+    # `controls > 0` matters: `link_share` is 0.0 on a page of pure buttons
+    # and also on a page with nothing on it, and only the first is evidence.
     separating = [row for row in headless
-                  if "error" not in row and row["link_share"] < SEPARATES_AT]
+                  if "error" not in row and row["controls"] > 0
+                  and row["link_share"] < SEPARATES_AT]
+    empty = [row for row in headless
+             if "error" not in row and row["controls"] == 0]
     print(f"Pages where links and controls say different things "
-          f"(link_share < {SEPARATES_AT}): {len(separating)}")
+          f"(link_share < {SEPARATES_AT}, of the {len(headless) - len(empty)} "
+          f"pages that have any controls): {len(separating)}")
     for row in sorted(separating, key=lambda r: r["link_share"])[:8]:
-        print(f"  {_where(row)}: {row['links']} links of {row['controls']} controls"
+        print(f"  {_where(row)}: {row['links']} links against "
+              f"{row['interactive']} interactive"
               f" (share {row['link_share']})")
 
     out = REPO_ROOT / "data" / "corpus.json"
+    # Which environments this corpus was actually read in. `"host": []` on its
+    # own reads like "the host found nothing" rather than "the host was not
+    # asked", and the standing rule is that both are read (DECISIONS.md,
+    # 2026-09-18c), so a run that skipped one says so beside its numbers.
+    environments = ["headless"] + (["host"] if host else [])
     record(out, {"headless": headless, "host": host},
            pages=len(pages), viewport=list(VIEWPORT), settle_ms=SETTLE_MS,
-           flat_features=flat, separating_pages=len(separating))
+           environments=environments,
+           flat_features=flat, separating_pages=len(separating),
+           pages_with_no_controls=len(empty), made_of=dict(made_of))
     print(f"wrote {out}")
 
 

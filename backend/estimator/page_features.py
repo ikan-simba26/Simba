@@ -16,7 +16,8 @@ The features, and what each one is:
 
 | Feature | Unit | Read from |
 |---|---|---|
-| `controls` | count | every element perception offers a planner, links included |
+| `interactive` | count | the controls that are not links: buttons, fields, pickers |
+| `links` | count | links, live and dead |
 | `inferred` | count | of those, the ones whose role was worked out from layout |
 | `text_density` | characters per 1000px² | text boxes inside the viewport |
 | `max_depth` | count | the deepest element in the DOM |
@@ -25,22 +26,33 @@ The features, and what each one is:
 | `dead_link_ratio` | 0–1 | dead links over links |
 | `reading_grade` | US school grade | Flesch–Kincaid over the visible text, counted per block |
 
-**`controls` is one feature where there were two.** `interactive` and `links`
-were separate until 2026-09-20, and on the first corpus they were the same
-signal wearing two hats: 19 of 20 pages differed in both, and on most of them
-the two numbers were within a few percent, because a public page's controls
-are nearly all links. Two features carrying one signal get weighted twice.
+**`interactive` and `links` were one feature for a day, and the corpus took
+it back.** They were merged into a single `controls` on 2026-09-20, on the
+evidence of the first corpus: 19 of 20 pages differed in both and the two
+numbers were within a few percent of each other, because a public page's
+controls are nearly all links. Two features carrying one signal get weighted
+twice, and that reasoning was right about the pages it was looking at.
 
-They are *not* the same thing on an application — a form is controls without
-links — so both raw counts still travel in every row, and
-`link_share = links / controls` is what says whether a corpus has pages that
-separate them. Below about 0.6 on a real page, they are worth splitting again;
-the collector reports the range it saw.
+It was looking at the wrong pages. The extended corpus separates them exactly
+where SIMBA operates — `link_share` is **0.00** on a login (0 links, 3
+controls), **0.18** on the railways calendar (12 of 66) and **0.50** on its
+station list (12 of 24), against a median of 0.92 across everything else. A
+form, a picker and a dropdown are controls that are not links, and those are
+the pages this project exists for. So the two are separate features again,
+and the merge is recorded in DECISIONS.md as instructed, implemented and
+reversed rather than quietly dropped.
 
-`links`, `non_link_controls`, `dead_links`, `characters`, `words`, `sentences`
-and `syllables` come back as raw counts. They are what the features are built
-from, and without them neither a derived number nor a merge can be checked or
-undone later.
+**The split is disjoint, which the pre-merge version was not.** `interactive`
+used to be *every* element including links, with `links` beside it as a
+subset, so a nav link counted twice before anything was weighted. That was
+the real form of the double-counting the merge was reaching for. Now
+`interactive` is the controls that are **not** links, `links` is the links,
+and `controls = interactive + links` stays in every row as the total.
+
+`controls`, `dead_links`, `characters`, `words`, `sentences` and `syllables`
+come back as raw counts, with `link_share` as the ratio the argument was had
+over. They are what the features are built from, and without them neither a
+derived number nor a merge can be checked or undone later.
 
 **Viewport.** Density is per *visible* area, which is why CLAUDE.md freezes
 the viewport at 1280x800: change it and the density changes without the page
@@ -106,7 +118,8 @@ _VOWELS = "aeiouy"
 class PageFeatures:
     """One page, as raw numbers. Nothing here is scaled or scored."""
 
-    controls: int
+    interactive: int
+    links: int
     inferred: int
     text_density: float
     max_depth: int
@@ -116,10 +129,9 @@ class PageFeatures:
     reading_grade: float
 
     # The raw counts the features are built from, so a derived number can be
-    # recomputed — and the merge of `links` into `controls` undone — without
-    # reading the page again.
-    links: int
-    non_link_controls: int
+    # recomputed — and this split merged again — without reading the page
+    # again. `controls` is the total the two halves came from.
+    controls: int
     dead_links: int
     characters: int
     viewport_characters: int
@@ -131,8 +143,9 @@ class PageFeatures:
     def link_share(self) -> float:
         """How much of what this page offers is a link.
 
-        Near 1 on a page of links, near 0 on a form. What decides whether
-        `controls` should go back to being two features.
+        Near 1 on a page of links, near 0 on a form. This is the number the
+        merge was argued over in both directions, so it stays in every row
+        whichever way the argument goes next.
         """
         return round(self.links / self.controls, 3) if self.controls else 0.0
 
@@ -347,9 +360,11 @@ def features(
     area_units = (viewport[0] * viewport[1]) / AREA_UNIT
 
     return PageFeatures(
-        # Links included: they are controls, and on a public page they are
-        # most of them. `links` and `non_link_controls` are below.
-        controls=len(elements),
+        # Disjoint on purpose: a link is counted in `links` and nowhere else,
+        # so the two can be weighted independently without weighting a nav
+        # twice. `controls` below is the total.
+        interactive=len(elements) - len(links),
+        links=len(links),
         inferred=sum(1 for element in elements if element.inferred),
         text_density=round(in_viewport / area_units, 3) if area_units else 0.0,
         max_depth=max_depth(document),
@@ -362,8 +377,7 @@ def features(
         # difference between "no dead links" and "no links" stays readable.
         dead_link_ratio=round(len(dead) / len(links), 3) if links else 0.0,
         reading_grade=grade,
-        links=len(links),
-        non_link_controls=len(elements) - len(links),
+        controls=len(elements),
         dead_links=len(dead),
         characters=len(text),
         viewport_characters=in_viewport,

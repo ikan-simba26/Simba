@@ -186,3 +186,41 @@ def test_the_host_reports_a_real_ratio_and_the_boxes_come_back_css(
     assert document.device_pixel_ratio > 1.0, "this host is not on a scaled display"
     assert box_in(document) == pytest.approx((100, 200, 300, 40), abs=1.0)
     browser.close()
+
+
+
+# --- the scroll offset, which arrives in the same units as the boxes --------
+
+
+def test_the_scroll_offset_is_divided_by_the_ratio_like_every_box() -> None:
+    """Measured in the host: scrolled to 1234 CSS px, CDP said 1851 (x1.5)."""
+    snapshot = snapshot_of(300.0, 60.0)
+    snapshot["documents"][0]["scrollOffsetX"] = 0
+    snapshot["documents"][0]["scrollOffsetY"] = 1851
+
+    document = parse(snapshot, device_pixel_ratio=1.5)
+
+    assert document.scroll == pytest.approx((0.0, 1234.0), abs=0.5)
+
+
+def test_a_snapshot_with_no_scroll_offset_is_at_the_top() -> None:
+    assert parse(snapshot_of(300.0, 60.0)).scroll == (0.0, 0.0)
+
+
+@pytest.mark.skipif(not os.environ.get("SIMBA_HOST_TESTS"),
+                    reason="needs the Electron host on :9222 (SIMBA_HOST_TESTS=1)")
+def test_the_host_scroll_offset_comes_back_css(playwright_instance: Playwright) -> None:
+    """The measurement the unit test above is copied from, kept runnable."""
+    browser = playwright_instance.chromium.connect_over_cdp("http://127.0.0.1:9222")
+    site = next(page for context in browser.contexts for page in context.pages
+                if not page.url.startswith(("file:", "devtools:", "chrome:")))
+    site.set_content('<div style="height: 5000px"></div>')
+    site.evaluate("window.scrollTo(0, 1234)")
+    site.wait_for_timeout(200)
+
+    document = read(site, VIEWPORT).document
+
+    assert document.device_pixel_ratio > 1.0, "this host is not on a scaled display"
+    assert document.scroll == pytest.approx((0.0, 1234.0), abs=1.0)
+    site.evaluate("window.scrollTo(0, 0)")
+    browser.close()
