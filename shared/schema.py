@@ -7,7 +7,7 @@ a version bump (see CLAUDE.md).
 
 from __future__ import annotations
 
-from typing import Dict, Generic, List, Literal, TypeVar
+from typing import Dict, Generic, List, Literal, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -23,6 +23,7 @@ MessageType = Literal[
     "task.started",
     "state.changed",
     "history.offered",
+    "goal.answered",
     "step.presented",
     "step.failed",
     "load.updated",
@@ -67,6 +68,23 @@ class HistoryOffered(BaseModel):
     """
 
     goals: List[PastGoal]
+
+
+FlowName = Literal["registration", "billing", "railways"]
+AnswerKind = Literal["greeting", "unsupported", "clarify"]
+
+
+class GoalAnswered(BaseModel):
+    """A typed goal that did not start a task, and what to offer instead.
+
+    Added 2026-09-21, pending ratification (CONTRACT.md). Carries no words:
+    the overlay writes every sentence from `copy.ts`, so the mock and the
+    backend cannot disagree about what the person reads.
+    """
+
+    kind: AnswerKind
+    goal: str
+    flows: List[FlowName]
 
 
 class Finding(BaseModel):
@@ -191,6 +209,10 @@ class ErrorPayload(BaseModel):
 class TaskStart(BaseModel):
     goal: str
     input_mode: InputMode
+    # Additive and optional (2026-09-21). Set when the person chose a flow by
+    # pressing a card or answering "which did you mean", so the backend runs
+    # exactly that rather than classifying the goal again.
+    flow: Optional[FlowName] = None
 
 
 class StepResponse(BaseModel):

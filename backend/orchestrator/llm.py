@@ -336,6 +336,46 @@ class AnthropicProvider:
         self._transcript.record(provider=self.name, malformed=str(message.content))
         raise LLMError("no structured action in the response")
 
+    async def choose_route(self, system_prompt: str, goal: str):
+        """One classification of a typed goal. See `router.py`.
+
+        No retries and no waiting out rate limits: the router gives this a
+        few seconds and falls back to keywords, so a failure here is cheap
+        and a wait is not.
+        """
+        import anthropic
+
+        from backend.orchestrator.router import RouteChoice
+
+        self._transcript.record(
+            provider=self.name, model=self._model, purpose="route", user=goal
+        )
+        try:
+            message = await self._client.messages.parse(
+                model=self._model,
+                max_tokens=2000,
+                system=system_prompt,
+                output_config={"effort": "low"},
+                output_format=RouteChoice,
+                messages=[{"role": "user", "content": goal}],
+            )
+        except anthropic.APIError as error:
+            self._transcript.record(provider=self.name, purpose="route", error=str(error))
+            raise LLMError(f"Anthropic route call failed: {error}") from error
+        for block in message.content:
+            parsed = getattr(block, "parsed_output", None)
+            if parsed is not None:
+                self._record_usage(
+                    getattr(message.usage, "input_tokens", 0),
+                    getattr(message.usage, "output_tokens", 0),
+                )
+                choice = RouteChoice.model_validate(
+                    parsed.model_dump() if isinstance(parsed, BaseModel) else parsed)
+                self._transcript.record(
+                    provider=self.name, purpose="route", response=choice.model_dump())
+                return choice
+        raise LLMError("no route in the response")
+
     def _record_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
         before = self.usage.cost_usd
         self.usage.add(prompt_tokens, completion_tokens, self._model)
@@ -459,6 +499,45 @@ class OpenAICompatibleProvider:
                 await asyncio.sleep(wait)
                 delay = min(delay * 2, 60.0)
         raise AssertionError("unreachable")
+
+    async def choose_route(self, system_prompt: str, goal: str):
+        """One classification of a typed goal. See `router.py`.
+
+        One attempt, no backoff: the router bounds it with a timeout and
+        falls back to keywords, and a free tier's per-minute wait is exactly
+        the pause a person should not sit through before anything happens.
+        """
+        import openai
+
+        from backend.orchestrator.router import ROUTE_SCHEMA, RouteChoice
+
+        self._transcript.record(
+            provider=self.name, model=self._model, purpose="route", user=goal
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": goal},
+        ]
+        schema = {"type": "json_schema",
+                  "json_schema": {"name": "route", "strict": True, "schema": ROUTE_SCHEMA}}
+        try:
+            try:
+                completion = await self._call(messages, schema)
+            except openai.BadRequestError:
+                completion = await self._call(messages, {"type": "json_object"})
+        except openai.OpenAIError as error:
+            self._transcript.record(provider=self.name, purpose="route", error=str(error))
+            raise LLMError(f"OpenAI-compatible route call failed: {error}") from error
+        raw = completion.choices[0].message.content or ""
+        counts = getattr(completion, "usage", None)
+        self._record_usage(getattr(counts, "prompt_tokens", 0) or 0,
+                           getattr(counts, "completion_tokens", 0) or 0)
+        try:
+            choice = RouteChoice.model_validate_json(raw)
+        except ValidationError as error:
+            raise LLMError(f"route response did not match: {error}") from error
+        self._transcript.record(provider=self.name, purpose="route", response=choice.model_dump())
+        return choice
 
     def _schema_format(self) -> dict:
         return {

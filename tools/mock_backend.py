@@ -1,8 +1,20 @@
 """Mock backend for SIMBA.
 
-Plays a scripted sequence of backend-to-frontend messages for one complete
-task, so the frontend can be built with no real backend running. Also the
-demo-day fallback (see CONTRACT.md). Keep this in sync with CONTRACT.md.
+Plays scripted backend-to-frontend messages so the frontend can be built with
+no real backend running. Also the demo-day fallback (see CONTRACT.md). Keep
+this in sync with CONTRACT.md.
+
+**It routes a typed goal exactly as the real backend does** (2026-09-21): the
+same `router.route`, with the same configured model and the same keyword
+fallback. "hello" gets a greeting and cards, "book a flight" gets told what
+can be done, "pay for my course" gets asked which, and a request for one of
+the three flows plays that flow's script. Until that day it played the
+registration script whatever was typed — and carried the billing flow's
+answer on it — so a demo taught the wrong thing about what the product does.
+
+The billing and railways scripts present the real plans' own steps, so the
+demo says what the product says. The registration script is its own: it is
+where the step-failed notice and the level changes are demonstrated.
 
 Run: uvicorn tools.mock_backend:app --port 8000 --app-dir .
 """
@@ -16,11 +28,21 @@ from fastapi import FastAPI, WebSocket
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from backend.orchestrator.billing_plan import BILLING_PLAN  # noqa: E402
+from backend.orchestrator.railways_plan import RAILWAYS_PLAN  # noqa: E402
+from backend.orchestrator.router import (  # noqa: E402
+    ROUTABLE,
+    Route,
+    configured_classifier,
+    route,
+    use_model,
+)
 from backend.orchestrator.voice import actions  # noqa: E402
 from shared.envelope import envelope  # noqa: E402
 from shared.schema import (  # noqa: E402
     BaseModel,
     Finding,
+    GoalAnswered,
     HistoryOffered,
     LoadUpdated,
     PastGoal,
@@ -33,23 +55,15 @@ from shared.schema import (  # noqa: E402
 )
 
 TASK_ID = "t_demo01"
-GOAL = "Register for CS-401"
 
-# The level the frontend should be at when each step is presented. The
-# estimator does not exist yet, so this is scripted: two steps at the default,
+# --- registration: the demo of everything that can happen mid-task ------------
+
 # The step the mock reports as skipped. Third, so there is a step before it
 # to have "failed" and a step after it for the notice to sit above.
 FAILED_BEFORE_STEP = 3
 
-# The answer the scripted task is looking for, and the step it turns up on.
-# Two values, because a real answer usually has a qualifier attached: the
-# amount is the thing asked for and the date is what makes it actionable.
-FOUND_AT_STEP = 3
-FINDINGS = [
-    Finding(label="Your bill", value="14,382 rupees"),
-    Finding(label="Due", value="15 September"),
-]
-
+# The level the frontend should be at when each step is presented. The
+# estimator does not exist yet, so this is scripted: two steps at the default,
 # one at level 3, then back. It is here so the level change — the fold from
 # one level to the next — can be demoed and worked on without one.
 LEVEL_BEFORE_STEP = {3: 3, 4: 2}
@@ -59,7 +73,7 @@ LOAD_REASONS = {
     4: "recovered, acting quickly again",
 }
 
-STEPS = [
+REGISTRATION_STEPS = [
     StepPresented(
         step_index=1,
         step_total=3,
@@ -104,6 +118,51 @@ STEPS = [
     ),
 ]
 
+
+def from_plan(plan) -> list[StepPresented]:
+    """A real plan's steps, as the real backend would present them."""
+    return [
+        StepPresented(
+            step_index=index,
+            step_total=len(plan),
+            instruction=step.instruction,
+            detail=step.detail,
+            fields=list(step.fields),
+            actions=list(step.actions),
+            requires_confirmation=True,
+        )
+        for index, step in enumerate(plan, start=1)
+    ]
+
+
+#: One script per flow: (steps, findings, the step the answer turns up on).
+#: Registration changes something and finds nothing; the other two are asked
+#: a question, and the answer travels with every step from where it is found.
+SCRIPTS: dict[str, tuple[list[StepPresented], list[Finding], int]] = {
+    "registration": (REGISTRATION_STEPS, [], 0),
+    "billing": (
+        from_plan(BILLING_PLAN),
+        [
+            Finding(label="Your bill", value="14,382", values=["14,382"]),
+            Finding(label="Due", value="15 October 2026", values=["15 October 2026"]),
+        ],
+        3,
+    ),
+    "railways": (
+        from_plan(RAILWAYS_PLAN),
+        [
+            Finding(label="Train", value="2DN, 14DN", values=["2DN", "14DN"]),
+            Finding(label="Journey", value="18h 30m, 20h 5m",
+                    values=["18h 30m", "20h 5m"]),
+        ],
+        5,
+    ),
+}
+
+#: Every step the mock can show, for the copy tests that hold it to the same
+#: rules as a real plan (`frontend/test_copy.py`).
+STEPS = [step for steps, _, _ in SCRIPTS.values() for step in steps]
+
 app = FastAPI()
 
 
@@ -117,6 +176,7 @@ async def health() -> dict[str, str]:
     return {
         "status": "ok",
         "flow": "mock",
+        "router": "model" if use_model() else "keywords",
         "planner": "scripted",
         "trace_memory": "off",
         "browser": "none",
@@ -134,7 +194,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
         seq += 1
         await ws.send_text(json.dumps(envelope(msg_type, TASK_ID, seq, payload)))
 
-    async def receive(msg_type: str, step_index: int | None = None) -> None:
+    async def receive(msg_type: str, step_index: int | None = None) -> dict:
         while True:
             raw = await ws.receive_text()
             msg = json.loads(raw)
@@ -144,7 +204,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if not matches:
                 print(f"mock_backend: ignoring unexpected message {msg.get('type')!r}")
                 continue
-            return
+            return msg
 
     # The home screen's cards. Two, so the screen shows a choice rather than
     # a single button that looks like the only option.
@@ -158,15 +218,38 @@ async def ws_endpoint(ws: WebSocket) -> None:
         ),
     )
 
-    await receive("task.start")
+    # Routed exactly as the real backend routes. Anything that is not a
+    # request for a flow is answered, and the socket is kept for the next.
+    model = configured_classifier()
+    while True:
+        start = (await receive("task.start")).get("payload", {})
+        goal = (start.get("goal") or "").strip()
+        chosen = start.get("flow")
+        decided = (Route("flow", chosen, (chosen,), "chosen") if chosen in ROUTABLE
+                   else await route(goal, model))
+        print(f"mock_backend: routed {goal!r} -> {decided.kind} "
+              f"{decided.flow or list(decided.flows)} ({decided.via})")
+        if decided.kind == "flow" and decided.flow is not None:
+            break
+        await send("goal.answered",
+                   GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)))
 
-    await send("task.started", TaskStarted(goal=GOAL, estimated_steps=len(STEPS)))
+    await play(decided.flow, goal, send, receive)
+    await ws.close()
+
+
+async def play(flow: str, goal: str, send, receive) -> None:
+    """One flow's script, start to finish."""
+    steps, findings, found_at = SCRIPTS[flow]
+
+    await send("task.started", TaskStarted(goal=goal, estimated_steps=len(steps)))
     await send("state.changed", StateChanged(state="thinking"))
 
-    for step in STEPS:
-        # One step is reported as having failed and been carried past, so the
-        # quiet notice can be seen without waiting for a real page to break.
-        if step.step_index == FAILED_BEFORE_STEP:
+    for step in steps:
+        # The registration demo only: one step reported as having failed and
+        # been carried past, so the quiet notice can be seen without waiting
+        # for a real page to break.
+        if flow == "registration" and step.step_index == FAILED_BEFORE_STEP:
             await send(
                 "step.failed",
                 StepFailed(
@@ -183,7 +266,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
         # A level change lands before the step it applies to, so the fold and
         # the new step do not arrive in the same frame.
-        level = LEVEL_BEFORE_STEP.get(step.step_index)
+        level = LEVEL_BEFORE_STEP.get(step.step_index) if flow == "registration" else None
         if level is not None:
             await send(
                 "load.updated",
@@ -196,28 +279,29 @@ async def ws_endpoint(ws: WebSocket) -> None:
             await asyncio.sleep(0.6)
 
         await send("state.changed", StateChanged(state="acting"))
+        await asyncio.sleep(0.5)
         await send("state.changed", StateChanged(state="waiting"))
-        # From the step the amount is on, the answer travels with every step
-        # and then with the ending — the same journey a real run makes.
+        # From the step the answer is on, it travels with every step and then
+        # with the ending — the same journey a real run makes.
         await send(
             "step.presented",
-            step.model_copy(update={"findings": FINDINGS})
-            if step.step_index >= FOUND_AT_STEP
+            step.model_copy(update={"findings": findings})
+            if findings and step.step_index >= found_at
             else step,
         )
         await receive("step.response", step.step_index)
 
         await send("state.changed", StateChanged(state="thinking"))
+        await asyncio.sleep(0.3)
 
     await send(
         "task.completed",
         TaskCompleted(
-            summary="Registered for CS-401.",
+            summary=goal,
             duration_ms=48200,
-            steps_taken=len(STEPS),
+            steps_taken=len(steps),
             llm_calls=0,
             replayed=False,
-            findings=FINDINGS,
+            findings=findings,
         ),
     )
-    await ws.close()

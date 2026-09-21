@@ -7,13 +7,24 @@ Run from the repo root:
 The frontend connects to /ws, sends `task.start`, and answers each
 `step.presented` with a `step.response`.
 
-Two switches, both environment variables:
+**The typed goal decides what happens** (2026-09-21). Every `task.start` is
+routed first (`router.py`): a request for one of the flows runs that flow
+with the goal as typed; small talk, a request SIMBA cannot do, or one that
+could be two flows gets a `goal.answered` instead, and the socket stays open
+for whatever the person picks next. Nothing runs that was not asked for —
+until that day `SIMBA_FLOW` chose the task, and "hello" ran the bill.
 
-- `SIMBA_FLOW` picks the site, the replica URL and the hardcoded plan:
-  `registration` (default), `billing`, `railways`, or `stubborn` — a
-  registration-replica page whose first control does nothing, for measuring
-  recovery. The *goal* comes from the frontend's `task.start`; the flow's own
-  goal is only the fallback when the message carries none.
+The switches, all environment variables:
+
+- `SIMBA_ROUTER` is `model` (default: one classification call to the
+  configured provider, keywords if there is no key, no quota or no answer in
+  time) or `keywords` (never call the model; what the tests use).
+- `SIMBA_FLOW` no longer chooses anything a person gets. It keeps two narrow
+  jobs: `stubborn` runs the registration request on the rigged page that
+  measures recovery, and `SIMBA_FLOW` + `SIMBA_REPLICA_URL` together point
+  that one flow at another URL, as the websocket tests do. Each flow's URL can
+  also be set directly: `SIMBA_REGISTRATION_URL`, `SIMBA_BILLING_URL`,
+  `SIMBA_RAILWAYS_URL`.
 - `SIMBA_USE_HARDCODED_PLAN=1` runs that flow's hardcoded plan instead of the
   LLM — the A/B comparison, and the deterministic fallback for demo day.
 - `SIMBA_TRACE_MEMORY=1` wraps whichever planner was chosen in `TracePlanner`,
@@ -24,6 +35,7 @@ Two switches, both environment variables:
   site view). See `browser.py`.
 """
 
+import logging
 import os
 import sqlite3
 from dataclasses import replace
@@ -40,9 +52,16 @@ from backend.orchestrator.loop import Connection, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
+from backend.orchestrator.router import (
+    ROUTABLE,
+    Route,
+    configured_classifier,
+    route,
+    use_model,
+)
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
 from backend.orchestrator.traces import TraceStore, site_of
-from shared.schema import HistoryOffered, PastGoal
+from shared.schema import GoalAnswered, HistoryOffered, PastGoal
 
 DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
 # How many past goals the home screen offers. Three large cards is a choice;
@@ -74,24 +93,46 @@ def use_trace_memory() -> bool:
     return _flag("SIMBA_TRACE_MEMORY")
 
 
-def selected_flow() -> tuple:
-    name = os.environ.get("SIMBA_FLOW", "registration").strip().lower()
-    if name not in FLOWS:
+log = logging.getLogger("simba.app")
+
+
+def pinned_flow() -> str | None:
+    """`SIMBA_FLOW`, if set. It no longer chooses the task; see the docstring."""
+    name = os.environ.get("SIMBA_FLOW", "").strip().lower()
+    if name and name not in FLOWS:
         raise RuntimeError(f"unknown SIMBA_FLOW {name!r}; expected one of {sorted(FLOWS)}")
-    task, plan, default_url = FLOWS[name]
-    return name, task, plan, os.environ.get("SIMBA_REPLICA_URL", default_url)
+    return name or None
+
+
+def flow_setup(name: str) -> tuple:
+    """The task, plan and URL a routed flow runs with.
+
+    `stubborn` stands in for `registration` when pinned, so the recovery rig
+    is still reachable through the real endpoint by asking for a course.
+    """
+    pinned = pinned_flow()
+    actual = "stubborn" if (name == "registration" and pinned == "stubborn") else name
+    task, plan, url = FLOWS[actual]
+    url = os.environ.get(f"SIMBA_{name.upper()}_URL", url)
+    # `SIMBA_REPLICA_URL` meant "the selected flow's URL", and with nothing
+    # selected the selected flow was registration. Both meanings are kept, so
+    # nothing that already sets it moves to a different site.
+    legacy = os.environ.get("SIMBA_REPLICA_URL")
+    if legacy and (pinned == actual or (pinned is None and name == "registration")):
+        url = legacy
+    return actual, task, plan, url
 
 
 @app.get("/")
 async def health() -> dict[str, str]:
-    name, _, _, url = selected_flow()
     return {
         "status": "ok",
-        "flow": name,
+        "flow": pinned_flow() or "routed by goal",
+        "router": "model" if use_model() else "keywords",
         "planner": "hardcoded" if use_hardcoded_plan() else "llm",
         "trace_memory": "on" if use_trace_memory() else "off",
         "browser": browser_source(),
-        "replica": url,
+        "replica": "per flow",
     }
 
 
@@ -123,15 +164,36 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # to show the moment it connects.
     await connection.send("history.offered", past_goals())
 
-    start = await connection.receive("task.start")
+    # Routed first, every time. Anything that is not a request for a flow is
+    # answered and the socket is kept, so the person's next choice — a card, a
+    # clarifying button, a new sentence — arrives on the same connection.
+    model = configured_classifier()
+    while True:
+        start = await connection.receive("task.start")
+        payload = start.get("payload", {})
+        goal = (payload.get("goal") or "").strip()
+        chosen = payload.get("flow")
 
-    _, task, plan, replica_url = selected_flow()
+        if chosen in ROUTABLE:
+            # Picked by the person from something we offered. Not classified
+            # again: they have already answered the question.
+            decided = Route("flow", chosen, (chosen,), "chosen")
+        else:
+            decided = await route(goal, model)
+        log.info("routed %r -> %s %s (%s)", goal, decided.kind,
+                 decided.flow or list(decided.flows), decided.via)
 
-    # The goal comes from the frontend. SIMBA_FLOW still decides which site
-    # to open and which hardcoded plan is available, but what the user typed
-    # is what the task is — a documented field that was quietly discarded is
-    # worse than no field at all (DECISIONS.md).
-    goal = (start.get("payload", {}).get("goal") or "").strip()
+        if decided.kind == "flow" and decided.flow is not None:
+            break
+        await connection.send(
+            "goal.answered",
+            GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)),
+        )
+
+    _, task, plan, replica_url = flow_setup(decided.flow)
+    # What the person typed is what the task is. A card's goal is its own
+    # sentence; an empty goal cannot reach here, because it routes to a
+    # greeting.
     if goal:
         task = replace(task, goal=goal)
 

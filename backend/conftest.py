@@ -25,6 +25,12 @@ from pathlib import Path
 
 import pytest
 
+# Every app a test starts routes goals by keywords unless the test says
+# otherwise. The default is one call to the configured model, and the key in
+# `.env` is real: without this, every websocket test would spend quota on
+# classifying a goal it already knows the answer to (2026-09-21).
+os.environ.setdefault("SIMBA_ROUTER", "keywords")
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

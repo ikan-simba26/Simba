@@ -18,6 +18,7 @@ export type MessageType =
   | "task.started"
   | "state.changed"
   | "history.offered"
+  | "goal.answered"
   | "step.presented"
   | "step.failed"
   | "load.updated"
@@ -59,6 +60,20 @@ export interface PastGoal {
  */
 export interface HistoryOffered {
   goals: PastGoal[];
+}
+
+export type FlowName = "registration" | "billing" | "railways";
+export type AnswerKind = "greeting" | "unsupported" | "clarify";
+
+/**
+ * A typed goal that did not start a task, and what to offer instead.
+ * Added 2026-09-21, pending ratification (CONTRACT.md). Carries no words: the
+ * overlay writes every sentence from `copy.ts`.
+ */
+export interface GoalAnswered {
+  kind: AnswerKind;
+  goal: string;
+  flows: FlowName[];
 }
 
 /**
@@ -167,6 +182,8 @@ export interface ErrorPayload {
 export interface TaskStart {
   goal: string;
   input_mode: InputMode;
+  /** Additive, optional (2026-09-21): the flow the person picked. */
+  flow?: FlowName;
 }
 
 export interface StepResponse {
@@ -218,6 +235,7 @@ export type AnyEnvelope =
   | Envelope<TaskStarted>
   | Envelope<StateChanged>
   | Envelope<HistoryOffered>
+  | Envelope<GoalAnswered>
   | Envelope<StepPresented>
   | Envelope<StepFailed>
   | Envelope<LoadUpdated>

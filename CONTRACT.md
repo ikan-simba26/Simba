@@ -104,6 +104,40 @@ chosen, for these reasons:
   writes to it. With the launchers' defaults the list is whatever an earlier
   trace-memory run left in `traces.db`, which is usually nothing.
 
+### `goal.answered`
+Added 2026-09-21. **Pending ratification**, on the same terms as
+`history.offered`: a new message type, not an optional field, so it needs
+Nahail, Raham and Aly. Until then a frontend must keep working without it.
+
+Sent in answer to a `task.start` whose goal is **not** a request for one of
+the flows. No task starts. The socket stays open, and the next `task.start`
+arrives on it.
+```json
+{ "kind": "clarify", "goal": "I need to pay for my course",
+  "flows": ["registration", "billing"] }
+```
+`kind` is one of:
+
+- `greeting` — small talk, or an empty goal. Offer what can be done.
+- `unsupported` — a real request SIMBA cannot do. Say so, and offer what can.
+- `clarify` — it could be two or more flows. Ask which; each of `flows` is a
+  choice.
+
+`flows` is what to offer, from `registration` | `billing` | `railways`: all
+of them for `greeting` and `unsupported`, the candidates for `clarify`.
+`goal` is what was typed, so a clarifying choice can send it back unchanged.
+
+**It carries no words.** The overlay writes every sentence and every card
+from `copy.ts`, where the rest of what the person reads is kept and tested —
+so the real backend and the mock cannot disagree about what is said, and no
+sentence reaches the screen that the copy rules have not checked.
+
+**Why this exists.** Until 2026-09-21 the backend's `SIMBA_FLOW` chose the
+task and the goal was only its label: "hello" typed into a backend started as
+`billing` began on somebody's bill. The rule this serves is that nothing
+starts that the person did not ask for, and keeping it needs a way to answer
+without starting anything.
+
 ### `step.presented`
 The main message.
 ```json
@@ -231,12 +265,26 @@ page, and the run then opens the detail page where that column does not exist.
 ```
 `input_mode` is `text` | `voice`.
 
-`goal` is what the task *is*. The backend runs it as sent; it does not
-substitute a goal of its own. Where the backend is configured for a
-particular site, that configuration chooses the site and any pre-written
-plan, never the goal. A `goal` that is empty or whitespace falls back to
-whatever the backend was configured with, so a frontend that omits it still
-gets a working task.
+`goal` is what the task *is*, and since 2026-09-21 it also decides **which**
+task, if any. The backend classifies it — one call to the configured model,
+keywords if there is none — and runs the matching flow with the goal as
+typed, or answers with `goal.answered` and starts nothing. Configuration no
+longer chooses the task.
+
+**Changed on 2026-09-21, and needs ratifying with the rest:** a `goal` that
+is empty or whitespace used to fall back to the configured flow, "so a
+frontend that omits it still gets a working task". It is now answered as a
+`greeting`. An empty box is nobody asking for anything, and with a backend
+configured for billing the old rule looked up a bill nobody had asked about.
+
+`flow` is **additive and optional** (2026-09-21): `registration` | `billing`
+| `railways`. The overlay sets it when the person picked a flow — pressing a
+card, or answering a `clarify` — and the backend then runs exactly that flow
+without classifying again. Any other value is ignored and the goal is
+classified as usual.
+```json
+{ "goal": "I need to pay for my course", "input_mode": "text", "flow": "billing" }
+```
 
 ### `step.response`
 ```json

@@ -329,8 +329,25 @@ def test_the_typed_goal_becomes_the_task(orchestrator: str) -> None:
     assert started["goal"] == goal
 
 
-def test_an_empty_goal_falls_back_to_the_flow(orchestrator: str) -> None:
-    """A frontend that sends nothing still gets a working task."""
-    started = asyncio.run(_start_with_goal(orchestrator, "   "))
+async def _first_reply(ws_url: str, goal: str) -> dict:
+    """Send task.start with this goal, return whichever reply comes first."""
+    async with websockets.connect(ws_url, max_size=None) as ws:
+        await ws.send(json.dumps({
+            "v": 1, "type": "task.start", "task_id": "t_test", "seq": 1, "ts": 0,
+            "payload": {"goal": goal, "input_mode": "text"},
+        }))
+        while True:
+            message = json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+            if message["type"] in ("task.started", "goal.answered"):
+                return message
 
-    assert started["goal"] == BILLING_TASK.goal
+
+def test_an_empty_goal_starts_nothing(orchestrator: str) -> None:
+    """Reversed on 2026-09-21. This used to assert the opposite — an empty goal
+    ran the configured flow, "so a frontend that sends nothing still gets a
+    working task". With the backend pinned to billing, that was a bill looked
+    up that nobody asked for. An empty box is nobody asking; it is greeted."""
+    reply = asyncio.run(_first_reply(orchestrator, "   "))
+
+    assert reply["type"] == "goal.answered"
+    assert reply["payload"]["kind"] == "greeting"
