@@ -11,6 +11,7 @@ replica, and the railways flow is checked without touching the live site.
 """
 
 import asyncio
+import concurrent.futures
 import json
 import os
 import subprocess
@@ -101,7 +102,10 @@ def converse(url: str, *starts: dict) -> Talk:
                 await talk.until("goal.answered", *ENDINGS)
             return talk
 
-    return asyncio.run(run())
+    # On its own thread, for the reason in `backend/conftest.py`: a sync
+    # Playwright session from another module holds a loop on this one.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, run()).result()
 
 
 def answer_of(talk: Talk) -> dict:
@@ -157,7 +161,8 @@ def test_trains_to_karachi_routes_to_railways() -> None:
     from backend.orchestrator.app import flow_setup
     from backend.orchestrator.router import by_keywords, route
 
-    decided = aio.run(route("trains to Karachi", None))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        decided = pool.submit(aio.run, route("trains to Karachi", None)).result()
     assert (decided.kind, decided.flow) == ("flow", "railways")
     name, _, plan, url = flow_setup(decided.flow)
     assert (name, plan, url) == ("railways", RAILWAYS_PLAN, RAILWAYS_URL)

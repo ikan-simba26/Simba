@@ -8,6 +8,7 @@ person did not ask for.**
 """
 
 import asyncio
+import concurrent.futures
 
 import pytest
 
@@ -160,7 +161,11 @@ class FakeModel:
 
 
 def routed(goal: str, model) -> Route:
-    return asyncio.run(route(goal, model=model))
+    # On its own thread: a sync Playwright session from a frontend test in the
+    # same run holds a loop on this one, and `asyncio.run` refuses to start
+    # beside it (`backend/conftest.py`). Found by running these after them.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, route(goal, model=model)).result()
 
 
 def test_the_model_is_asked_once_and_believed() -> None:
