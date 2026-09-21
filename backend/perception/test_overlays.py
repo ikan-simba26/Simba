@@ -563,3 +563,62 @@ def test_the_blockers_rect_is_still_the_whole_element(page: Page) -> None:
     assert report.blockers[0].rect[3] == pytest.approx(800, abs=1), (
         "the rect was clipped; it should be the element's real box"
     )
+
+
+# --- the viewport is wherever the page is scrolled to ------------------------
+#
+# The clip above was written as though every read happens at the top of the
+# page. Idle reads do; driven ones do not. When a corpus drive clicks a button
+# half-way down a docs page, Playwright scrolls it into view first, and CDP
+# reports every box in *document* coordinates — so Bootstrap's full-screen
+# backdrop, read at scroll 900, has the rect (0, 900, 1280, 800). Clipped
+# against (0, 0, 1280, 800) it covered 0.000 of the screen. Five full-screen
+# overlays in the corpus went from 1.000 to near nothing in one commit
+# (EVALUATION.md, 2026-09-20e).
+
+SCROLLED_MODAL = """
+<style>
+  body { margin: 0; }
+  #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+           background: rgba(0,0,0,.5); z-index: 50; }
+</style>
+<div style="height: 5000px"><button>Buy now</button></div>
+<div id="modal"><button>Close</button></div>
+"""
+
+
+def test_a_full_screen_modal_on_a_scrolled_page_covers_the_screen(page: Page) -> None:
+    built(page, SCROLLED_MODAL)
+    page.evaluate("window.scrollTo(0, 1234)")
+    page.wait_for_timeout(100)
+
+    report = analyse(snapshot_of(page), VIEWPORT)
+
+    assert report.blocked, "a full-screen modal was missed because the page was scrolled"
+    assert report.blockers[0].coverage == pytest.approx(1.0, abs=0.01)
+
+
+def test_a_box_in_view_after_scrolling_counts_and_one_above_it_does_not(
+    page: Page,
+) -> None:
+    """Scrolled to 9000, the promo panel at 9000 is on screen; at 0 it is not."""
+    built(page, FAR_DOWN_THE_PAGE)
+    page.evaluate("window.scrollTo(0, 9000)")
+    page.wait_for_timeout(100)
+
+    assert analyse(snapshot_of(page), VIEWPORT).blocked
+
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(100)
+
+    assert not analyse(snapshot_of(page), VIEWPORT).blocked
+
+
+def test_the_document_records_where_it_was_scrolled(page: Page) -> None:
+    built(page, SCROLLED_MODAL)
+    page.evaluate("window.scrollTo(0, 1234)")
+    page.wait_for_timeout(100)
+
+    document = parse(snapshot_of(page))
+
+    assert document.scroll == (0.0, 1234.0)

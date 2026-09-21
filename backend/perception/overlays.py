@@ -213,7 +213,8 @@ def positioned(document: Document, viewport: tuple[int, int]) -> list[Candidate]
                 # and must not be: a sheet hanging off the bottom of the
                 # screen still covers what is under its visible half.
                 rect=bounds,
-                coverage=_on_screen_area(bounds, viewport) / viewport_area,
+                coverage=_on_screen_area(bounds, viewport, document.scroll)
+                / viewport_area,
                 position=position,
                 z_index=z_index,
                 declared=(
@@ -331,20 +332,25 @@ def analyse(
     )
 
 
-def _on_screen_area(rect: Rect, viewport: tuple[int, int]) -> float:
+def _on_screen_area(
+    rect: Rect, viewport: tuple[int, int], scroll: tuple[float, float] = (0.0, 0.0)
+) -> float:
     """How much of a box is inside the viewport, in square CSS pixels.
 
-    The page is read at the top of its scroll, which is how every read in
-    this project happens, so "inside the viewport" means inside
-    `(0, 0, width, height)`. A box entirely below the fold returns 0.
+    Boxes are in document coordinates, so the viewport is wherever the page
+    was scrolled to: `(scroll_x, scroll_y, width, height)`. The first version
+    of this assumed the top of the page, which is true of an idle read and
+    false of every driven one — a full-screen backdrop on a page scrolled to
+    900 was clipped to nothing (EVALUATION.md, 2026-09-20e).
     """
     x, y, width, height = rect
     if width <= 0 or height <= 0:
         return 0.0
-    left = max(x, 0.0)
-    top = max(y, 0.0)
-    right = min(x + width, float(viewport[0]))
-    bottom = min(y + height, float(viewport[1]))
+    view_x, view_y = scroll
+    left = max(x, view_x)
+    top = max(y, view_y)
+    right = min(x + width, view_x + float(viewport[0]))
+    bottom = min(y + height, view_y + float(viewport[1]))
     return max(right - left, 0.0) * max(bottom - top, 0.0)
 
 
