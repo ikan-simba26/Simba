@@ -138,9 +138,11 @@ def is_small_talk(goal: str) -> bool:
 def by_keywords(goal: str) -> Route:
     """The offline classifier. Counts which flow's words appear.
 
-    A clear winner is that flow. A tie between two or more is a question —
-    "pay for my course" names the bill site and the course site equally, and
-    guessing is how the wrong task starts. No flow words at all is either
+    A flow named by a strong word, and no other, is that flow. Two flows
+    named by strong words is a question, whatever the count — "a payment due
+    and a class to sign up for" asks for two things, and running the one with
+    more words starts half of what was asked. Place names only ever add weight;
+    they never make a second flow on their own. No flow words at all is either
     small talk or a request SIMBA cannot do.
     """
     if is_small_talk(goal):
@@ -162,6 +164,15 @@ def by_keywords(goal: str) -> Route:
     vetoed = any(word in ELSEWHERE for word in words) and max(strong.values()) == 0
     if best < 1 or vetoed:
         return Route("unsupported", None, ROUTABLE, "keywords")
+
+    # Two flows named outright is a question, whatever the count says. A
+    # winner-takes-all count ran billing for "I have a payment due and a class
+    # to sign up for" — two bill words to one class word — and started one of
+    # the two things asked for (2026-09-21). Weak words never force this:
+    # a place name is not a request for trains.
+    named = tuple(flow for flow in ROUTABLE if strong[flow] > 0)
+    if len(named) > 1:
+        return Route("clarify", None, named, "keywords")
 
     leaders = tuple(flow for flow in ROUTABLE if scores[flow] == best)
     if len(leaders) > 1:

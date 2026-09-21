@@ -110,6 +110,31 @@ def test_real_requests_outside_the_flows_are_declined(goal: str) -> None:
     assert keywords(goal).kind == "unsupported", goal
 
 
+@pytest.mark.parametrize("goal,flows", [
+    # The case that ran billing when the model timed out on 2026-09-21: two
+    # bill words beat one class word, and only one of two requests started.
+    ("I have a payment due and a class to sign up for", {"billing", "registration"}),
+    ("pay my electricity bill and then find me a train", {"billing", "railways"}),
+    ("register for CS-401 and check the train times", {"registration", "railways"}),
+    ("sort out my university fee", {"billing", "registration"}),
+])
+def test_strong_words_for_two_flows_ask_which_rather_than_run_one(
+    goal: str, flows: set[str]
+) -> None:
+    """A count is not a choice. Two flows named outright is a question."""
+    found = keywords(goal)
+
+    assert found.kind == "clarify", (goal, found)
+    assert set(found.flows) == flows
+
+
+def test_a_place_name_alone_does_not_make_a_second_flow() -> None:
+    """Weak words still only add up; they never force a question on their own."""
+    found = keywords("check my electricity bill before I go to Lahore")
+
+    assert (found.kind, found.flow) == ("flow", "billing")
+
+
 def test_hello_with_a_request_is_the_request() -> None:
     """A greeting in front of a request does not swallow it."""
     found = keywords("hi, can you check my electricity bill")
