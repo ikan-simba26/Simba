@@ -11,6 +11,7 @@ import { envelope } from "@shared/envelope";
 import type {
   AnyEnvelope,
   Envelope,
+  FlowName,
   Level,
   LevelOverride,
   MessageType,
@@ -90,8 +91,9 @@ export class BackendConnection {
 
   // --- sending -------------------------------------------------------------
 
-  startTask(goal: string): void {
-    const payload: TaskStart = { goal, input_mode: "text" };
+  startTask(goal: string, flow?: FlowName): void {
+    const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
+                                    : { goal, input_mode: "text" };
     this.send("task.start", payload);
   }
 

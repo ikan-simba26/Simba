@@ -43,7 +43,7 @@
  * requires them to be the same sentence.
  */
 
-import type { Level } from "@shared/schema";
+import type { FlowName, Level } from "@shared/schema";
 
 /* --------------------------------------------------------------- onward */
 
@@ -70,6 +70,54 @@ export const HOME = {
   askHeading: "What would you like me to do?",
   placeholder: "Pay my electricity bill",
   start: "Start",
+} as const;
+
+/* ---------------------------------------------------------------- flows */
+
+/**
+ * The three things SIMBA can do, one line each, as a person would ask.
+ *
+ * Each line is both what the card says and the goal it sends: pressing
+ * "Check my electricity bill" asks for exactly that, in exactly those words,
+ * so what the person chose and what runs cannot disagree. The goal is sent
+ * with the flow's name, so the backend does not have to guess from it.
+ */
+export const FLOWS: Record<FlowName, string> = {
+  registration: "Register for CS-401",
+  billing: "Check my electricity bill",
+  railways: "Find trains from Lahore to Karachi",
+};
+
+/**
+ * The same three, as answers to "which of these did you mean". Not the card
+ * lines: these do not send their own words, they send the person's.
+ */
+export const WHICH: Record<FlowName, string> = {
+  registration: "The course registration",
+  billing: "The electricity bill",
+  railways: "The train times",
+};
+
+/* ---------------------------------------------------------------- reply */
+
+/**
+ * When a goal did not start anything (`goal.answered`, CONTRACT.md).
+ *
+ * The backend never writes these. It says which kind of answer it is and
+ * which flows to offer, and the words come from here, so the real backend and
+ * the mock say the same thing and the copy tests see every sentence.
+ */
+export const REPLY = {
+  /** Small talk, or nothing typed. */
+  greeting: "Hello. Here's what I can help with.",
+  /** A real request SIMBA cannot do. One plain sentence, then what it can. */
+  unsupported: "I can't do that yet.",
+  /** Above the cards, after the refusal. A lead-in. */
+  canDo: "Here's what I can do",
+  /** It could be more than one. */
+  clarify: "Which of these did you mean?",
+  /** Above the words the person typed, echoed back quietly. A lead-in. */
+  youAsked: "You asked",
 } as const;
 
 /* -------------------------------------------------------------- presence */
@@ -267,12 +315,17 @@ export const SITUATIONS: Record<string, string> = {
   "home.greeting": HOME.greeting,
   "home.askHeading": HOME.askHeading,
   "trust.ask": TRUST.ask,
+  "reply.greeting": REPLY.greeting,
+  "reply.unsupported": REPLY.unsupported,
+  "reply.clarify": REPLY.clarify,
 };
 
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
 export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
   "home.againHeading": HOME.againHeading,
+  "reply.canDo": REPLY.canDo,
+  "reply.youAsked": REPLY.youAsked,
 };
 
 /** Everything that goes on a button. Never punctuated, never two for one place. */
@@ -288,4 +341,10 @@ export const LABELS: Record<string, string> = {
   "level.choose3": LEVEL.choose(3),
   "trust.hide": TRUST.hide,
   "trust.close": TRUST.close,
+  "flow.registration": FLOWS.registration,
+  "flow.billing": FLOWS.billing,
+  "flow.railways": FLOWS.railways,
+  "which.registration": WHICH.registration,
+  "which.billing": WHICH.billing,
+  "which.railways": WHICH.railways,
 };

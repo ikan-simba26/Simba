@@ -17,9 +17,9 @@ import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
 import { StepFailureNotice } from "./components/StepNotice";
-import { ENDING, HOME, STOPPED, presence } from "./copy";
+import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
 import { StepView } from "./components/StepView";
-import type { Finding } from "@shared/schema";
+import type { Finding, FlowName } from "@shared/schema";
 
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
@@ -54,7 +54,8 @@ export default function App() {
 }
 
 function Column() {
-  const { state, step, help, completed, failed, stoppedByPerson, task, trustOpen } = useStore();
+  const { state, step, help, completed, failed, stoppedByPerson, task, trustOpen, reply } =
+    useStore();
 
   const acting = state === "acting";
   const thinking = state === "thinking";
@@ -77,7 +78,9 @@ function Column() {
           ? `step-${step.step_index}`
           : task
             ? "working"
-            : "idle";
+            : reply
+              ? `reply-${reply.kind}`
+              : "idle";
 
   return (
     <motion.div
@@ -108,6 +111,7 @@ function Column() {
               className="pt-10 [grid-area:1/1]"
             >
               {screen === "idle" && <Home />}
+              {screen.startsWith("reply-") && <Reply />}
               {screen === "working" && <Working />}
               {screen.startsWith("step-") && <Step />}
               {screen === "completed" && <Completed />}
@@ -215,6 +219,74 @@ function Home() {
           </motion.button>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * A goal that started nothing: hello, something SIMBA cannot do, or a
+ * question about which of two things was meant.
+ *
+ * Never a dead end. A greeting and a refusal both show what can be done, as
+ * the same cards, and the box is there to ask again. A question shows its
+ * choices as buttons, and each one sends the person's own words back with the
+ * flow they picked, so what runs is what they typed.
+ */
+function Reply() {
+  const { reply, startTask } = useStore();
+  const [goal, setGoal] = useState("");
+  if (!reply) return null;
+
+  const heading =
+    reply.kind === "greeting" ? REPLY.greeting
+    : reply.kind === "unsupported" ? REPLY.unsupported
+    : REPLY.clarify;
+  const start = () => goal.trim() && startTask(goal.trim());
+
+  return (
+    <div className="flex flex-col gap-8">
+      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em]">{heading}</h1>
+
+      {reply.kind !== "greeting" && reply.goal && (
+        <div className="flex flex-col gap-1">
+          <p className="text-[15px] text-muted">{REPLY.youAsked}</p>
+          <p className="text-[19px] text-ink">{reply.goal}</p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        {reply.kind === "unsupported" && (
+          <p className="text-[15px] text-muted">{REPLY.canDo}</p>
+        )}
+        {reply.flows.map((flow: FlowName) => (
+          <button
+            key={flow}
+            type="button"
+            onClick={() =>
+              reply.kind === "clarify" ? startTask(reply.goal, flow) : startTask(FLOWS[flow], flow)
+            }
+            className="w-full rounded-xl border border-line bg-raised px-5 py-5 text-left
+                       text-[21px] leading-snug text-ink transition-colors duration-300
+                       hover:border-accent"
+          >
+            {reply.kind === "clarify" ? WHICH[flow] : FLOWS[flow]}
+          </button>
+        ))}
+      </div>
+
+      {reply.kind !== "clarify" && (
+        <div className="flex flex-col gap-4">
+          <input
+            className="h-14 rounded-lg border border-line bg-raised px-4 text-[19px] text-ink
+                       outline-none transition-colors duration-300 focus:border-accent"
+            value={goal}
+            onChange={(event) => setGoal(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && start()}
+            placeholder={HOME.placeholder}
+            aria-label={HOME.askHeading}
+          />
+        </div>
+      )}
     </div>
   );
 }

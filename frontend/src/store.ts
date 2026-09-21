@@ -11,6 +11,8 @@ import type {
   AnyEnvelope,
   Level,
   ErrorPayload,
+  FlowName,
+  GoalAnswered,
   HelpRequested,
   HistoryOffered,
   PastGoal,
@@ -78,6 +80,12 @@ interface Store {
    * closing screen's "do something else" goes straight back to them.
    */
   history: PastGoal[];
+  /**
+   * The backend's answer to a goal that did not start a task: a greeting, a
+   * polite "I can't do that", or "which of these did you mean". Nothing is
+   * running while this is set; the next choice is the person's.
+   */
+  reply: GoalAnswered | null;
 
   log: LogEntry[];
 
@@ -125,7 +133,12 @@ interface Store {
   watchTelemetry: () => () => void;
   connect: (url?: string) => void;
   setWsUrl: (url: string) => void;
-  startTask: (goal: string) => void;
+  /**
+   * Ask for something. `flow` is set when the person picked one of the things
+   * offered — a card, or an answer to "which did you mean" — so the backend
+   * runs exactly that and does not guess again.
+   */
+  startTask: (goal: string, flow?: FlowName) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -150,6 +163,7 @@ const EMPTY = {
   stoppedByPerson: false,
   error: null,
   stepFailure: null,
+  reply: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -242,7 +256,7 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal) => {
+    startTask: (goal, flow) => {
       set({ ...EMPTY });
       // A dead socket is the usual state when the backend was started after
       // the window, and after every completed task, since the backend closes
@@ -255,7 +269,7 @@ export const useStore = create<Store>((set, get) => {
         set({ log: [] });
         connection.connect(get().wsUrl);
       }
-      connection.startTask(goal);
+      connection.startTask(goal, flow);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -323,6 +337,10 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     case "history.offered":
       set({ history: (message.payload as HistoryOffered).goals });
+      return;
+    case "goal.answered":
+      // No task started. The socket stays open for the person's next choice.
+      set({ reply: message.payload as GoalAnswered, task: null, state: null });
       return;
     case "step.failed":
       // Not cleared here or by the step that follows: see the store field.
