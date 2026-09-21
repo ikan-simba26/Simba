@@ -1,12 +1,14 @@
 /**
  * The overlay. This is what the person actually sees.
  *
- * One column, one thing at a time, nothing in the corners. Everything the
- * developer might want — the log, the connection, the raw messages — lives
- * behind Ctrl+Shift+D and is not on screen otherwise.
+ * One column, one thing at a time, nothing in the corners. The assistant's
+ * presence sits above the column in the same place on every screen; the
+ * screen below it changes. Everything the developer might want — the log,
+ * the connection, the raw messages — lives behind Ctrl+Shift+D.
  *
  * All three levels, with the change between them animated as a fold rather
- * than a swap — see `StepShell`.
+ * than a swap — see `StepShell`. Every size, colour and duration comes from
+ * the tokens in `index.css` and `design.ts`.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,17 +17,29 @@ import { useEffect, useRef, useState } from "react";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
-import { ActingLine, StuckNote, ThinkingPulse, isWaiting } from "./components/StateSignal";
+import { StuckNote, isWaiting } from "./components/StateSignal";
 import { StepFailureNotice } from "./components/StepNotice";
+import {
+  AgainIcon,
+  Button,
+  Card,
+  CheckIcon,
+  ChoiceCard,
+  FlowIcon,
+  PauseIcon,
+  Presence,
+  SpeechIcon,
+  type PresenceMode,
+} from "./components/ui";
 import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
+import { ARRIVE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import type { Finding, FlowName } from "@shared/schema";
 
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
 
-const EASE = [0.22, 0.61, 0.36, 1] as const;
-const TRANSITION = { duration: 0.3, ease: EASE };
+const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
 
 export default function App() {
   const connect = useStore((state) => state.connect);
@@ -41,8 +55,9 @@ export default function App() {
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
-    <div className="flex min-h-full justify-center bg-canvas px-6 py-24">
-      <div className="w-full max-w-[640px]">
+    <div className="flex min-h-full flex-col items-center bg-canvas px-6 pt-8 pb-16">
+      <PresenceBar />
+      <div className="mt-8 w-full max-w-[680px]">
         <LevelNotice />
         <StepFailureNotice />
         <Column />
@@ -53,12 +68,32 @@ export default function App() {
   );
 }
 
+/** Which of the presence mark's six shapes the current screen means. */
+function usePresenceMode(): PresenceMode {
+  const { state, step, help, completed, failed, stoppedByPerson, task } = useStore();
+  if (stoppedByPerson) return "ready";
+  if (help || failed || state === "stuck") return "stuck";
+  if (completed) return "done";
+  if (state === "acting") return "acting";
+  if (step && isWaiting(state)) return "waiting";
+  if (task) return "thinking";
+  return "ready";
+}
+
+function PresenceBar() {
+  const { trustOpen } = useStore();
+  const mode = usePresenceMode();
+  return (
+    <motion.div animate={{ opacity: trustOpen ? 0 : 1 }} transition={ARRIVE}>
+      <Presence mode={mode} />
+    </motion.div>
+  );
+}
+
 function Column() {
-  const { state, step, help, completed, failed, stoppedByPerson, task, trustOpen, reply } =
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state } =
     useStore();
 
-  const acting = state === "acting";
-  const thinking = state === "thinking";
   const stuck = state === "stuck" || Boolean(help);
 
   // One screen at a time, and only one. The key drives the crossfade.
@@ -86,84 +121,89 @@ function Column() {
     <motion.div
       // Out of the way while the real page is being shown.
       animate={{ y: trustOpen ? -28 : 0, opacity: trustOpen ? 0 : 1 }}
-      transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+      transition={{ duration: 0.42, ease: [0.4, 0, 0.2, 1] }}
       style={{ pointerEvents: trustOpen ? "none" : "auto" }}
     >
-      <ActingLine active={acting} />
-
-      <ThinkingPulse active={thinking && !step}>
-        {/* Both screens share one grid cell, so the outgoing and incoming
-            ones overlap during the crossfade instead of stacking and
-            shoving the column down. `mode="wait"` would avoid the overlap
-            by serialising them, but it strands the transition here: the
-            exiting child stays mounted at opacity 0 and the next one never
-            arrives, leaving the column blank. */}
-        <div className="grid">
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={screen}
-              /* No `layout` on this element: reflow is done with `layout`
-                 on the blocks inside a step instead. */
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={TRANSITION}
-              className="pt-10 [grid-area:1/1]"
-            >
-              {screen === "idle" && <Home />}
-              {screen.startsWith("reply-") && <Reply />}
-              {screen === "working" && <Working />}
-              {screen.startsWith("step-") && <Step />}
-              {screen === "completed" && <Completed />}
-              {screen === "failed" && <Failed />}
-              {screen === "stopped" && <StoppedByPerson />}
-              {screen === "stuck" && <Stuck />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </ThinkingPulse>
+      {/* Both screens share one grid cell, so the outgoing and incoming ones
+          overlap during the crossfade instead of stacking and shoving the
+          column down. `mode="wait"` would avoid the overlap by serialising
+          them, but it strands the transition here: the exiting child stays
+          mounted at opacity 0 and the next one never arrives, leaving the
+          column blank. */}
+      <div className="grid">
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={screen}
+            /* No `layout` on this element: reflow is done with `layout` on
+               the blocks inside a step instead. */
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={ARRIVE}
+            className="[grid-area:1/1]"
+          >
+            {screen === "idle" && <Home />}
+            {screen.startsWith("reply-") && <Reply />}
+            {screen === "working" && <Working />}
+            {screen.startsWith("step-") && <Step />}
+            {screen === "completed" && <Completed />}
+            {screen === "failed" && <Failed />}
+            {screen === "stopped" && <StoppedByPerson />}
+            {screen === "stuck" && <Stuck />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
 
+/* ----------------------------------------------------------------- home */
+
+/**
+ * The first screen: a greeting, the three things SIMBA can do, and a place
+ * to ask for something in your own words.
+ *
+ * The cards come first because choosing is easier than composing. Each is an
+ * icon and one line, and the line is exactly what gets asked for.
+ */
 function Home() {
   const { startTask, history } = useStore();
-  const [goal, setGoal] = useState("");
-  // The box is revealed rather than shown: an empty text field is the hardest
-  // thing on this screen, and it should not be the first thing.
+  // The box is revealed rather than shown when there is history: an empty
+  // text field is the hardest thing on this screen, and it should not be the
+  // first thing.
   //
   // Derived, not initial state. `history` arrives over the socket a moment
   // after the first render, so seeding `useState` from it meant the box was
   // always showing and the button that reveals it never appeared at all.
   const [revealed, setRevealed] = useState(false);
   const asking = revealed || history.length === 0;
-
-  const start = () => {
-    if (goal.trim()) startTask(goal.trim());
-  };
+  // A remembered goal that is word for word one of the cards is shown once.
+  const again = history.filter((past) => !Object.values(FLOWS).includes(past.goal));
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em]">
+    <div className="flex flex-col gap-10">
+      <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
         {HOME.greeting}
       </h1>
 
-      {history.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <p className="text-[15px] text-muted">{HOME.againHeading}</p>
-          {history.map((past) => (
-            <button
-              key={`${past.site}|${past.goal}`}
-              type="button"
-              onClick={() => startTask(past.goal)}
-              className="w-full rounded-xl border border-line bg-raised px-5 py-5
-                         text-left text-[21px] leading-snug text-ink
-                         transition-colors duration-300 hover:border-accent"
-            >
+      <Section lead={HOME.canHelp}>
+        {ALL_FLOWS.map((flow) => (
+          <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
+                      onClick={() => startTask(FLOWS[flow], flow)}>
+            {FLOWS[flow]}
+          </ChoiceCard>
+        ))}
+      </Section>
+
+      {again.length > 0 && (
+        <Section lead={HOME.againHeading}>
+          {again.map((past) => (
+            <ChoiceCard key={`${past.site}|${past.goal}`} icon={<AgainIcon />}
+                        onClick={() => startTask(past.goal)}>
               {past.goal}
-            </button>
+            </ChoiceCard>
           ))}
-        </div>
+        </Section>
       )}
 
       {/* The box, once asked for. `AnimatePresence` so it arrives rather than
@@ -176,142 +216,175 @@ function Home() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={TRANSITION}
-            className="overflow-hidden"
+            transition={ARRIVE}
+            className="-m-3 overflow-hidden p-3"
           >
-            <div className="flex flex-col gap-4">
-              {history.length > 0 && (
-                <p className="text-[15px] text-muted">{HOME.askHeading}</p>
-              )}
-              <input
-                autoFocus
-                className="h-14 rounded-lg border border-line bg-raised px-4 text-[19px] text-ink
-                           outline-none transition-colors duration-300 focus:border-accent"
-                value={goal}
-                onChange={(event) => setGoal(event.target.value)}
-                onKeyDown={(event) => event.key === "Enter" && start()}
-                placeholder={HOME.placeholder}
-                aria-label={HOME.askHeading}
-              />
-              <button
-                type="button"
-                onClick={start}
-                disabled={!goal.trim()}
-                className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
-                           text-accent-ink transition-all duration-300 hover:brightness-105
-                           disabled:opacity-35"
-              >
-                {HOME.start}
-              </button>
-            </div>
+            {/* Typing latches it open. History can arrive after the box has
+                been shown, and before this the box then hid itself under
+                "Ask for something new" with the person's words in it — found
+                by a test that typed at the wrong moment (2026-09-21). */}
+            <AskBox lead={history.length > 0 ? HOME.askHeading : undefined} autoFocus
+                    onType={() => setRevealed(true)} />
           </motion.div>
         ) : (
-          <motion.button
-            key="something-else"
-            type="button"
-            exit={{ opacity: 0 }}
-            transition={TRANSITION}
-            onClick={() => setRevealed(true)}
-            className="w-full text-center text-[17px] text-muted underline underline-offset-4
-                       transition-colors duration-300 hover:text-ink"
-          >
-            {HOME.somethingElse}
-          </motion.button>
+          <motion.div key="something-else" exit={{ opacity: 0 }} transition={ARRIVE}
+                      className="flex justify-center">
+            <Button variant="quiet" onClick={() => setRevealed(true)}>
+              {HOME.somethingElse}
+            </Button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
 
+/** A lead-in and what it introduces. */
+function Section({ lead, children }: { lead: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <p className="text-small font-medium text-soft">{lead}</p>
+      <div className="flex flex-col gap-3">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * The place to ask in your own words. A soft card with the question inside
+ * it rather than a bare form field: it should look like somewhere to talk,
+ * not a box to fill in.
+ */
+function AskBox({
+  lead,
+  autoFocus,
+  onType,
+}: {
+  lead?: string;
+  autoFocus?: boolean;
+  onType?: () => void;
+}) {
+  const { startTask } = useStore();
+  const [goal, setGoal] = useState("");
+  const start = () => {
+    if (goal.trim()) startTask(goal.trim());
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {lead && <p className="text-small font-medium text-soft">{lead}</p>}
+      <div
+        className="flex items-center gap-3 rounded-xl border border-line bg-surface py-2 pr-2
+                   pl-5 shadow-card transition-[border-color,box-shadow] duration-200
+                   focus-within:border-accent"
+      >
+        <span className="shrink-0 text-soft" aria-hidden>
+          <SpeechIcon />
+        </span>
+        <input
+          autoFocus={autoFocus}
+          className="min-w-0 flex-1 bg-transparent py-3 text-lead text-ink outline-none
+                     placeholder:text-soft/80 focus-visible:outline-none"
+          value={goal}
+          onChange={(event) => {
+            setGoal(event.target.value);
+            onType?.();
+          }}
+          onKeyDown={(event) => event.key === "Enter" && start()}
+          placeholder={HOME.placeholder}
+          aria-label={HOME.askHeading}
+        />
+        <Button size="md" wide={false} onClick={start} disabled={!goal.trim()}>
+          {HOME.start}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- reply */
+
 /**
  * A goal that started nothing: hello, something SIMBA cannot do, or a
  * question about which of two things was meant.
  *
  * Never a dead end. A greeting and a refusal both show what can be done, as
- * the same cards, and the box is there to ask again. A question shows its
- * choices as buttons, and each one sends the person's own words back with the
- * flow they picked, so what runs is what they typed.
+ * the same cards as the home screen, and the box is there to ask again. A
+ * question shows its choices as the same cards, and each one sends the
+ * person's own words back with the flow they picked, so what runs is what
+ * they typed.
  */
 function Reply() {
   const { reply, startTask } = useStore();
-  const [goal, setGoal] = useState("");
   if (!reply) return null;
 
   const heading =
     reply.kind === "greeting" ? REPLY.greeting
     : reply.kind === "unsupported" ? REPLY.unsupported
     : REPLY.clarify;
-  const start = () => goal.trim() && startTask(goal.trim());
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em]">{heading}</h1>
-
-      {reply.kind !== "greeting" && reply.goal && (
-        <div className="flex flex-col gap-1">
-          <p className="text-[15px] text-muted">{REPLY.youAsked}</p>
-          <p className="text-[19px] text-ink">{reply.goal}</p>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-3">
-        {reply.kind === "unsupported" && (
-          <p className="text-[15px] text-muted">{REPLY.canDo}</p>
+    <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-5">
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">{heading}</h1>
+        {reply.kind !== "greeting" && reply.goal && (
+          <div className="flex flex-col gap-1 border-l-4 border-tint pl-4">
+            <p className="text-small font-medium text-soft">{REPLY.youAsked}</p>
+            <p className="text-lead text-ink">{reply.goal}</p>
+          </div>
         )}
-        {reply.flows.map((flow: FlowName) => (
-          <button
-            key={flow}
-            type="button"
-            onClick={() =>
-              reply.kind === "clarify" ? startTask(reply.goal, flow) : startTask(FLOWS[flow], flow)
-            }
-            className="w-full rounded-xl border border-line bg-raised px-5 py-5 text-left
-                       text-[21px] leading-snug text-ink transition-colors duration-300
-                       hover:border-accent"
-          >
-            {reply.kind === "clarify" ? WHICH[flow] : FLOWS[flow]}
-          </button>
-        ))}
       </div>
 
-      {reply.kind !== "clarify" && (
-        <div className="flex flex-col gap-4">
-          <input
-            className="h-14 rounded-lg border border-line bg-raised px-4 text-[19px] text-ink
-                       outline-none transition-colors duration-300 focus:border-accent"
-            value={goal}
-            onChange={(event) => setGoal(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && start()}
-            placeholder={HOME.placeholder}
-            aria-label={HOME.askHeading}
-          />
+      {reply.kind === "clarify" ? (
+        <div className="flex flex-col gap-3">
+          {reply.flows.map((flow) => (
+            <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
+                        onClick={() => startTask(reply.goal, flow)}>
+              {WHICH[flow]}
+            </ChoiceCard>
+          ))}
         </div>
+      ) : (
+        <Section lead={reply.kind === "unsupported" ? REPLY.canDo : HOME.canHelp}>
+          {reply.flows.map((flow) => (
+            <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
+                        onClick={() => startTask(FLOWS[flow], flow)}>
+              {FLOWS[flow]}
+            </ChoiceCard>
+          ))}
+        </Section>
       )}
+
+      <AskBox lead={HOME.askHeading} />
     </div>
   );
 }
+
+/* -------------------------------------------------------------- working */
 
 /**
  * Between task.started and the first step, and between steps.
  *
  * Says what is happening in the same plain voice as everything else, rather
  * than leaving an unlabelled pulse to be interpreted. The sentence comes from
- * `copy.ts` and is the same one every time this situation occurs.
+ * `copy.ts` and is the same one every time this situation occurs. The
+ * presence mark above breathes; the words do not.
  */
 function Working() {
   const { task } = useStore();
   // Thinking and acting are one situation from the person's side — wait —
-  // and share a sentence. The acting line above the column tells them apart.
+  // and share a sentence. The presence mark tells them apart.
   const situation = task ? "working" : "opening";
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-ink/80">
+    <div className="flex flex-col items-center gap-4 pt-16 text-center">
+      <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
         {presence(situation)}
       </h1>
-      {task && <p className="text-[17px] leading-relaxed text-muted">{task.goal}</p>}
+      {task && <p className="max-w-[520px] text-lead text-soft">{task.goal}</p>}
     </div>
   );
 }
+
+/* ----------------------------------------------------------------- step */
 
 function Step() {
   const { step, state, level, respond, answered } = useStore();
@@ -347,32 +420,36 @@ function Step() {
 
   return (
     <div ref={measured}>
-      <StepView
-        level={level}
-        step={shown}
-        values={values}
-        waiting={isWaiting(state)}
-        // A step that is leaving can no longer be answered.
-        answered={answered || !step}
-        onChange={(fieldId, value) =>
-          setValues((current) => ({ ...current, [fieldId]: value }))
-        }
-        onAction={(actionId) => respond(actionId, values)}
-      />
+      <Card className="px-10 py-9">
+        <StepView
+          level={level}
+          step={shown}
+          values={values}
+          waiting={isWaiting(state)}
+          // A step that is leaving can no longer be answered.
+          answered={answered || !step}
+          onChange={(fieldId, value) =>
+            setValues((current) => ({ ...current, [fieldId]: value }))
+          }
+          onAction={(actionId) => respond(actionId, values)}
+        />
+      </Card>
       <LevelControl />
       <TrustControl />
     </div>
   );
 }
 
+/* --------------------------------------------------------------- endings */
+
 /**
  * The closing screen: the answer, then a way out.
  *
  * It used to say "Done." and the goal and the URL, which tells somebody who
  * asked what their bill was precisely nothing. A task that looked something
- * up ends with what it found, in the largest type on the screen, because
- * that is the thing the person came for. A task that changed something
- * instead says so plainly, and restates what was asked for.
+ * up ends with what it found, as the hero of the screen, because that is the
+ * thing the person came for. A task that changed something instead says so
+ * plainly, and restates what was asked for.
  *
  * What was asked for, not `task.completed.summary`. The backend builds the
  * summary as the goal followed by the final URL, which the tests and the logs
@@ -388,40 +465,34 @@ function Completed() {
 
   return (
     <div className="flex flex-col gap-8">
-      <p className="text-[17px] text-muted">
-        {findings.length > 0 ? ENDING.withAnswer : ENDING.withoutAnswer}
-      </p>
-
       {findings.length > 0 ? (
-        <Findings findings={findings} size={44} />
+        <Card className="px-10 py-10">
+          <p className="mb-6 text-small font-medium text-soft">{ENDING.withAnswer}</p>
+          <Findings findings={findings} size={TYPE.hero} />
+        </Card>
       ) : (
-        <p className="text-[26px] leading-snug text-ink">{task?.goal}</p>
+        <div className="flex flex-col items-start gap-5">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-tint
+                           text-accent" aria-hidden>
+            <CheckIcon />
+          </span>
+          <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+            {ENDING.withoutAnswer}
+          </h1>
+          <p className="text-lead text-soft">{task?.goal}</p>
+        </div>
       )}
 
       <div className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={startOver}
-          className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
-                     text-accent-ink transition-all duration-300 hover:brightness-105"
-        >
-          {ENDING.finish}
-        </button>
-        <button
-          type="button"
-          onClick={startOver}
-          className="h-14 w-full rounded-xl border border-line px-6 text-[17px] text-muted
-                     transition-colors duration-300 hover:border-ink/40 hover:text-ink"
-        >
-          {ENDING.again}
-        </button>
+        <Button onClick={startOver}>{ENDING.finish}</Button>
+        <Button variant="secondary" onClick={startOver}>{ENDING.again}</Button>
       </div>
     </div>
   );
 }
 
 /**
- * What was found, largest thing on the card.
+ * What was found, largest thing on the screen.
  *
  * The value leads and the label follows underneath, small — the number is
  * what was asked for, and "Your bill" is only there to say what the number
@@ -440,26 +511,26 @@ function Completed() {
  */
 export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7">
       {findings.map((finding, index) => {
         const values = finding.values?.length ? finding.values : [finding.value];
         // The first finding is the answer; any others support it.
-        const lead = index === 0 ? size : Math.round(size * 0.6);
+        const lead = index === 0 ? size : Math.round(size * 0.55);
         const scale = values.length > 4 ? 0.55 : values.length > 1 ? 0.75 : 1;
         return (
-          <div key={finding.label} className="flex flex-col gap-1">
+          <div key={finding.label} className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
               {values.map((value) => (
                 <span
                   key={value}
-                  className="font-medium leading-[1.15] tracking-[-0.01em] text-ink"
+                  className="font-semibold leading-[1.08] tracking-[-0.02em] text-ink"
                   style={{ fontSize: Math.round(lead * scale) }}
                 >
                   {value}
                 </span>
               ))}
             </div>
-            <span className="text-[15px] text-muted">{finding.label}</span>
+            <span className="text-body text-soft">{finding.label}</span>
           </div>
         );
       })}
@@ -471,10 +542,15 @@ function Failed() {
   const { failed, startOver } = useStore();
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-stuck">
-        {STOPPED.failedHeading}
-      </h1>
-      <p className="text-[19px] leading-relaxed text-ink/80">{failed?.reason}</p>
+      <Card tone="stuck" className="flex flex-col gap-4 px-10 py-9">
+        <span className="text-stuck" aria-hidden>
+          <PauseIcon />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-stuck">
+          {STOPPED.failedHeading}
+        </h1>
+        <p className="text-lead text-ink">{failed?.reason}</p>
+      </Card>
       <OnwardButton onClick={startOver} />
     </div>
   );
@@ -497,7 +573,9 @@ function Stuck() {
   const { help, startOver } = useStore();
   return (
     <div className="flex flex-col gap-8">
-      <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+      <Card tone="stuck" className="px-10 py-9">
+        <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+      </Card>
       <OnwardButton onClick={startOver} />
     </div>
   );
@@ -514,9 +592,15 @@ function StoppedByPerson() {
   const { startOver } = useStore();
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-[30px] leading-[1.35] font-medium tracking-[-0.01em] text-ink">
-        {STOPPED.byYou}
-      </h1>
+      <div className="flex flex-col items-start gap-5">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sunk
+                         text-soft" aria-hidden>
+          <CheckIcon />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+          {STOPPED.byYou}
+        </h1>
+      </div>
       <OnwardButton onClick={startOver} />
     </div>
   );
@@ -524,14 +608,5 @@ function StoppedByPerson() {
 
 /** The one way onward from a screen that has ended. Same words, same place. */
 function OnwardButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="h-16 w-full rounded-xl bg-accent px-6 text-[19px] font-medium
-                 text-accent-ink transition-all duration-300 hover:brightness-105"
-    >
-      {STOPPED.again}
-    </button>
-  );
+  return <Button onClick={onClick}>{STOPPED.again}</Button>;
 }

@@ -1,20 +1,127 @@
 @import "tailwindcss";
 
+/*
+ * SIMBA's design tokens. Every colour, size, radius, shadow and duration on
+ * screen comes from here or from `design.ts`, and nowhere else.
+ *
+ * Written for people with cognitive disabilities, so calm and clear beats
+ * clever:
+ *
+ *   - One accent. It marks the thing to press and the thing that was found,
+ *     and nothing else. Stuck is the one other colour, and only when stuck.
+ *   - Text is high contrast everywhere. Measured, not eyeballed: ink on the
+ *     canvas is 15:1 light and 16:1 dark, the softer secondary text 6.8:1 and
+ *     9:1, the label on the accent 6.5:1 and 9.5:1 — every pairing passes
+ *     WCAG AA and most pass AAA (DECISIONS.md, 2026-09-21).
+ *   - Warm neutrals rather than grey: paper and ink, not a dashboard.
+ *
+ * Two themes, chosen by the operating system. Everything that differs lives
+ * in the two blocks of raw values below; components only ever name the role.
+ */
+
+:root {
+  color-scheme: light;
+
+  --canvas: #f7f2ea;
+  --surface: #fffcf7;
+  --sunk: #f1eadf;
+  --line: #e3d8c8;
+  --ink: #231c15;
+  --soft: #5e5246;
+  --accent: #8c4f12;
+  --accent-hover: #7a430c;
+  --accent-ink: #ffffff;
+  --tint: #f5e7d3;
+  --stuck: #9e3b22;
+  --stuck-tint: #f7e2da;
+
+  --shadow-card: 0 1px 2px rgb(60 38 16 / 0.05), 0 10px 30px -8px rgb(60 38 16 / 0.14);
+  --shadow-lift: 0 1px 2px rgb(60 38 16 / 0.08), 0 6px 16px -6px rgb(60 38 16 / 0.2);
+  --shadow-press: 0 1px 1px rgb(60 38 16 / 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --canvas: #15110d;
+    --surface: #1f1913;
+    --sunk: #191410;
+    --line: #382d22;
+    --ink: #f6efe6;
+    --soft: #bfb1a1;
+    --accent: #e8b061;
+    --accent-hover: #f0be77;
+    --accent-ink: #1c1206;
+    --tint: #3a2a16;
+    --stuck: #ee9a7e;
+    --stuck-tint: #3a1f16;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 36px -10px rgb(0 0 0 / 0.55);
+    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 8px 20px -8px rgb(0 0 0 / 0.6);
+    --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
+  }
+}
+
+@theme inline {
+  /* Colour roles. The old names — canvas, raised, line, ink, muted, accent,
+     accent-ink, stuck — are kept as aliases so nothing reads a missing
+     colour mid-change. */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-muted: var(--soft);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-tint: var(--tint);
+  --color-stuck: var(--stuck);
+  --color-stuck-tint: var(--stuck-tint);
+
+  /* Depth. Soft, low, and warm-tinted in the light theme. */
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-press: var(--shadow-press);
+}
+
 @theme {
-  /* A warm dark canvas. Everything sits on this. */
-  --color-canvas: #17120e;
-  --color-raised: #211a14;
-  --color-line: #33291f;
+  /* One family: the system's own sans. It is what the person already reads
+     every day, and it needs no font file (CLAUDE.md: no dependency added
+     without asking — see DECISIONS.md for the typeface question). */
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
 
-  --color-ink: #f4ece2;
-  --color-muted: #9b8d7f;
+  /* The type scale. A 1.25 ratio from an 18px body, rounded to whole pixels.
+     Each screen has exactly one size at `display` or above: its focal point. */
+  --text-caption: 14px;
+  --text-caption--line-height: 1.45;
+  --text-small: 16px;
+  --text-small--line-height: 1.5;
+  --text-body: 18px;
+  --text-body--line-height: 1.55;
+  --text-lead: 20px;
+  --text-lead--line-height: 1.45;
+  --text-title: 24px;
+  --text-title--line-height: 1.3;
+  --text-heading: 30px;
+  --text-heading--line-height: 1.25;
+  --text-display: 38px;
+  --text-display--line-height: 1.2;
+  --text-hero: 56px;
+  --text-hero--line-height: 1.05;
 
-  /* One accent. It is the only saturated colour in normal operation. */
-  --color-accent: #d9a44e;
-  --color-accent-ink: #1a1309;
+  /* Corners. Soft everywhere; nothing on screen is sharp. */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
 
-  /* Stuck is the single exception, and only ever appears when stuck. */
-  --color-stuck: #c2634a;
+  /* Spacing is Tailwind's 4px scale, used only at these steps:
+     1 2 3 4 6 8 10 12 16 24 — 4 8 12 16 24 32 40 48 64 96px. */
 }
 
 html,
@@ -24,8 +131,40 @@ body,
 }
 
 body {
-  background-color: var(--color-canvas);
-  color: var(--color-ink);
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
   /* The overlay is the whole window; nothing should ever scroll sideways. */
   overflow-x: hidden;
+}
+
+::selection {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+/* One focus ring, the same on everything that can be focused by keyboard.
+   Thick and offset, so it reads as a frame and not as part of the control.
+
+   In the base layer so a component can decline it. Unlayered, it outranked
+   every utility, and the ask box — which shows focus on its own frame — drew
+   a second ring inside itself around the text (EVALUATION.md, 2026-09-21). */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* Somebody who has asked their system for less motion gets fades only. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

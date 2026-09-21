@@ -13,10 +13,11 @@ import { useEffect } from "react";
 
 import type { Level } from "@shared/schema";
 
-import { LEVEL, NOTICE, levelNotice as noticeFor } from "../copy";
+import { LEVEL, levelNotice as noticeFor } from "../copy";
+import { ARRIVE, EASE, MOTION } from "../design";
 import { useStore } from "../store";
+import { DismissButton, InfoIcon, NOTICE_CLASS } from "./ui";
 
-const EASE = [0.22, 0.61, 0.36, 1] as const;
 const LEVELS: Level[] = [1, 2, 3];
 const NOTICE_MS = 8000;
 
@@ -26,9 +27,13 @@ export function LevelControl() {
   return (
     <motion.div
       layout
-      transition={{ duration: 0.35, ease: EASE }}
-      className="mt-14 flex items-center justify-center gap-3 opacity-40
-                 transition-opacity duration-300 hover:opacity-100"
+      transition={{ duration: MOTION.fold, ease: EASE }}
+      // Quiet until reached for, as before — but not so faint that the dots
+      // cannot be found: 0.4 put the resting dot below any contrast rule for
+      // a control. The colours come from the theme; they were the dark
+      // theme's hex values, written in.
+      className="mt-10 flex items-center justify-center gap-2 opacity-70
+                 transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100"
     >
       {LEVELS.map((option) => (
         <button
@@ -37,16 +42,14 @@ export function LevelControl() {
           onClick={() => chooseLevel(option)}
           aria-label={LEVEL.choose(option)}
           aria-pressed={level === option}
-          className="p-2"
+          className="rounded-full p-2"
         >
           <motion.span
-            className="block rounded-full"
-            animate={{
-              width: level === option ? 22 : 8,
-              height: 8,
-              backgroundColor: level === option ? "#d9a44e" : "#33291f",
-            }}
-            transition={{ duration: 0.35, ease: EASE }}
+            className={`block rounded-full transition-colors duration-300 ${
+              level === option ? "bg-accent" : "bg-line"
+            }`}
+            animate={{ width: level === option ? 24 : 8, height: 8 }}
+            transition={{ duration: MOTION.fold, ease: EASE }}
           />
         </button>
       ))}
@@ -59,8 +62,8 @@ export function LevelControl() {
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: "auto" }}
             exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-            className="overflow-hidden whitespace-nowrap pl-2 text-[13px] text-muted
+            transition={{ duration: MOTION.fold, ease: EASE }}
+            className="overflow-hidden whitespace-nowrap pl-2 text-caption text-soft
                        underline underline-offset-4 hover:text-ink"
           >
             {LEVEL.unlock}
@@ -88,9 +91,8 @@ export function LevelNotice() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.35, ease: EASE }}
-          className="mb-6 flex items-center justify-between gap-4 rounded-lg
-                     border border-line bg-raised px-4 py-3 text-[14px] text-muted"
+          transition={ARRIVE}
+          className={NOTICE_CLASS}
           data-transient
         >
           {/* The sentence comes from the direction alone. `because` says what
@@ -98,15 +100,11 @@ export function LevelNotice() {
               rendered here, which put "this step was too long to fit." —
               lower case, and with a word the reader has to be taught — on
               screen whenever the overflow guard fired. */}
-          <span>{noticeFor(levelNotice.from, levelNotice.to)}</span>
-          <button
-            type="button"
-            onClick={dismissLevelNotice}
-            aria-label={NOTICE.dismiss}
-            className="shrink-0 px-2 text-muted transition-colors duration-300 hover:text-ink"
-          >
-            &times;
-          </button>
+          <span className="shrink-0 text-soft" aria-hidden>
+            <InfoIcon />
+          </span>
+          <span className="flex-1">{noticeFor(levelNotice.from, levelNotice.to)}</span>
+          <DismissButton onClick={dismissLevelNotice} />
         </motion.div>
       )}
     </AnimatePresence>

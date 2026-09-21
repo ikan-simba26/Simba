@@ -18,10 +18,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { PagePreview } from "@shared/schema";
 
 import { TRUST } from "../copy";
+import { EASE, MOTION } from "../design";
 import { useStore } from "../store";
+import { Button, buttonClass } from "./ui";
 
-const EASE = [0.32, 0.72, 0, 1] as const;
-const SLIDE = { duration: 0.42, ease: EASE };
+const SLIDE = { duration: MOTION.slow, ease: EASE };
 
 /** The frozen viewport the backend captures at (CLAUDE.md). */
 const CAPTURE = { width: 1280, height: 800 };
@@ -35,14 +36,11 @@ export function TrustControl() {
   if (!task || completed || failed || trustOpen) return null;
 
   return (
-    <button
-      type="button"
-      onClick={askWhat}
-      className="mt-6 w-full text-center text-[14px] text-muted underline
-                 underline-offset-4 transition-colors duration-300 hover:text-ink"
-    >
-      {TRUST.ask}
-    </button>
+    <div className="mt-2 flex justify-center">
+      <button type="button" onClick={askWhat} className={buttonClass("quiet")}>
+        {TRUST.ask}
+      </button>
+    </div>
   );
 }
 
@@ -65,14 +63,12 @@ export function TrustPanel() {
         >
           <Shot preview={preview} />
 
-          <button
-            type="button"
-            onClick={closeTrust}
-            className="mt-8 text-[15px] text-muted underline underline-offset-4
-                       transition-colors duration-300 hover:text-ink"
-          >
+          {/* A real button, not a link: this is the only way back, and it
+              has to look like something that can be pressed. */}
+          <Button variant="secondary" size="md" wide={false} onClick={closeTrust}
+                  className="mt-8">
             {TRUST.hide}
-          </button>
+          </Button>
         </motion.div>
       )}
     </AnimatePresence>
@@ -100,7 +96,7 @@ function Shot({ preview }: { preview: PagePreview }) {
       transition={SLIDE}
       className="flex w-full max-w-[900px] flex-col gap-5"
     >
-      <div className="relative overflow-hidden rounded-xl border border-line">
+      <div className="relative overflow-hidden rounded-xl border border-line shadow-card">
         <img
           src={`data:image/png;base64,${screenshot}`}
           alt={TRUST.picture}
@@ -112,7 +108,7 @@ function Shot({ preview }: { preview: PagePreview }) {
 
         {hasBox && (
           <motion.div
-            className="pointer-events-none absolute rounded-[3px] ring-2 ring-accent"
+            className="pointer-events-none absolute rounded-[4px] ring-[3px] ring-accent"
             style={box}
             data-testid="trust-highlight"
             initial={{ opacity: 0, scale: 1.06 }}
@@ -124,7 +120,7 @@ function Shot({ preview }: { preview: PagePreview }) {
         )}
       </div>
 
-      <p className="text-center text-[19px] leading-relaxed text-ink/90">{caption}</p>
+      <p className="text-center text-title font-semibold text-ink">{caption}</p>
     </motion.div>
   );
 }

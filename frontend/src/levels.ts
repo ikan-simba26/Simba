@@ -15,6 +15,7 @@
  */
 
 import type { Level } from "@shared/schema";
+import { TYPE } from "./design";
 
 export interface LevelSpec {
   /** "Step 2 of 6". Level 3 hides it: the count is pressure, not help. */
@@ -53,8 +54,8 @@ export const LEVELS: Record<Level, LevelSpec> = {
     instruction: "full",
     shell: "card",
     actionLayout: "stacked",
-    instructionSize: 22,
-    gap: 26,
+    instructionSize: TYPE.title,
+    gap: 24,
     fieldHeight: 46,
     actionHeight: 56,
   },
@@ -68,7 +69,7 @@ export const LEVELS: Record<Level, LevelSpec> = {
     instruction: "full",
     shell: "bare",
     actionLayout: "stacked",
-    instructionSize: 30,
+    instructionSize: TYPE.heading,
     gap: 40,
     fieldHeight: 56,
     actionHeight: 64,
@@ -83,7 +84,7 @@ export const LEVELS: Record<Level, LevelSpec> = {
     instruction: "first-sentence",
     shell: "bare",
     actionLayout: "stacked",
-    instructionSize: 40,
+    instructionSize: TYPE.display,
     gap: 24,
     fieldHeight: 52,
     actionHeight: 64,
@@ -104,8 +105,8 @@ export function typeSize(level: Level, instruction: string): number {
   const base = LEVELS[level].instructionSize;
   if (level !== 3) return base;
   if (instruction.length <= 70) return base;
-  if (instruction.length <= 150) return 30;
-  return 24;
+  if (instruction.length <= 150) return TYPE.heading;
+  return TYPE.title;
 }
 
 /** The first sentence, or the whole thing if it is already one. */

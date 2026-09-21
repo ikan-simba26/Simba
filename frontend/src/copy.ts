@@ -62,6 +62,8 @@ export const ONWARD = "Do something else";
 export const HOME = {
   /** The first thing anyone sees. A greeting, not a prompt. */
   greeting: "Hello. What can I do for you?",
+  /** Above the three things SIMBA can do. A lead-in. */
+  canHelp: "I can help with these",
   /** Above the remembered goals. Only shown when there are some. A lead-in. */
   againHeading: "You asked me for these",
   /** Reveals the text box. Deliberately last, and quiet. */
@@ -118,6 +120,25 @@ export const REPLY = {
   clarify: "Which of these did you mean?",
   /** Above the words the person typed, echoed back quietly. A lead-in. */
   youAsked: "You asked",
+} as const;
+
+/* ---------------------------------------------------------------- status */
+
+/**
+ * What the presence mark is doing, named for a screen reader.
+ *
+ * Never shown as text. The mark says it with shape and motion (`ui.Presence`),
+ * and the step or the ending is the sentence on screen; these exist so that
+ * somebody who cannot see the mark is told the same thing, in the same words
+ * every time.
+ */
+export const STATUS = {
+  ready: "Ready",
+  thinking: "Thinking",
+  acting: "Working on it",
+  waiting: "Your turn",
+  stuck: "Stopped",
+  done: "Finished",
 } as const;
 
 /* -------------------------------------------------------------- presence */
@@ -324,6 +345,7 @@ export const SITUATIONS: Record<string, string> = {
 export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
   "home.againHeading": HOME.againHeading,
+  "home.canHelp": HOME.canHelp,
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
 };
@@ -347,4 +369,12 @@ export const LABELS: Record<string, string> = {
   "which.registration": WHICH.registration,
   "which.billing": WHICH.billing,
   "which.railways": WHICH.railways,
+  // Names, not buttons: the presence mark's state for a screen reader. Here
+  // so they are held to the same rules and cannot collide with a button.
+  "status.ready": STATUS.ready,
+  "status.thinking": STATUS.thinking,
+  "status.acting": STATUS.acting,
+  "status.waiting": STATUS.waiting,
+  "status.stuck": STATUS.stuck,
+  "status.done": STATUS.done,
 };

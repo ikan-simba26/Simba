@@ -8,6 +8,7 @@ the mock.
 """
 
 import asyncio
+import concurrent.futures
 import json
 import os
 import subprocess
@@ -77,7 +78,11 @@ def converse(url: str, *starts: dict) -> list[dict]:
                 await until("goal.answered", "task.completed")
         return received
 
-    return asyncio.run(run())
+    # On a thread of its own. A sync Playwright session from another module in
+    # the same pytest run holds an event loop on this thread, and `asyncio.run`
+    # refuses to start beside it (`backend/conftest.py` has the long story).
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, run()).result()
 
 
 def types(received: list[dict]) -> list[str]:

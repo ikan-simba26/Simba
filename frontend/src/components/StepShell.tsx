@@ -19,8 +19,10 @@ import type { ReactNode } from "react";
 import type { Finding, Level, StepAction, StepField } from "@shared/schema";
 
 import { FOUND, STEP } from "../copy";
+import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, typeSize } from "../levels";
 import type { StepRendererProps } from "./StepView";
+import { buttonClass } from "./ui";
 
 /**
  * The one curve and duration the level change uses.
@@ -30,7 +32,7 @@ import type { StepRendererProps } from "./StepView";
  * tail rather than something folding. This curve accelerates and decelerates
  * evenly, so the collapse is legible the whole way down.
  */
-export const FOLD = { duration: 0.35, ease: [0.4, 0, 0.2, 1] as const };
+export const FOLD = { duration: MOTION.fold, ease: EASE };
 
 /**
  * Arrivals wait for departures.
@@ -42,7 +44,7 @@ export const FOLD = { duration: 0.35, ease: [0.4, 0, 0.2, 1] as const };
  * opposite of the gesture. Letting the collapse lead by 120ms makes the
  * height fall monotonically, which is what reads as folding.
  */
-export const UNFOLD = { ...FOLD, duration: 0.28, delay: 0.12 };
+export const UNFOLD = { ...FOLD, duration: MOTION.unfold, delay: MOTION.unfoldDelay };
 
 /**
  * A region that may not exist at every level. Collapses its own height and
@@ -109,26 +111,33 @@ export function StepShell({
     // and actively fought them: it threw the column 11px taller for the first
     // ~50ms of every fold before the descent started.
     <div className="relative" data-testid="step-shell">
-      {/* The level-1 card, faded in rather than a border that pops. */}
+      {/* Every level sits on a card now (`App.Step`). Level 1, the fullest,
+          adds a hairline round it — faded in rather than a border that pops —
+          so the densest level still reads as the most form-like. The insets
+          match the card's padding, so the line is the card's own edge. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -inset-5 rounded-2xl border border-line bg-raised/40"
+        className="pointer-events-none absolute -inset-x-10 -inset-y-9 rounded-xl border
+                   border-line"
         animate={{ opacity: spec.shell === "card" ? 1 : 0 }}
         transition={FOLD}
       />
 
       <div className="relative flex flex-col">
         <Fold show={spec.progress !== "none"} gap={0}>
+          {/* Quieter at level 2 than at level 1, and still readable: 0.4 of
+              the soft colour was 2.5:1, under any contrast rule. 0.75 keeps
+              it above 4.5:1 in both themes. */}
           <motion.p
             animate={{
               // Level 1 states it; level 2 murmurs it. A step counter is
               // reassurance for someone coping and pressure for someone who
               // is not, which is why level 3 has none at all.
-              fontSize: spec.progress === "full" ? "14px" : "12px",
-              opacity: spec.progress === "full" ? 0.9 : 0.4,
+              fontSize: spec.progress === "full" ? `${TYPE.caption}px` : "13px",
+              opacity: spec.progress === "full" ? 1 : 0.75,
             }}
             transition={FOLD}
-            className="text-muted tracking-wide"
+            className="font-medium tracking-wide text-soft"
           >
             {STEP.count(step.step_index, step.step_total)}
           </motion.p>
@@ -138,17 +147,21 @@ export function StepShell({
             with a transform, which fights an animation of fontSize — the
             heading rendered at roughly a third of its size at level 3. The
             container's `layout` handles the reflow; the heading only grows. */}
+        {/* "It is your turn: the buttons lead and the rest recedes." The
+            recede is kept and softened: at 0.55 the instruction measured
+            3.8:1 on the light card, which fails for the one sentence the
+            person most needs to read. At 0.8 it is 8.7:1. */}
         <motion.h1
           animate={{
             // Units are required: Framer silently ignores a bare number
             // for fontSize, where it appends px for height and padding.
             fontSize: `${typeSize(level, instruction)}px`,
-            opacity: waiting ? 0.55 : 1,
+            opacity: waiting ? 0.8 : 1,
             paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
             // Grow after the collapse, for the same reason as UNFOLD.
             transition: { ...FOLD, delay: 0.1 },
           }}
-          className="font-medium leading-[1.3] tracking-[-0.01em]"
+          className="font-semibold leading-[1.25] tracking-[-0.015em] text-ink"
         >
           {instruction}
         </motion.h1>
@@ -163,21 +176,21 @@ export function StepShell({
             and a second block on it is the clutter the level exists to
             remove. The answer is still waiting on the closing screen. */}
         <Fold show={findings.length > 0 && spec.progress !== "none"} gap={spec.gap * 0.5}>
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] text-muted">{FOUND.heading}</span>
+          <div className="flex flex-col gap-1 rounded-lg bg-tint px-5 py-4">
+            <span className="text-caption font-medium text-soft">{FOUND.heading}</span>
             <motion.span
               animate={{ fontSize: `${foundSize(level, instruction)}px` }}
               transition={FOLD}
-              className="font-medium leading-[1.15] tracking-[-0.01em] text-ink"
+              className="font-semibold leading-[1.1] tracking-[-0.02em] text-ink"
             >
               {findings[0]?.value}
             </motion.span>
-            <span className="text-[14px] text-muted">{findings[0]?.label}</span>
+            <span className="text-caption text-soft">{findings[0]?.label}</span>
           </div>
         </Fold>
 
         <Fold show={spec.detail && Boolean(step.detail)} gap={spec.gap * 0.3}>
-          <p className="text-[15px] leading-relaxed text-muted">{step.detail}</p>
+          <p className="text-small text-soft">{step.detail}</p>
         </Fold>
 
         <Fold show={fields.length > 0} gap={spec.gap}>
@@ -231,9 +244,7 @@ export function StepShell({
             type="button"
             disabled={answered}
             onClick={() => secondary && onAction(secondary.id)}
-            className="w-full text-center text-[15px] text-muted underline
-                       underline-offset-4 transition-colors duration-300
-                       hover:text-ink disabled:opacity-40"
+            className={`${buttonClass("quiet")} w-full justify-center disabled:opacity-40`}
           >
             {secondary?.label}
           </button>
@@ -266,11 +277,12 @@ function Field({
     <motion.input
       animate={{
         height: spec.fieldHeight,
-        fontSize: spec.fieldLayout === "inline" ? "16px" : "19px",
+        fontSize: spec.fieldLayout === "inline" ? `${TYPE.small}px` : `${TYPE.body}px`,
       }}
       transition={FOLD}
-      className="w-full rounded-lg border border-line bg-raised px-4 text-ink outline-none
-                 transition-colors duration-300 focus:border-accent"
+      className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
+                 transition-colors duration-200 focus:border-accent focus:bg-surface
+                 focus-visible:outline-none"
       type={field.type === "password" ? "password" : "text"}
       value={value}
       onChange={(event) => onChange(field.id, event.target.value)}
@@ -281,7 +293,7 @@ function Field({
   if (spec.fieldLayout === "inline") {
     return (
       <motion.div transition={FOLD} className="grid grid-cols-[150px_1fr] items-center gap-3">
-        <span className="text-[14px] text-muted">{field.label}</span>
+        <span className="text-caption font-medium text-soft">{field.label}</span>
         {input}
       </motion.div>
     );
@@ -289,7 +301,7 @@ function Field({
 
   return (
     <motion.label transition={FOLD} className="flex flex-col gap-2">
-      <span className="text-[15px] text-muted">{field.label}</span>
+      <span className="text-small font-medium text-soft">{field.label}</span>
       {input}
     </motion.label>
   );
@@ -315,11 +327,7 @@ function ActionButton({
   if (!action) return null;
 
   const destructive = action.kind === "destructive";
-  const tone = quiet || destructive
-    ? destructive
-      ? "border border-stuck text-stuck hover:bg-stuck/10"
-      : "border border-line text-muted hover:border-ink/40 hover:text-ink"
-    : "bg-accent text-accent-ink hover:brightness-105";
+  const tone = destructive ? "danger" : quiet ? "secondary" : "primary";
 
   return (
     <motion.button
@@ -328,9 +336,7 @@ function ActionButton({
       onClick={() => onAction(action.id)}
       animate={{ height, opacity: answered ? 0.4 : waiting ? 1 : 0.85 }}
       transition={FOLD}
-      whileTap={{ scale: 0.99 }}
-      className={`${grow ? "flex-1" : "w-full"} rounded-xl px-6 text-[19px] font-medium
-                  outline-none transition-colors duration-300 ${tone}`}
+      className={`${grow ? "flex-1" : "w-full"} ${buttonClass(tone, "fluid")}`}
     >
       {action.label}
     </motion.button>

@@ -22,9 +22,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 
 import { NOTICE } from "../copy";
+import { ARRIVE } from "../design";
 import { useStore } from "../store";
-
-const EASE = [0.22, 0.61, 0.36, 1] as const;
+import { DismissButton, InfoIcon, NOTICE_CLASS } from "./ui";
 /** Long enough to read a sentence, short enough not to become furniture. */
 const NOTICE_MS = 9000;
 
@@ -44,23 +44,16 @@ export function StepFailureNotice() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.35, ease: EASE }}
-          className="mb-6 flex items-start justify-between gap-4 rounded-lg
-                     border border-line bg-raised px-4 py-3"
+          transition={ARRIVE}
+          className={NOTICE_CLASS}
           data-transient
           role="status"
         >
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] text-ink/85">{NOTICE.skipped}</span>
-          </div>
-          <button
-            type="button"
-            onClick={dismissStepFailure}
-            aria-label={NOTICE.dismiss}
-            className="shrink-0 px-2 text-muted transition-colors duration-300 hover:text-ink"
-          >
-            &times;
-          </button>
+          <span className="shrink-0 text-soft" aria-hidden>
+            <InfoIcon />
+          </span>
+          <span className="flex-1">{NOTICE.skipped}</span>
+          <DismissButton onClick={dismissStepFailure} />
         </motion.div>
       )}
     </AnimatePresence>
