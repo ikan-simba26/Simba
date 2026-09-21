@@ -125,6 +125,9 @@ SCREENS: list[tuple[str, object, list, list[str]]] = [
     ("20-reply-which-one", ("goal", "I need to pay for my course"),
      [("goal.answered", {"kind": "clarify", "goal": "I need to pay for my course",
                          "flows": ["registration", "billing"]}), HOLD], []),
+    # Pressed Start; the backend has not decided yet. Numbered last so 1-20
+    # line up with a capture taken before this screen existed.
+    ("21-reading-the-request", "goal", [HOLD], []),
 ]
 
 
