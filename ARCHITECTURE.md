@@ -57,8 +57,9 @@ Environment variables decide what runs:
 
 | Variable | Effect |
 |---|---|
-| `SIMBA_FLOW` | Which site, replica URL and hardcoded plan, from the `FLOWS` table in `app.py`. `stubborn` is a replica page whose first control does nothing, for measuring recovery |
-| `SIMBA_REPLICA_URL` | Overrides the flow's start URL |
+| `SIMBA_ROUTER` | `model` (default) routes each typed goal with one call to the configured provider, falling back to keywords; `keywords` never calls a model. See `router.py` |
+| `SIMBA_FLOW` | Since 2026-09-21 it does **not** choose the task; the typed goal does. `stubborn` runs a registration request on the rigged page that measures recovery |
+| `SIMBA_REPLICA_URL` | Legacy override: the site of the flow in `SIMBA_FLOW`, or of registration when none is set. `SIMBA_<FLOW>_URL` overrides one flow directly |
 | `SIMBA_USE_HARDCODED_PLAN` | `1` runs `HardcodedPlanner`, otherwise `LLMPlanner` |
 | `SIMBA_TRACE_MEMORY` | `1` wraps the planner in `TracePlanner`, which replays a remembered run and records new ones |
 | `SIMBA_TRACE_DB` | Where the trace store is (default `traces.db` at the repo root) |

@@ -172,12 +172,17 @@ foreach ($port in @($BackendPort, $CdpPort, "5000", "5100")) {
 
 try {
     switch ($Flow) {
+        # Since 2026-09-21 the typed goal chooses the flow, not this switch, so
+        # every real flow's site has to be there whichever one is named here.
+        # The name now only chooses the page the host opens on.
         "registration" {
             Start-Replica "registration" "5000"
+            Start-Replica "billing" "5100"
             Start-Host "http://127.0.0.1:5000"
             Start-Backend "registration"
         }
         "billing" {
+            Start-Replica "registration" "5000"
             Start-Replica "billing" "5100"
             Start-Host "http://127.0.0.1:5100"
             Start-Backend "billing"
@@ -185,6 +190,8 @@ try {
         "railways" {
             Warn "railways is a live public website. Read-only, and please do not"
             Warn "hammer it - a handful of runs, not a benchmark."
+            Start-Replica "registration" "5000"
+            Start-Replica "billing" "5100"
             Start-Host "https://www.pakrailways.gov.pk/train"
             Start-Backend "railways"
         }

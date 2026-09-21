@@ -165,11 +165,13 @@ All environment variables, all read at the backend.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `SIMBA_FLOW` | `registration` | `registration`, `billing`, `railways` (live, read-only), or `stubborn` (a replica page whose first control does nothing, for measuring recovery) |
+| `SIMBA_ROUTER` | `model` | How a typed goal is routed: `model` asks the configured provider once and falls back to keywords with no key, no quota or no answer in 8s; `keywords` never calls a model (the tests' default) |
+| `SIMBA_FLOW` | unset | **No longer chooses the task** — the typed goal does (2026-09-21). `stubborn` runs a registration request on the rigged page that measures recovery; with `SIMBA_REPLICA_URL`, points that one flow at another URL |
+| `SIMBA_REGISTRATION_URL`, `SIMBA_BILLING_URL`, `SIMBA_RAILWAYS_URL` | per flow | Override one flow's site |
 | `SIMBA_USE_HARDCODED_PLAN` | off | Run the flow's written plan instead of the LLM |
 | `SIMBA_BROWSER` | `chromium` | `electron` attaches to a running host over CDP |
 | `SIMBA_TRACE_MEMORY` | off | Replay a goal already done on this site from SQLite |
-| `SIMBA_REPLICA_URL` | per flow | Override the site the flow opens |
+| `SIMBA_REPLICA_URL` | per flow | Legacy: the site of the flow named in `SIMBA_FLOW`, or of registration when none is |
 | `SIMBA_OVERLAY_DETECTION` | on | Ablation switch for structural blocker detection |
 | `SIMBA_INFERRED_ROLES` | on | Ablation switch for non-semantic control detection |
 | `SIMBA_SETBACK_PLACEMENT` | `above` | Where a setback sits in the prompt: `above` the element list or `after` it. Ablation arm; see EVALUATION.md, 2026-09-18 |

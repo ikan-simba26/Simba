@@ -63,11 +63,20 @@ the replica has to exist before that.
 
 ## The flows
 
-| | What it starts | What it shows |
+**What you type decides what runs** (since 2026-09-21). Every real flow's
+launcher starts both replicas, the host and the backend; the name only picks
+the page the host opens on. Type "check my electricity bill" and the billing
+flow runs; type "trains from Lahore to Karachi" and the railways one does;
+type "hello", "book a flight" or something that could be two of them, and
+SIMBA answers and offers what it can do instead of starting anything. The
+backend asks the configured model once and falls back to keywords with no
+key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
+
+| | What it starts | Opens on |
 |---|---|---|
-| `registration` | replica :5000, host, backend | The whole stack on a page we wrote. Three steps, a modal to dismiss, ends on a confirmation screen. The thing to run first. |
-| `billing` | replica :5100, host, backend | A second site with different chrome — a cookie bar, breadcrumbs, an accordion, and an amount that only `content.py` can read. |
-| `railways` | host, backend | **A live public website.** Read-only: fills a search and reads the timetable. Please treat it as somebody's public service — a handful of runs, not a benchmark. |
+| `registration` | replicas :5000 and :5100, host, backend | The registration replica — a page we wrote, a modal to dismiss, ends on a confirmation screen. The thing to run first. |
+| `billing` | replicas :5000 and :5100, host, backend | The billing replica — a cookie bar, breadcrumbs, an accordion, and an amount that only `content.py` can read. |
+| `railways` | replicas :5000 and :5100, host, backend | **A live public website.** Read-only: fills a search and reads the timetable. Please treat it as somebody's public service — a handful of runs, not a benchmark. |
 | `mock` | mock backend :8000, host | The overlay alone, driven by a script. No replica, no browser driving, nothing real. |
 
 ### mock is for the interface

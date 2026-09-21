@@ -161,12 +161,17 @@ else
 fi
 
 case "$FLOW" in
+  # Since 2026-09-21 the typed goal chooses the flow, not this argument, so
+  # every real flow's site has to be up whichever one is named. The name now
+  # only chooses the page the host opens on.
   registration)
     start_replica registration 5000
+    start_replica billing 5100
     start_host "http://127.0.0.1:5000"
     start_backend registration
     ;;
   billing)
+    start_replica registration 5000
     start_replica billing 5100
     start_host "http://127.0.0.1:5100"
     start_backend billing
@@ -174,6 +179,8 @@ case "$FLOW" in
   railways)
     warn "railways is a live public website. Read-only, and please do not"
     warn "hammer it — a handful of runs, not a benchmark."
+    start_replica registration 5000
+    start_replica billing 5100
     start_host "https://www.pakrailways.gov.pk/train"
     start_backend railways
     ;;
