@@ -10,15 +10,18 @@
 
 /** The type scale in pixels. Mirrors `--text-*` in `index.css`. */
 export const TYPE = {
-  caption: 14,
-  small: 16,
-  body: 18,
-  lead: 20,
-  title: 24,
-  heading: 30,
-  display: 38,
-  hero: 56,
+  caption: 18,
+  small: 20,
+  body: 23,
+  lead: 26,
+  title: 30,
+  heading: 38,
+  display: 48,
+  hero: 72,
 } as const;
+
+/** How wide the column is. Most of the 1280px window, with room either side. */
+export const COLUMN = 880;
 
 /** The spacing steps in pixels. Tailwind's 4px scale, at these values only. */
 export const SPACE = {

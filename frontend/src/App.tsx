@@ -32,7 +32,7 @@ import {
   type PresenceMode,
 } from "./components/ui";
 import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
-import { ARRIVE, TYPE } from "./design";
+import { ARRIVE, COLUMN, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import type { Finding, FlowName } from "@shared/schema";
 
@@ -55,9 +55,12 @@ export default function App() {
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
-    <div className="flex min-h-full flex-col items-center bg-canvas px-6 pt-8 pb-16">
+    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12">
       <PresenceBar />
-      <div className="mt-8 w-full max-w-[680px]">
+      {/* Most of the window, not a third of it: 880 of 1280. The first
+          column was 680, which at this type size left the person reading
+          a narrow strip down the middle of an empty screen. */}
+      <div className="mt-6 w-full" style={{ maxWidth: COLUMN }}>
         <LevelNotice />
         <StepFailureNotice />
         <Column />
@@ -168,15 +171,13 @@ function Column() {
  */
 function Home() {
   const { startTask, history } = useStore();
-  // The box is revealed rather than shown when there is history: an empty
-  // text field is the hardest thing on this screen, and it should not be the
-  // first thing.
-  //
-  // Derived, not initial state. `history` arrives over the socket a moment
-  // after the first render, so seeding `useState` from it meant the box was
-  // always showing and the button that reveals it never appeared at all.
-  const [revealed, setRevealed] = useState(false);
-  const asking = revealed || history.length === 0;
+  // The box is always there, below the cards (2026-09-21). It used to be
+  // revealed behind "Ask for something new" whenever there was history, on
+  // the reasoning that an empty field is the hardest thing on the screen and
+  // should not be the first. The cards now come first and carry that job;
+  // hiding the box as well made asking in your own words look like a
+  // secondary route, and it could hide itself mid-sentence when history
+  // arrived late.
   // A remembered goal that is word for word one of the cards is shown once.
   const again = history.filter((past) => !Object.values(FLOWS).includes(past.goal));
 
@@ -206,35 +207,7 @@ function Home() {
         </Section>
       )}
 
-      {/* The box, once asked for. `AnimatePresence` so it arrives rather than
-          appearing: a control that was not there a moment ago should be seen
-          to have been added. */}
-      <AnimatePresence initial={false}>
-        {asking ? (
-          <motion.div
-            key="ask"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={ARRIVE}
-            className="-m-3 overflow-hidden p-3"
-          >
-            {/* Typing latches it open. History can arrive after the box has
-                been shown, and before this the box then hid itself under
-                "Ask for something new" with the person's words in it — found
-                by a test that typed at the wrong moment (2026-09-21). */}
-            <AskBox lead={history.length > 0 ? HOME.askHeading : undefined} autoFocus
-                    onType={() => setRevealed(true)} />
-          </motion.div>
-        ) : (
-          <motion.div key="something-else" exit={{ opacity: 0 }} transition={ARRIVE}
-                      className="flex justify-center">
-            <Button variant="quiet" onClick={() => setRevealed(true)}>
-              {HOME.somethingElse}
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AskBox lead={HOME.askHeading} />
     </div>
   );
 }
@@ -254,15 +227,7 @@ function Section({ lead, children }: { lead: string; children: React.ReactNode }
  * it rather than a bare form field: it should look like somewhere to talk,
  * not a box to fill in.
  */
-function AskBox({
-  lead,
-  autoFocus,
-  onType,
-}: {
-  lead?: string;
-  autoFocus?: boolean;
-  onType?: () => void;
-}) {
+function AskBox({ lead, autoFocus }: { lead?: string; autoFocus?: boolean }) {
   const { startTask } = useStore();
   const [goal, setGoal] = useState("");
   const start = () => {
@@ -273,8 +238,8 @@ function AskBox({
     <div className="flex flex-col gap-3">
       {lead && <p className="text-small font-medium text-soft">{lead}</p>}
       <div
-        className="flex items-center gap-3 rounded-xl border border-line bg-surface py-2 pr-2
-                   pl-5 shadow-card transition-[border-color,box-shadow] duration-200
+        className="flex items-center gap-4 rounded-xl border-2 border-line bg-surface py-2.5
+                   pr-2.5 pl-6 shadow-card transition-[border-color,box-shadow] duration-200
                    focus-within:border-accent"
       >
         <span className="shrink-0 text-soft" aria-hidden>
@@ -282,13 +247,10 @@ function AskBox({
         </span>
         <input
           autoFocus={autoFocus}
-          className="min-w-0 flex-1 bg-transparent py-3 text-lead text-ink outline-none
+          className="min-w-0 flex-1 bg-transparent py-4 text-lead text-ink outline-none
                      placeholder:text-soft/80 focus-visible:outline-none"
           value={goal}
-          onChange={(event) => {
-            setGoal(event.target.value);
-            onType?.();
-          }}
+          onChange={(event) => setGoal(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && start()}
           placeholder={HOME.placeholder}
           aria-label={HOME.askHeading}
@@ -343,8 +305,8 @@ function Reply() {
             </ChoiceCard>
           ))}
         </div>
-      ) : (
-        <Section lead={reply.kind === "unsupported" ? REPLY.canDo : HOME.canHelp}>
+      ) : reply.kind === "unsupported" ? (
+        <Section lead={REPLY.canDo}>
           {reply.flows.map((flow) => (
             <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
                         onClick={() => startTask(FLOWS[flow], flow)}>
@@ -352,6 +314,17 @@ function Reply() {
             </ChoiceCard>
           ))}
         </Section>
+      ) : (
+        // The greeting's heading already says "Here's what I can help with";
+        // a lead above the cards saying it again is the same sentence twice.
+        <div className="flex flex-col gap-3">
+          {reply.flows.map((flow) => (
+            <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
+                        onClick={() => startTask(FLOWS[flow], flow)}>
+              {FLOWS[flow]}
+            </ChoiceCard>
+          ))}
+        </div>
       )}
 
       <AskBox lead={HOME.askHeading} />
@@ -377,11 +350,11 @@ function Working() {
   const situation = task ? "working" : asking ? "reading" : "opening";
   const goal = task?.goal ?? asking;
   return (
-    <div className="flex flex-col items-center gap-4 pt-16 text-center">
+    <div className="flex flex-col items-center gap-5 pt-20 text-center">
       <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
         {presence(situation)}
       </h1>
-      {goal && <p className="max-w-[520px] text-lead text-soft">{goal}</p>}
+      {goal && <p className="max-w-[700px] text-lead text-soft">{goal}</p>}
     </div>
   );
 }
@@ -422,7 +395,7 @@ function Step() {
 
   return (
     <div ref={measured}>
-      <Card className="px-10 py-9">
+      <Card className="px-12 py-10">
         <StepView
           level={level}
           step={shown}
@@ -436,8 +409,13 @@ function Step() {
           onAction={(actionId) => respond(actionId, values)}
         />
       </Card>
-      <LevelControl />
-      <TrustControl />
+      {/* The level dots and "What are you doing?" share one row under the
+          card: at this type size, stacked, they pushed a step with a field
+          past the bottom of the window. */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+        <TrustControl />
+        <LevelControl />
+      </div>
     </div>
   );
 }
@@ -468,15 +446,15 @@ function Completed() {
   return (
     <div className="flex flex-col gap-8">
       {findings.length > 0 ? (
-        <Card className="px-10 py-10">
+        <Card className="px-12 py-12">
           <p className="mb-6 text-small font-medium text-soft">{ENDING.withAnswer}</p>
           <Findings findings={findings} size={TYPE.hero} />
         </Card>
       ) : (
         <div className="flex flex-col items-start gap-5">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-tint
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint
                            text-accent" aria-hidden>
-            <CheckIcon />
+            <CheckIcon size={34} />
           </span>
           <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
             {ENDING.withoutAnswer}
@@ -544,9 +522,9 @@ function Failed() {
   const { failed, startOver } = useStore();
   return (
     <div className="flex flex-col gap-8">
-      <Card tone="stuck" className="flex flex-col gap-4 px-10 py-9">
+      <Card tone="stuck" className="flex flex-col gap-4 px-12 py-10">
         <span className="text-stuck" aria-hidden>
-          <PauseIcon />
+          <PauseIcon size={34} />
         </span>
         <h1 className="text-display font-semibold tracking-[-0.015em] text-stuck">
           {STOPPED.failedHeading}
@@ -575,7 +553,7 @@ function Stuck() {
   const { help, startOver } = useStore();
   return (
     <div className="flex flex-col gap-8">
-      <Card tone="stuck" className="px-10 py-9">
+      <Card tone="stuck" className="px-12 py-10">
         <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
       </Card>
       <OnwardButton onClick={startOver} />
@@ -595,9 +573,9 @@ function StoppedByPerson() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col items-start gap-5">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sunk
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sunk
                          text-soft" aria-hidden>
-          <CheckIcon />
+          <CheckIcon size={34} />
         </span>
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
           {STOPPED.byYou}

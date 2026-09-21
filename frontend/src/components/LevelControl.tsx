@@ -32,7 +32,7 @@ export function LevelControl() {
       // cannot be found: 0.4 put the resting dot below any contrast rule for
       // a control. The colours come from the theme; they were the dark
       // theme's hex values, written in.
-      className="mt-10 flex items-center justify-center gap-2 opacity-70
+      className="flex items-center justify-center gap-2 opacity-70
                  transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100"
     >
       {LEVELS.map((option) => (
@@ -42,13 +42,13 @@ export function LevelControl() {
           onClick={() => chooseLevel(option)}
           aria-label={LEVEL.choose(option)}
           aria-pressed={level === option}
-          className="rounded-full p-2"
+          className="rounded-full p-2.5"
         >
           <motion.span
             className={`block rounded-full transition-colors duration-300 ${
               level === option ? "bg-accent" : "bg-line"
             }`}
-            animate={{ width: level === option ? 24 : 8, height: 8 }}
+            animate={{ width: level === option ? 30 : 11, height: 11 }}
             transition={{ duration: MOTION.fold, ease: EASE }}
           />
         </button>

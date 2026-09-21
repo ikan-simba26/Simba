@@ -43,10 +43,10 @@ export function buttonClass(variant: ButtonVariant, size: ButtonSize = "lg"): st
     variant === "quiet"
       ? "px-2 py-1 text-small"
       : size === "lg"
-        ? "min-h-16 rounded-lg px-7 text-lead font-semibold"
+        ? "min-h-20 rounded-lg px-9 text-lead font-semibold"
         : size === "fluid"
-          ? "rounded-lg px-7 text-lead font-semibold"
-          : "min-h-14 rounded-md px-6 text-body font-semibold";
+          ? "rounded-lg px-9 text-lead font-semibold"
+          : "min-h-16 rounded-md px-7 text-body font-semibold";
   const tone = {
     primary:
       "bg-accent text-accent-ink shadow-lift hover:bg-accent-hover " +
@@ -116,13 +116,13 @@ export function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-5 rounded-lg border border-line bg-surface
-                 px-5 py-4 text-left shadow-press transition-[box-shadow,border-color,transform]
+      className="group flex w-full items-center gap-6 rounded-lg border border-line bg-surface
+                 px-6 py-5 text-left shadow-press transition-[box-shadow,border-color,transform]
                  duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-accent/50
                  hover:shadow-lift active:translate-y-px active:shadow-press"
     >
       <span
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-tint
+        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-tint
                    text-accent"
         aria-hidden
       >
@@ -143,8 +143,8 @@ export function ChoiceCard({
  * `data-transient` the overflow guard discounts.
  */
 export const NOTICE_CLASS =
-  "mb-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-3 " +
-  "text-small text-ink shadow-lift";
+  "mb-6 flex items-center gap-4 rounded-lg border border-line bg-surface px-6 py-4 " +
+  "text-body text-ink shadow-lift";
 
 export function DismissButton({ onClick }: { onClick: () => void }) {
   return (
@@ -152,7 +152,7 @@ export function DismissButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label={NOTICE.dismiss}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-soft
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-soft
                  transition-colors duration-200 hover:bg-sunk hover:text-ink"
     >
       <CloseIcon />
@@ -179,7 +179,7 @@ function Svg({ children, size = 24 }: { children: ReactNode; size?: number }) {
 export function FlowIcon({ flow }: { flow: FlowName }) {
   if (flow === "registration") {
     return (
-      <Svg>
+      <Svg size={30}>
         <path d="M2 9.5 12 5l10 4.5-10 4.5L2 9.5Z" />
         <path d="M6 11.3V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.7" />
       </Svg>
@@ -187,13 +187,13 @@ export function FlowIcon({ flow }: { flow: FlowName }) {
   }
   if (flow === "billing") {
     return (
-      <Svg>
+      <Svg size={30}>
         <path d="M13 2 5 13.5h6L10 22l8-11.5h-6L13 2Z" />
       </Svg>
     );
   }
   return (
-    <Svg>
+    <Svg size={30}>
       <rect x="5" y="3" width="14" height="13" rx="3" />
       <path d="M5 10h14M9 20l-2 2M15 20l2 2M9 13h.01M15 13h.01" />
     </Svg>
@@ -203,7 +203,7 @@ export function FlowIcon({ flow }: { flow: FlowName }) {
 /** A remembered goal. */
 export function AgainIcon() {
   return (
-    <Svg>
+    <Svg size={30}>
       <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
       <path d="M3 3v5h5M12 7v5l3 2" />
     </Svg>
@@ -213,7 +213,7 @@ export function AgainIcon() {
 export function Arrow() {
   return (
     <span className="text-soft transition-transform duration-200 group-hover:translate-x-0.5">
-      <Svg size={22}>
+      <Svg size={28}>
         <path d="M9 6l6 6-6 6" />
       </Svg>
     </span>
@@ -239,7 +239,7 @@ export function PauseIcon({ size = 28 }: { size?: number }) {
 
 export function InfoIcon() {
   return (
-    <Svg size={20}>
+    <Svg size={26}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5M12 8h.01" />
     </Svg>
@@ -248,15 +248,25 @@ export function InfoIcon() {
 
 export function CloseIcon() {
   return (
-    <Svg size={20}>
+    <Svg size={24}>
       <path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}
+
+/** Looking at the real page. */
+export function EyeIcon() {
+  return (
+    <Svg size={26}>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
     </Svg>
   );
 }
 
 export function SpeechIcon() {
   return (
-    <Svg>
+    <Svg size={30}>
       <path d="M4 5h16v11H9l-5 4V5Z" />
     </Svg>
   );
@@ -295,7 +305,7 @@ export function Presence({ mode }: { mode: PresenceMode }) {
       role="status"
       aria-live="polite"
       aria-label={STATUS[mode]}
-      className="relative flex h-10 w-10 items-center justify-center"
+      className="relative flex h-12 w-12 items-center justify-center"
       data-presence={mode}
     >
       {/* The halo: only when it is the person's turn. */}
@@ -323,7 +333,7 @@ export function Presence({ mode }: { mode: PresenceMode }) {
       {/* The dot itself. Finished, it grows into a disc with a tick in it —
           the same mark, completed, rather than a second thing beside it. */}
       <motion.span
-        className={`relative flex h-4 w-4 items-center justify-center rounded-full ${colour}`}
+        className={`relative flex h-5 w-5 items-center justify-center rounded-full ${colour}`}
         animate={
           mode === "thinking"
             ? { scale: [1, 0.72, 1], opacity: [1, 0.6, 1] }
@@ -340,7 +350,7 @@ export function Presence({ mode }: { mode: PresenceMode }) {
       >
         {mode === "done" && (
           <span className="text-accent-ink">
-            <CheckIcon size={11} />
+            <CheckIcon size={13} />
           </span>
         )}
       </motion.span>

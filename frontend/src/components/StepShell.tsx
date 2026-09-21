@@ -117,7 +117,7 @@ export function StepShell({
           match the card's padding, so the line is the card's own edge. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-10 -inset-y-9 rounded-xl border
+        className="pointer-events-none absolute -inset-x-12 -inset-y-10 rounded-xl border
                    border-line"
         animate={{ opacity: spec.shell === "card" ? 1 : 0 }}
         transition={FOLD}
@@ -133,7 +133,7 @@ export function StepShell({
               // Level 1 states it; level 2 murmurs it. A step counter is
               // reassurance for someone coping and pressure for someone who
               // is not, which is why level 3 has none at all.
-              fontSize: spec.progress === "full" ? `${TYPE.caption}px` : "13px",
+              fontSize: spec.progress === "full" ? `${TYPE.caption}px` : "16px",
               opacity: spec.progress === "full" ? 1 : 0.75,
             }}
             transition={FOLD}
@@ -176,7 +176,7 @@ export function StepShell({
             and a second block on it is the clutter the level exists to
             remove. The answer is still waiting on the closing screen. */}
         <Fold show={findings.length > 0 && spec.progress !== "none"} gap={spec.gap * 0.5}>
-          <div className="flex flex-col gap-1 rounded-lg bg-tint px-5 py-4">
+          <div className="flex flex-col gap-1 rounded-lg bg-tint px-6 py-5">
             <span className="text-caption font-medium text-soft">{FOUND.heading}</span>
             <motion.span
               animate={{ fontSize: `${foundSize(level, instruction)}px` }}
@@ -259,7 +259,7 @@ export function StepShell({
  * it, and capped so a long answer cannot push the step off the screen.
  */
 function foundSize(level: Level, instruction: string): number {
-  return Math.min(44, Math.round(typeSize(level, instruction) * 1.2));
+  return Math.min(TYPE.hero - 16, Math.round(typeSize(level, instruction) * 1.2));
 }
 
 function Field({
@@ -292,7 +292,7 @@ function Field({
 
   if (spec.fieldLayout === "inline") {
     return (
-      <motion.div transition={FOLD} className="grid grid-cols-[150px_1fr] items-center gap-3">
+      <motion.div transition={FOLD} className="grid grid-cols-[210px_1fr] items-center gap-4">
         <span className="text-caption font-medium text-soft">{field.label}</span>
         {input}
       </motion.div>

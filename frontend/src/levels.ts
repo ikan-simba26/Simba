@@ -55,9 +55,9 @@ export const LEVELS: Record<Level, LevelSpec> = {
     shell: "card",
     actionLayout: "stacked",
     instructionSize: TYPE.title,
-    gap: 24,
-    fieldHeight: 46,
-    actionHeight: 56,
+    gap: 30,
+    fieldHeight: 58,
+    actionHeight: 70,
   },
   // The default.
   2: {
@@ -70,9 +70,9 @@ export const LEVELS: Record<Level, LevelSpec> = {
     shell: "bare",
     actionLayout: "stacked",
     instructionSize: TYPE.heading,
-    gap: 40,
-    fieldHeight: 56,
-    actionHeight: 64,
+    gap: 48,
+    fieldHeight: 70,
+    actionHeight: 80,
   },
   // Struggling: one sentence, one thing to press.
   3: {
@@ -85,9 +85,9 @@ export const LEVELS: Record<Level, LevelSpec> = {
     shell: "bare",
     actionLayout: "stacked",
     instructionSize: TYPE.display,
-    gap: 24,
-    fieldHeight: 52,
-    actionHeight: 64,
+    gap: 30,
+    fieldHeight: 66,
+    actionHeight: 80,
   },
 };
 
