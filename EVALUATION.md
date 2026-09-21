@@ -3014,3 +3014,117 @@ The corpus beside it is public pages and is.
 - **The definitions are guesses.** 8px of movement, 120° of turn, a 3s timer,
   "re-read" as pointer re-entry: each is a starting value, all in one file, and
   the first person with real traces should expect to move them.
+
+---
+
+## 2026-09-21 — the goal decides, and the overlay is redesigned
+
+Two changes to the product a person touches. The typed goal now decides what
+happens, in the real backend and the mock; and the overlay has a design
+system, applied to every screen, in a light and a dark theme.
+
+### Routing: the five cases, three ways
+
+| Goal | Keywords (`test_router`, `test_app_routing`, `test_mock_backend`, `test_replies`) | Real stack, model routing |
+|---|---|---|
+| hello | greeting, nothing starts | greeting — the small-talk floor, no model call |
+| pay my bill / "What do I owe on my electricity bill?" | billing runs | model: billing; 3 steps; ends on **14,382** |
+| trains to Karachi / "Show me trains from Lahore to Karachi" | railways | model: railways; 5 steps on the live site; ends on **2DN**, 22 h 16 min |
+| book a flight / "book a flight to Dubai" | unsupported, nothing starts | model: unsupported |
+| I need to pay for my course | **clarify**: billing or registration | model: **unsupported** |
+
+The real stack is `run.ps1 billing` with the Electron host, the real backend,
+both replicas and the live railways site, driven through the overlay page
+itself by `tools/evaluation/routing_stack_run.py`. The hardcoded planner, so
+the only model spend was routing: about 200 prompt and 11 completion tokens
+per call, $0.000024 each at the published rate.
+
+**The last row is the interesting one.** The keywords see a bill word and a
+course word and ask which; the model reads "pay for my course" as neither —
+SIMBA registers you for a course, it does not pay for one — and declines.
+The model is arguably right. Either way nothing starts, which is the rule. The
+clarify path is exercised by the keyword tests and the mock, in a browser;
+through the real stack, no goal tried reached it. Of four more candidates,
+the model answered two (billing, unsupported) and the other two timed out
+and were routed by the keywords, both to billing.
+
+After pressing the card offered to "hello", the billing flow ran to its
+answer; that is the one case where a reply led to a task, and it ran on the
+same connection.
+
+### The model's latency, and the silent screen it exposed
+
+Twelve route calls to `gemini-3.1-flash-lite`, all read back from the
+transcripts: ten answered in **1.3–5.9s, median 2.4s**, and **two took longer
+than the 8-second limit** and fell back to keywords, as designed. A timed-out
+call leaves a request in the transcript with no response and no error, which
+is how the two were found.
+
+That found a defect this change created. The old backend sent `task.started`
+immediately; the new one sends nothing until the route is decided, so for up
+to 8 seconds after pressing Start the home screen sat unchanged, which for
+this audience reads as "it did not work". Fixed: the overlay shows "Let me see
+what you need." from the moment Start is pressed, with the typed goal under
+it and the presence mark breathing, until the answer or the task arrives.
+Captured through the real stack before every model-routed goal.
+
+### The design system
+
+Tokens, measured before use. Contrast, WCAG ratio:
+
+| Pairing | Light | Dark |
+|---|---|---|
+| ink on canvas | 15.1 | 16.5 |
+| ink on card | 16.4 | 15.3 |
+| soft text on card | 7.4 | 8.3 |
+| button label on accent | 6.5 | 9.5 |
+| stuck on card | 6.6 | 7.9 |
+| instruction while waiting, 0.8 | 8.7 | 10.1 |
+| instruction while waiting, the old 0.55 | **3.8 — fails** | 5.4 |
+
+Screenshots of every screen before and after, in both themes, taken from the
+overlay page by `python -m tools.screenshots before|after` (21 screens after,
+20 before — the reading state did not exist). Before, the two themes are the
+same picture: there was one theme.
+
+### Defects found on the way
+
+1. **The closing screen's answer pulsed.** The thinking pulse dimmed the
+   whole column whenever the state was `thinking` with no step, and the loop
+   never leaves `thinking` after `task.completed` — so on the one screen that
+   exists to be read, the answer faded between full and 62% every 2.6
+   seconds. Replaced by the presence mark, which breathes on its own.
+2. **The home screen's box could vanish mid-sentence.** It shows while
+   history is empty and hides under "Ask for something new" when
+   `history.offered` arrives; if that is late, the person has already started
+   typing. Found by a test that failed one run in three. Typing now latches
+   it open.
+3. **A double focus ring** on the ask box: the global focus rule was
+   unlayered CSS, which outranks every utility. Moved to `@layer base`.
+4. **The mock carried the billing answer on the registration script**, and
+   played registration whatever was typed. It now routes as the backend does
+   and plays each flow from the real plan's own steps.
+5. **Tests would have spent quota.** Every websocket test starts the app, and
+   the app's default is now a model call with the real key in `.env`. The
+   backend conftest defaults tests to keyword routing.
+6. **Two mistakes in my own verification script,** both caught by looking at
+   what it captured: it treated "Here's what I found" as an ending (a step with
+   a finding says it too) and stopped billing on step 3; and it assumed the
+   model would call "pay for my course" ambiguous.
+
+### Measured
+
+- Suite: **458 passed, 8 skipped, 0 failed**, on the final code, in 720s.
+- `test_levels` on a fresh `dist/`: level 3 is never taller than level 2,
+  levels 1–3 distinct, a longer step taller at every level — all hold with
+  the card and the new type sizes.
+- `test_replies` 6/6 on three consecutive runs after the latch fix; 2/6 and
+  4/6 failing before it.
+
+### What this does not do
+
+- **No new typeface.** Flagged in DECISIONS.md.
+- **No user has seen it.** Every judgement above is the brief's and the
+  measurements', not a person's with a cognitive disability.
+- **The host window is 1263px wide on scrollable pages** (2026-09-20e); the
+  overlay itself never scrolls, so it is unaffected, but it is still open.

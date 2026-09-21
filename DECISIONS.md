@@ -2078,3 +2078,103 @@ consent that goes with it.
 **Cost.** Nobody can see anyone else's rows, so a defect in the pairing shows
 up only on the machine it happened on, and the November evaluation will have to
 say where its rows came from.
+
+---
+
+## The typed goal decides what happens, routed before anything runs
+
+**Date:** 2026-09-21
+
+**Decision.** Every `task.start` is routed first (`router.py`). A request for
+one of the three flows runs that flow with the goal as typed. Small talk, an
+empty goal, a request SIMBA cannot do, or one that could be two flows gets a
+`goal.answered` instead, and nothing starts. `SIMBA_FLOW` no longer chooses the
+task; it keeps the `stubborn` rig and a legacy URL override. The launchers
+start both replicas for every real flow.
+
+**How it routes.** One call to the configured model, bounded at 8 seconds with
+no rate-limit waiting; the keyword classifier when there is no key, no quota,
+no answer in time, or an answer outside the list. Under both, a floor: a goal
+made only of small talk is a greeting whatever the model says. A model answer
+of "ambiguous" with fewer than two usable options asks across all three
+rather than guessing.
+
+**Alternatives.** Keywords only (no model). The model only (no offline
+path). Let the planner discover a mismatched goal on the wrong site. Keep
+`SIMBA_FLOW` and reject goals that do not match it.
+
+**Why this.** "hello" typed into a backend started as `billing` began on
+somebody's bill, which is the one thing an assistant for this audience must
+never do. Keywords alone misjudge phrasing they were not written for; the
+model alone fails the moment the key or the quota does, which is the demo.
+Letting the planner find out on the site means the wrong site has already
+been opened. Rejecting goals that do not match a pinned flow keeps a
+configuration choice deciding what a person gets.
+
+**Cost.** Up to 8 seconds before anything happens, measured at 1.3–5.9s (median
+2.4s) when the model answers and past 8s twice in twelve (EVALUATION.md,
+2026-09-21) — so
+the overlay now shows "Let me see what you need." from the moment Start is
+pressed. One model call per request, about 200 prompt tokens. And the model
+and the keywords disagree at the edges: "I need to pay for my course" is a
+question to the keywords and a refusal to the model. Both start nothing.
+
+---
+
+## `goal.answered` carries no words, and is pending ratification
+
+**Date:** 2026-09-21
+
+**Decision.** A new backend-to-frontend message, `goal.answered`, with `kind`,
+the typed `goal` and the `flows` to offer. No sentences: the overlay writes
+them from `copy.ts`. `task.start` gains an optional `flow`, set when the person
+picked a card or answered "which did you mean". Both are in CONTRACT.md,
+`goal.answered` marked pending ratification as `history.offered` was.
+
+**Alternatives.** Reuse `step.presented` for replies, with the flows as
+actions. Reuse `task.failed` for "I can't do that". Send the sentences from
+the backend.
+
+**Why this.** A greeting dressed as a step would start the step machinery —
+`task.started`, a count, a stop button — for something that is not a task.
+A refusal dressed as a failure would put "I couldn't finish this" on screen
+for something that never began. And sentences from the backend would put a
+second place where the voice is set, outside the copy tests, and let the mock
+and the backend say different things.
+
+**Cost.** A new message type is the kind of change CLAUDE.md reserves for
+all three owners, so it is provisional until they agree. The empty-goal rule
+changed with it, and that also needs agreeing: an empty `task.start` used to
+run the configured flow and is now greeted.
+
+---
+
+## The overlay's design system
+
+**Date:** 2026-09-21
+
+**Decision.** Tokens for colour, type, spacing, radii, shadows and motion, in
+`index.css` (CSS side) and `design.ts` (the numbers Framer animates). A light
+and a dark theme from the operating system's preference. One warm accent. A
+1.25 type scale from an 18px body, with one focal size per screen. The step is
+a card at every level. A wordless presence mark above the column shows the
+assistant's state. The system's own sans serif.
+
+**Alternatives.** Keep the single dark theme. A web font chosen for
+legibility — Atkinson Hyperlegible is the obvious one. A presence line with
+words ("Working on it", "Your turn"). A theme switch in the overlay.
+
+**Why this.** The audience is people with cognitive disabilities, and the
+brief was calm and clear over clever. Every text pairing was measured before
+it was used: AA everywhere, AAA for most. The presence is wordless because
+`copy.ts` already decided that waiting has no sentence — the step is the
+sentence — and a state word beside it would be a second thing to read; the
+state is named for screen readers instead. The system font needs no file and
+no dependency, and CLAUDE.md asks before either.
+
+**Cost.** A typeface designed for low-vision and dyslexic readers would
+likely serve this audience better than Segoe UI, and it is a dependency —
+flagged, not taken. The theme follows the system with no in-app choice. And
+three contrast-driven changes alter deliberate behaviours slightly: the
+waiting recede is 0.8 instead of 0.55 (3.8:1 failed), the level-2 step count
+0.75 instead of 0.4, and the resting level dots 0.7 instead of 0.4.

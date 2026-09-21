@@ -97,6 +97,24 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-09-21
+
+- **The typed goal decides what happens.** Routed before anything runs: one
+  call to the configured model, keywords without a key, quota or answer in
+  8s. "hello" is greeted with what SIMBA can do, "book a flight" is declined
+  with the same, an ambiguous goal is asked about, and a request for a flow
+  runs it. `SIMBA_FLOW` no longer chooses the task. Verified through the real
+  stack on billing and railways (EVALUATION.md, 2026-09-21).
+- **`goal.answered`** added to the contract, pending ratification; `task.start`
+  gains an optional `flow`; an empty goal is now greeted, not run.
+- **The mock routes as the backend does**, and plays each flow from its real
+  plan.
+- **The overlay has a design system**: tokens, a light and a dark theme, one
+  focal size per screen, the step as a card, a wordless presence mark, the
+  answer as the hero. Every screen captured before and after in both themes
+  (`tools/screenshots.py`).
+- **Launchers start both replicas** for every real flow.
+
 ### Changed on 2026-09-20
 
 - **CSS pixels at the source** (`snapshot.parse`), with every recorded
@@ -259,6 +277,9 @@ application's state (EVALUATION.md).
 ## Orchestrator — Raham · `backend/orchestrator/`
 
 **Done**
+- **Goal routing** (`router.py`, 2026-09-21): model first with an 8s bound,
+  keywords as the fallback, and a small-talk floor under both. 42 unit tests,
+  9 over the real app's websocket, 7 over the mock's.
 - Shared loop: perceive, decide, present, act, verify, retry differently,
   setback re-plan, `help.requested`. Three planners behind it, asserted
   identical under injected failure.
@@ -277,6 +298,17 @@ application's state (EVALUATION.md).
 - Nothing.
 
 **Open — Raham's call**
+- **The keyword fallback runs one half of a two-part request.** "I have a
+  payment due and a class to sign up for" went to billing when the model
+  timed out: two bill words beat one class word. Nothing wrong was started,
+  but only one of two things asked for was. Options: treat any second flow
+  with a strong word as `clarify`; or leave it. Recommended: clarify — it
+  costs one extra question on requests that name two things.
+- **Routing waits up to 8s on a slow model**, and it did twice in twelve
+  calls. The overlay now says so. Lowering the bound sends more requests to
+  the keywords; raising it makes the wait longer. Left at 8.
+- **`goal.answered` and the empty-goal change need ratifying** by all three
+  owners (CONTRACT.md).
 - **Durable verification still stops correct runs on undeclared fields.**
   Since 2026-09-17 a field that now holds its task-declared value is accepted;
   every other field is compared with what was typed, character for character,
@@ -317,6 +349,16 @@ application's state (EVALUATION.md).
 ## Interface — Aly · `frontend/`
 
 **Done**
+- **Design system** (2026-09-21): `index.css` and `design.ts` tokens for
+  colour, type, spacing, radii, shadows and motion; light and dark themes
+  from the system; every text pairing measured at AA or better. Home is a
+  greeting, three task cards and an ask box; replies (greeting, can't do,
+  which one) reuse the same cards; the step is a card at every level; the
+  closing screen puts the answer in a card as the hero; a presence mark shows
+  the assistant's state without words.
+- **The answer no longer pulses on the closing screen**, and **the home
+  screen's box no longer hides itself after typing has started**
+  (EVALUATION.md, 2026-09-21).
 - The window: site view covered by the overlay; CDP on 9222.
 - Contract client; every backend-to-frontend type handled.
 - One column: home with remembered goals, working, a step at three levels
@@ -342,6 +384,14 @@ application's state (EVALUATION.md).
 - Nothing.
 
 **Open — Aly's call**
+- **The typeface is the system's.** A face designed for low-vision and
+  dyslexic readers (Atkinson Hyperlegible) would likely read better for this
+  audience; it is a font file, so a dependency, and was not added.
+- **The theme follows the operating system** with no choice in the overlay.
+- **Three contrast fixes soften deliberate behaviours**: the waiting recede
+  0.55 → 0.8, the level-2 step count 0.4 → 0.75, the resting level dots
+  0.4 → 0.7. Each was under a contrast rule before.
+- **Nobody from the audience has seen the redesign.**
 - **"I'm done" and "Do something else" go to the same place.**
 - **The stuck screen still shows the technical reason** in small type. In the
   2026-09-17 run that reason would have told the person the date had been
