@@ -86,6 +86,13 @@ interface Store {
    * running while this is set; the next choice is the person's.
    */
   reply: GoalAnswered | null;
+  /**
+   * What the person just asked for, while the backend decides what it is.
+   * Set by `startTask`, cleared by whatever answers it — a task starting, a
+   * reply, an ending. Without it the screen showed nothing for as long as the
+   * routing took, which with a model deciding was up to eight seconds.
+   */
+  asking: string | null;
 
   log: LogEntry[];
 
@@ -164,6 +171,7 @@ const EMPTY = {
   error: null,
   stepFailure: null,
   reply: null,
+  asking: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -257,7 +265,7 @@ export const useStore = create<Store>((set, get) => {
     },
 
     startTask: (goal, flow) => {
-      set({ ...EMPTY });
+      set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
       // the window, and after every completed task, since the backend closes
       // the socket when it is done. Reconnect and let the send queue behind it.
@@ -317,7 +325,12 @@ type SetStore = {
 function apply(message: AnyEnvelope, set: SetStore): void {
   switch (message.type) {
     case "task.started":
-      set({ task: message.payload as TaskStarted, completed: null, failed: null });
+      set({
+        task: message.payload as TaskStarted,
+        completed: null,
+        failed: null,
+        asking: null,
+      });
       return;
     case "state.changed":
       set({ state: (message.payload as { state: State }).state });
@@ -340,7 +353,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
-      set({ reply: message.payload as GoalAnswered, task: null, state: null });
+      set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });
       return;
     case "step.failed":
       // Not cleared here or by the step that follows: see the store field.

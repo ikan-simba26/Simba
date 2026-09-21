@@ -70,13 +70,13 @@ export default function App() {
 
 /** Which of the presence mark's six shapes the current screen means. */
 function usePresenceMode(): PresenceMode {
-  const { state, step, help, completed, failed, stoppedByPerson, task } = useStore();
+  const { state, step, help, completed, failed, stoppedByPerson, task, asking } = useStore();
   if (stoppedByPerson) return "ready";
   if (help || failed || state === "stuck") return "stuck";
   if (completed) return "done";
   if (state === "acting") return "acting";
   if (step && isWaiting(state)) return "waiting";
-  if (task) return "thinking";
+  if (task || asking) return "thinking";
   return "ready";
 }
 
@@ -91,7 +91,7 @@ function PresenceBar() {
 }
 
 function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state } =
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state, asking } =
     useStore();
 
   const stuck = state === "stuck" || Boolean(help);
@@ -111,7 +111,7 @@ function Column() {
         ? "failed"
         : step
           ? `step-${step.step_index}`
-          : task
+          : task || asking
             ? "working"
             : reply
               ? `reply-${reply.kind}`
@@ -370,16 +370,18 @@ function Reply() {
  * presence mark above breathes; the words do not.
  */
 function Working() {
-  const { task } = useStore();
+  const { task, asking } = useStore();
   // Thinking and acting are one situation from the person's side — wait —
-  // and share a sentence. The presence mark tells them apart.
-  const situation = task ? "working" : "opening";
+  // and share a sentence. The presence mark tells them apart. Before a task
+  // exists, the backend is still working out what was asked for.
+  const situation = task ? "working" : asking ? "reading" : "opening";
+  const goal = task?.goal ?? asking;
   return (
     <div className="flex flex-col items-center gap-4 pt-16 text-center">
       <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
         {presence(situation)}
       </h1>
-      {task && <p className="max-w-[520px] text-lead text-soft">{task.goal}</p>}
+      {goal && <p className="max-w-[520px] text-lead text-soft">{goal}</p>}
     </div>
   );
 }

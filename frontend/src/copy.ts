@@ -154,7 +154,17 @@ export const STATUS = {
  * the step on screen is the sentence, and a second one beside it would be two
  * things to read.
  */
-const PRESENCE: Record<"opening" | "working", string> = {
+const PRESENCE: Record<"reading" | "opening" | "working", string> = {
+  /**
+   * Between pressing Start and the backend deciding what was asked for.
+   *
+   * Its own sentence because it is its own situation: nothing has been opened
+   * yet, and it may turn out to be a greeting rather than a task. Up to eight
+   * seconds with a model deciding (`router.py`), and until 2026-09-21 the
+   * screen said nothing at all for that long, so pressing Start looked like
+   * it had not worked.
+   */
+  reading: "Let me see what you need.",
   /** Between "start" and the first step, while the site loads. */
   opening: "Let me open that for you.",
   /** Working out what to do next, or doing it. */
@@ -325,6 +335,7 @@ export const TRUST = {
 export const SITUATIONS: Record<string, string> = {
   "presence.opening": presence("opening"),
   "presence.working": presence("working"),
+  "presence.reading": presence("reading"),
   "notice.simpler": NOTICE.simpler,
   "notice.fuller": NOTICE.fuller,
   "notice.skipped": NOTICE.skipped,
