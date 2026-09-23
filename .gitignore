@@ -37,6 +37,12 @@ playwright/.cache/
 # Trace memory database
 traces.db
 
+# Demo recordings. Four clips, about 10 MB of video, regenerated in one
+# command from the same runs they show (demo/README.md) — so they are a
+# fallback for a room with no internet, not repository history.
+demo/*.webm
+demo/_raw/
+
 # Frontend build output
 frontend/dist/
 frontend/dist-electron/

@@ -3693,3 +3693,34 @@ Two flows named by strong words is now a question. The case from 2026-09-21 —
 model timed out — asks which; so do "pay my electricity bill and then find me
 a train" and "register for CS-401 and check the train times". A place name
 alone still does not make a second flow.
+
+## 2026-09-23 — the demo recordings, and what they cost to make
+
+Four clips, recorded by `tools/record_demo.py` against the real stack
+(`run.ps1 billing`, hardcoded planner, model router) and the mock. The overlay
+is built from source and served as a plain page, so Playwright can record what
+the Electron window cannot; the backend drives the hidden site view exactly as
+in the product. The frame is the overlay's own 1280x800, never the desktop.
+
+| Clip | Backend | What it drove | Size | Wall clock |
+|---|---|---|---|---|
+| `railways` | real, live site | departure, destination, open the calendar, set the date, search, ended | 4.9 MB | 80s |
+| `billing` | real, replica | accept cookies, check the bill, show the breakdown, ended | 2.2 MB | 24s |
+| `hello` | real | greeted — **no task started** | 0.6 MB | 8s |
+| `fold` | mock | log in, add course, confirm my place, submit, ended | 2.7 MB | 30s |
+
+9.9 MB in total. The wall clocks are not performance figures: the recorder
+waits `BEAT_MS = 1800` between presses and types the goal at 45ms a character,
+because the clip is for an audience to read. The railways flow's own five
+steps are the same five the live run takes.
+
+Every clip reached a terminal screen on the first attempt. The recorder prints
+the buttons it pressed, so a clip that stopped early would be visible without
+opening it — that is the check, and nothing was silently short.
+
+Suite after the documentation changes: **485 passed, 9 skipped, 0 failed**,
+762s on this machine.
+The 9 skips are 5 needing a running Electron host, 2 needing a host and
+`SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. This breakdown is
+recorded because README.md now states it, and the previous statement of it —
+"5 host, 2 live, 1 `SIMBA_HOST_TESTS`" in STATUS.md — was one test out of date.

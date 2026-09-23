@@ -116,6 +116,9 @@ SIMBA_RUN_SECONDS=20 ./run.sh mock
 
 It passes if you see `stopped` and no port is still listening.
 
+`DEMO.md` is the script for actually showing the thing to someone: five
+minutes, the exact goals to type, and what to say when a part of it fails.
+
 ---
 
 ## When it does not work

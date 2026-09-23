@@ -2523,3 +2523,32 @@ a level-1 step with a field and a notice uses most of the window, so the
 overflow guard has less room before it drops a level. The level dots and
 "What are you doing?" now share one row under the card to make that room.
 One new dependency, asked for.
+
+---
+
+## The demo recordings are kept out of the repository
+
+**Date:** 2026-09-23
+
+**Decision.** `tools/record_demo.py` produces four clips into `demo/`, and
+`demo/*.webm` is gitignored. What is committed is the recorder, and
+`demo/README.md` saying what each clip shows, how long it is, and the one
+command that makes them again. `DEMO.md`'s whole failure plan rests on them,
+so whoever is presenting records them the day before.
+
+**Alternatives.** Commit the four files (9.9 MB). Commit only the two local
+ones — billing and the mock fold — which need no internet to record and are
+2.9 MB together. Git LFS.
+
+**Why this.** The clips are output, not history: nobody will ever read a diff
+of one, and every re-recording adds its full size to the repository forever.
+Committing only the local pair fails at exactly the moment the fallbacks
+matter — a room with no internet is where the *railways* clip is needed, and
+it is the one that cannot be re-recorded there. LFS is a dependency and a
+setup step for every contributor, for four files. The command is one line and
+takes three minutes.
+
+**Cost.** A demo on a fresh clone has no fallbacks until someone runs the
+recorder, and the stack must be up to make three of the four. `DEMO.md` says
+so in its preparation section rather than leaving it to be discovered on the
+day.

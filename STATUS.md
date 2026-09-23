@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-20 · **399 passing, 3 skipped** · suite wall clock 720s. Only 3 skipped because a host happened to be running, so the five Electron tests ran rather than skipping; without one it is 8 skipped (5 host, 2 `SIMBA_LIVE_TESTS=1`, 1 `SIMBA_HOST_TESTS=1`). Earlier runs of smaller suites took 329s, 367s, 438s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-23 · **485 passing, 9 skipped** · suite wall clock 762s. The 9 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. With a host up, 7 of the 9 run. (This said 8 until 2026-09-23, counting the host tests one short.) Earlier runs of smaller suites took 329s, 367s, 438s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -96,6 +96,26 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-23
+
+- **`main` has the scale-and-trust branch**, fast-forwarded and pushed.
+- **There is a script for showing SIMBA to someone**: `DEMO.md`, five minutes,
+  with the exact commands, the exact goals to type, what to point at on each
+  screen, and what to do when the live site, the internet or the host fails.
+  It opens on the real railways page, so the audience meets the clutter before
+  the alternative.
+- **Four recordings back it up**: `tools/record_demo.py` drives the real stack
+  and the mock and keeps `demo/*.webm` — a clean railways run, a billing run,
+  "hello" being greeted, and the mock's level fold. The clips are gitignored;
+  the recorder and `demo/README.md` are committed (DECISIONS.md, 2026-09-23).
+- **`README.md` installs the project from nothing**: prerequisites with the
+  versions actually used, a check after each install, both shells, the optional
+  key, and the failures that cost a newcomer an hour — `ELECTRON_RUN_AS_NODE`,
+  a busy port, pytest run from the wrong directory.
+- **The skip count here was one test out of date.** It is 5 needing a running
+  Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 2 needing
+  `SIMBA_LIVE_TESTS=1` — 9, not 8.
 
 ### Changed on 2026-09-21
 
@@ -634,10 +654,16 @@ application's state (EVALUATION.md).
 
 **Done**
 - Two replicas and one live flow; `run.ps1` / `run.sh`; `tools/screen_site.py`,
-  `tools/mock_backend.py`, `tools/evaluation/`, `spike/`.
+  `tools/mock_backend.py`, `tools/screenshots.py`, `tools/record_demo.py`,
+  `tools/evaluation/`, `spike/`.
 - The test suite from the repo root; `test_terminal_states.py` builds the
   overlay from source.
-- `README.md` and `frontend/README.md` match the project as of 2026-09-17.
+- **`README.md` installs and runs the project from nothing** (2026-09-23):
+  prerequisites with versions, a check after each step, both shells, and the
+  four failures a newcomer actually meets. `frontend/README.md` matches the
+  project as of 2026-09-17.
+- **`DEMO.md`** — the five-minute demo, with a fallback for every part of it
+  that can fail, resting on the four recordings in `demo/`.
 
 **Open**
 - No CI. The Electron tests skip silently without a host.
@@ -646,8 +672,10 @@ application's state (EVALUATION.md).
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
-- `main` is at `d455ad2` (2026-09-18's work, merged and pushed). 2026-09-19's
-  work is on `feat/estimator-features-and-every-result`, not merged.
+- `main` is at `bb16b04` (2026-09-21's interface work, merged and pushed).
+- **The demo recordings must be made before a demo**, on a machine with the
+  stack up: `demo/*.webm` is gitignored, so a fresh clone has no fallbacks
+  (DECISIONS.md, 2026-09-23).
 - `tools/evaluation/host_overlay_run` drives the overlay of a running stack,
   which is how an interface claim gets checked live. It presses the step's own
   primary action and nothing else.
