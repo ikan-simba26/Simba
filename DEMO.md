@@ -13,12 +13,29 @@ in `demo/` (2026-09-23): railways takes 80 seconds at a watchable pace, billing
 
 ---
 
+## Rehearsing
+
+**Rehearse from the recordings. Run the live railways flow only for the real
+demo.** Every railways run is a search on somebody's public service, and
+CLAUDE.md keeps repeated runs off live sites. Practise the narration against
+`demo/railways.webm` — same screens, same pace — and rehearse the parts that
+run locally (billing, "hello", "book a flight") live as often as you like. On
+the day, the live railways run is the one you do in front of the audience.
+
+If the recordings are missing, make them once, the day before (below); that
+is the one other time the live site is used.
+
+---
+
 ## Ten minutes before
 
 ```powershell
 cd D:\simba
-.\run.ps1 billing              # both replicas, the Electron window, the backend
+.\run.ps1 billing              # opens on the billing replica; both replicas, the window, the backend
 ```
+
+The word after `run.ps1` is only the page the window opens on. What you type
+chooses the task, so railways works from here too.
 
 Wait for `==> ready - type a goal in the SIMBA window and press Start`. Then,
 in a second terminal, check the backend agrees with you about what it is:
@@ -33,6 +50,13 @@ curl http://127.0.0.1:8000/
 - `router: model` means the typed goal is classified by the model, which takes
   1–6 seconds. With no key or no quota it says `keywords`, and the demo works
   exactly the same.
+- `level: provisional rules` means **the screen adapts to you while you
+  present** (since 2026-09-25). Talking over a step for 15 seconds, or
+  pressing "What are you doing?" — which the script below does — folds that
+  step to the simplest level, with "I'm showing less for a moment". That is
+  the feature working; say so if it happens. To keep the level still, press
+  the middle level dot once at the first step (it locks until "let it
+  choose"), or start with `$env:SIMBA_ADAPT = "0"`.
 
 Open a second, ordinary browser window at
 `https://www.pakrailways.gov.pk/train` and leave it on screen one. Leave the
@@ -42,7 +66,7 @@ SIMBA window on screen two, or alt-tab between them.
 for every failure below. They are not committed — record them the day before:
 
 ```powershell
-python -m tools.record_demo          # with the stack up: all four clips
+python -m tools.record_demo          # with the stack up: all five clips
 ```
 
 ---
@@ -130,7 +154,7 @@ failure and continues is stronger than one that pretends.
 | **A port is already in use** | `port 8000 is already in use - another SIMBA run is probably up` | An earlier run is still alive. Close it, or `Get-Process electron, python \| Stop-Process`, then start again. |
 | **The model has no quota** | The reading screen waits ~8 seconds, then works normally | Nothing to do. It fell back to keywords. If you want to avoid the wait entirely, set `$env:SIMBA_ROUTER = "keywords"` before `run.ps1`. |
 | **A step genuinely fails** | "I couldn't do that. I'm carrying on." or the stuck screen | Show it deliberately: *it tells you, it does not pretend, and it stops rather than guess.* Then move to the billing task or the recordings. |
-| **Everything is broken** | — | `python -m tools.record_demo mock` needs no stack at all, or play the four clips in `demo/`. |
+| **Everything is broken** | — | `python -m tools.record_demo mock` needs no stack at all, or play the clips in `demo/`. |
 
 ---
 

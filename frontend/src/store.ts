@@ -277,6 +277,12 @@ export const useStore = create<Store>((set, get) => {
         set({ log: [] });
         connection.connect(get().wsUrl);
       }
+      // A lock outlives the connection it was set on, and the backend's level
+      // rules are made fresh with each one. Said again before the task, so
+      // the new rules hold it from the first step rather than proposing
+      // levels this store would only refuse.
+      const { level, levelLocked } = get();
+      if (levelLocked) connection.overrideLevel(level, true);
       connection.startTask(goal, flow);
     },
 

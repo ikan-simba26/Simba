@@ -33,6 +33,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from tools.evaluation.adaptation_stack_run import SIMPLER, hesitate
+
 REPO = Path(__file__).resolve().parents[1]
 FRONTEND = REPO / "frontend"
 BUILD = FRONTEND / "dist"
@@ -60,7 +62,16 @@ CLIPS: list[tuple[str, str, str, str]] = [
      "a greeting and the three things SIMBA can do — no task started"),
     ("fold", "mock", "Register for CS-401",
      "the scripted run, including the fold from one detail level to the next"),
+    ("adapt", "real", "What do I owe on my electricity bill?",
+     "billing, hesitating on step 1 until it folds, then two calm answers and back"),
 ]
+
+#: Clips that hesitate on their first step instead of pressing it: the pointer
+#: drifts over the step until the overlay says it is showing less, the way
+#: `tools/evaluation/adaptation_stack_run.py` does it through the host. The
+#: fold is the backend's provisional rules answering the overlay's own
+#: telemetry; nothing here sends a sample.
+HESITATES = {"adapt"}
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -135,6 +146,11 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
                 if not seen or seen[-1] != label:
                     seen.append(label)
                     page.wait_for_timeout(BEAT_MS)
+                    if name in HESITATES and len(seen) == 1:
+                        folded = hesitate(page, SIMPLER)
+                        seen.append(f"folded after {folded}s" if folded else "never folded")
+                        page.wait_for_timeout(BEAT_MS * 2)  # let the fold be seen
+                        seen.append(label)
                     go.click()
     page.wait_for_timeout(2500)  # let the last screen be read
 

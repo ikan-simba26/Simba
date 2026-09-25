@@ -24,6 +24,11 @@ while the step is still on screen, so a step that took a person thirty seconds
 leaves a trail of `waiting` rows and one `answered` row, and the trail is the
 interesting part — hesitation that grows is the signal, not its final value.
 
+Since 2026-09-25 the file holds a second kind of row: every decision the
+provisional level rules make (`rules.py`), with the inputs it was made from.
+`kind` tells them apart — `telemetry` or `decision`; a row written before
+that day has no `kind` and is a telemetry row.
+
 **Appended, never rewritten**, as JSON lines, so a crashed run keeps whatever
 it had written and a reader can `tail` it while a run is happening.
 
@@ -42,6 +47,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from backend.estimator.page_features import PageFeatures
+from backend.estimator.rules import Decision
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PATH = REPO_ROOT / "data" / "steps.jsonl"
@@ -108,6 +114,7 @@ class Recorder:
             return None
 
         row = {
+            "kind": "telemetry",
             "ts": int(time.time() * 1000),
             "task_id": self.task_id,
             "step_index": step.step_index,
@@ -120,6 +127,22 @@ class Recorder:
             "page": step.features.as_dict() if step.features else None,
             "telemetry": {key: value for key, value in payload.items()
                           if key not in {"answered"}},
+        }
+        self._write(row)
+        return row
+
+    def note_decision(self, decision: Decision) -> dict:
+        """Write down one decision of the level rules, with what it was made from.
+
+        Every decision, not only the ones that moved the level: a trained
+        model is checked against what the rules would have done at each
+        sample, and "held" is an answer as much as "folded" is.
+        """
+        row = {
+            "kind": "decision",
+            "ts": int(time.time() * 1000),
+            "task_id": self.task_id,
+            **decision.as_row(),
         }
         self._write(row)
         return row

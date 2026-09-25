@@ -3724,3 +3724,90 @@ The 9 skips are 5 needing a running Electron host, 2 needing a host and
 `SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. This breakdown is
 recorded because README.md now states it, and the previous statement of it —
 "5 host, 2 live, 1 `SIMBA_HOST_TESTS`" in STATUS.md — was one test out of date.
+
+## 2026-09-25 — the level adapts in a real run, by provisional rules
+
+Until today only the mock sent `load.updated`, so a real run stayed at level 2
+unless the person moved it. `backend/estimator/rules.py` now moves it, by
+hand-written rules marked provisional (DECISIONS.md, 2026-09-25). All
+thresholds are guesses and are listed there.
+
+### Scripted telemetry (`backend/estimator/test_rules.py`, 24 tests)
+
+The four runs the task named, fed to the rules as the overlay would send them
+(a 3s timer sample while a step waits, one more with the answer):
+
+| Run | Levels, step by step | `load.updated` sent |
+|---|---|---|
+| calm, 5 steps | 2 2 2 2 2 | 1 (the start, level 2) |
+| hesitant on step 2 | 2 3 | 2 (start; fold during step 2 at the 15.0s sample) |
+| hesitant on step 1, then calm | 3 3 3 2 | 3 (start; fold on step 1; return as step 4 arrives) |
+| locked at 2, hesitant on steps 1 and 3, help on 2 | 2 2 2 | 0 |
+
+### Through the loop and the app (`backend/orchestrator/test_adaptation.py`, 6 tests)
+
+Billing replica, hardcoded plan, real browser. Hesitant on step 1, calm on 2
+and 3: `load.updated` levels **[2, 3, 2]**. The start arrives before step 1,
+the fold between step 1 and step 2, and the return after step 3 and before
+`task.completed`. Decision rows: 5 + 1 + 1 samples, 3 steps, 1 end = **11**,
+one per evaluation. Over the websocket with `level.override {2, locked}` sent
+before `task.start`, **0** `load.updated`.
+
+### Live, billing, through the Electron host (`tools/evaluation/adaptation_stack_run.py`)
+
+`run.ps1 billing`, hardcoded planner, model router. The script drives the
+overlay page inside the host; the overlay's own `telemetry.ts` measures the
+pointer. Screenshots of the overlay page only.
+
+| Pointer on step 1 | Fold seen | Rule that fired | Steps 2–3 shown at | Return | Decisions logged | Wall clock |
+|---|---|---|---|---|---|---|
+| drifting back and forth | **yes, 8.0s** into hesitating | pointer wandering, ratio 53.11 | 3, 3 | "I'm showing a bit more again" on the ending | 12 | 30.0s |
+| still | **yes, 18.3s** | paused 17.9s | 3, 3 | same | 14 | 38.3s |
+
+The still run folded at 17.9s rather than 15s. Samples go every 3s, and the
+one before the threshold landed just under it, so a pause can go up to 3s past
+the threshold before the fold. The drifting run folded on the first sample
+past `wander_after_ms`. Sweeping back and forth ends near where it started, so
+the path ratio divides by a short distance and reaches 53. That rule fires as
+soon as it is allowed to, and a real hand may do the same (DECISIONS.md).
+
+**Lock, live, two tasks on one window.** Step 1 locked at level 2 by pressing
+the middle dot, then 20s still: **no fold**, and three `locked` decisions
+logged ("would simplify: paused 15.5s / 18.5s / 21.0s"). The second task,
+started with "Do something else", began `locked at 1; would start at 2`. The
+store re-sent its lock, and again nothing folded. The lock had become level 1
+because of the overflow guard, not the rules; see "Found" below.
+
+### Clip
+
+`demo/adapt.webm`, 2.1 MB, 32.4s, from `python -m tools.record_demo adapt`
+against the same stack. Frames checked from the file: level 2 at 17s, folded
+to level 3 with "I'm showing less for a moment" at 21s, ending with "I'm
+showing a bit more again" at 32s. As with the other clips, the recorded
+overlay is the built overlay in a Playwright browser, talking to the real
+backend, which drives the Electron host's site view. The Electron window
+itself cannot be recorded.
+
+### Found
+
+- **The return notice overflows the billing ending.** At 1280x800 the ending
+  plus "I'm showing a bit more again" fills about 790 of 800 CSS px, and a
+  scrollbar shows until the notice leaves (8s). It happens because billing's
+  return can only land on the ending (three steps). Flagged, not fixed.
+- **The overflow guard moves to level 1 and overrides the lock.** Billing's
+  step 3 at level 2 does not fit, so the guard hops to `denser(2)` = 1 and
+  announces it. The store keeps that level for the next task, and under a lock
+  it becomes the locked level. This was true before today; the rules make it
+  visible, because the guard and the rules now move the level in opposite
+  directions and the backend is never told about the guard's move. Flagged.
+- **A test-driver bug suspected, and wrong.** The level-1 surprise was first
+  blamed on the driver clicking a level dot as if it were the go-ahead. The
+  dots sit outside the step shell, so it cannot have been, and the guard
+  explains it exactly (its notice was on the ending).
+
+### Suite
+
+**515 passed, 9 skipped, 0 failed**, 656s on this machine: 485 before, plus 24
+rule tests and 6 adaptation tests. The same 9 skips. `data/steps.jsonl` held
+200 rows before the suite and 200 after, because the suite now turns recording
+off.

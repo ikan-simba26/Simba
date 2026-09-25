@@ -1,9 +1,13 @@
 <#
-    Start SIMBA. One flow, one command, cleaned up on Ctrl+C.
+    Start SIMBA. One command, cleaned up on Ctrl+C.
 
-        .\run.ps1                 registration replica, hardcoded plan
-        .\run.ps1 billing         billing replica, hardcoded plan
-        .\run.ps1 railways        the live public site, read-only, hardcoded plan
+    The argument is the page the window opens on, not the task. What you type
+    into SIMBA chooses the task, and every real start page brings up both
+    replicas, so any flow can be asked for from any of them.
+
+        .\run.ps1                 opens on the registration replica
+        .\run.ps1 billing         opens on the billing replica
+        .\run.ps1 railways        opens on the live public site (read-only)
         .\run.ps1 mock            overlay + scripted backend, nothing real
 
     .\run.ps1 mock -Seconds 20 starts everything, waits, and shuts down again.
@@ -15,13 +19,15 @@
     fault rather than the model's. For the LLM, set
     $env:SIMBA_USE_HARDCODED_PLAN = "0" first.
 
-    See RUNNING.md for what each flow shows and what to do when one fails.
+    See RUNNING.md for what each start page shows and what to do when one fails.
 #>
 
 [CmdletBinding()]
 param(
+    # Named -Flow until 2026-09-25, and still accepted under that name.
     [ValidateSet("registration", "billing", "railways", "mock")]
-    [string]$Flow = "registration",
+    [Alias("Flow")]
+    [string]$StartPage = "registration",
 
     # Run for this many seconds and then shut down. 0 means run until Ctrl+C.
     [int]$Seconds = $(if ($env:SIMBA_RUN_SECONDS) { [int]$env:SIMBA_RUN_SECONDS } else { 0 })
@@ -149,11 +155,14 @@ function Start-Host([string]$StartUrl) {
     Wait-For "http://127.0.0.1:$CdpPort/json/version" "the host (CDP $CdpPort)" 120
 }
 
-function Start-Backend([string]$FlowName) {
-    Say "starting the backend on :$BackendPort - flow=$FlowName, planner=$PlannerName"
+function Start-Backend {
+    # No SIMBA_FLOW: the typed goal chooses the task (2026-09-21), and setting
+    # it here only made the backend's health check name the start page as if
+    # it were the task. One set in the calling shell -- `stubborn` -- passes
+    # through untouched.
+    Say "starting the backend on :$BackendPort - the typed goal picks the task, planner=$PlannerName"
     [void]$Ports.Add($BackendPort)
     Start-Tracked $Py @("-m", "uvicorn", "backend.orchestrator.app:app", "--port", $BackendPort) @{
-        SIMBA_FLOW               = $FlowName
         SIMBA_BROWSER            = "electron"
         SIMBA_CDP_URL            = "http://127.0.0.1:$CdpPort"
         SIMBA_USE_HARDCODED_PLAN = $Hardcoded
@@ -171,21 +180,21 @@ foreach ($port in @($BackendPort, $CdpPort, "5000", "5100")) {
 }
 
 try {
-    switch ($Flow) {
+    switch ($StartPage) {
         # Since 2026-09-21 the typed goal chooses the flow, not this switch, so
-        # every real flow's site has to be there whichever one is named here.
-        # The name now only chooses the page the host opens on.
+        # every real flow's site has to be there whichever page is named here.
+        # The name only chooses the page the host opens on.
         "registration" {
             Start-Replica "registration" "5000"
             Start-Replica "billing" "5100"
             Start-Host "http://127.0.0.1:5000"
-            Start-Backend "registration"
+            Start-Backend
         }
         "billing" {
             Start-Replica "registration" "5000"
             Start-Replica "billing" "5100"
             Start-Host "http://127.0.0.1:5100"
-            Start-Backend "billing"
+            Start-Backend
         }
         "railways" {
             Warn "railways is a live public website. Read-only, and please do not"
@@ -193,7 +202,7 @@ try {
             Start-Replica "registration" "5000"
             Start-Replica "billing" "5100"
             Start-Host "https://www.pakrailways.gov.pk/train"
-            Start-Backend "railways"
+            Start-Backend
         }
         "mock" {
             # No replica and no real backend: the scripted one plays the
@@ -210,7 +219,7 @@ try {
 
     Write-Host ""
     Say "ready - type a goal in the SIMBA window and press Start"
-    if ($Flow -eq "mock") {
+    if ($StartPage -eq "mock") {
         Say "the level changes itself before step 3 and back before step 4: watch the fold"
     }
     Say "Ctrl+Shift+D in the window shows the message log"

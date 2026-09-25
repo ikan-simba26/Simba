@@ -33,6 +33,10 @@ The switches, all environment variables:
 - `SIMBA_BROWSER` is `chromium` (default, launches its own headless browser)
   or `electron` (attaches over CDP to a running host and drives its hidden
   site view). See `browser.py`.
+- `SIMBA_ADAPT` is on by default: the provisional level rules
+  (`backend/estimator/rules.py`) choose the detail level as the run goes and
+  send `load.updated`. `SIMBA_ADAPT=0` sends none, so the level stays where
+  the overlay put it — the fixed-level condition, and a way out on demo day.
 """
 
 import logging
@@ -48,7 +52,8 @@ from backend.orchestrator.browser import browser_source, open_page
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.estimator.pairing import Recorder, recording_enabled
-from backend.orchestrator.loop import Connection, run_task
+from backend.estimator.rules import Decision, LevelRules
+from backend.orchestrator.loop import Connection, follow_override, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
@@ -93,6 +98,11 @@ def use_trace_memory() -> bool:
     return _flag("SIMBA_TRACE_MEMORY")
 
 
+def adapt_level() -> bool:
+    """On unless `SIMBA_ADAPT` says otherwise."""
+    return os.environ.get("SIMBA_ADAPT", "1").strip().lower() not in {"0", "false", "no"}
+
+
 log = logging.getLogger("simba.app")
 
 
@@ -131,6 +141,7 @@ async def health() -> dict[str, str]:
         "router": "model" if use_model() else "keywords",
         "planner": "hardcoded" if use_hardcoded_plan() else "llm",
         "trace_memory": "on" if use_trace_memory() else "off",
+        "level": "provisional rules" if adapt_level() else "fixed",
         "browser": browser_source(),
         "replica": "per flow",
     }
@@ -164,12 +175,31 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # to show the moment it connects.
     await connection.send("history.offered", past_goals())
 
+    # Channel B's other half: every step's page features, paired with whatever
+    # telemetry the overlay sends about it, appended to `data/steps.jsonl`,
+    # with every decision the level rules make beside them.
+    # `SIMBA_RECORD_STEPS=0` turns it off (`backend/estimator/pairing.py`).
+    recorder = Recorder(task_id="t_skeleton") if recording_enabled() else None
+
+    # One set of rules per connection, made before anything is asked for: a
+    # level the person locked on the home screen arrives ahead of the
+    # `task.start`, and has to hold from the first step.
+    rules = LevelRules() if adapt_level() else None
+
+    async def before_the_task(message: dict) -> None:
+        # Nothing is sent back: an override is the person's own doing, and
+        # there is no step on screen yet for a level to reshape.
+        async def write_down(decision: Decision | None) -> None:
+            if recorder is not None and decision is not None:
+                recorder.note_decision(decision)
+        await follow_override(message, rules, write_down)
+
     # Routed first, every time. Anything that is not a request for a flow is
     # answered and the socket is kept, so the person's next choice — a card, a
     # clarifying button, a new sentence — arrives on the same connection.
     model = configured_classifier()
     while True:
-        start = await connection.receive("task.start")
+        start = await connection.receive("task.start", on_other=before_the_task)
         payload = start.get("payload", {})
         goal = (payload.get("goal") or "").strip()
         chosen = payload.get("flow")
@@ -212,12 +242,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         store = TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB))
         planner = TracePlanner(store, task, site_of(replica_url), planner)
 
-    # Channel B's other half: every step's page features, paired with whatever
-    # telemetry the overlay sends about it, appended to `data/steps.jsonl`.
-    # `SIMBA_RECORD_STEPS=0` turns it off (`backend/estimator/pairing.py`).
-    recorder = Recorder(task_id="t_skeleton") if recording_enabled() else None
-
     async with open_page(replica_url) as page:
-        await run_task(page, connection, planner, task, replica_url, recorder)
+        await run_task(page, connection, planner, task, replica_url, recorder, rules)
 
     await websocket.close()

@@ -9,8 +9,11 @@ in the way the plan expected. On a mismatch the step is retried once with a
 different strategy; if that also fails, control goes back to the user via
 `help.requested`. Nothing here assumes a click worked.
 
-Load estimation is deliberately absent — no `load.updated` is emitted, since
-the estimator is not built until the skeleton runs end to end.
+The detail level adapts when the caller passes `rules`: a starting level
+from the first page, a fold on one clear signal while a step waits, a return
+after two calm steps, each sent as `load.updated`. Those rules are provisional
+and stand in for the estimator (`backend/estimator/rules.py`); a caller that
+passes none — most tests — never sends `load.updated` at all.
 """
 
 import asyncio
@@ -27,6 +30,7 @@ from playwright.async_api import Page
 from backend.estimator.page_features import PageFeatures
 from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
+from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
 from backend.perception.content import Content
@@ -52,6 +56,7 @@ from shared.schema import (
     TaskCompleted,
     TaskFailed,
     TaskStarted,
+    LevelOverride,
 )
 
 VERIFY_TIMEOUT_S = 5.0
@@ -460,6 +465,7 @@ async def run_task(
     task: Task,
     start_url: str,
     recorder: Recorder | None = None,
+    rules: LevelRules | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -467,6 +473,9 @@ async def run_task(
     for the estimator's training set. `app.py` supplies one; a caller that
     passes none — every test here — runs exactly as before and writes nothing
     (`backend/estimator/pairing.py`).
+
+    `rules` chooses the detail level as the run goes (`adapt`, below). With
+    none, the level is whatever the overlay shows and nothing here moves it.
     """
     started = time.monotonic()
     current_state: str | None = None
@@ -486,6 +495,15 @@ async def run_task(
         if state != current_state:
             current_state = state
             await connection.send("state.changed", StateChanged(state=state))
+
+    async def adapt(decision: Decision | None) -> None:
+        """Every decision is written down; only a change is sent."""
+        if decision is None:
+            return
+        if recorder is not None:
+            recorder.note_decision(decision)
+        if decision.send:
+            await connection.send("load.updated", decision.load())
 
     async def give_up(reason: str) -> None:
         await set_state("stuck")
@@ -552,6 +570,7 @@ async def run_task(
 
         steps_taken += 1
         await set_state("waiting")
+        features = features_of(view)
         # What the page was like at the moment this step went on screen, kept
         # for whatever the person then does with it. Written down only if the
         # caller asked for a recorder: the app does, tests do not
@@ -562,8 +581,12 @@ async def run_task(
                 goal=task.goal,
                 url=page.url,
                 instruction=move.instruction,
-                features=features_of(view),
+                features=features,
             )
+        # Before the step, so it arrives already at its level: the starting
+        # level on the first step, a return after two calm ones.
+        if rules is not None:
+            await adapt(rules.start_step(steps_taken, features))
         await connection.send(
             "step.presented",
             StepPresented(
@@ -583,9 +606,16 @@ async def run_task(
                 return
             # Channel B, arriving while the step is on screen: one sample on
             # a timer, and one more with the response itself. Paired with the
-            # page above and written down; never answered, never acted on.
-            if message.get("type") == "telemetry" and recorder is not None:
-                recorder.note_telemetry(message.get("payload") or {})
+            # page above and written down, and — with rules — the one input
+            # that can fold the step while it is still showing.
+            if message.get("type") == "telemetry":
+                sample = message.get("payload") or {}
+                if recorder is not None:
+                    recorder.note_telemetry(sample)
+                if rules is not None:
+                    await adapt(rules.telemetry(sample))
+                return
+            await follow_override(message, rules, adapt)
 
         response = await connection.receive(
             "step.response", step_index=steps_taken, on_other=answer_questions
@@ -657,6 +687,11 @@ async def run_task(
         await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
         return
 
+    # A return that was due when the last step was answered has no next step
+    # to arrive with, so it goes out before the ending.
+    if rules is not None:
+        await adapt(rules.end())
+
     # A planner that remembers runs gets told what actually worked.
     remember = getattr(planner, "finished", None)
     if remember is not None:
@@ -673,6 +708,26 @@ async def run_task(
             findings=findings,
         ),
     )
+
+
+async def follow_override(
+    message: dict,
+    rules: LevelRules | None,
+    adapt: Callable[[Decision | None], Awaitable[None]],
+) -> None:
+    """A `level.override`: the person chose a level, or handed it back.
+
+    Read wherever the backend is listening — while a step waits, and before a
+    task has started — so a lock set on the home screen holds from the first
+    step. One that does not parse is ignored, like any unknown message.
+    """
+    if rules is None or message.get("type") != "level.override":
+        return
+    try:
+        override = LevelOverride.model_validate(message.get("payload") or {})
+    except ValueError:
+        return
+    await adapt(rules.override(override.level, override.locked))
 
 
 async def attempt_move(

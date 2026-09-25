@@ -135,6 +135,8 @@ def test_rows_are_appended_so_a_crashed_run_keeps_what_it_had(
 
 
 def test_recording_is_on_unless_it_is_turned_off(monkeypatch) -> None:
+    # The suite turns it off for every app it starts (`backend/conftest.py`).
+    monkeypatch.delenv("SIMBA_RECORD_STEPS", raising=False)
     assert recording_enabled()
     monkeypatch.setenv("SIMBA_RECORD_STEPS", "0")
     assert not recording_enabled()

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 #
-# Start SIMBA. One flow, one command, cleaned up on Ctrl+C.
+# Start SIMBA. One command, cleaned up on Ctrl+C.
 #
-#   ./run.sh                 registration replica, hardcoded plan
-#   ./run.sh billing         billing replica, hardcoded plan
-#   ./run.sh railways        the live public site, read-only, hardcoded plan
+# The argument is the page the window opens on, not the task. What you type
+# into SIMBA chooses the task, and every real start page brings up both
+# replicas, so any flow can be asked for from any of them.
+#
+#   ./run.sh                 opens on the registration replica
+#   ./run.sh billing         opens on the billing replica
+#   ./run.sh railways        opens on the live public site (read-only)
 #   ./run.sh mock            overlay + scripted backend, nothing real
 #
 # SIMBA_RUN_SECONDS=20 ./run.sh mock starts everything, waits, and shuts down
@@ -15,12 +19,12 @@
 # quota and it is deterministic, so a run that misbehaves is the system's
 # fault rather than the model's. For the LLM, add SIMBA_USE_HARDCODED_PLAN=0.
 #
-# See RUNNING.md for what each flow shows and what to do when one fails.
+# See RUNNING.md for what each start page shows and what to do when one fails.
 
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-FLOW="${1:-registration}"
+START_PAGE="${1:-registration}"
 BACKEND_PORT="${SIMBA_BACKEND_PORT:-8000}"
 CDP_PORT="${SIMBA_CDP_PORT:-9222}"
 
@@ -133,10 +137,12 @@ start_host() { # start url
   wait_for "http://127.0.0.1:$CDP_PORT/json/version" "the host (CDP $CDP_PORT)" 120
 }
 
-start_backend() { # flow, start url
-  say "starting the backend on :$BACKEND_PORT — flow=$1, planner=${PLANNER_NAME}"
+start_backend() {
+  # No SIMBA_FLOW: the typed goal chooses the task (2026-09-21), and setting
+  # it here only made the backend's health check name the start page as if it
+  # were the task. One set in the calling shell — `stubborn` — passes through.
+  say "starting the backend on :$BACKEND_PORT — the typed goal picks the task, planner=${PLANNER_NAME}"
   PORTS+=("$BACKEND_PORT")
-  SIMBA_FLOW="$1" \
   SIMBA_BROWSER=electron \
   SIMBA_CDP_URL="http://127.0.0.1:$CDP_PORT" \
   SIMBA_USE_HARDCODED_PLAN="${SIMBA_USE_HARDCODED_PLAN:-1}" \
@@ -160,21 +166,21 @@ else
   PLANNER_NAME="LLM (spends API quota)"
 fi
 
-case "$FLOW" in
+case "$START_PAGE" in
   # Since 2026-09-21 the typed goal chooses the flow, not this argument, so
-  # every real flow's site has to be up whichever one is named. The name now
+  # every real flow's site has to be up whichever page is named. The name
   # only chooses the page the host opens on.
   registration)
     start_replica registration 5000
     start_replica billing 5100
     start_host "http://127.0.0.1:5000"
-    start_backend registration
+    start_backend
     ;;
   billing)
     start_replica registration 5000
     start_replica billing 5100
     start_host "http://127.0.0.1:5100"
-    start_backend billing
+    start_backend
     ;;
   railways)
     warn "railways is a live public website. Read-only, and please do not"
@@ -182,7 +188,7 @@ case "$FLOW" in
     start_replica registration 5000
     start_replica billing 5100
     start_host "https://www.pakrailways.gov.pk/train"
-    start_backend railways
+    start_backend
     ;;
   mock)
     # No replica and no real backend: the scripted one plays the backend's
@@ -196,13 +202,13 @@ case "$FLOW" in
     start_host "about:blank"
     ;;
   *)
-    die "unknown flow '$FLOW' — expected registration, billing, railways or mock"
+    die "unknown start page '$START_PAGE' — expected registration, billing, railways or mock"
     ;;
 esac
 
 printf '\n'
 say "ready — type a goal in the SIMBA window and press Start"
-if [ "$FLOW" = "mock" ]; then
+if [ "$START_PAGE" = "mock" ]; then
   say "the level changes itself before step 3 and back before step 4: watch the fold"
 fi
 say "Ctrl+Shift+D in the window shows the message log"

@@ -31,6 +31,12 @@ import pytest
 # classifying a goal it already knows the answer to (2026-09-21).
 os.environ.setdefault("SIMBA_ROUTER", "keywords")
 
+# And every app a test starts writes nothing to `data/steps.jsonl`, which is
+# the person's real rows. Before 2026-09-25 a test run wrote nothing there
+# anyway — tests send no telemetry — but every run now writes a decision per
+# step, and the suite would have filled the file with its own.
+os.environ.setdefault("SIMBA_RECORD_STEPS", "0")
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

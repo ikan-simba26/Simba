@@ -161,18 +161,22 @@ If that passes, most of the system is proven and what remains to check is the
 ## The short way
 
 ```powershell
-.\run.ps1                # registration replica — or ./run.sh anywhere with bash
-.\run.ps1 billing
-.\run.ps1 railways       # the live site
+.\run.ps1                # opens on the registration replica — or ./run.sh anywhere with bash
+.\run.ps1 billing        # opens on the billing replica
+.\run.ps1 railways       # opens on the live site
 .\run.ps1 mock           # the overlay against the scripted backend, no browser driving
 ```
+
+The argument is only **the page the window opens on**. What you type chooses
+the task, from any start page, because both replicas are always up.
 
 One command starts both replicas, the Electron host and the backend, in the
 order they need, and prints `==> ready - type a goal in the SIMBA window and
 press Start`. Ctrl+C stops everything it started and leaves nothing listening.
 
 Type a goal in the window — `What do I owe on my electricity bill?` — and
-press Start. `RUNNING.md` covers every flow and what each failure looks like.
+press Start. `RUNNING.md` covers every start page and what each failure looks
+like.
 
 ## The long way, in three pieces
 
@@ -252,11 +256,13 @@ All environment variables, all read at the backend.
 | Variable | Default | What it does |
 |---|---|---|
 | `SIMBA_ROUTER` | `model` | How a typed goal is routed: `model` asks the configured provider once and falls back to keywords with no key, no quota or no answer in 8s; `keywords` never calls a model (the tests' default) |
-| `SIMBA_FLOW` | unset | **No longer chooses the task** — the typed goal does (2026-09-21). `stubborn` runs a registration request on the rigged page that measures recovery; with `SIMBA_REPLICA_URL`, points that one flow at another URL |
+| `SIMBA_FLOW` | unset | **No longer chooses the task** — the typed goal does (2026-09-21), and the launchers no longer set it (2026-09-25). `stubborn` runs a registration request on the rigged page that measures recovery; with `SIMBA_REPLICA_URL`, points that one flow at another URL |
 | `SIMBA_REGISTRATION_URL`, `SIMBA_BILLING_URL`, `SIMBA_RAILWAYS_URL` | per flow | Override one flow's site |
 | `SIMBA_USE_HARDCODED_PLAN` | off | Run the flow's written plan instead of the LLM |
 | `SIMBA_BROWSER` | `chromium` | `electron` attaches to a running host over CDP |
 | `SIMBA_TRACE_MEMORY` | off | Replay a goal already done on this site from SQLite |
+| `SIMBA_ADAPT` | on | The provisional level rules choose the detail level as a run goes and send `load.updated`; `0` keeps the level where the overlay puts it |
+| `SIMBA_RECORD_STEPS` | on | Write each step's page features, telemetry and level decisions to `data/steps.jsonl`; the test suite turns it off |
 | `SIMBA_REPLICA_URL` | per flow | Legacy: the site of the flow named in `SIMBA_FLOW`, or of registration when none is |
 | `SIMBA_OVERLAY_DETECTION` | on | Ablation switch for structural blocker detection |
 | `SIMBA_INFERRED_ROLES` | on | Ablation switch for non-semantic control detection |

@@ -355,7 +355,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `backend/orchestrator/traces.py` | SQLite trace storage |
 | `backend/orchestrator/replay.py` | `TracePlanner` |
 | `backend/orchestrator/app.py` | FastAPI `/ws` endpoint, `history.offered`, the flow switches |
-| `backend/estimator/` | Empty. Not built |
+| `backend/estimator/` | Page features (`page_features.py`), step/telemetry/decision rows (`pairing.py`), and the provisional level rules (`rules.py`). No trained score |
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
 | `frontend/electron/main.ts` | The window: site view, then overlay on top of it |
@@ -377,16 +377,19 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `tools/mock_backend.py` | Scripted backend so the overlay can be built alone |
 | `tools/screen_site.py` | Screen a site before pointing anything at it |
 | `tools/evaluation/` | The scripts behind EVALUATION.md's tables |
-| `run.ps1`, `run.sh` | One command per flow |
+| `run.ps1`, `run.sh` | One command; the argument is the page the window opens on, the typed goal picks the task |
 | `spike/` | The Electron + CDP + Playwright proof the constraints in `CLAUDE.md` came from |
 
 ## What is not built yet
 
-The **estimator** — nothing computes a load score, so `load.updated` is only
-ever sent by the mock, and a real run sits at level 2 unless the user moves
-it. The **credential vault** — values arrive in `step.response` rather than
-being injected from a store the model cannot see. **Telemetry** — specified,
-never sent. **Voice input**, and **replay tuning**.
+The **estimator** — nothing trained computes a load score. Since 2026-09-25 a
+real run's level is moved by **provisional hand-written rules**
+(`backend/estimator/rules.py`): a starting level from the first page, one
+level simpler on a clear telemetry signal, back after two calm steps. They
+stand in until the model exists, and every decision they make is logged to
+`data/steps.jsonl` so the model can be checked against them. The **credential
+vault** — values arrive in `step.response` rather than being injected from a
+store the model cannot see. **Voice input**, and **replay tuning**.
 
 See `STATUS.md` for where each module actually stands.
 

@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-23 · **485 passing, 9 skipped** · suite wall clock 762s. The 9 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. With a host up, 7 of the 9 run. (This said 8 until 2026-09-23, counting the host tests one short.) Earlier runs of smaller suites took 329s, 367s, 438s, 459s and 711s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-25 · **515 passing, 9 skipped** · suite wall clock 656s. The 9 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. With a host up, 7 of the 9 run. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 711s and 762s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -48,7 +48,15 @@ its range (DECISIONS.md). Every conclusion in EVALUATION.md that rested on a
 time difference has been audited: none is withdrawn, one now stands on its
 mechanism rather than its seconds.
 
-**Both channels exist now, and nothing reads either.** Channel A is the
+**The level adapts in a real run now, by provisional rules** (2026-09-25).
+A heavy first page starts at level 3; a long pause, a wandering pointer or a
+help press folds the step on screen one level simpler; two calm steps bring
+it back; a lock holds. Checked live on billing through the Electron host:
+folded at 8.0s (pointer) and 18.3s (still), came back on the ending, lock
+held across two tasks (EVALUATION.md, 2026-09-25). The rules are hand-written
+guesses standing in for the estimator, not the estimator.
+
+**Both channels exist now, and until 2026-09-25 nothing read either.** Channel A is the
 page: nine raw features per step. Channel B is the person: hesitation, cursor
 path ratio, backtracks, re-reads and help presses, sent by the overlay on
 every step response and on a 3s timer while a step waits — `telemetry` had
@@ -96,6 +104,28 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-25
+
+- **The level adapts live.** `backend/estimator/rules.py`, provisional, on
+  by default (`SIMBA_ADAPT=0` turns it off). The backend sends `load.updated`
+  at the start, on a fold, and on a return. Every decision is logged with its
+  inputs to `data/steps.jsonl` as a `"kind": "decision"` row. All thresholds
+  are in one dataclass and recorded in DECISIONS.md as guesses.
+- **A lock survives a new task.** The overlay re-sends it before `task.start`,
+  and the backend now reads `level.override` before a task starts.
+- **The launchers' argument is the start page.** `run.ps1 -StartPage` (the old
+  `-Flow` still works) and `run.sh`'s first argument; they no longer set
+  `SIMBA_FLOW`. README, RUNNING, DEMO and ARCHITECTURE say so.
+- **DEMO.md: rehearse from the recordings**, and run live railways only for
+  the real demo. It also warns that the screen now folds if the presenter
+  lingers or presses "What are you doing?".
+- **A fifth clip**, `demo/adapt.webm`: billing, hesitating until it folds,
+  then back. Not committed, like the others.
+- **The suite no longer writes to `data/steps.jsonl`** (`backend/conftest.py`).
+- **Open, flagged:** the overflow guard moves the other way (to level 1),
+  overrides the lock, and is invisible to the backend. The return notice
+  overflows billing's ending. The contract still says nothing reads telemetry.
 
 ### Changed on 2026-09-23
 
@@ -517,6 +547,9 @@ application's state (EVALUATION.md).
   counts per flow — steps, retries, verification failures, recovery, seconds —
   on the page each flow starts from. **4 of 50 pages labelled**; 43 have
   features and no label.
+- **Provisional level rules** (2026-09-25): `rules.py`, 24 scripted-telemetry
+  tests, 6 more through the loop and the app. Every decision is logged beside
+  the telemetry. Guesses, marked as such everywhere.
 - **Channel B**: the overlay sends telemetry on every step response and on a
   3s timer; the loop pairs each sample with the page features of that step and
   appends a row to `data/steps.jsonl` (`backend/estimator/pairing.py`). 14
@@ -549,8 +582,12 @@ application's state (EVALUATION.md).
 4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
    the most heuristic number here: block-counted sentences and a vowel-group
    syllable counter (DECISIONS.md).
-5. **Nothing consumes either channel.** The rows accumulate; no score reads
-   them, and `load.updated` still only ever comes from the mock.
+5. ~~**Nothing consumes either channel.**~~ **Provisional rules consume both
+   (2026-09-25)**: page features set the starting level, telemetry folds and
+   restores it (`rules.py`, DECISIONS.md). Still **no score**: the rules'
+   `score` is distance to a threshold. **Nahail has not reviewed them.** The
+   trained model is meant to replace them and be checked against their logged
+   decisions.
 6. **No user data exists.** Every telemetry number so far came from a test
    driving a browser. Whether any of the five separates a page someone coped
    with from one they did not is the whole question and is unmeasured.

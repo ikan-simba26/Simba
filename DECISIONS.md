@@ -2552,3 +2552,169 @@ takes three minutes.
 recorder, and the stack must be up to make three of the four. `DEMO.md` says
 so in its preparation section rather than leaving it to be discovered on the
 day.
+
+---
+
+## The level adapts by provisional rules, before there is an estimator
+
+**Date:** 2026-09-25
+
+**Decision.** `backend/estimator/rules.py` moves the detail level in a real
+run and sends `load.updated`. It is marked **provisional** in its module
+docstring, in every decision row (`"rules": "provisional"`), and in
+ARCHITECTURE.md and RUNNING.md, and it is meant to be replaced by the trained
+model. It is on by default; `SIMBA_ADAPT=0` turns it off.
+
+- **Start:** before the first step, a page showing at least two of three
+  heavy signs starts at level 3, otherwise at 2.
+- **Simplify:** one clear signal while a step waits moves one level simpler,
+  at once, on the timer sample that carried it.
+- **Restore:** two calm steps in a row move one level back, as the next step
+  arrives, or before the ending if there is no next step. Never past level 2.
+- **Once per step:** a step on which the level changed cannot change again.
+- **Lock:** while `level.override` has `locked: true`, nothing is sent. The
+  decision is still made and logged, with what it would have done.
+
+**Alternatives.** Wait for the trained model, as the 2026-09-19 decision "The
+estimator measures before it scores" argued, and leave the fold as something
+only the mock shows. Or a weighted score with a threshold per level.
+
+**Why this.** It was asked for, and the interface's main behaviour could not
+otherwise be seen outside a script. Rules rather than weights, because a rule
+can be read and argued with, and because a weighted score is exactly what
+the 2026-09-19 decision warned against fixing before a corpus exists. That
+decision still stands for the *score*. These rules make no claim to measure
+load, and the `score` they send is only how close the strongest signal came
+to its threshold. Every decision is logged beside the telemetry, so the model
+can later be checked against what the rules did at the same moment.
+
+**Cost.** Every threshold below is invented. The rules will act on the first
+real users with no evidence behind them, and once they exist, later
+measurements will get read against them — the risk 2026-09-19 named. Nahail
+owns the estimator and has not reviewed this.
+
+---
+
+## The rules' thresholds are guesses to be replaced
+
+**Date:** 2026-09-25
+
+All in one place: `Thresholds` in `backend/estimator/rules.py`. The evidence
+for each is 50 corpus pages and 36 answered steps, **all of them a script
+driving a browser** — no person's behaviour is behind any of these numbers.
+
+| Threshold | Value | Where it came from |
+|---|---|---|
+| `heavy_controls` | 150 | between the corpus median (56) and 75th percentile (241) |
+| `heavy_text_density` | 2.5 chars/1000px² | the corpus 90th percentile |
+| `heavy_overlays` | 1 | anything covering the page |
+| `heavy_signs` | 2 of 3 | one is not enough: registration's sign-in page is dense (2.57) and otherwise ordinary, and should not start the run simplified |
+| `hesitation_ms` | 15,000 | recorded answered steps take 1.0–7.8s, median about 2s |
+| `wander_ratio` | 6.0 | a guess with nothing under it: recorded steps answered in under 8s reach 24.8, which is why pointer signals wait for `wander_after_ms` |
+| `wander_backtracks` | 8 | recorded steps answered in under 8s reach 6 |
+| `wander_after_ms` | 6,000 | pointer signals ignored before this: one step answered in 3s recorded a path ratio of 24.8 |
+| `help_presses` | 1 | "What are you doing?" pressed at all |
+| `calm_hesitation_ms` | 8,000 | calm means answered faster than this, with no signal; between 8s and 15s a step is neither, and breaks the calm run |
+| `calm_steps` | 2 | asked for |
+
+What the corpus says these do to pages SIMBA runs on: billing's first page (37
+controls, density 1.73, no overlay) and registration's (49, 2.57, none) start
+at level 2, and so does railways (18, 0.10, none). Of the 50 corpus pages read
+in the host, 9 would start at level 3: eight public or demo pages (Wikipedia,
+the Guardian, Spiegel, and five component-library pages showing a dialog or
+drawer), and our registration page just after sign-in (66 controls, density
+4.81, a modal), which no run starts on.
+
+**`rereads` is not used.** It was not named as a signal, and nothing so far
+shows it means anything. It is logged in every decision row's inputs.
+
+**Replace when:** there are real users' rows in `data/steps.jsonl`. Each
+threshold is a single field, and the decision rows record the thresholds they
+were made under.
+
+---
+
+## The estimator never chooses level 1, and the page only sets the start
+
+**Date:** 2026-09-25
+
+**Decision.** The rules move between 2 and 3. A return stops at 2, and level
+1 is reached only when the person chooses it. If the person hands the level
+back at 1 ("let it choose"), the rules leave it at 1 while things are calm,
+and a signal moves it to 2. Page features choose the starting level only;
+later pages do not move the level on their own.
+
+**Alternatives.** Let a calm run keep restoring to level 1. Let every new
+page re-apply the heavy-page rule.
+
+**Why this.** Level 1 is more detail, and nothing in "calm" says someone wants
+more on screen. A heavy page mid-run moving the level would be a second
+reason for the interface to reshape, one the person did nothing to cause.
+The task specified the start only.
+
+**Cost.** A run that reaches a heavy page part-way through, such as
+registration's post-sign-in modal, gets no help from the page features.
+
+---
+
+## The launchers' argument is the start page, and they no longer set `SIMBA_FLOW`
+
+**Date:** 2026-09-25
+
+**Decision.** `run.ps1 -StartPage` (with `-Flow` kept as an alias) and
+`run.sh`'s first argument name the page the window opens on. The launchers
+stop passing `SIMBA_FLOW` to the backend.
+
+**Alternatives.** Rename only the word and keep setting `SIMBA_FLOW`. Rename
+the values too (`portal`, `utility`, …).
+
+**Why this.** Since 2026-09-21 `SIMBA_FLOW` chooses nothing a person gets.
+Setting it made the health check report `"flow": "billing"` for a backend
+that would happily run railways, and it overwrote a `SIMBA_FLOW=stubborn`
+set in the caller's shell. The values stay as they are because they are the
+replicas' own names and every document already uses them. The alias keeps
+anyone's typed `-Flow billing` working.
+
+**Cost.** Health now reports `"flow": "routed by goal"` for every launcher
+run, so it no longer says which page the window opened on.
+
+---
+
+## A lock is said again at the start of every task
+
+**Date:** 2026-09-25
+
+**Decision.** `startTask` in `frontend/src/store.ts` sends
+`level.override {level, locked: true}` before `task.start` whenever the store
+holds a lock. The backend reads `level.override` while it waits for
+`task.start`, as well as while a step waits.
+
+**Alternatives.** Let the store's guard refuse the backend's proposals, which
+it already does.
+
+**Why this.** The store's lock outlives a connection, and the backend's rules
+are made fresh for each one. Without the resend, the rules would propose
+levels, and log them as sent, that the screen then refused, so the decision
+log would disagree with what the person saw. Checked live on 2026-09-25: the
+second task's start decision was `locked at 1; would start at 2`.
+
+**Cost.** None found. It stays inside the contract's existing meaning of
+`level.override`.
+
+---
+
+## The suite never writes to `data/steps.jsonl`
+
+**Date:** 2026-09-25
+
+**Decision.** `backend/conftest.py` sets `SIMBA_RECORD_STEPS=0` by default,
+the way it already sets `SIMBA_ROUTER=keywords`.
+
+**Why this.** Every run now writes decision rows, so every app a test starts
+would have added rows to the person's real file. Before today tests wrote
+nothing there only because none of them sent telemetry. Checked: the file
+had 200 rows before the full suite and 200 after.
+
+**Cost.** `test_recording_is_on_unless_it_is_turned_off` has to clear the
+variable to test the default.
+
