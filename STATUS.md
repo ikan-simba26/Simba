@@ -105,6 +105,21 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-09-25 (later): the window fits the screen
+
+- **The window never exceeds the screen's work area.** On a 1080p laptop at
+  150% it is 984x672 inside 1280x672, and the home screen's text box is on
+  screen. The overlay is zoomed to fit and still lays out at 1280x800 CSS; the
+  site view is untouched, 1280x800 CSS at every scale (EVALUATION.md,
+  2026-09-25b). The window is no longer resizable.
+- **`tools/evaluation/display_fit_run.py`** measures it at forced 100/125/150%
+  and at the real scaling. **`frontend/test_window_fit.py`** asserts it,
+  behind `SIMBA_HOST_TESTS=1`.
+- **Open, flagged:** CLAUDE.md's "never size the view outside its parent" and
+  "identical bounds" no longer describe the host below 1:1. Site-view captures
+  at forced 100% are 10–11/20, and were before the change as well. A real
+  100% machine has not been tried.
+
 ### Changed on 2026-09-25
 
 - **The level adapts live.** `backend/estimator/rules.py`, provisional, on

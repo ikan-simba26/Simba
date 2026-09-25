@@ -31,6 +31,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 from tools.evaluation.conditions import banner, record
+from tools.evaluation.display_fit_run import capture_view
+from tools.evaluation.display_fit_run import capture_view
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / ".scratch" / "screenshots" / "stack"
@@ -82,7 +84,7 @@ def run_one(page, name: str, goal: str, press: str | None, overlay_url: str) -> 
     def shot(label: str) -> None:
         path = OUT / f"{name}-{len(shots) + 1:02d}-{label}.png"
         page.wait_for_timeout(900)
-        page.screenshot(path=str(path))
+        capture_view(page, path)
         shots.append(path.name)
 
     page.goto(overlay_url)
@@ -98,7 +100,7 @@ def run_one(page, name: str, goal: str, press: str | None, overlay_url: str) -> 
     if "Let me see what you need." in screen_text(page):
         seen.append("reading")
         path = OUT / f"{name}-00-reading.png"
-        page.screenshot(path=str(path))
+        capture_view(page, path)
         shots.append(path.name)
 
     reply = None

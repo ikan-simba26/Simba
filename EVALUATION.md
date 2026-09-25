@@ -3811,3 +3811,60 @@ itself cannot be recorded.
 rule tests and 6 adaptation tests. The same 9 skips. `data/steps.jsonl` held
 200 rows before the suite and 200 after, because the suite now turns recording
 off.
+
+## 2026-09-25b — the window fits the screen at 100%, 125% and 150%
+
+On a 1920x1080 laptop at 150% the work area is 1280x672 DIP, and the host
+asked for a 1280x800 window. **Before the change**, measured at this
+machine's real 150%, Windows clamped the window's outer height to 672. Both
+views were still 1280x800 inside it, and the home screen's text box sat at
+643–712 CSS px, below the bottom of what the window showed. Nothing could be
+typed without a scrollbar, and there was none.
+
+**After**, measured by `tools/evaluation/display_fit_run.py`. Scales 1, 1.25
+and 1.5 are forced (`--force-device-scale-factor`); `native` is the machine's
+real 150%.
+
+| Scale | Work area (DIP) | Window, frame included | Fits | Overlay zoom | Overlay CSS | Text box (CSS y) | Scrolls | Site view CSS | Site captures |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1920x1008 | 1302x882 at (309, 63) | yes | 1.000 | 1280x800 | 645–714 | no | 1280x800 | **11/20** |
+| 1.25 | 1536x807 | 1193x806 at (172, 0) | yes | 0.917 | 1280x801 | 644–712 | no | 1280x800 | 20/20 |
+| 1.5 | 1280x672 | 984x672 at (148, 0) | yes | 0.757 | 1280x800 | 644–713 | no | 1280x800 | 20/20 |
+| native (150%) | 1280x672 | 984x672 at (148, 0) | yes | 0.757 | 1280x800 | 644–713 | no | 1280x800 | 20/20 |
+
+The window's bounds are the host's own (Electron's CDP has no
+`Browser.getWindowForTarget`), and the page's `screenX`/`outerHeight` agreed
+with them in every row.
+
+**Through the whole stack at the real 150%**, `run.ps1 billing`: all three
+billing steps ran and the site view ended on the bill detail. The backend's
+clicks work in a site view that reaches past the window. "What are you
+doing?" returned the preview in 0.4s, 1920x1200 px, the whole 1280x800 page,
+with the ring on the right field. The adaptation check from 2026-09-25 still
+passes: fold at 18.3s, return on the ending.
+
+`frontend/test_window_fit.py`: 3 passed at forced 1, 1.25 and 1.5 with
+`SIMBA_HOST_TESTS=1`, 77s; skipped otherwise. `frontend` + `tools` suites:
+110 passed, 3 skipped. The backend was not changed and was not re-run.
+
+### Found
+
+- **The window was 1 DIP too tall at 125% and 150% on the first try.** The
+  frame measured before resizing differed by a rounding pixel afterwards, and
+  at 150% the same window rounded to a different DIP height once it had moved.
+  Fixed: the host checks where the window finally stands and fits again by
+  any overshoot.
+- **Playwright's `page.screenshot()` gets the zoomed overlay wrong.** It sized
+  the capture as 1280x800 DIP times the screen scale, which produced the real
+  969x606 view in the corner of a larger picture. The evaluation scripts now
+  capture the view's own surface (`display_fit_run.capture_view`), used by
+  `routing_stack_run` and `adaptation_stack_run` too.
+- **Site-view captures at forced 100% are 10–11 of 20**, alternating, and the
+  **unchanged host does the same** (10/20 at forced 100%, 20/20 at 150%). So
+  this predates the change. If it also happens at a real 100%, `page.preview`
+  fails about half the time on 100% machines. Not settled: it needs a machine
+  really set to 100%.
+- **One hang, not reproduced.** Mid-run, after several raw CDP captures that
+  were abandoned on timeout, Playwright could no longer connect to the host.
+  A fresh host ran the same flow cleanly. The probing is the likely cause; it
+  is not proven.

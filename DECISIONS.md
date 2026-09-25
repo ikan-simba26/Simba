@@ -2718,3 +2718,85 @@ had 200 rows before the full suite and 200 after.
 **Cost.** `test_recording_is_on_unless_it_is_turned_off` has to clear the
 variable to test the default.
 
+---
+
+## The window fits the screen's work area, by zooming the overlay, not the site view
+
+**Date:** 2026-09-25
+
+**Decision.** `frontend/electron/main.ts` fits the window to the work area of
+the display it opens on (the screen minus the taskbar), keeping 1280:800, and
+never enlarges it past 1:1. The overlay view takes the window's content size
+and is zoomed by the same factor, so it still lays out at 1280x800 CSS pixels
+and is drawn smaller. The site view is not touched: bounds 1280x800 at zoom
+1. When the window is smaller than that, the rest of the site view lies past
+the window's edge. The fit is re-done when the window moves to another
+display or the display's scaling changes.
+
+**Alternatives.** Zoom the site view as well, so both views share the smaller
+bounds. Change the overlay's CSS to fit shorter viewports. Let Windows clamp
+the window, which is what happened before and cut the text box off.
+
+**Why this.** The task fixed the site view at 1280x800 CSS pixels. Zooming
+the site view keeps its CSS size but changes its device pixel ratio, how
+Playwright's CDP clicks map to it, and what every perception figure was
+measured under. Leaving it alone changes none of those. Re-flowing the overlay
+for each height would reopen a layout that was tuned and tested at 1280x800
+(the overflow guard, the level heights). Zooming gives the same layout at
+every scale.
+
+**Evidence that an overhanging site view is safe**, at forced 125% and 150%
+and the machine's real 150%: viewport `[1280, 800]` every time, 20/20
+Playwright captures, a complete billing run whose clicks landed in the site
+view, and the trust panel's preview (a 1920x1200 picture of the whole page) in
+0.4s.
+
+**Cost.** It departs from two sentences in CLAUDE.md's architecture
+constraints. "Never size or position the view outside its parent" is broken
+on purpose below 1:1, since the site view is larger than the window. "The
+overlay view is added … at identical bounds" is no longer true either: the
+overlay covers everything the window shows, which is all of the site view
+anyone can see. The measurements above are why this is safe. CLAUDE.md is
+the three owners' file and has not been edited; the wording is flagged for
+them. The overlay's text is also drawn smaller — at 150% on a 1080p laptop,
+to 0.757 of its design size, so 23px body text shows at about 17.4 DIP.
+
+---
+
+## The window cannot be resized or maximised
+
+**Date:** 2026-09-25
+
+**Decision.** `resizable: false`, `maximizable: false`, `fullscreenable:
+false` on the host window.
+
+**Alternatives.** Keep it resizable and re-fit the views on every resize.
+
+**Why this.** Resizing never worked. The views were fixed at 1280x800 and a
+larger window showed empty space. Now the window is sized to the screen, and
+a larger one has nothing more to show. Re-fitting on every resize is possible
+but was not asked for.
+
+**Cost.** Someone who wants SIMBA larger or smaller than the fit cannot drag
+it. They can change the display's scaling, which the host follows.
+
+---
+
+## Display scalings are tested by forcing Chromium's scale, not by changing Windows
+
+**Date:** 2026-09-25
+
+**Decision.** `tools/evaluation/display_fit_run.py` and
+`frontend/test_window_fit.py` launch the host with
+`--force-device-scale-factor` at 1, 1.25 and 1.5. The machine's real scaling
+is measured as `native`.
+
+**Why this.** Changing Windows' display scaling changes the machine, not the
+repository (CLAUDE.md, tooling boundaries).
+
+**Cost.** On a machine set to 150%, a forced 100% or 125% keeps the taskbar at
+its real physical height, so the work area is a little smaller than on a real
+machine at that scaling (1008 DIP tall at forced 100%, against 1032 on a real
+one). That makes it the stricter test. What forcing cannot show is anything
+Windows does differently at a real scaling, such as the site-view capture rate
+at 100% (EVALUATION.md, 2026-09-25b).

@@ -87,6 +87,16 @@ key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
 | `railways` | replicas :5000 and :5100, host, backend | **A live public website.** Read-only: fills a search and reads the timetable. Please treat it as somebody's public service — a handful of runs, not a benchmark. |
 | `mock` | mock backend :8000, host | The overlay alone, driven by a script. No replica, no browser driving, nothing real. |
 
+### The window fits your screen
+
+The window is sized to the screen's work area, taskbar excluded, and never
+past 1:1. On a 1080p laptop at 150% it is 984x672. The interface is drawn
+smaller rather than rearranged: it lays out at 1280x800 everywhere. The site
+view behind it stays exactly 1280x800 CSS pixels, so perception's numbers do
+not change with the screen. The window cannot be resized; change the display
+scaling instead, and it re-fits. To check a machine:
+`python -m tools.evaluation.display_fit_run native`.
+
 ### The level adapts in a real run
 
 Since 2026-09-25 the real backend moves the detail level itself, by

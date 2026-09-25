@@ -35,6 +35,7 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 
 from tools.evaluation.conditions import banner, record
+from tools.evaluation.display_fit_run import capture_view
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / ".scratch" / "screenshots" / "adapt"
@@ -123,7 +124,7 @@ def run(page: Page, overlay_url: str, moving: bool = True) -> dict:
 
     def shot(label: str) -> None:
         path = OUT / f"{len(shots) + 1:02d}-{label}.png"
-        page.screenshot(path=str(path))
+        capture_view(page, path)
         shots.append(path.name)
 
     page.goto(overlay_url)
