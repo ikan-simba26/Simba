@@ -195,6 +195,12 @@ export interface StepResponse {
 export interface LevelOverride {
   level: Level;
   locked: boolean;
+  /**
+   * Additive and optional (2026-09-25). Who moved the level: the person, or
+   * the overlay's guard because a step did not fit. A guard move never becomes
+   * the lock. Omitted means the person.
+   */
+  by?: "person" | "overflow";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface

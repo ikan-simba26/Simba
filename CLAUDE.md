@@ -131,11 +131,13 @@ something passing its tests is the one nobody reviews.
 Findings from the `spike/` Electron + CDP + Playwright test.
 
 - **Hide the site view by covering it, never by hiding it.** The site view
-  stays `setVisible(true)` at full 1280x800 bounds, and the overlay view is
-  added to the window *after* it, at identical bounds, so it covers the site
-  view completely. Chromium keeps compositing a covered view, so screenshots
-  stay reliable; the user still never sees it. This is the standard approach —
-  `spike/main.js` is the reference.
+  stays `setVisible(true)` at full 1280x800 bounds, positioned at the window's
+  origin, and the overlay view is added to the window *after* it, filling the
+  window's content area, so it covers every part of the site view the window
+  shows. Chromium keeps compositing a covered view, so screenshots stay
+  reliable; the user still never sees it. This is the standard approach —
+  `spike/main.js` is the reference; `frontend/electron/main.ts` adds the
+  fitting to the screen.
 
   The two alternatives both fail, and neither is a free choice:
 
@@ -145,8 +147,13 @@ Findings from the `spike/` Electron + CDP + Playwright test.
   | `setVisible(false)` | 1280x800 | 2/5 | works |
   | Positioned outside the parent, `setVisible(true)` | collapses to 0x0 | 0/5 | fails |
 
-- **Never size or position the view outside its parent.** `0x0` bounds, or a
-  position past the parent's edge, collapses the renderer's viewport to 0x0.
+- **The site view may extend past the window, but is never positioned
+  outside it.** On a screen smaller than 1280x800 (a 1080p laptop at 150% has
+  a 1280x672 work area) the window is smaller than the site view, and the rest
+  of the site view lies past its right and bottom edges. That is measured safe
+  at 125% and 150%: viewport 1280x800, 20/20 captures, clicks work
+  (EVALUATION.md, 2026-09-25b). What fails is *position*: `0x0` bounds, or an
+  origin past the parent's edge, collapses the renderer's viewport to 0x0.
   Reads (title, link text) still work, but every click times out with
   "element is outside of the viewport", because nothing can ever be inside a
   zero-size viewport.

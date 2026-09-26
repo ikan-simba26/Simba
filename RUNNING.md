@@ -90,12 +90,33 @@ key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
 ### The window fits your screen
 
 The window is sized to the screen's work area, taskbar excluded, and never
-past 1:1. On a 1080p laptop at 150% it is 984x672. The interface is drawn
-smaller rather than rearranged: it lays out at 1280x800 everywhere. The site
-view behind it stays exactly 1280x800 CSS pixels, so perception's numbers do
-not change with the screen. The window cannot be resized; change the display
-scaling instead, and it re-fits. To check a machine:
+past 1280x800. On a 1080p laptop at 150% its content is 1266x606. The
+interface lays out at that real size — text stays the size it was designed
+at, body 23px, nothing below 20px — and below 760px tall it switches to a
+compact layout: tighter spacing, smaller cards and buttons, the greeting a
+step down (`short:` in `frontend/src/index.css`). A step that still does not
+fit drops a level towards the compact level 1, once, and tells the backend.
+The site view behind it stays exactly 1280x800 CSS pixels, so perception's
+numbers do not change with the screen. The window cannot be resized; change
+the display scaling instead, and it re-fits. To check a machine:
 `python -m tools.evaluation.display_fit_run native`.
+
+### Rating pages (the estimator's labels)
+
+`tools/rating/` collects people's judgements of the corpus pages, one
+screenshot at a time: "How overwhelming would this page be to use?", 1 to 7.
+
+```powershell
+python -m tools.rating.capture        # once: every corpus page, 1280x800, no scrollbar
+python -m tools.rating.serve          # then open http://127.0.0.1:8765
+```
+
+Each rater enters their number, sees all 50 pages in a random order plus two
+of them again later, and every answer is appended to `data/ratings.jsonl`
+with the page, the time taken and the size the picture was shown at. The
+pictures are in `data/rating/pages/` and are not committed; their hashes are
+in `data/rating/pages.json`, which is. Capture once and rate that set: a
+re-capture of live pages is a different set of pictures.
 
 ### The level adapts in a real run
 

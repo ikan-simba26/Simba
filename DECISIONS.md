@@ -2800,3 +2800,172 @@ machine at that scaling (1008 DIP tall at forced 100%, against 1032 on a real
 one). That makes it the stricter test. What forcing cannot show is anything
 Windows does differently at a real scaling, such as the site-view capture rate
 at 100% (EVALUATION.md, 2026-09-25b).
+
+---
+
+## The overlay lays out at the window's real size; the zoom is withdrawn
+
+**Date:** 2026-09-25
+
+**Decision.** The overlay is no longer zoomed to fit. It fills the window's
+content area at zoom 1, so its CSS size is the window's size: 1280x800 at
+100%, 1280x734 at 125%, 1266x606 on a 1080p laptop at 150%. Width and height
+are fitted separately; the window no longer keeps 1280:800. This reverses
+"The window fits the screen's work area, by zooming the overlay" from earlier
+the same day. That decision's fitting of the window and its handling of the
+site view stand.
+
+**Why.** Zoomed to 0.757, 23px body text was drawn at about 17px, which is
+too small for this audience. At zoom 1 the smallest text on the home screen
+is 20px at every scale, and body text is 23px.
+
+**Cost.** The overlay now has to work at heights it was not designed for;
+see the next entry.
+
+---
+
+## Below 760px tall the layout is compact
+
+**Date:** 2026-09-25
+
+**Decision.** A `short:` Tailwind variant (`@media (max-height: 760px)`) and
+a matching hook, `useShortWindow()`, for the sizes Framer animates. In a
+short window:
+
+- the page padding is 12/16px instead of 24/48;
+- the greeting and reply headings are 38px instead of 48;
+- choice cards are 72px tall instead of 96, with 48px icons;
+- gaps between sections are 24px instead of 40;
+- the step card's vertical padding is 28px instead of 40;
+- a step's gaps are two thirds, field heights 85% and button heights 80%
+  (`levels.fitted`);
+- large buttons are 64px instead of 80, `md` buttons 56 instead of 64;
+- ending and stuck cards are tighter.
+
+No reading size changes: body stays 23px, card text 26px, lead-ins 20px.
+`SHORT_HEIGHT` lives in `design.ts` and is repeated in `index.css`, because a
+Tailwind variant cannot read JavaScript.
+
+**Alternatives.** Scale everything by the window height. Several
+breakpoints.
+
+**Why this.** One threshold is testable, and it covers both scalings that
+need it: 734 and 606 both switch, 800 does not. Scaling type with height is
+the zoom again under another name.
+
+**Cost.** At 125% (734px) the compact layout leaves about 180px unused on the
+home screen: 760 is set for the tallest screen, not the home screen. A step
+that still does not fit relies on the overflow guard. Measured on
+registration and billing at 606px, the guard fired once per run and nothing
+scrolled. The home screen with remembered goals (trace memory on) adds a
+section and has not been measured at 606px.
+
+---
+
+## Zoom is reset to 1 on every load, for both views
+
+**Date:** 2026-09-25
+
+**Decision.** `frontend/electron/main.ts` calls `setZoomFactor(1)` on every
+`did-finish-load` of the overlay and the site view.
+
+**Why.** Chromium remembers a zoom level per origin in the Electron profile.
+The build that zoomed the overlay left `file://` at 0.757 on this machine, and
+on any machine that ran it, and the next build, which set no zoom at all,
+came up zoomed anyway: device pixel ratio 1.136 at 150%, 0.757 even at 100%.
+A remembered zoom on the site view would change the CSS viewport perception
+measures without anything saying so.
+
+**Cost.** Ctrl+scroll zoom in either view is undone at the next load. Nobody
+is meant to zoom the site view, and the overlay's sizes are the design.
+
+---
+
+## The overflow guard tells the backend, and never becomes the lock
+
+**Date:** 2026-09-25
+
+**Decision.** When the guard drops a level it sends `level.override` with a
+new optional field, `by: "overflow"`, and the current `locked` unchanged
+(CONTRACT.md; `shared/schema.py`, `shared/schema.ts`). The store keeps
+`chosenLevel`, the level the person chose, apart from `level`, what is on
+screen. Under a lock, a guard move lasts one step: the next step is shown at
+`chosenLevel`, and a lock carried into a new task is re-sent as
+`chosenLevel`. On the backend the rules follow a guard move, count it as the
+step's one change, leave the calm run alone, and keep `locked_level` as the
+person's.
+
+**Alternatives.** A new message type (needs ratification). Re-sending the
+guard's level with `locked: false`, which would have unlocked a lock the
+person set. Letting the guard move silently, as before.
+
+**Why this.** An optional field on an existing message is the change
+CLAUDE.md allows without a session. "A lock must only be the person's own
+choice" was asked for outright.
+
+**Cost.** Because the guard's move is the step's one change, a person who
+struggles on a step that did not fit gets no fold on that step. In the 150%
+registration run the guard used the sign-in step's change. The guard and the
+rules still move in opposite directions (towards level 1 and towards level
+3), and nothing reconciles them beyond both being logged.
+
+---
+
+## The level notice floats over the card's top edge
+
+**Date:** 2026-09-25
+
+**Decision.** The level notice is absolutely positioned 56px above the
+column, about 80px tall. It covers the presence mark and the card's top
+padding and takes no room. The step-failure notice is unchanged and still
+sits in the column.
+
+**Alternatives.** Pinned at the card's own top, over its first lines. At the
+bottom of the window.
+
+**Why this.** Pinned to the card's top, it would cover the instruction, the
+one sentence the person most needs, for eight seconds. The top padding is
+28px in a short window and 40px otherwise, and the notice overlaps it by
+about 24px, so no text on the card is covered. Measured on every step and
+ending of billing and registration at 606px.
+
+**Cost.** For eight seconds after a level change the presence mark is
+covered, so the person cannot see whether the assistant is thinking or
+waiting.
+
+---
+
+## The rating tool: frozen pictures, two repeats, rater number only
+
+**Date:** 2026-09-25
+
+**Decision.** `tools/rating/`:
+
+- `capture` photographs every corpus page once (headless, 1280x800, device
+  scale 1, scrollbars hidden, driven into the corpus's states) and writes
+  `data/rating/pages.json` with each picture's sha256.
+- `serve` runs one session per rater. Every page is shown once in a random
+  order, plus two pages again at least five pages after their first showing,
+  flagged `repeat`. Every answer goes to `data/ratings.jsonl` with the rater
+  number, page, rating, milliseconds from paint to answer, position, seed,
+  the picture's hash, and the size the picture and the window were.
+- Pictures and ratings are gitignored; the manifest is committed.
+
+**Alternatives.** Commit the pictures. Rate live pages instead of pictures.
+Put the repeats anywhere, including next to their first showing.
+
+**Why this.** A live page changes, and a rating is only comparable with
+another rating of the same picture, hence frozen pictures and a hash in every
+row. The pictures are other people's sites, 4.9MB, regenerated in one
+command. The ratings are people's answers, so they follow `data/steps.jsonl`
+and stay on the machine. The repeats measure how consistent one rater is,
+and a gap of five keeps them from being a double take. The rater number is
+all that is recorded about a rater.
+
+**Cost.** Raters on different machines need the same picture set copied to
+them, and nothing here does that. Pictures are fitted to the window, so a
+rater on a small screen sees them smaller; that is recorded in every row but
+not controlled. `bypass_csp` was needed for pypi.org and gov.uk to take the
+scrollbar style. The BBC page was captured on a second attempt. Headless
+Chromium already showed no scrollbar without the flag or the style, so the
+test of that checks the result, not the mechanism.

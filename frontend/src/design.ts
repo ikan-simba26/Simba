@@ -23,6 +23,21 @@ export const TYPE = {
 /** How wide the column is. Most of the 1280px window, with room either side. */
 export const COLUMN = 880;
 
+/**
+ * Below this window height the layout is compact: tighter spacing, smaller
+ * cards and buttons, the greeting a step down. The type the person reads does
+ * not shrink — body stays 23px, card text 26px.
+ *
+ * The window is sized to the screen (`electron/main.ts`) and the overlay lays
+ * out at the window's real size, so a 1080p laptop at 125% gets about 734px
+ * and at 150% about 608px, against 800 at 100%. The home screen needs about
+ * 770px at full spacing, so both of those are compact.
+ *
+ * `index.css` repeats this number in its `short` variant, because a Tailwind
+ * variant cannot read JavaScript. Change both.
+ */
+export const SHORT_HEIGHT = 760;
+
 /** The spacing steps in pixels. Tailwind's 4px scale, at these values only. */
 export const SPACE = {
   1: 4,

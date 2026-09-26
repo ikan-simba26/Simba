@@ -300,6 +300,17 @@ classified as usual.
 User's manual control. While `locked` is true the estimator must not change
 the level.
 
+**`by`** is additive and optional (2026-09-25): `person` | `overflow`. The
+overlay also moves the level itself when a step will not fit the window — one
+level towards the compact level 1, once per step — and says so with
+`by: "overflow"`, so the backend's level rules know what is on screen. A
+guard move never becomes the lock: it carries the current `locked` unchanged,
+and the next step is shown at the person's own level again. Omitted means
+`person`, which is what every override was before.
+```json
+{ "level": 1, "locked": false, "by": "overflow" }
+```
+
 ### `trust.requested`
 ```json
 {}

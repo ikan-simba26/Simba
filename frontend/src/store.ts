@@ -101,6 +101,13 @@ interface Store {
   /** Set by the user. While true, load.updated must not change the level. */
   levelLocked: boolean;
   /**
+   * The level the person chose, which is what a lock holds. `level` can
+   * differ from it for one step, when the overflow guard drops a level to
+   * make a step fit; the next step is shown at this one again. A lock is only
+   * ever the person's own choice, never a level the guard moved to.
+   */
+  chosenLevel: Level;
+  /**
    * Set when something other than the user changed the level, so the
    * interface can say so. The interface never reshapes silently.
    *
@@ -205,6 +212,7 @@ export const useStore = create<Store>((set, get) => {
     level: 2,
     history: [],
     levelLocked: false,
+    chosenLevel: 2,
     levelNotice: null,
     overflowHopped: false,
     debug: false,
@@ -226,7 +234,7 @@ export const useStore = create<Store>((set, get) => {
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
-      set({ level, levelLocked: true, levelNotice: null });
+      set({ level, chosenLevel: level, levelLocked: true, levelNotice: null });
       connection.overrideLevel(level, true);
     },
 
@@ -247,6 +255,10 @@ export const useStore = create<Store>((set, get) => {
         overflowHopped: true,
         levelNotice: { from, to, because: "this step was too long to fit" },
       });
+      // Said to the backend, so its level rules know what is on screen — and
+      // marked as the guard's, so it is never taken for the person's choice.
+      // Under a lock the lock stays where the person put it (`chosenLevel`).
+      connection.overrideLevel(to, get().levelLocked, "overflow");
     },
 
     dismissLevelNotice: () => set({ levelNotice: null }),
@@ -281,8 +293,10 @@ export const useStore = create<Store>((set, get) => {
       // rules are made fresh with each one. Said again before the task, so
       // the new rules hold it from the first step rather than proposing
       // levels this store would only refuse.
-      const { level, levelLocked } = get();
-      if (levelLocked) connection.overrideLevel(level, true);
+      // The person's own level, not whatever the guard last moved the screen
+      // to: a lock carried into a new task is still only their choice.
+      const { chosenLevel, levelLocked } = get();
+      if (levelLocked) connection.overrideLevel(chosenLevel, true);
       connection.startTask(goal, flow);
     },
 
@@ -344,15 +358,19 @@ function apply(message: AnyEnvelope, set: SetStore): void {
     case "step.presented":
       // A new decision: the clock and the pointer start again (telemetry.ts).
       tracker.start((message.payload as StepPresented).step_index);
-      // A new step gets its own chance to be moved for overflow.
-      set({
+      // A new step gets its own chance to be moved for overflow — and under a
+      // lock it starts at the person's own level again, whatever the guard
+      // did to the last one. No notice: this is a new screen, not the old one
+      // reshaping.
+      set((current) => ({
         step: message.payload as StepPresented,
         answered: false,
         overflowHopped: false,
+        ...(current.levelLocked ? { level: current.chosenLevel } : {}),
         // The picture was of the previous step; it is stale now.
         preview: null,
         trustOpen: false,
-      });
+      }));
       return;
     case "history.offered":
       set({ history: (message.payload as HistoryOffered).goals });

@@ -20,7 +20,8 @@ import type { Finding, Level, StepAction, StepField } from "@shared/schema";
 
 import { FOUND, STEP } from "../copy";
 import { EASE, MOTION, TYPE } from "../design";
-import { LEVELS, firstSentence, typeSize } from "../levels";
+import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
+import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
 import { buttonClass } from "./ui";
 
@@ -90,7 +91,8 @@ export function StepShell({
   answered,
   level,
 }: StepRendererProps & { level: Level }) {
-  const spec = LEVELS[level];
+  // The same regions at every height; a short window only packs them closer.
+  const spec = fitted(LEVELS[level], useShortWindow());
 
   const instruction =
     spec.instruction === "first-sentence" ? firstSentence(step.instruction) : step.instruction;
@@ -118,7 +120,7 @@ export function StepShell({
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -inset-x-12 -inset-y-10 rounded-xl border
-                   border-line"
+                   border-line short:-inset-y-7"
         animate={{ opacity: spec.shell === "card" ? 1 : 0 }}
         transition={FOLD}
       />
@@ -176,7 +178,7 @@ export function StepShell({
             and a second block on it is the clutter the level exists to
             remove. The answer is still waiting on the closing screen. */}
         <Fold show={findings.length > 0 && spec.progress !== "none"} gap={spec.gap * 0.5}>
-          <div className="flex flex-col gap-1 rounded-lg bg-tint px-6 py-5">
+          <div className="flex flex-col gap-1 rounded-lg bg-tint px-6 py-5 short:py-3">
             <span className="text-caption font-medium text-soft">{FOUND.heading}</span>
             <motion.span
               animate={{ fontSize: `${foundSize(level, instruction)}px` }}

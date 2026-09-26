@@ -3,8 +3,8 @@
  *
  *   siteView  the real website. The backend attaches to this over CDP and
  *             drives it. The user never looks at it directly.
- *   overlay   the React app. Added second, so it covers the site view
- *             everywhere the window shows.
+ *   overlay   the React app. Added second, filling the window's content
+ *             area, so it covers the site view everywhere the window shows.
  *
  * The site view is deliberately left visible to Chromium and *covered*, not
  * hidden with setVisible(false). A view Chromium believes is invisible stops
@@ -12,15 +12,20 @@
  * spike/, recorded in DECISIONS.md. Covered: 20/20 captures. Hidden: 2/5.
  *
  * **Fitting the screen.** The window never exceeds the work area of the
- * display it opens on (the screen minus the taskbar). On a 1920x1080 laptop at
- * 150% that area is 1280x672 in Windows' own units, and a 1280x800 window cut
- * the home screen's text box off. So the window's content shrinks by one
- * factor, `scale`, and the overlay is zoomed by the same factor: it still lays
- * out at 1280x800 CSS pixels, exactly as designed, and is drawn smaller. The
- * site view is not touched — its bounds stay 1280x800 at zoom 1, so the page
- * perception reads is 1280x800 CSS pixels whatever the screen. Where the
- * window is smaller than that, the rest of the site view lies past the
- * window's edge, covered by nothing because nothing can see it.
+ * display it opens on (the screen minus the taskbar), and is never larger
+ * than 1280x800 of content. On a 1920x1080 laptop at 150% the work area is
+ * 1280x672 in Windows' own units, so the content area is about 1266x608.
+ *
+ * The overlay lays out at the window's real size, at zoom 1, so its text is
+ * the size it was designed at on every screen — body 23px — and the layout
+ * adapts to the height instead (`short:` in `src/index.css`). It was zoomed to
+ * fit for one day (2026-09-25), which drew 23px body text at about 17px on
+ * that laptop.
+ *
+ * The site view is not touched: bounds 1280x800 at the window's origin, zoom
+ * 1, so the page perception reads is 1280x800 CSS pixels whatever the screen.
+ * Where the window is smaller, the rest of it lies past the window's right
+ * and bottom edges — never past its origin (CLAUDE.md).
  *
  * Environment:
  *   SIMBA_CDP_PORT     remote debugging port the backend attaches to (9222)
@@ -44,28 +49,23 @@ app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
 
 // 1280x800 is frozen — the estimator measures text density per visible area,
 // so the site view's viewport has to stay constant across runs. It is also
-// the size the overlay is designed at, and the size it lays out at on every
-// screen: only how large it is drawn changes.
+// the largest the window's content gets.
 const VIEWPORT = { x: 0, y: 0, width: 1280, height: 800 };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OVERLAY_FILE = path.join(here, "..", "dist", "index.html");
 
 /**
- * The largest content size, in the design's 1280x800 proportions, whose
- * window — frame included — fits inside `work`. Never larger than 1:1.
+ * The largest content size, up to 1280x800, whose window — frame included —
+ * fits inside `work`. Width and height are fitted separately: the overlay is
+ * a column, and a window as wide as the screen allows is better than one
+ * narrowed to keep a ratio nothing depends on.
  */
 function fitted(work: Rectangle, frame: { width: number; height: number }) {
-  const scale = Math.min(
-    1,
-    (work.width - frame.width) / VIEWPORT.width,
-    (work.height - frame.height) / VIEWPORT.height,
-  );
-  // Whole pixels, and the zoom taken from them, so the overlay's CSS size
-  // comes back to 1280x800 rather than a pixel either side.
-  const width = Math.floor(VIEWPORT.width * scale);
-  const height = Math.floor(VIEWPORT.height * scale);
-  return { width, height, scale: Math.min(width / VIEWPORT.width, height / VIEWPORT.height) };
+  return {
+    width: Math.min(VIEWPORT.width, Math.floor(work.width - frame.width)),
+    height: Math.min(VIEWPORT.height, Math.floor(work.height - frame.height)),
+  };
 }
 
 app.whenReady().then(() => {
@@ -75,8 +75,8 @@ app.whenReady().then(() => {
     // The numbers above are the content area, not the frame round it: the
     // frame is measured once the window exists, and budgeted for below.
     useContentSize: true,
-    // Resizing by hand would need the views to follow, and a larger window
-    // than 1:1 has nothing to show. The window is sized for the screen.
+    // Resizing by hand would need the overlay to follow, and a window larger
+    // than 1280x800 has nothing more to show. It is sized for the screen.
     resizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -92,7 +92,6 @@ app.whenReady().then(() => {
   const overlay = new WebContentsView();
   win.contentView.addChildView(overlay);
 
-  let scale = 1;
   let fittedTo: number | null = null;
 
   const fit = (display: Display) => {
@@ -129,11 +128,11 @@ app.whenReady().then(() => {
       frame.height += Math.max(0, over.height);
       size = fitted(work, frame);
     }
-    scale = size.scale;
     fittedTo = display.id;
 
+    // The window's whole content area, at zoom 1: the overlay's CSS size is
+    // the window's size.
     overlay.setBounds({ x: 0, y: 0, width: size.width, height: size.height });
-    overlay.webContents.setZoomFactor(scale);
 
     // One line the evaluation reads (tools/evaluation/display_fit_run.py).
     console.log(`SIMBA fit ${JSON.stringify({
@@ -145,9 +144,15 @@ app.whenReady().then(() => {
     })}`);
   };
 
-  // Zoom is kept per page load, so it is set again whenever the overlay
-  // loads — a reload from the development view included.
-  overlay.webContents.on("did-finish-load", () => overlay.webContents.setZoomFactor(scale));
+  // Zoom 1 on every load, for both views. Chromium remembers a zoom level per
+  // origin in the profile, and the day the overlay was zoomed to fit
+  // (2026-09-25) left `file://` at 0.757 on every machine that ran it: the
+  // next build, which set no zoom at all, came up zoomed anyway. For the site
+  // view a remembered zoom would be worse — it would change the CSS viewport
+  // perception measures without anything saying so.
+  for (const view of [siteView, overlay]) {
+    view.webContents.on("did-finish-load", () => view.webContents.setZoomFactor(1));
+  }
 
   fit(screen.getDisplayMatching(win.getBounds()));
 

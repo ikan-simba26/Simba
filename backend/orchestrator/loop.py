@@ -715,7 +715,8 @@ async def follow_override(
     rules: LevelRules | None,
     adapt: Callable[[Decision | None], Awaitable[None]],
 ) -> None:
-    """A `level.override`: the person chose a level, or handed it back.
+    """A `level.override`: the person chose a level or handed it back, or the
+    overlay's guard moved it because a step did not fit (`by: "overflow"`).
 
     Read wherever the backend is listening — while a step waits, and before a
     task has started — so a lock set on the home screen holds from the first
@@ -727,7 +728,7 @@ async def follow_override(
         override = LevelOverride.model_validate(message.get("payload") or {})
     except ValueError:
         return
-    await adapt(rules.override(override.level, override.locked))
+    await adapt(rules.override(override.level, override.locked, override.by))
 
 
 async def attempt_move(

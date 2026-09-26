@@ -23,6 +23,11 @@ What it does:
 - **Never more than one change per step,** whatever the signals do.
 - **A locked level never moves.** The decision is still made and written
   down, with what it would have done; it is just not sent.
+- **The overflow guard is followed, not fought.** When the overlay drops a
+  level because a step does not fit, it says so (`level.override` with
+  `by: "overflow"`). That is the step's one change, it does not count against
+  a calm run, and it never becomes the lock: a lock is only ever the person's
+  own choice, and each new step is shown at it again.
 
 The score is the strongest signal's distance to its threshold, 0–1, so 1.0
 means "a rule fired". It is a readout of these rules, not a measure of load,
@@ -106,7 +111,7 @@ class Decision:
     level_before: int
     level: int
     #: Which rule decided: start, simplify, restore, hold, locked,
-    #: once-per-step, simplest, override, stale.
+    #: once-per-step, simplest, override, overflow, stale.
     rule: str
     reason: str
     send: bool
@@ -182,6 +187,9 @@ class LevelRules:
         self.t = thresholds
         self.level: int = BASELINE
         self.locked = False
+        #: The level the person chose and locked. `level` can differ from it
+        #: for one step, when the overflow guard moves the screen under a lock.
+        self.locked_level: int | None = None
         self.started = False
         self.step_index = 0
         #: The step the level last changed on. The start counts as step 0.
@@ -198,6 +206,10 @@ class LevelRules:
         """Before step `step_index` goes on screen: the start, or a return."""
         self.step_index = step_index
         self.signalled = False
+        # A guard move under a lock lasts one step; the next is shown at the
+        # person's own level again, as the overlay does.
+        if self.locked and self.locked_level is not None:
+            self.level = self.locked_level
         signs = page_signs(features, self.t)
         self.page_score = min(1.0, len(signs) / self.t.heavy_signs)
         inputs = {"page": features.as_dict() if features else None,
@@ -211,7 +223,7 @@ class LevelRules:
                    else f"ordinary page{': ' + ', '.join(signs) if signs else ''}")
             if self.locked:
                 return self._hold("start", "locked",
-                                  f"locked at {self.level}; would start at {wanted}: {why}",
+                                  f"locked at {self.locked_level}; would start at {wanted}: {why}",
                                   self.page_score, inputs)
             return self._move("start", wanted, "start", why, self.page_score, inputs,
                               always_send=True)
@@ -243,7 +255,8 @@ class LevelRules:
         why = ", ".join(fired)
         if self.locked:
             return self._hold(at, "locked",
-                              f"locked at {self.level}; would simplify: {why}", score, inputs)
+                              f"locked at {self.locked_level}; would simplify: {why}", score,
+                              inputs)
         if self.changed_on == self.step_index:
             return self._hold(at, "once-per-step", f"already changed this step: {why}",
                               score, inputs)
@@ -251,17 +264,35 @@ class LevelRules:
             return self._hold(at, "simplest", f"already simplest: {why}", score, inputs)
         return self._move(at, self.level + 1, "simplify", why, score, inputs)
 
-    def override(self, level: int, locked: bool) -> Decision:
-        """The person chose a level, or handed it back. Never sent: they did it."""
+    def override(self, level: int, locked: bool, by: str = "person") -> Decision:
+        """A level the overlay set. Never sent back: the screen already shows it.
+
+        `by` is `person` — they chose a level, or handed it back — or
+        `overflow`, the overlay's guard dropping a level because the step did
+        not fit. The guard's move is followed, is this step's one change, and
+        leaves the lock and the calm run exactly as they were.
+        """
         before = self.level
         self.level = level
+        inputs = {"override": {"level": level, "locked": locked, "by": by}}
+        if by == "overflow":
+            if not self.locked:
+                self.changed_on = self.step_index
+            lock = f"; lock stays at {self.locked_level}" if self.locked else ""
+            return Decision(
+                at="override", step_index=self.step_index, score=self.page_score,
+                level_before=before, level=level, rule="overflow",
+                reason=f"step did not fit; overlay moved to {level}{lock}", send=False,
+                inputs=self._state(inputs),
+            )
         self.locked = locked
+        self.locked_level = level if locked else None
         self.calm_streak = 0
         return Decision(
             at="override", step_index=self.step_index, score=self.page_score,
             level_before=before, level=level, rule="override",
             reason=f"{'locked' if locked else 'handed back'} at {level}", send=False,
-            inputs=self._state({"override": {"level": level, "locked": locked}}),
+            inputs=self._state(inputs),
         )
 
     def end(self) -> Decision:
@@ -276,7 +307,7 @@ class LevelRules:
             why = f"{self.calm_streak} calm steps in a row"
             if self.locked:
                 return self._hold(at, "locked",
-                                  f"locked at {self.level}; would restore: {why}",
+                                  f"locked at {self.locked_level}; would restore: {why}",
                                   self.page_score, inputs)
             return self._move(at, self.level - 1, "restore", why, self.page_score, inputs)
         return self._hold(at, "hold", "no change between steps", self.page_score, inputs)
@@ -286,6 +317,7 @@ class LevelRules:
             **extra,
             "level": self.level,
             "locked": self.locked,
+            "locked_level": self.locked_level,
             "calm_streak": self.calm_streak,
             "changed_on_step": self.changed_on,
             "thresholds": asdict(self.t),

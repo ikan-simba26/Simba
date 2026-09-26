@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-25 · **515 passing, 9 skipped** · suite wall clock 656s. The 9 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, and 2 needing `SIMBA_LIVE_TESTS=1`. With a host up, 7 of the 9 run. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 711s and 762s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-25 · **544 passing, 12 skipped** · suite wall clock 729s. The 12 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s and 762s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -104,6 +104,35 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-27: the 100% capture problem is real
+
+- **Site-view captures at a real 100% succeed 10/20**, alternating, exactly
+  as at forced 100%. A page that repaints every frame captures 20/20, so the
+  capture waits for a frame an idle page never produces. `page.preview` will
+  fail about half the time on 100% machines. **Open, not fixed**
+  (EVALUATION.md, 2026-09-27).
+
+### Changed on 2026-09-25 (last): text at full size, the guard, the notice, ratings
+
+- **The overlay is no longer zoomed.** It lays out at the window's real size
+  (1266x606 on a 1080p laptop at 150%), and below 760px tall the layout is
+  compact. Nothing on the home screen is under 20px at any scale, and no
+  screen of billing or registration overflows at 100%, 125% or 150%
+  (EVALUATION.md, 2026-09-25c). Zoom is reset to 1 on every load: Chromium had
+  remembered 0.757.
+- **The overflow guard reports its moves** (`level.override`, `by:
+  "overflow"`, additive in CONTRACT.md), and a guard move under a lock lasts
+  one step. A lock is only ever the person's own level.
+- **The level notice floats** over the card's top edge instead of pushing
+  the screen down.
+- **CLAUDE.md** now says the site view may extend past the window but is
+  never positioned outside it (approved).
+- **`tools/rating/`**: 50 corpus pages photographed at 1280x800, and a rating
+  session (1–7, two repeats) writing `data/ratings.jsonl`. No ratings
+  collected yet.
+- **main** carries the level rules (`21f5691`) and the window fit
+  (`2950e10`), pushed. This task's work is not committed.
 
 ### Changed on 2026-09-25 (later): the window fits the screen
 

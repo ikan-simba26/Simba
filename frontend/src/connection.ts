@@ -110,9 +110,13 @@ export class BackendConnection {
     this.send("trust.requested", {});
   }
 
-  /** Tell the backend the user has taken the level into their own hands. */
-  overrideLevel(level: Level, locked: boolean): void {
-    const payload: LevelOverride = { level, locked };
+  /**
+   * Tell the backend the level changed on screen: the person chose it or
+   * handed it back, or the overflow guard moved it (`by: "overflow"`, which the
+   * backend never takes as a lock).
+   */
+  overrideLevel(level: Level, locked: boolean, by: "person" | "overflow" = "person"): void {
+    const payload: LevelOverride = { level, locked, by };
     this.send("level.override", payload);
   }
 

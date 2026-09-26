@@ -46,9 +46,11 @@ export function useOverflowGuard(
       //
       // Transient notices are the exception, and they have to be, because
       // including them made this guard undo the very thing it was reacting
-      // to. A level change puts a notice on screen saying so; the notice adds
+      // to. A level change put a notice on screen saying so; the notice added
       // about seventy pixels; the guard then found the page overflowing and
-      // hopped back to the level it came from. Measured on the mock flow, the
+      // hopped back to the level it came from. (The level notice floats over
+      // the card since 2026-09-25 and takes no room; the step-failure notice
+      // still sits in the column and is still discounted here.) Measured on the mock flow, the
       // level went 2 -> 3 -> 2 inside half a second and the notice blamed the
       // step for being "too long to fit" when the step was fine. Reshaping a
       // step because of chrome that disappears in eight seconds is the wrong

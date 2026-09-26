@@ -363,3 +363,49 @@ def test_telemetry_for_a_step_not_on_screen_changes_nothing() -> None:
     rules.start_step(2, LIGHT)
     decision = rules.telemetry(sample(1, 30000, help_presses=3))
     assert (decision.rule, decision.send, rules.level) == ("stale", False, 2)
+
+
+# --- the overflow guard (2026-09-25) ---------------------------------------------------
+#
+# The overlay drops a level when a step does not fit, and now says so with
+# `level.override {by: "overflow"}`. The rules follow it, count it as the
+# step's one change, and never let it become the person's lock.
+
+
+def test_a_guard_move_is_followed_and_is_the_steps_one_change() -> None:
+    rules = LevelRules()
+    rules.start_step(1, LIGHT)
+    decision = rules.override(1, locked=False, by="overflow")
+
+    assert (decision.rule, decision.send, rules.level) == ("overflow", False, 1)
+    # The same step does not also fold: the interface has moved once already.
+    fold = rules.telemetry(sample(1, 16000))
+    assert (fold.rule, rules.level) == ("once-per-step", 1)
+    # The next step may.
+    rules.start_step(2, LIGHT)
+    rules.telemetry(sample(2, 16000))
+    assert rules.level == 2
+
+
+def test_a_guard_move_never_becomes_the_lock() -> None:
+    rules = LevelRules()
+    rules.override(2, locked=True)                       # the person's choice
+    rules.start_step(1, LIGHT)
+    rules.override(1, locked=True, by="overflow")        # the guard, under the lock
+
+    assert (rules.level, rules.locked, rules.locked_level) == (1, True, 2)
+    held = rules.telemetry(sample(1, 16000))
+    assert held.rule == "locked" and "locked at 2" in held.reason
+    # A new step is shown at the person's level again.
+    rules.start_step(2, LIGHT)
+    assert rules.level == 2
+
+
+def test_a_guard_move_does_not_count_against_a_calm_run() -> None:
+    """Not fitting is the screen's problem, not the person's."""
+    run = Run()
+    run.step(1, hesitant_step(1))
+    run.step(2, calm_step(2))
+    run.rules.override(2, locked=False, by="overflow")   # 3 -> 2, for fit
+    run.step(3, calm_step(3))
+    assert run.rules.calm_streak == 2

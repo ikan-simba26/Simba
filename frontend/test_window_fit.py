@@ -2,10 +2,11 @@
 
 A 1920x1080 laptop at 150% has a work area of 1280x672 in Windows' units, and
 a fixed 1280x800 window put the home screen's text box below the bottom of
-it. `frontend/electron/main.ts` now fits the window to the work area and
-zooms the overlay by the same factor; the site view is left alone. This
-launches the real host at forced display scales and checks all four promises
-from outside it (`tools/evaluation/display_fit_run.py` does the measuring).
+it. `frontend/electron/main.ts` now fits the window to the work area, and the
+overlay lays out at the window's real size — no zoom, so text keeps its size —
+with a compact layout in short windows; the site view is left alone. This
+launches the real host at forced display scales and checks every promise from
+outside it (`tools/evaluation/display_fit_run.py` does the measuring).
 
 It opens real windows, so it runs only with `SIMBA_HOST_TESTS=1`, like the
 other tests that need the host. It needs `npm run build` first.
@@ -41,10 +42,10 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     result = measured(scale)
 
     assert result["window_fits_work_area"], result["host_says"]
-    # The overlay lays out at its design size at every scale, a rounding
-    # pixel either way.
-    width, height = result["overlay"]["inner"]
-    assert abs(width - 1280) <= 1 and abs(height - 800) <= 1, result["overlay"]
+    # The overlay is the window's size, not zoomed to a design size.
+    assert result["overlay_matches_window"], (result["overlay"], result["host_says"])
+    # Nothing on the home screen is below 20px, at any scale.
+    assert result["overlay"]["smallest_text_px"] >= 20, result["overlay"]
     # The text box is on screen with nothing to scroll.
     assert result["overlay"]["box_in_viewport"], result["overlay"]
     assert not result["overlay"]["scrolls"], result["overlay"]

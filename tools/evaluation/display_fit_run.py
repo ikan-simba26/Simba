@@ -7,8 +7,9 @@ display scale, and measures from outside it, over CDP:
   the line the host prints when it fits itself, since Electron's CDP has no
   `Browser.getWindowForTarget` — with the page's `screenX`/`outerHeight` kept
   beside them as a cross-check;
-- **the overlay**: its CSS viewport, its zoom, and where the home screen's
-  text box sits — the box must end inside the viewport with nothing to scroll;
+- **the overlay**: its CSS viewport, which is the window's content size at
+  zoom 1, the smallest text on the home screen, and where the text box sits —
+  it must end inside the viewport with nothing to scroll;
 - **the site view**: its CSS viewport, which must be exactly 1280x800, and 20
   screenshots of it in a row, the capture `page.preview` depends on.
 
@@ -142,11 +143,23 @@ def measure(scale: str) -> dict:
                 const box = document.querySelector(`[aria-label="${label}"]`)
                     || [...document.querySelectorAll('textarea,input')][0];
                 const r = box.getBoundingClientRect();
+                // The smallest text a person can see: every element that
+                // holds text of its own, is rendered, and is inside the
+                // window.
+                const sizes = [...document.querySelectorAll('body *')]
+                    .filter(el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())
+                                  || (el.tagName === 'INPUT' && el.placeholder))
+                    .filter(el => { const b = el.getBoundingClientRect();
+                                    return b.width > 0 && b.height > 0 && b.top < innerHeight
+                                           && getComputedStyle(el).opacity !== '0'; })
+                    .map(el => parseFloat(getComputedStyle(el).fontSize));
                 return {
                     inner: [innerWidth, innerHeight],
                     dpr: devicePixelRatio,
                     scroll_height: document.documentElement.scrollHeight,
                     box_top: Math.round(r.top), box_bottom: Math.round(r.bottom),
+                    smallest_text_px: Math.min(...sizes),
+                    input_text_px: parseFloat(getComputedStyle(box).fontSize),
                 };
             }""", TEXTBOX)
             box = overlay.get_by_role("textbox", name=TEXTBOX)
@@ -182,6 +195,13 @@ def measure(scale: str) -> dict:
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
     }
+    content = fit.get("content")
+    if content:
+        # Zoom 1 means the overlay's CSS size is the window's content size.
+        result["overlay_matches_window"] = (
+            abs(view["inner"][0] - content["width"]) <= 1
+            and abs(view["inner"][1] - content["height"]) <= 1
+        )
     if work and window:
         result["window_fits_work_area"] = (
             window["x"] >= work["x"] and window["y"] >= work["y"]

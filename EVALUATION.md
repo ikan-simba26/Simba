@@ -3868,3 +3868,128 @@ passes: fold at 18.3s, return on the ending.
   were abandoned on timeout, Playwright could no longer connect to the host.
   A fresh host ran the same flow cleanly. The probing is the likely cause; it
   is not proven.
+
+## 2026-09-25c — the overlay at the window's real size, the guard, the notice, the rating tool
+
+### The home screen at 100%, 125% and 150%
+
+`tools/evaluation/display_fit_run.py`. Forced scales on a machine set to 150%,
+and that machine's real 150% (`native`).
+
+| Scale | Window (frame incl.) in work area | Overlay CSS = window content | Zoom | Smallest text | Input text | Text box (CSS y) | Scrolls | Site view | Site captures |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1302x882 in 1920x1008 | 1280x800 | 1 | 20px | 26px | 645–714 | no | 1280x800 | **10/20** |
+| 1.25 | 1301x806 in 1536x807 | 1280x734 (compact) | 1 | 20px | 26px | 493–553 | no | 1280x800 | 20/20 |
+| 1.5 | 1280x672 in 1280x672 | 1266x606 (compact) | 1 | 20px | 26px | 492–553 | no | 1280x800 | 20/20 |
+| native 150% | 1280x672 in 1280x672 | 1266x606 (compact) | 1 | 20px | 26px | 492–553 | no | 1280x800 | 20/20 |
+
+Body text is 23px everywhere. Under the zoom from earlier today it was drawn
+at about 17px at 150%.
+
+### Whole flows, every screen
+
+Billing (with "What are you doing?" on step 2) and registration, through the
+Electron host. At 150% on the running stack; at forced 100% and 125% on a
+second host and backend. "Overflows" means the document is taller than the
+window.
+
+| Flow | Scale | Screens | Overflowing | Guard moves (backend's log) |
+|---|---|---|---|---|
+| billing | 100% | 7 | 0 | 0 |
+| billing | 125% | 7 | 0 | 0 |
+| billing | 150% | 7 | 0 | 0 |
+| registration | 150% | 5 | 0 | 1: sign-in step, 2 → 1, `overflow` |
+
+Before the compact layout covered steps and endings, at 606px, billing's
+step 3 overflowed by 27px even at level 1 and its ending by 78px; after
+compacting, step 2 at level 2 still overflowed by 1px, which the guard's
+2px tolerance let through. Trimming the page's bottom padding in a short
+window cleared it. The earlier run's guard move on billing's step 2 was
+logged by the backend as `override · overflow · 2 → 1`.
+
+`frontend/test_overflow_guard.py`, 3 tests at 1266x606: the guard's move goes
+out as `level.override {1, locked: false, by: "overflow"}`; under a lock at 2
+it goes out `locked: true`, and the next step is back at 2; a lock carried
+into a new task is re-sent as `{2, locked: true, by: "person"}` after the
+guard had shown level 1. `backend/estimator/test_rules.py`: 27, 3 of them new
+for guard moves.
+
+The level notice, floating: over the presence mark and the card's top
+padding on every step and ending screenshot at 606px, and over no text.
+
+### The rating tool
+
+`python -m tools.rating.capture`: 46 of 50 pages on the first pass. Three
+failed on the scrollbar style, because pypi.org and gov.uk (two pages)
+forbid inline styles by CSP. BBC News had one refused capture. With
+`bypass_csp` and one retry, `--only` those four: **50 of 50**, every page
+laid out at 1280px, 4.9MB. Headless Chromium laid a 2400px-tall page out at
+1280 with or without `--hide-scrollbars` and the style, in both headless
+modes.
+
+`tools/rating/test_rating.py`, 23 tests: every page once plus exactly two
+repeats; a repeat is at least 6 positions after its first showing over 200
+seeds; a seed reproduces its order; answers outside 1–7, non-numeric raters
+and double answers are refused and write nothing; a whole 7-picture session
+in a browser, by key and by click, writes 7 rows with the right ratings,
+positions, rater, two repeats, `ms` ≥ 100 and the window size.
+
+### Found
+
+- **Chromium remembered the zoom.** The first build without the zoom still
+  came up at 0.757, with device pixel ratio 1.136 at 150% and 0.757 at
+  forced 100%, because the zoom level is stored per origin in the profile.
+  Fixed by setting zoom 1 on every load, for both views.
+- **Registration "stuck" at step 2 was my driver.** It pressed "Sign in"
+  with the credential fields empty; the replica refused, no modal opened,
+  and "Close" could not be found. With the replica's test credentials it
+  completes in three steps. It stopped at the same place at forced 100%, with
+  the site view wholly inside the window, which is what ruled out the new
+  overhang before the empty fields were found.
+- **At forced 100% the trust panel's preview never arrived** within 35s on
+  billing's step 2: the site-view capture failing, which is the pre-existing
+  10/20 pattern at 100% (2026-09-25b). Part 7 of the task measures it at a
+  real 100%.
+
+### Suite
+
+**544 passed, 12 skipped, 0 failed**, 729s: 515 before, plus 3 rule tests for
+guard moves, 3 overlay tests of the guard and 23 of the rating tool. The 3 new
+skips are `frontend/test_window_fit.py`, which opens the host itself and runs
+only with `SIMBA_HOST_TESTS=1`; run that way on the final code it passed 3 of 3
+(79s). `data/steps.jsonl` had 623 rows before the suite and after it, and the
+suite created no `data/ratings.jsonl`.
+
+## 2026-09-27 — site-view captures at a real 100%
+
+The machine switched to 100% by its owner for this measurement and switched
+back afterwards. Display 1920x1080, work area 1920x1032, scale factor 1.
+`tools/evaluation/display_fit_run.py native`, then the passes now in
+`tools/evaluation/site_capture_run.py` (one host launch, 20 Playwright
+captures of the site view per pass, 5s timeout each):
+`python -m tools.evaluation.site_capture_run` reproduces them at whatever the
+machine is set to. At forced 100% on 2026-09-27 it gave static 11/20, static
+again 11/20, repainting 20/20: the same alternation, so forced 100% is a fair
+stand-in for developing against.
+
+| What | Captures | Pattern |
+|---|---|---|
+| `display_fit_run native` | **10/20** | — |
+| static page | 12/20 | `+++++.+.+.+.+.+.+.+.` |
+| static page, second pass | 10/20 | `.+.+.+.+.+.+.+.+.+.+` |
+| page repainting every frame (a rAF animation) | **20/20** | all |
+
+So the failure seen at forced 100% is real at a real 100%, and it has the
+signature of the `setVisible(false)` finding in CLAUDE.md: on a page that is
+not repainting, every other capture times out waiting for a frame. A page
+that repaints every frame never fails. At 125% and 150% the same static page
+captures 20/20, forced or real, and why the scale factor matters is not
+known.
+
+The window at 100%: 1296x865 inside 1920x1032; overlay 1280x800 at zoom 1;
+smallest home-screen text 20px; text box at 645–714, no scrolling; site view
+1280x800.
+
+**Consequence:** on a machine at 100%, "What are you doing?" can be expected
+to fail to return its picture about half the time, on any site page that is
+idle when it is asked — which is most of them. Not fixed; see STATUS.md.

@@ -55,12 +55,15 @@ export default function App() {
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
-    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12">
+    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12
+                    short:pt-3 short:pb-4">
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
           a narrow strip down the middle of an empty screen. */}
-      <div className="mt-6 w-full" style={{ maxWidth: COLUMN }}>
+      {/* `relative`: the level notice floats over the card's top edge,
+          positioned against this column (`FLOATING_NOTICE_CLASS`). */}
+      <div className="relative mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
         <LevelNotice />
         <StepFailureNotice />
         <Column />
@@ -182,8 +185,10 @@ function Home() {
   const again = history.filter((past) => !Object.values(FLOWS).includes(past.goal));
 
   return (
-    <div className="flex flex-col gap-10">
-      <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+    <div className="flex flex-col gap-10 short:gap-6">
+      {/* A step down in a short window: 48px to 38px. The greeting is the
+          one line on this screen nobody needs to read twice. */}
+      <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
         {HOME.greeting}
       </h1>
 
@@ -215,9 +220,9 @@ function Home() {
 /** A lead-in and what it introduces. */
 function Section({ lead, children }: { lead: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3 short:gap-2">
       <p className="text-small font-medium text-soft">{lead}</p>
-      <div className="flex flex-col gap-3">{children}</div>
+      <div className="flex flex-col gap-3 short:gap-2">{children}</div>
     </section>
   );
 }
@@ -235,7 +240,7 @@ function AskBox({ lead, autoFocus }: { lead?: string; autoFocus?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 short:gap-2">
       {lead && <p className="text-small font-medium text-soft">{lead}</p>}
       <div
         className="flex items-center gap-4 rounded-xl border-2 border-line bg-surface py-2.5
@@ -247,7 +252,7 @@ function AskBox({ lead, autoFocus }: { lead?: string; autoFocus?: boolean }) {
         </span>
         <input
           autoFocus={autoFocus}
-          className="min-w-0 flex-1 bg-transparent py-4 text-lead text-ink outline-none
+          className="min-w-0 flex-1 bg-transparent py-4 text-lead text-ink outline-none short:py-3
                      placeholder:text-soft/80 focus-visible:outline-none"
           value={goal}
           onChange={(event) => setGoal(event.target.value)}
@@ -285,9 +290,11 @@ function Reply() {
     : REPLY.clarify;
 
   return (
-    <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-5">
-        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">{heading}</h1>
+    <div className="flex flex-col gap-10 short:gap-6">
+      <div className="flex flex-col gap-5 short:gap-3">
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
+          {heading}
+        </h1>
         {reply.kind !== "greeting" && reply.goal && (
           <div className="flex flex-col gap-1 border-l-4 border-tint pl-4">
             <p className="text-small font-medium text-soft">{REPLY.youAsked}</p>
@@ -395,7 +402,7 @@ function Step() {
 
   return (
     <div ref={measured}>
-      <Card className="px-12 py-10">
+      <Card className="px-12 py-10 short:py-7">
         <StepView
           level={level}
           step={shown}
@@ -412,7 +419,7 @@ function Step() {
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field
           past the bottom of the window. */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
         <TrustControl />
         <LevelControl />
       </div>
@@ -444,10 +451,10 @@ function Completed() {
   const findings = completed?.findings ?? [];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 short:gap-5">
       {findings.length > 0 ? (
-        <Card className="px-12 py-12">
-          <p className="mb-6 text-small font-medium text-soft">{ENDING.withAnswer}</p>
+        <Card className="px-12 py-12 short:py-8">
+          <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
           <Findings findings={findings} size={TYPE.hero} />
         </Card>
       ) : (
@@ -491,7 +498,7 @@ function Completed() {
  */
 export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-7 short:gap-5">
       {findings.map((finding, index) => {
         const values = finding.values?.length ? finding.values : [finding.value];
         // The first finding is the answer; any others support it.
@@ -521,8 +528,8 @@ export function Findings({ findings, size }: { findings: Finding[]; size: number
 function Failed() {
   const { failed, startOver } = useStore();
   return (
-    <div className="flex flex-col gap-8">
-      <Card tone="stuck" className="flex flex-col gap-4 px-12 py-10">
+    <div className="flex flex-col gap-8 short:gap-5">
+      <Card tone="stuck" className="flex flex-col gap-4 px-12 py-10 short:py-7">
         <span className="text-stuck" aria-hidden>
           <PauseIcon size={34} />
         </span>
@@ -552,8 +559,8 @@ function Failed() {
 function Stuck() {
   const { help, startOver } = useStore();
   return (
-    <div className="flex flex-col gap-8">
-      <Card tone="stuck" className="px-12 py-10">
+    <div className="flex flex-col gap-8 short:gap-5">
+      <Card tone="stuck" className="px-12 py-10 short:py-7">
         <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
       </Card>
       <OnwardButton onClick={startOver} />
@@ -571,7 +578,7 @@ function Stuck() {
 function StoppedByPerson() {
   const { startOver } = useStore();
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 short:gap-5">
       <div className="flex flex-col items-start gap-5">
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sunk
                          text-soft" aria-hidden>

@@ -134,6 +134,11 @@
      1 2 3 4 6 8 10 12 16 24 — 4 8 12 16 24 32 40 48 64 96px. */
 }
 
+/* `short:` — a window under 760px tall (`SHORT_HEIGHT` in design.ts; change
+   both). A 1080p laptop at 125% or 150% scaling. Tighter spacing and smaller
+   controls; the reading sizes stay where they are. */
+@custom-variant short (@media (max-height: 760px));
+
 html,
 body,
 #root {

@@ -92,6 +92,25 @@ export const LEVELS: Record<Level, LevelSpec> = {
 };
 
 /**
+ * A level's spec in a short window: the same regions, packed closer.
+ *
+ * Spacing shrinks to two thirds and controls lose about a fifth of their
+ * height — 80px buttons become 64px, the height of the home screen's `md`
+ * button. Type sizes are untouched: what gets smaller in a short window is
+ * the air, not what the person reads. Every level is scaled by the same
+ * factors, so their order by height is kept.
+ */
+export function fitted(spec: LevelSpec, short: boolean): LevelSpec {
+  if (!short) return spec;
+  return {
+    ...spec,
+    gap: Math.round(spec.gap * 0.65),
+    fieldHeight: Math.round(spec.fieldHeight * 0.85),
+    actionHeight: Math.round(spec.actionHeight * 0.8),
+  };
+}
+
+/**
  * How big the instruction is allowed to be at this level.
  *
  * Level 3 is meant to be the largest type, but a fixed 40px on a long

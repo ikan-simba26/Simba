@@ -16,7 +16,7 @@ import type { Level } from "@shared/schema";
 import { LEVEL, levelNotice as noticeFor } from "../copy";
 import { ARRIVE, EASE, MOTION } from "../design";
 import { useStore } from "../store";
-import { DismissButton, InfoIcon, NOTICE_CLASS } from "./ui";
+import { DismissButton, FLOATING_NOTICE_CLASS, InfoIcon } from "./ui";
 
 const LEVELS: Level[] = [1, 2, 3];
 const NOTICE_MS = 8000;
@@ -92,8 +92,9 @@ export function LevelNotice() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={ARRIVE}
-          className={NOTICE_CLASS}
-          data-transient
+          // Floating, so it takes no room and needs no `data-transient`: the
+          // overflow guard measures a page this notice cannot lengthen.
+          className={FLOATING_NOTICE_CLASS}
         >
           {/* The sentence comes from the direction alone. `because` says what
               moved the level and stays in the store: it used to be

@@ -43,10 +43,11 @@ export function buttonClass(variant: ButtonVariant, size: ButtonSize = "lg"): st
     variant === "quiet"
       ? "px-2 py-1 text-small"
       : size === "lg"
-        ? "min-h-20 rounded-lg px-9 text-lead font-semibold"
+        // 80px, and 64 in a short window: still the largest thing to press.
+        ? "min-h-20 short:min-h-16 rounded-lg px-9 text-lead font-semibold"
         : size === "fluid"
           ? "rounded-lg px-9 text-lead font-semibold"
-          : "min-h-16 rounded-md px-7 text-body font-semibold";
+          : "min-h-16 short:min-h-14 rounded-md px-7 text-body font-semibold";
   const tone = {
     primary:
       "bg-accent text-accent-ink shadow-lift hover:bg-accent-hover " +
@@ -118,12 +119,13 @@ export function ChoiceCard({
       onClick={onClick}
       className="group flex w-full items-center gap-6 rounded-lg border border-line bg-surface
                  px-6 py-5 text-left shadow-press transition-[box-shadow,border-color,transform]
+                 short:gap-5 short:py-3
                  duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-accent/50
                  hover:shadow-lift active:translate-y-px active:shadow-press"
     >
       <span
         className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-tint
-                   text-accent"
+                   text-accent short:h-12 short:w-12"
         aria-hidden
       >
         {icon}
@@ -137,14 +139,29 @@ export function ChoiceCard({
 /* --------------------------------------------------------------- notices */
 
 /**
- * A change the person did not make, announced. Calm, raised, above the
- * column, and gone on its own: an icon, one sentence, and a way to dismiss it.
- * The outer element is the caller's, so it can carry its own motion and the
- * `data-transient` the overflow guard discounts.
+ * A change the person did not make, announced. Calm, raised, and gone on its
+ * own: an icon, one sentence, and a way to dismiss it. The outer element is
+ * the caller's, so it can carry its own motion.
  */
-export const NOTICE_CLASS =
-  "mb-6 flex items-center gap-4 rounded-lg border border-line bg-surface px-6 py-4 " +
+const NOTICE_BODY =
+  "flex items-center gap-4 rounded-lg border border-line bg-surface px-6 py-4 " +
   "text-body text-ink shadow-lift";
+
+/**
+ * In the column, above what it is about, pushing it down. The step-failure
+ * notice, which carries `data-transient` so the overflow guard discounts it.
+ */
+export const NOTICE_CLASS = `mb-6 ${NOTICE_BODY}`;
+
+/**
+ * Floating over the top edge of the card, taking no room: the level notice
+ * (2026-09-25). In the column it pushed an ending that already filled the
+ * window past the bottom, and a scrollbar showed for the eight seconds it was
+ * up. It sits over the presence mark and the card's top padding — 56px above
+ * the column, about 80px tall — so it never covers the words on the card.
+ * The column's wrapper is its positioning context.
+ */
+export const FLOATING_NOTICE_CLASS = `absolute inset-x-6 -top-14 z-20 ${NOTICE_BODY}`;
 
 export function DismissButton({ onClick }: { onClick: () => void }) {
   return (
