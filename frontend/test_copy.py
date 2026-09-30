@@ -430,11 +430,14 @@ def test_the_stuck_screen_promises_nothing_that_does_not_happen(copy: dict) -> N
             assert promise not in text, (promise, text)
 
 
-def test_the_overlay_knows_which_answer_means_go_ahead() -> None:
-    """The overlay shows its own stop screen for any answer but go-ahead,
-    because that is what the backend does with one. The two must agree."""
+def test_the_overlay_knows_which_answer_stops_the_task() -> None:
+    """The overlay shows its own stop screen for one answer, the one the
+    backend stops on (`loop.is_answer`), and carries on for every other. The
+    two must agree on which that is: until 2026-09-30 the overlay stopped on
+    anything but go-ahead, which made a question's answer a stop."""
     store = (SOURCE / "store.ts").read_text(encoding="utf-8")
-    assert f'const GO_AHEAD_ID = "{voice.CONFIRM_ID}";' in store
+    assert f'const STOP_ID = "{voice.CANCEL_ID}";' in store
+    assert "GO_AHEAD_ID" not in store
 
 
 def test_the_stuck_screen_reads_the_same_whichever_side_wrote_it(copy: dict) -> None:
