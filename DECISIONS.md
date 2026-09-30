@@ -2969,3 +2969,316 @@ not controlled. `bypass_csp` was needed for pypi.org and gov.uk to take the
 scrollbar style. The BBC page was captured on a second attempt. Headless
 Chromium already showed no scrollbar without the flag or the style, so the
 test of that checks the result, not the mechanism.
+
+---
+
+## A person's own value is matched loosely; a date is not
+
+**Date:** 2026-09-30
+
+**Decision.** `FieldValue.names` loosens one kind of held value to "the field's
+value contains this, ignoring case". It is set for the two station boxes and
+nothing else. The date stays exact, as it has been since 2026-09-17.
+
+**Alternatives.** Match everything exactly, and declare the station the site's
+own way (`LAHORE JN`) rather than the person's (`Lahore`). Or match everything
+loosely.
+
+**Why this.** The person types "Lahore" and the site's station is `LAHORE JN`,
+so an exact match on their word fails the moment the value becomes real —
+which is the same failure the date check was written to avoid from the other
+direction. Declaring the site's name instead would work, but only because
+something earlier turned "Lahore" into `LAHORE JN`, and that something is a
+question the person answered; making the check depend on it hides the answer
+inside a task declaration. Matching everything loosely is not available: a
+date that is nearly right is a wrong answer, and a loose date is what let the
+2026-09-09 run report a search for the 15th of September against a goal naming
+the 15th of October.
+
+**Cost.** A station whose name contains another station's name would pass for
+it. Nothing in the live list or the replica's does, and the case is only
+reachable after the person has already chosen from the site's own list.
+
+---
+
+## What the site said back, for a value that is in no field by the end
+
+**Date:** 2026-09-30
+
+**Decision.** `About.shows` — a label the site uses and a value it has to say
+under it, matched inside the value, remembered across every page of the run.
+The billing reference number and the registration course code are declared
+this way; `About.holds` keeps the values that are still in a field at the end.
+
+**Alternatives.** Leave both unchecked, which is where they were. Or check the
+field on the page where it was typed, at the time it was typed.
+
+**Why this.** A reference number is typed on the first page and the run ends
+two pages later; a course is chosen by pressing its own button and was never in
+a field at all. Checking at the moment of typing is what `filled` already
+does, and it cannot catch the case that matters — the site looking up something
+other than what it was given. What the site says back is the only evidence that
+survives to the end, so that is what is asked for.
+
+**Cost.** It is a substring match, so a longer value containing the declared one
+passes: `CS-401` is met by `CS-4010`. Both sites' codes are one shape, so
+nothing relies on the difference, and tightening it would break the case it
+exists for (`CS-401 section 001`).
+
+---
+
+## A day and month with no year mean the next time that day comes
+
+**Date:** 2026-09-30
+
+**Decision.** "3 September" typed on the 30th of September is next year's 3rd
+of September. A date in the past can only be said by writing the year.
+
+**Alternatives.** Read it as this year's and refuse it as a day that has gone.
+Or ask which year was meant.
+
+**Why this.** Nobody asks for a train to a day that has passed. Reading it
+literally and then saying "that day has already gone" answers a question the
+person did not ask, and asking which year is a second question for something
+they have already made clear. Writing the year out is unambiguous and is
+believed literally, so the refusal path still exists for someone who really
+typed a past date.
+
+**Cost.** A mistyped month near the year's end silently becomes a journey a
+year away rather than an error. The horizon of 366 days is what stops it going
+further, and the journey is read back in one sentence before anything is
+searched, where "3 September 2027" is visible.
+
+---
+
+## The sentence before a search names the station, not the word typed
+
+**Date:** 2026-09-30
+
+**Decision.** "Trains from Lahore Cantt to Rawalpindi on 1 October. Shall I
+search?" — the station as the site names it, title-cased, after the person has
+chosen which one.
+
+**Alternatives.** Repeat their own words back: "Trains from Lahore to
+Rawalpindi...".
+
+**Why this.** Where a place named one station, the two are the same sentence.
+Where it named several, the person has just answered which — and the sentence
+they are being asked to agree to is the last place that answer can be seen
+before a search goes out. Saying "Lahore" back makes the answer invisible at
+exactly the moment it matters.
+
+**Cost.** The site's own names are not always what a person would call a place,
+so the sentence can read slightly official (`Multan Cantt` for "Multan"). That
+is the same tradeoff the station question itself makes.
+
+---
+
+## More than four stations for one place is asked to be narrowed, not listed
+
+**Date:** 2026-09-30
+
+**Decision.** `voice.MAX_CHOICES = 4`. Up to four stations are offered as
+buttons; more than four asks the person to type more of the name, and the
+typed words are then matched against the site's list alongside the place.
+
+**Alternatives.** List them all as buttons. Or show the first four and a "more"
+button. Or pick the first and say which was picked.
+
+**Why this.** A list to read is the thing this interface exists to spare
+someone. Four buttons and a way to stop is already the tallest step the overlay
+shows. Picking one silently is the defect this whole change is about, in
+miniature.
+
+**Cost.** Narrowing is a typed question, which is harder than pressing a
+button, and it can be asked twice if the first narrowing is still too broad.
+The live list's largest city has fewer than four, so the path is exercised by
+tests rather than by the site.
+
+---
+
+## Choosing from a station list is not a step of its own
+
+**Date:** 2026-09-30
+
+**Decision.** `Move.quiet`. Typing a place name and then choosing from the list
+the site offers is one thing the person agrees to. The choice is acted on and
+verified like any move, and not shown again. `steps_taken` counts what was
+shown and agreed to.
+
+**Alternatives.** Show both, so nothing happens unannounced. Or make typing and
+choosing one operation list in one move.
+
+**Why this.** "Set the departure station" is one intention. Splitting it asks
+the person to agree twice to one thing, and the second screen has nothing new
+to tell them. One move cannot do it either: what to choose is not known until
+the page has answered with a list, and a plan written before that cannot name
+it.
+
+**Cost.** Something does happen to the page between screens, which is a
+weakening of "it never acts until you press" — bounded by the move having to be
+part of a step already agreed to, and by its verification failing the run like
+any other.
+
+---
+
+## The model's answer is held to what the person typed
+
+**Date:** 2026-09-30
+
+**Decision.** A reference number or a course code the model reports is kept only
+if those characters appear in the goal. A day must parse and be travellable. A
+place is kept as the model gave it.
+
+**Alternatives.** Believe the model, as routing does. Or use only the keyword
+reader and have no model in this path at all.
+
+**Why this.** Routing's answer is one of four names, and a wrong one is caught
+immediately by the person seeing the wrong site open. A reference number is
+fourteen digits with no redundancy: an invented one looks exactly like a real
+one, opens somebody else's bill, and nothing downstream can tell. A place is
+different again — it is checked against the site's own station list, and the
+person is shown the journey in a sentence before anything is searched, so an
+invented place cannot survive to a search.
+
+**Cost.** A person who says "the usual reference" gets asked for the number
+even if the model could have guessed it. That is the intended answer.
+
+---
+
+## Three tries at one question, then the run says it is stuck
+
+**Date:** 2026-09-30
+
+**Decision.** `MAX_TRIES = 3`. A third unusable answer to the same question
+ends the asking, and the run ends the way any stuck run does, saying it could
+not work out what was meant.
+
+**Alternatives.** Ask forever. Or give up after one.
+
+**Why this.** The second ask says what was wrong with the first answer, which
+is where most of the value is. A person who has been asked the same thing three
+times is not going to be helped by a fourth, and a loop with no bound is a loop
+that can hold someone at a screen indefinitely.
+
+**Cost.** Someone whose third answer would have worked has to start again.
+
+---
+
+## Every answer a step offers is a button; only the way to stop folds to text
+
+**Date:** 2026-09-30 (`frontend/`, Aly's area)
+
+**Decision.** `StepShell` renders one button per answer at every detail level,
+including level 3, and keeps one slot for the way to stop — which is still the
+thing that becomes a line of plain text in the 2 → 3 fold.
+
+**Alternatives.** Keep rendering exactly two actions and forbid questions with
+more than one answer. Or fold the extra answers into text at level 3 with the
+stop.
+
+**Why this.** Rendering two was enough while every step offered go-ahead and
+stop, and it silently dropped the third answer *and the way to stop* once a
+question offered three. An answer demoted to a line of text is an answer the
+person is least likely to give, on the one kind of step where the system is
+asking them something — and level 3 is the level someone reaches when they are
+already struggling.
+
+**Cost.** A three-answer question at level 3 is three buttons, which is taller
+than level 3 has been. `test_levels.py` still holds level 3 to not being the
+tallest level for an ordinary step.
+
+---
+
+## The goal on screen stays the person's words; the details go to the planner
+
+**Date:** 2026-09-30
+
+**Decision.** `Task.goal` is the sentence the person typed, unchanged. The
+spelled-out version — "Find trains from Lahore to Rawalpindi on 2026-10-01." —
+is what the LLM planner is given and what a trace is filed under.
+
+**Alternatives.** Replace the goal with the spelled-out sentence everywhere.
+
+**Why this.** The goal is shown back to the person on the working screen and on
+the ending; their own words are what they recognise. A model, and a remembered
+run, need the opposite: "trains to Rawalpindi tomorrow" is a different journey
+every day, and a trace keyed on it would replay yesterday's.
+
+**Cost.** Two forms of the same thing exist, and a reader has to know which is
+which. `Brief.sentence()` is the one place the spelled-out form is built.
+
+---
+
+## A local replica of the train search
+
+**Date:** 2026-09-30
+
+**Decision.** `replicas/railways/` — a page we wrote that behaves the way the
+live site was measured to behave in the ways the loop depends on, with two
+stations in Lahore, two in Karachi, two in Peshawar, and one station with no
+trains. Repeated runs of the trip planner go against it.
+
+**Alternatives.** Keep testing the trip planner against the live site. Or test
+it only against fabricated element lists, with no page at all.
+
+**Why this.** CLAUDE.md keeps repeated runs off the live site, and this planner
+needs many: every station question, every narrowing, every empty result. The
+live list also cannot be rigged — there is no way to make it return no trains
+on demand. Fabricated element lists cannot exercise the part that matters,
+which is a real readonly box, a real list of bare `<li>`s and a real calendar.
+
+**Cost.** It is a stand-in, so a behaviour it does not copy is a behaviour the
+tests do not see; the live check is still the only evidence about the live
+site. The launcher does not serve it — `python replicas/railways/app.py` does,
+and the tests start it themselves.
+
+---
+
+## A failure says what was observed, not what it means
+
+**Date:** 2026-09-30
+
+**Decision.** When the site offers nothing for a place the person named, the
+run says "The site didn't offer me any stations for Lahore." rather than "I
+couldn't find a station called Lahore."
+
+**Alternatives.** Keep the more helpful-sounding sentence. Or tell the two
+cases apart and say the right thing for each.
+
+**Why this.** The two cases cannot be told apart from inside the planner: a
+station list that has not arrived over the network and a place that genuinely
+has no stations both show an empty page. The old sentence guessed, and on
+2026-09-30 it guessed wrong on the live site — it told someone there is no
+station called Lahore, a city whose two stations that same run had listed ten
+minutes earlier (EVALUATION.md). A sentence that describes what happened is
+never wrong; a sentence that names a cause is wrong whenever the cause is the
+other one.
+
+**Cost.** For a place that really has no station — "Narnia" — the new sentence
+is a step further from what the person wants to hear, which is that they have
+asked for somewhere that is not on the railway.
+
+---
+
+## The count on screen is read once and kept
+
+**Date:** 2026-09-30
+
+**Decision.** `_Run.total` is set when `task.started` goes out and never
+recomputed; a brief freezes its own estimate the first time it is read.
+`step_total` is that number, or the index if the run has gone past it.
+
+**Alternatives.** Recompute it each time, so it is always the best current
+guess. Or leave the total off a question entirely.
+
+**Why this.** Recomputing is what produced "1 of 7" followed by "2 of 5" in one
+run (EVALUATION.md): a number that moves while someone is answering questions
+is worse than one that is approximate, and one that moves *down* suggests the
+system has changed its mind about what it is doing. Dropping the total from a
+question would make questions look like a different kind of thing from steps,
+which they deliberately are not.
+
+**Cost.** A run can end one or two above what it promised — a question the page
+raises, or a question asked again. The number grows silently at that point
+rather than having been right all along.
