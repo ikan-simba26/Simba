@@ -21,6 +21,7 @@ from collections.abc import Iterator
 import pytest
 import websockets
 
+from backend.orchestrator import voice
 from backend.orchestrator.billing_plan import BILLING_PLAN, REFERENCE
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_URL
 from backend.orchestrator.test_billing import REPO_ROOT, _wait_for, billing_replica  # noqa: F401
@@ -127,13 +128,40 @@ def test_hello_is_answered_and_starts_nothing(app_url: str) -> None:
 
 
 def test_pay_my_bill_runs_billing_with_the_goal_as_typed(app_url: str) -> None:
+    """The goal is still the person's own sentence. Since 2026-09-30 it is also
+    read for what it says, and "pay my bill" does not say which bill — so the
+    run asks, and the count on screen covers the question and the plan."""
     talk = converse(app_url, {"goal": "pay my bill"})
 
     started = [m for m in talk.received if m["type"] == "task.started"][0]["payload"]
     assert started["goal"] == "pay my bill"
-    assert started["estimated_steps"] == len(BILLING_PLAN)
+    assert started["estimated_steps"] == 1 + len(BILLING_PLAN)
     assert "task.completed" in talk.types(), talk.types()
     assert "goal.answered" not in talk.types()
+
+
+def test_a_bill_nobody_named_is_asked_about_before_anything_is_looked_up(
+    app_url: str,
+) -> None:
+    """The reference number is the whole task on this site, and until today the
+    plan's own number was used whatever had been typed."""
+    talk = converse(app_url, {"goal": "pay my bill"})
+
+    first = [m["payload"] for m in talk.received if m["type"] == "step.presented"][0]
+    assert first["instruction"] == voice.ASK_REFERENCE
+    assert [f["id"] for f in first["fields"]] == ["reference"]
+    assert first["actions"][-1]["id"] == voice.CANCEL_ID
+
+
+def test_a_goal_that_names_the_bill_is_not_asked_about(app_url: str) -> None:
+    """The control: nothing is asked that the person already said."""
+    talk = converse(app_url, {"goal": f"pay my bill {REFERENCE}"})
+
+    started = [m for m in talk.received if m["type"] == "task.started"][0]["payload"]
+    assert started["estimated_steps"] == len(BILLING_PLAN)
+    first = [m["payload"] for m in talk.received if m["type"] == "step.presented"][0]
+    assert first["instruction"] != voice.ASK_REFERENCE
+    assert "task.completed" in talk.types(), talk.types()
 
 
 def test_book_a_flight_is_declined(app_url: str) -> None:

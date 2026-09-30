@@ -376,6 +376,45 @@ class AnthropicProvider:
                 return choice
         raise LLMError("no route in the response")
 
+    async def read_details(self, system_prompt: str, goal: str):
+        """The details a typed goal states. See `details.py`.
+
+        One attempt and no waiting, like `choose_route`: the caller bounds it
+        and reads the goal by keywords if this does not answer.
+        """
+        import anthropic
+
+        from backend.orchestrator.details import DetailsChoice
+
+        self._transcript.record(
+            provider=self.name, model=self._model, purpose="details", user=goal
+        )
+        try:
+            message = await self._client.messages.parse(
+                model=self._model,
+                max_tokens=2000,
+                system=system_prompt,
+                output_config={"effort": "low"},
+                output_format=DetailsChoice,
+                messages=[{"role": "user", "content": goal}],
+            )
+        except anthropic.APIError as error:
+            self._transcript.record(provider=self.name, purpose="details", error=str(error))
+            raise LLMError(f"Anthropic details call failed: {error}") from error
+        for block in message.content:
+            parsed = getattr(block, "parsed_output", None)
+            if parsed is not None:
+                self._record_usage(
+                    getattr(message.usage, "input_tokens", 0),
+                    getattr(message.usage, "output_tokens", 0),
+                )
+                choice = DetailsChoice.model_validate(
+                    parsed.model_dump() if isinstance(parsed, BaseModel) else parsed)
+                self._transcript.record(
+                    provider=self.name, purpose="details", response=choice.model_dump())
+                return choice
+        raise LLMError("no details in the response")
+
     def _record_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
         before = self.usage.cost_usd
         self.usage.add(prompt_tokens, completion_tokens, self._model)
@@ -537,6 +576,44 @@ class OpenAICompatibleProvider:
         except ValidationError as error:
             raise LLMError(f"route response did not match: {error}") from error
         self._transcript.record(provider=self.name, purpose="route", response=choice.model_dump())
+        return choice
+
+    async def read_details(self, system_prompt: str, goal: str):
+        """The details a typed goal states. See `details.py`.
+
+        One attempt, no backoff, for the reason `choose_route` has none.
+        """
+        import openai
+
+        from backend.orchestrator.details import DETAILS_SCHEMA, DetailsChoice
+
+        self._transcript.record(
+            provider=self.name, model=self._model, purpose="details", user=goal
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": goal},
+        ]
+        schema = {"type": "json_schema",
+                  "json_schema": {"name": "details", "strict": True, "schema": DETAILS_SCHEMA}}
+        try:
+            try:
+                completion = await self._call(messages, schema)
+            except openai.BadRequestError:
+                completion = await self._call(messages, {"type": "json_object"})
+        except openai.OpenAIError as error:
+            self._transcript.record(provider=self.name, purpose="details", error=str(error))
+            raise LLMError(f"OpenAI-compatible details call failed: {error}") from error
+        raw = completion.choices[0].message.content or ""
+        counts = getattr(completion, "usage", None)
+        self._record_usage(getattr(counts, "prompt_tokens", 0) or 0,
+                           getattr(counts, "completion_tokens", 0) or 0)
+        try:
+            choice = DetailsChoice.model_validate_json(raw)
+        except ValidationError as error:
+            raise LLMError(f"details response did not match: {error}") from error
+        self._transcript.record(
+            provider=self.name, purpose="details", response=choice.model_dump())
         return choice
 
     def _schema_format(self) -> dict:

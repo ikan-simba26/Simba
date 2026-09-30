@@ -53,6 +53,102 @@ def actions(label: str) -> list[StepAction]:
     ]
 
 
+# --- a question, and its answers ---------------------------------------------
+#
+# When something the task needs was not said, the person is asked — one thing
+# at a time, as an ordinary `step.presented`. Where the answers are few they
+# are buttons; otherwise there is one box to type in and one button to say
+# that is it. Either way the same way to stop is underneath.
+
+#: What every button that answers a question has at the front of its id. The
+#: one id that stops is `CANCEL_ID`; anything else a question offers is an
+#: answer, and the overlay carries on rather than showing its stop screen.
+CHOICE_PREFIX = "choice:"
+
+#: Finishes a typed answer.
+THATS_IT = "That's it"
+
+#: The most answers a question shows as buttons. More than this is a list to
+#: read, which is the thing this interface exists to spare someone.
+MAX_CHOICES = 4
+
+
+def choices(labels: list[str]) -> list[StepAction]:
+    """One button per answer, and the one way to stop."""
+    return [
+        *(StepAction(id=f"{CHOICE_PREFIX}{index}", label=label, kind="primary")
+          for index, label in enumerate(labels)),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]
+
+
+ASK_FROM = "Where are you travelling from?"
+ASK_TO = "Where are you travelling to?"
+ASK_DAY = "What day are you travelling?"
+DAY_TODAY = "Today"
+DAY_TOMORROW = "Tomorrow"
+DAY_PICK = "Pick a day"
+ASK_WHICH_DAY = "Which day? You can type it like 3 October."
+ASK_DAY_AGAIN = "I didn't catch that day. Try typing it like 3 October."
+ASK_DAY_GONE = "That day has already gone. Which day would you like?"
+ASK_REFERENCE = "What is the reference number on your bill?"
+REFERENCE_DETAIL = "It is the 14-digit number at the top left of your bill."
+ASK_REFERENCE_AGAIN = "That doesn't look right. The reference number has 14 digits."
+ASK_COURSE = "Which course would you like to register for?"
+COURSE_DETAIL = "A course code looks like CS-401."
+ASK_COURSE_AGAIN = "I didn't catch that course. A course code looks like CS-401."
+
+#: The label beside the box a typed answer goes in.
+FIELD_FROM = "From"
+FIELD_TO = "To"
+FIELD_DAY = "Day"
+FIELD_REFERENCE = "Reference number"
+FIELD_COURSE = "Course"
+FIELD_STATION = "Station"
+
+#: `help.requested.reason` when the same question has been asked three times.
+NOT_UNDERSTOOD = "I asked a few times and still couldn't work out what you meant."
+
+
+def day_words(day, today) -> str:
+    """A date the way a person says it: `3 October`, with the year only when
+    it is not this one."""
+    words = f"{day.day} {day.strftime('%B')}"
+    return words if day.year == today.year else f"{words} {day.year}"
+
+
+def which_station(place: str) -> str:
+    return f"Which {place} station do you mean?"
+
+
+def narrow_station(place: str) -> str:
+    return f"There are several {place} stations. Can you type more of the name?"
+
+
+def confirm_search(origin: str, destination: str, day: str) -> str:
+    """The one sentence before a search, so the person can see what is about
+    to be looked up and stop it if it is not what they meant."""
+    return f"Trains from {origin} to {destination} on {day}. Shall I search?"
+
+
+def no_station(place: str) -> str:
+    """When the site offered nothing for a place the person named.
+
+    It says what happened and not what it means, because the two cases cannot
+    be told apart from here. On 2026-09-30 this read "I couldn't find a
+    station called Lahore." and was shown for Lahore, which has two stations
+    on that site: the name had gone into the box but the list had not opened
+    yet, and a list that has not arrived looks exactly like a place that has
+    no stations (EVALUATION.md).
+    """
+    return f"The site didn't offer me any stations for {place}."
+
+
+NO_TRAINS = "I searched, and no trains came back for that day."
+WRONG_MONTH = "The calendar on the page isn't showing the month you asked for."
+FORM_CHANGED = "The page no longer holds what I put in it, so I haven't searched."
+
+
 # --- when a run ends without finishing --------------------------------------
 
 #: `help.requested.suggestion`. `test_copy.py` requires this to be exactly

@@ -53,6 +53,7 @@ from backend.orchestrator.plan import (
     PlanStep,
     Target,
 )
+from backend.orchestrator import voice
 from backend.orchestrator.voice import actions
 from shared.schema import StepField
 
@@ -232,3 +233,299 @@ RAILWAYS_PLAN: list[PlanStep] = [
         expect=Expectation(rows_at_least=1),
     ),
 ]
+
+
+# --- a person's own journey ------------------------------------------------------
+#
+# Everything above is one fixed journey: the route and the day every recorded
+# railways number was measured on. A person's request does not run it. It runs
+# `TripPlanner`, with where they said they were going and when.
+
+
+def as_shown(day: date) -> str:
+    """A date the way the site writes it back once it is really set."""
+    return day.strftime("%d-%m-%Y")
+
+
+def trip_task(origin: str, destination: str, day: date) -> Task:
+    """The task for one person's journey, and what has to be true at its end.
+
+    Three things the person named, and all three are held: the day exactly,
+    as the site writes it, and each station box naming the place they asked
+    for. A search that came back with trains for another route or another day
+    ends in `help.requested`, not `task.completed` — the failure this project
+    has already produced once with a date (EVALUATION.md, case 6), and until
+    2026-09-30 produced with the route every time, because the route was the
+    plan's and not the person's.
+
+    The places are matched loosely and the day is not. "Lahore" is the
+    person's word and `LAHORE JN` is the site's; which Lahore station they
+    meant is settled by asking them, and the planner checks the box holds the
+    one they chose before it searches.
+    """
+    return Task(
+        goal=f"Find trains from {origin} to {destination} on {day.isoformat()}.",
+        estimated_steps=5,
+        success=Expectation(rows_at_least=1),
+        about=About(
+            holds=(
+                FieldValue("Departure Date", as_shown(day)),
+                FieldValue("From", origin, names=True),
+                FieldValue("To", destination, names=True),
+            ),
+            finds=(
+                Answer("Train", reads="Train No."),
+                Answer("Journey", reads="Duration"),
+            ),
+        ),
+    )
+
+
+def months_between(start: date, end: date) -> int:
+    """How many times "Next Month" is pressed to get from one to the other."""
+    return (end.year - start.year) * 12 + end.month - start.month
+
+
+class TripPlanner:
+    """Plans one journey on the train search, looking at the page as it goes.
+
+    A list of steps written ahead of time cannot do this, because what to
+    press depends on what the site offers. Typing "Lahore" brings back
+    however many stations the site has in Lahore, and only then is it known
+    whether there is one to choose or a question to ask. So each turn reads
+    the page and decides: type the place, ask which station, choose it, find
+    the month, pick the day, and — once the page holds all three — say the
+    journey back in one sentence and search.
+
+    The stations come from the site's own list and from nowhere else. A place
+    is matched against whatever the list offers for it; one match is chosen,
+    a few are asked about as buttons, and none ends the run saying so.
+
+    Choosing a station after typing its name is the rest of a step the person
+    already agreed to, so it is not shown again (`Move.quiet`).
+    """
+
+    calls_made = 0
+
+    # The box each end of the journey goes in, and how its steps are worded.
+    _BOX = {"origin": "From", "destination": "To"}
+    _SAYS = {
+        "origin": ("Let me set where you're starting from.", "Starting at {}.",
+                   "Set the departure station"),
+        "destination": ("Now where you're going.", "Arriving at {}.",
+                        "Set the destination"),
+    }
+
+    def __init__(self, origin: str, destination: str, day: date,
+                 today: date | None = None) -> None:
+        self.places = {"origin": origin, "destination": destination}
+        self.day = day
+        self.today = today or date.today()
+        self.stations: dict[str, str] = {}
+        self.stuck_reason: str | None = None
+        self._typed: dict[str, int] = {"origin": 0, "destination": 0}
+        self._narrowed: dict[str, str] = {}
+        self._done: set[str] = set()
+        self._pending: str | None = None
+        self._asking: tuple[str, list[str]] | None = None
+
+    async def next_move(self, elements, history, setback):
+        pending, self._pending = self._pending, None
+        if pending is not None:
+            if setback is None:
+                self._done.add(pending)
+            elif self._gives_up_on(pending):
+                return None
+
+        for end in ("origin", "destination"):
+            if f"choose {end}" not in self._done:
+                return self._station(end, elements)
+        if "pick day" not in self._done:
+            return self._day(elements)
+        if "search" not in self._done:
+            return self._search(elements)
+        return None
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        """The person's answer to the station question just asked."""
+        if self._asking is None:
+            return
+        end, offered = self._asking
+        self._asking = None
+        if offered:
+            index = action_id.removeprefix(voice.CHOICE_PREFIX)
+            if index.isdigit() and int(index) < len(offered):
+                self.stations[end] = offered[int(index)]
+            return
+        # Too many to show as buttons: they typed more of the name instead.
+        more = " ".join((input_values.get("station") or "").split())
+        if more:
+            self._narrowed[end] = more
+
+    # --- each part of the form ---------------------------------------------------
+
+    def _gives_up_on(self, pending: str) -> bool:
+        """A step that did not work. True if that ends the run, with a reason
+        a person can read; otherwise the step is simply tried again, and the
+        loop stops the run itself if it fails twice running."""
+        if pending.startswith("type "):
+            self.stuck_reason = voice.no_station(self.places[pending.split()[1]])
+            return True
+        if pending == "search":
+            self.stuck_reason = voice.NO_TRAINS
+            return True
+        return False
+
+    def _offered(self, end: str, elements) -> list[str]:
+        """The stations the site is offering for this place, in its order."""
+        place = self.places[end].casefold()
+        more = self._narrowed.get(end, "").casefold()
+        found: list[str] = []
+        for element in elements:
+            if element.role != "option" or element.qualifier == "disabled":
+                continue
+            label = element.label.casefold()
+            if place in label and more in label and element.label not in found:
+                found.append(element.label)
+        return found
+
+    def _station(self, end: str, elements):
+        place = self.places[end]
+        box = self._BOX[end]
+        instruction, detail, button = self._SAYS[end]
+        offered = self._offered(end, elements)
+
+        if not offered:
+            # Nothing on offer: the name has not been typed yet, or the list
+            # closed while a question was on screen. Typed twice with nothing
+            # to show for it, there is no such station.
+            if self._typed[end] >= 2:
+                self.stuck_reason = voice.no_station(place)
+                return None
+            self._typed[end] += 1
+            self._pending = f"type {end}"
+            query = (self._narrowed.get(end) or place).upper()
+            return self._move(
+                instruction, detail.format(place), button,
+                operations=[
+                    # The box is read-only until it is clicked.
+                    Operation("click", Target("textbox", box)),
+                    Operation("fill", Target("textbox", box), value=query),
+                ],
+                # The site has to offer something for the name before there
+                # is anything to choose.
+                expect=Expectation(label_like=place),
+                quiet=self._typed[end] > 1,
+            )
+
+        station = self.stations.get(end)
+        if station not in offered:
+            if len(offered) == 1:
+                station = offered[0]
+            elif len(offered) <= voice.MAX_CHOICES:
+                self._asking = (end, offered)
+                return self._question(voice.which_station(place),
+                                      answers=voice.choices([s.title() for s in offered]))
+            else:
+                self._asking = (end, [])
+                # Typing more of the name means typing it into the box again.
+                self._typed[end] = 0
+                return self._question(
+                    voice.narrow_station(place),
+                    fields=[StepField(id="station", label=voice.FIELD_STATION,
+                                      type="text", value="")],
+                    answers=actions(voice.THATS_IT),
+                )
+            self.stations[end] = station
+
+        self._pending = f"choose {end}"
+        return self._move(
+            instruction, detail.format(station.title()), button,
+            operations=[Operation("click", Target("option", station))],
+            # Committing the choice closes the list, which changes the page.
+            expect=Expectation(label_gone=station),
+            quiet=True,
+        )
+
+    def _day(self, elements):
+        day = str(self.day.day)
+        words = voice.day_words(self.day, self.today)
+        # The cell for this day in the month on screen. "today" is the one
+        # qualifier such a cell can carry; the greyed days either side of the
+        # month carry "previous month" or "next month" and are never these.
+        cells = [e for e in elements
+                 if e.role == "option" and e.label == day and e.qualifier in ("", "today")]
+
+        if "open month" in self._done and cells:
+            cell = cells[0]
+            # The calendar says which month it is showing, once, at the top.
+            # If it says another month, the day on it is another day.
+            if cell.panel and not (self.day.strftime("%B") in cell.panel
+                                   and str(self.day.year) in cell.panel):
+                self.stuck_reason = voice.WRONG_MONTH
+                return None
+            self._pending = "pick day"
+            return self._move(
+                "Now the day you're travelling.", f"{words}.", "Set the date",
+                operations=[Operation("click", Target("option", day, qualifier=cell.qualifier))],
+                expect=Expectation(label_gone=day),
+            )
+
+        self._done.discard("open month")
+        self._pending = "open month"
+        return self._move(
+            "Let me find the right month.", f"Travelling on {words}.", "Open the calendar",
+            operations=[
+                Operation("click", Target("textbox", "Departure Date")),
+                # The calendar opens on this month; the day may be in a later one.
+                *[Operation("click", Target("button", "Next Month"))
+                  for _ in range(months_between(self.today, self.day))],
+            ],
+            expect=Expectation(label_present=day),
+        )
+
+    def _search(self, elements):
+        """The last look before searching: the page has to hold the journey.
+
+        Checked here as well as at the end, because here it stops a wrong
+        search from being sent at all — and the sentence on screen is then a
+        description of the form, not a hope about it.
+        """
+        held = {e.label: e.value for e in elements if e.role == "textbox"}
+        wanted = {
+            "From": self.stations["origin"],
+            "To": self.stations["destination"],
+        }
+        if held.get("Departure Date") != as_shown(self.day) or any(
+            station.casefold() not in (held.get(box) or "").casefold()
+            for box, station in wanted.items()
+        ):
+            self.stuck_reason = voice.FORM_CHANGED
+            return None
+
+        self._pending = "search"
+        return self._move(
+            voice.confirm_search(
+                self.stations["origin"].title(), self.stations["destination"].title(),
+                voice.day_words(self.day, self.today),
+            ),
+            "This only looks up the timetable. Nothing is booked.", "Search",
+            # The search control is a button with no accessible name at all.
+            operations=[Operation("click", Target("button", ""))],
+            expect=Expectation(rows_at_least=1),
+        )
+
+    # --- shaping -----------------------------------------------------------------
+
+    def _move(self, instruction, detail, button, *, operations, expect, quiet=False):
+        from backend.orchestrator.loop import Move
+
+        return Move(instruction=instruction, detail=detail, operations=operations,
+                    expect=expect, fields=[], actions=actions(button), quiet=quiet)
+
+    def _question(self, instruction, *, answers, fields=()):
+        from backend.orchestrator.loop import Move
+
+        return Move(instruction=instruction, detail="", operations=[],
+                    expect=Expectation(), fields=list(fields), actions=answers,
+                    question=True)

@@ -246,6 +246,10 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected {expect.label_gone!r} to be gone from the page"
     if expect.label_present and expect.label_present not in after.labels:
         return f"expected {expect.label_present!r} to appear on the page"
+    if expect.label_like:
+        wanted = expect.label_like.casefold()
+        if not any(wanted in label.casefold() for label in after.labels):
+            return f"expected something called {expect.label_like!r} to appear on the page"
     if expect.content_says and not after.content.says(expect.content_says):
         return f"expected the page to say {expect.content_says!r}"
     if expect.rows_at_least is not None:
@@ -263,27 +267,55 @@ def held_mismatch(after: Snapshot, held: FieldValue) -> str | None:
 
     Exact, deliberately: a date that is nearly right is a wrong answer. And an
     empty field is an answer, not an absence — `value_of` tells the two apart.
+    The one loosening is a value declared with `names`, which the person gave
+    in their words and the page holds in its own (`FieldValue`).
     """
     actual = after.value_of(held.label)
     if actual is None:
         return f"expected a field called {held.label!r} on the page"
-    if actual != held.equals:
+    if not held.accepts(actual):
         return f"expected {held.label!r} to hold {held.equals!r}, it holds {actual!r}"
     return None
 
 
-def unmet(after: Snapshot, task: "Task") -> str | None:
+def said_so_far(
+    snapshot: Snapshot, task: "Task", seen: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """Add what this page says under the labels the task must be shown.
+
+    `seen` is the run's memory, mutated and returned, for the same reason
+    `findings_in` keeps one: the page that states the reference number is not
+    the page the billing run ends on.
+    """
+    for shown in task.about.shows:
+        values = seen.setdefault(shown.reads, [])
+        values += [v for v in snapshot.content.values_for(shown.reads) if v not in values]
+    return seen
+
+
+def unmet(
+    after: Snapshot, task: "Task", seen: dict[str, list[str]] | None = None
+) -> str | None:
     """Why this page does not finish the task, or None if it does.
 
     The values the goal names come first, then the task's own success
     expectation. First because they are the more specific failure: on the
     railways page that searched the wrong date, "results appeared" is true and
     the date is what is wrong, and the reason given should say so.
+
+    `seen` is what the run has been shown so far (`said_so_far`). Without it,
+    only this page is asked.
     """
     for held in task.about.holds:
         failure = held_mismatch(after, held)
         if failure is not None:
             return failure
+    said = said_so_far(after, task, {} if seen is None else seen)
+    for shown in task.about.shows:
+        if not shown.met_by(said.get(shown.reads, [])):
+            got = ", ".join(repr(v) for v in said.get(shown.reads, [])) or "nothing"
+            return (f"expected the page to show {shown.says!r} as {shown.reads!r}, "
+                    f"it showed {got}")
     if task.success is not None:
         return mismatch(after, task.success)
     return None
@@ -367,6 +399,16 @@ class Move:
     expect: Expectation
     fields: list[StepField]
     actions: list[StepAction]
+    # A question for the person rather than something to do. Nothing is acted
+    # on: it is shown, and whatever they answer goes back to whoever asked
+    # (`answered`). Any of its actions but the one that stops is an answer.
+    question: bool = False
+    # More of a step the person has already agreed to. It is acted on and
+    # verified like any move, and not shown again: "set the departure station"
+    # is one thing to agree to, though it takes typing a name, looking at what
+    # the page offers, and then choosing — and what to choose cannot be known
+    # until the page has been looked at.
+    quiet: bool = False
 
 
 class Planner(Protocol):
@@ -396,7 +438,37 @@ class Task:
     about: About = field(kw_only=True)
 
 
+class Brief(Protocol):
+    """What a person asked for, and whatever it still needs them to say.
+
+    A goal rarely names everything a task needs: "trains to Rawalpindi
+    tomorrow" does not say where from. A brief holds what was understood,
+    asks for the rest one question at a time, and when nothing is missing
+    says what the task is and who plans it (`details.py`).
+    """
+
+    goal: str
+    estimated_steps: int
+    #: Why the asking was abandoned, once it has been.
+    gave_up: str | None
+
+    def question(self) -> "Move | None":
+        """The next thing to ask, or None when nothing is missing."""
+        ...
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None: ...
+
+    def settle(self) -> "tuple[Planner, Task]":
+        """The planner and the task, now that every detail is known."""
+        ...
+
+
 MAX_STEPS = 12
+
+
+def is_answer(move: "Move", action_id: object) -> bool:
+    """Whether a response to a question answers it, rather than stopping."""
+    return action_id != voice.CANCEL_ID and any(a.id == action_id for a in move.actions)
 
 
 def caption_for(move: "Move") -> str:
@@ -458,6 +530,141 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
     )
 
 
+class _Run:
+    """One task's conversation with the person: what is on screen, and the
+    few things every part of a run says the same way."""
+
+    def __init__(
+        self,
+        page: Page,
+        connection: Connection,
+        recorder: Recorder | None,
+        rules: LevelRules | None,
+    ) -> None:
+        self.page = page
+        self.connection = connection
+        self.recorder = recorder
+        self.rules = rules
+        self.started = time.monotonic()
+        self.state: str | None = None
+        #: How many things have been put on screen: steps and questions both.
+        self.shown = 0
+        #: How many were said there would be, in `task.started`. Read once and
+        #: kept: a count that moves while the person is answering is worse
+        #: than one that is approximate, and on 2026-09-30 it moved twice in
+        #: one run — 1 of 7, then 2 of 5, because the questions counted the
+        #: one on screen and the steps then counted none of them.
+        self.total = 0
+
+    async def set_state(self, state: str) -> None:
+        # Exactly one state is active at a time, so don't re-announce it.
+        if state != self.state:
+            self.state = state
+            await self.connection.send("state.changed", StateChanged(state=state))
+
+    async def adapt(self, decision: Decision | None) -> None:
+        """Every decision is written down; only a change is sent."""
+        if decision is None:
+            return
+        if self.recorder is not None:
+            self.recorder.note_decision(decision)
+        if decision.send:
+            await self.connection.send("load.updated", decision.load())
+
+    async def give_up(self, reason: str) -> None:
+        await self.set_state("stuck")
+        await self.connection.send(
+            "help.requested",
+            HelpRequested(
+                reason=reason,
+                suggestion=voice.HELP_SUGGESTION,
+            ),
+        )
+
+    async def stopped(self) -> None:
+        await self.connection.send(
+            "task.failed",
+            TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
+        )
+
+    async def open(self, goal: str, estimated_steps: int, start_url: str) -> None:
+        self.total = estimated_steps
+        await self.connection.send(
+            "task.started", TaskStarted(goal=goal, estimated_steps=estimated_steps)
+        )
+        await self.set_state("thinking")
+        await self.page.goto(start_url)
+
+    async def present(
+        self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
+    ) -> dict:
+        """Put a step or a question on screen and wait for the person.
+
+        Returns the response's payload. While it waits it answers what the
+        overlay may ask in the meantime: a picture of the page, a telemetry
+        sample, a change of level.
+        """
+        self.shown += 1
+        index = self.shown
+        await self.set_state("waiting")
+        features = features_of(view)
+        # What the page was like at the moment this step went on screen, kept
+        # for whatever the person then does with it. Written down only if the
+        # caller asked for a recorder: the app does, tests do not
+        # (`backend/estimator/pairing.py`).
+        if self.recorder is not None:
+            self.recorder.note_step(
+                index,
+                goal=goal,
+                url=self.page.url,
+                instruction=move.instruction,
+                features=features,
+            )
+        # Before the step, so it arrives already at its level: the starting
+        # level on the first step, a return after two calm ones.
+        if self.rules is not None:
+            await self.adapt(self.rules.start_step(index, features))
+        await self.connection.send(
+            "step.presented",
+            StepPresented(
+                step_index=index,
+                # Never less than what is on screen, and never less than what
+                # was promised. It can still end higher than promised: a
+                # question only the page can raise — which of two stations in
+                # one city — cannot be counted before the page has answered.
+                step_total=max(self.total, index),
+                instruction=move.instruction,
+                detail=move.detail,
+                fields=move.fields,
+                actions=move.actions,
+                requires_confirmation=True,
+                findings=findings,
+            ),
+        )
+
+        async def answer_questions(message: dict) -> None:
+            if message.get("type") == "trust.requested":
+                await send_preview(self.page, self.connection, move)
+                return
+            # Channel B, arriving while the step is on screen: one sample on
+            # a timer, and one more with the response itself. Paired with the
+            # page above and written down, and — with rules — the one input
+            # that can fold the step while it is still showing.
+            if message.get("type") == "telemetry":
+                sample = message.get("payload") or {}
+                if self.recorder is not None:
+                    self.recorder.note_telemetry(sample)
+                if self.rules is not None:
+                    await self.adapt(self.rules.telemetry(sample))
+                return
+            await follow_override(message, self.rules, self.adapt)
+
+        response = await self.connection.receive(
+            "step.response", step_index=index, on_other=answer_questions
+        )
+        return response.get("payload", {})
+
+
 async def run_task(
     page: Page,
     connection: Connection,
@@ -474,57 +681,85 @@ async def run_task(
     passes none — every test here — runs exactly as before and writes nothing
     (`backend/estimator/pairing.py`).
 
-    `rules` chooses the detail level as the run goes (`adapt`, below). With
+    `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    started = time.monotonic()
-    current_state: str | None = None
+    run = _Run(page, connection, recorder, rules)
+    await run.open(task.goal, task.estimated_steps, start_url)
+    await carry_out(run, planner, task)
+
+
+async def run_brief(
+    page: Page,
+    connection: Connection,
+    brief: Brief,
+    start_url: str,
+    recorder: Recorder | None = None,
+    rules: LevelRules | None = None,
+) -> None:
+    """Ask for whatever the goal left out, then run the task it describes.
+
+    The questions come first and one at a time, as ordinary steps, with the
+    site already open behind them — so "What are you doing?" has a page to
+    show, and the level rules have a page to weigh. Nothing on the site is
+    touched until every one is answered. A person who stops at a question has
+    stopped the task; a brief that cannot make sense of the answers ends the
+    run the way being stuck does, and says why.
+    """
+    run = _Run(page, connection, recorder, rules)
+    await run.open(brief.goal, brief.estimated_steps, start_url)
+
+    view: PageView | None = None
+    while (question := brief.question()) is not None:
+        if view is None:
+            _, _, view = await perceive(page)
+        payload = await run.present(
+            question, goal=brief.goal, findings=[], view=view
+        )
+        if not is_answer(question, payload.get("action_id")):
+            await run.stopped()
+            return
+        await run.set_state("thinking")
+        brief.answered(payload["action_id"], payload.get("input_values") or {})
+
+    if brief.gave_up is not None:
+        await run.give_up(brief.gave_up)
+        return
+
+    planner, task = brief.settle()
+    await carry_out(run, planner, task)
+
+
+async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
+    """The loop itself, from a page that is already open."""
+    page, connection = run.page, run.connection
+    rules = run.rules
+    set_state, give_up = run.set_state, run.give_up
     history: list[str] = []
     setback: str | None = None
     consecutive_setbacks = 0
+    # Steps the person agreed to and the run then did. Questions are not
+    # steps, and neither is the quiet remainder of a step already agreed to.
     steps_taken = 0
     last_failure: str | None = None
     completed: list[Move] = []
     filled: list[FilledValue] = []
     # What the task was asked to find out, as it turns up. See `findings_in`.
     found: dict[str, list[str]] = {}
+    # What the site has said back about the values the goal named. See
+    # `said_so_far`.
+    seen: dict[str, list[str]] = {}
 
-    async def set_state(state: str) -> None:
-        # Exactly one state is active at a time, so don't re-announce it.
-        nonlocal current_state
-        if state != current_state:
-            current_state = state
-            await connection.send("state.changed", StateChanged(state=state))
-
-    async def adapt(decision: Decision | None) -> None:
-        """Every decision is written down; only a change is sent."""
-        if decision is None:
-            return
-        if recorder is not None:
-            recorder.note_decision(decision)
-        if decision.send:
-            await connection.send("load.updated", decision.load())
-
-    async def give_up(reason: str) -> None:
-        await set_state("stuck")
-        await connection.send(
-            "help.requested",
-            HelpRequested(
-                reason=reason,
-                suggestion=voice.HELP_SUGGESTION,
-            ),
-        )
-
-    await connection.send(
-        "task.started", TaskStarted(goal=task.goal, estimated_steps=task.estimated_steps)
-    )
-    await set_state("thinking")
-    await page.goto(start_url)
-
-    for _ in range(MAX_STEPS):
+    # A planner that asks, or that finishes a step quietly, takes more turns
+    # than it shows steps. The second bound is what stops one that never
+    # gets to the point.
+    for _ in range(MAX_STEPS * 2):
+        if steps_taken >= MAX_STEPS:
+            break
         await set_state("thinking")
         elements, before, view = await perceive(page)
         findings = findings_in(before, task, found)
+        said_so_far(before, task, seen)
 
         # Durable verification: everything typed so far has to *still* be
         # there, not merely have been there when it was typed.
@@ -555,7 +790,7 @@ async def run_task(
         # Only a task with a success expectation can finish early. `holds`
         # alone is not a finish line: a filled form nobody has searched with
         # holds every value the goal named.
-        if task.success is not None and unmet(before, task) is None:
+        if task.success is not None and unmet(before, task, seen) is None:
             break
 
         move = await planner.next_move(elements, history, setback)
@@ -568,69 +803,31 @@ async def run_task(
                 return
             break
 
-        steps_taken += 1
-        await set_state("waiting")
-        features = features_of(view)
-        # What the page was like at the moment this step went on screen, kept
-        # for whatever the person then does with it. Written down only if the
-        # caller asked for a recorder: the app does, tests do not
-        # (`backend/estimator/pairing.py`).
-        if recorder is not None:
-            recorder.note_step(
-                steps_taken,
-                goal=task.goal,
-                url=page.url,
-                instruction=move.instruction,
-                features=features,
+        if move.question:
+            # The planner needs the person to say something before it can go
+            # on — which of two stations they meant. Shown like a step and
+            # acted on by nobody: the answer goes back to the planner.
+            payload = await run.present(
+                move, goal=task.goal, findings=findings, view=view,
             )
-        # Before the step, so it arrives already at its level: the starting
-        # level on the first step, a return after two calm ones.
-        if rules is not None:
-            await adapt(rules.start_step(steps_taken, features))
-        await connection.send(
-            "step.presented",
-            StepPresented(
-                step_index=steps_taken,
-                step_total=max(task.estimated_steps, steps_taken),
-                instruction=move.instruction,
-                detail=move.detail,
-                fields=move.fields,
-                actions=move.actions,
-                requires_confirmation=True,
-                findings=findings,
-            ),
-        )
-        async def answer_questions(message: dict) -> None:
-            if message.get("type") == "trust.requested":
-                await send_preview(page, connection, move)
+            if not is_answer(move, payload.get("action_id")):
+                await run.stopped()
                 return
-            # Channel B, arriving while the step is on screen: one sample on
-            # a timer, and one more with the response itself. Paired with the
-            # page above and written down, and — with rules — the one input
-            # that can fold the step while it is still showing.
-            if message.get("type") == "telemetry":
-                sample = message.get("payload") or {}
-                if recorder is not None:
-                    recorder.note_telemetry(sample)
-                if rules is not None:
-                    await adapt(rules.telemetry(sample))
-                return
-            await follow_override(message, rules, adapt)
+            planner.answered(payload["action_id"], payload.get("input_values") or {})
+            continue
 
-        response = await connection.receive(
-            "step.response", step_index=steps_taken, on_other=answer_questions
-        )
-        payload = response.get("payload", {})
-
-        if payload.get("action_id") != voice.CONFIRM_ID:
-            await connection.send(
-                "task.failed",
-                TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
+        input_values: dict[str, str] = {}
+        if not move.quiet:
+            steps_taken += 1
+            payload = await run.present(
+                move, goal=task.goal, findings=findings, view=view,
             )
-            return
+            if payload.get("action_id") != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+            input_values = payload.get("input_values", {})
 
         await set_state("acting")
-        input_values = payload.get("input_values", {})
 
         # The retry: same move, different strategy. Identical for every planner.
         failure = await attempt_move(page, move, input_values, strategy=0, before=before)
@@ -653,7 +850,7 @@ async def run_task(
             await connection.send(
                 "step.failed",
                 StepFailed(
-                    step_index=steps_taken,
+                    step_index=run.shown,
                     instruction=move.instruction,
                     reason=failure,
                     strategies_tried=2,
@@ -679,7 +876,9 @@ async def run_task(
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
     unfinished = (
-        unmet(final, task) if task.success is not None or task.about.holds else None
+        unmet(final, task, seen)
+        if task.success is not None or task.about.holds or task.about.shows
+        else None
     )
     if unfinished is not None:
         # Prefer the concrete reason the last move failed over the generic
@@ -690,7 +889,7 @@ async def run_task(
     # A return that was due when the last step was answered has no next step
     # to arrive with, so it goes out before the ending.
     if rules is not None:
-        await adapt(rules.end())
+        await run.adapt(rules.end())
 
     # A planner that remembers runs gets told what actually worked.
     remember = getattr(planner, "finished", None)
@@ -701,7 +900,7 @@ async def run_task(
         "task.completed",
         TaskCompleted(
             summary=f"{task.goal} {page.url}",
-            duration_ms=int((time.monotonic() - started) * 1000),
+            duration_ms=int((time.monotonic() - run.started) * 1000),
             steps_taken=steps_taken,
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
@@ -900,7 +1099,7 @@ async def lapsed_value(
             continue
         if actual == record.value:
             continue
-        if any(held.label == record.label and held.equals == actual for held in holds):
+        if any(held.label == record.label and held.accepts(actual) for held in holds):
             continue
         return record, (
             f"{record.label!r} no longer holds what I put in it — it held "

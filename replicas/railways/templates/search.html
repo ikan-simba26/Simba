@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>RABTA</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #222; }
+    nav { background: #0b5a3c; padding: 10px 24px; }
+    nav a { color: #fff; margin-right: 18px; text-decoration: none; font-size: 14px; }
+    main { padding: 24px; position: relative; }
+    h1 { font-size: 24px; letter-spacing: 1px; }
+    .search { display: flex; gap: 16px; align-items: flex-end; }
+    .field { position: relative; }
+    .field label { display: block; font-size: 13px; margin-bottom: 4px; }
+    .field input { width: 220px; height: 34px; padding: 0 10px; border: 1px solid #bbb; }
+    .search-button { width: 40px; height: 36px; border: 0; background: #0b5a3c; cursor: pointer; }
+    .search-button img { width: 16px; height: 16px; }
+    .el-select-dropdown { position: absolute; top: 60px; left: 0; z-index: 2005; width: 240px;
+                          background: #fff; border: 1px solid #ccc; display: none; }
+    .el-select-dropdown ul { list-style: none; margin: 0; padding: 4px 0; }
+    .el-select-dropdown__item { padding: 6px 12px; cursor: pointer; }
+    .el-select-dropdown__item:hover { background: #eef6f2; }
+    .el-picker-panel { position: absolute; top: 60px; left: 0; z-index: 2001; width: 300px;
+                       background: #fff; border: 1px solid #ccc; display: none; padding: 8px; }
+    .el-date-picker__header { display: flex; justify-content: space-between; align-items: center;
+                              margin-bottom: 6px; }
+    .el-date-picker__header button { width: 28px; height: 24px; border: 0; background: #eee;
+                                     cursor: pointer; }
+    .el-date-table { border-collapse: collapse; width: 100%; }
+    .el-date-table td { text-align: center; padding: 5px 0; font-size: 13px; }
+    .el-date-table td.available { cursor: pointer; }
+    .el-date-table td.prev-month, .el-date-table td.next-month { color: #aaa; cursor: pointer; }
+    .el-date-table td.disabled { color: #ccc; cursor: not-allowed; }
+    .el-date-table td.today { font-weight: bold; }
+    .warn { color: #a33; margin-top: 12px; min-height: 18px; font-size: 13px; }
+    .results table { border-collapse: collapse; margin-top: 18px; width: 100%; }
+    .results th, .results td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    footer { padding: 24px; font-size: 12px; color: #666; }
+    footer a { color: #666; margin-right: 12px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/">Home</a>
+  <a href="/">Train Timings</a>
+  <a href="#">Tickets</a>
+  <a href="#">Order</a>
+  <a href="#">My</a>
+</nav>
+
+<main>
+  <h1>TRAIN TIMINGS</h1>
+
+  <div class="search">
+    <div class="field">
+      <label for="from">From</label>
+      <input type="text" id="from" autocomplete="off" readonly>
+      <div class="el-select-dropdown" id="from-list"><ul></ul></div>
+    </div>
+    <div class="field">
+      <label for="to">To</label>
+      <input type="text" id="to" autocomplete="off" readonly>
+      <div class="el-select-dropdown" id="to-list"><ul></ul></div>
+    </div>
+    <div class="field">
+      <label for="date">Departure Date</label>
+      <input type="text" id="date" autocomplete="off">
+      <div class="el-picker-panel" id="calendar">
+        <div class="el-date-picker__header">
+          <button type="button" id="previous" aria-label="Previous Month"></button>
+          <span id="showing"></span>
+          <button type="button" id="next" aria-label="Next Month"></button>
+        </div>
+        <table class="el-date-table"><tbody id="days"></tbody></table>
+      </div>
+    </div>
+    <button type="button" class="search-button" id="search"><img alt=""
+      src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></button>
+  </div>
+
+  <p class="warn" id="warn"></p>
+  <div class="results" id="results"></div>
+</main>
+
+<footer>
+  <a href="#">Privacy Policy</a>
+  <a href="#">FAQs</a>
+  A local stand-in for a train search. The stations are real places; the trains are invented.
+</footer>
+
+<script>
+  const STATIONS = {{ stations | tojson }};
+  const NO_SERVICE = {{ no_service | tojson }};
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+                  "August", "September", "October", "November", "December"];
+
+  // What the application believes, which is not what the boxes show. A search
+  // is sent from this and from nothing else.
+  const model = { from: "", to: "", date: "" };
+  window.__model = model;
+  window.__searched = null;
+
+  // --- the station boxes ----------------------------------------------------
+
+  function station(name) {
+    const input = document.getElementById(name);
+    const panel = document.getElementById(name + "-list");
+    const list = panel.querySelector("ul");
+
+    function offer() {
+      const typed = input.value.trim().toUpperCase();
+      const matches = typed ? STATIONS.filter((s) => s.includes(typed)) : [];
+      list.innerHTML = "";
+      for (const match of matches) {
+        const item = document.createElement("li");
+        item.className = "el-select-dropdown__item";
+        const text = document.createElement("span");
+        text.textContent = match;
+        item.appendChild(text);
+        // `mousedown`, so choosing does not first blur the box and lose it.
+        item.addEventListener("mousedown", (event) => event.preventDefault());
+        item.addEventListener("click", () => {
+          model[name] = match;
+          input.value = match;
+          panel.style.display = "none";
+        });
+        list.appendChild(item);
+      }
+      panel.style.display = matches.length ? "block" : "none";
+    }
+
+    input.addEventListener("click", () => input.removeAttribute("readonly"));
+    input.addEventListener("input", offer);
+    // Text that was typed and never chosen is not a station.
+    input.addEventListener("blur", () => {
+      input.value = model[name];
+      panel.style.display = "none";
+    });
+  }
+  station("from");
+  station("to");
+
+  // --- the calendar ------------------------------------------------------------
+
+  const dateInput = document.getElementById("date");
+  const calendar = document.getElementById("calendar");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let showing = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  function two(n) { return String(n).padStart(2, "0"); }
+
+  function draw() {
+    document.getElementById("showing").textContent =
+      showing.getFullYear() + " " + MONTHS[showing.getMonth()];
+    const body = document.getElementById("days");
+    body.innerHTML = "";
+    const first = new Date(showing.getFullYear(), showing.getMonth(), 1);
+    const cursor = new Date(first);
+    cursor.setDate(1 - first.getDay());
+    for (let week = 0; week < 6; week++) {
+      const row = document.createElement("tr");
+      row.className = "el-date-table__row";
+      for (let day = 0; day < 7; day++) {
+        const cell = document.createElement("td");
+        const when = new Date(cursor);
+        const classes = [];
+        if (when.getMonth() !== showing.getMonth()) {
+          classes.push(when < first ? "prev-month" : "next-month");
+        } else if (when < today) {
+          classes.push("disabled");
+        } else {
+          if (when.getTime() === today.getTime()) classes.push("today");
+          classes.push("available");
+        }
+        cell.className = classes.join(" ");
+        const text = document.createElement("span");
+        text.textContent = String(when.getDate());
+        cell.appendChild(text);
+        if (classes.includes("available")) {
+          cell.addEventListener("click", () => {
+            model.date = when.getFullYear() + "-" + two(when.getMonth() + 1) + "-" + two(when.getDate());
+            // Written back in the site's own order, not the one it accepts.
+            dateInput.value = two(when.getDate()) + "-" + two(when.getMonth() + 1) + "-" + when.getFullYear();
+            calendar.style.display = "none";
+          });
+        }
+        row.appendChild(cell);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      body.appendChild(row);
+    }
+  }
+
+  dateInput.addEventListener("click", () => {
+    draw();
+    calendar.style.display = "block";
+  });
+  document.getElementById("next").addEventListener("click", () => {
+    showing = new Date(showing.getFullYear(), showing.getMonth() + 1, 1);
+    draw();
+  });
+  document.getElementById("previous").addEventListener("click", () => {
+    showing = new Date(showing.getFullYear(), showing.getMonth() - 1, 1);
+    draw();
+  });
+
+  // --- the search ----------------------------------------------------------------
+
+  function trains(from, to) {
+    if (from === NO_SERVICE || to === NO_SERVICE || from === to) return [];
+    // Invented, and fixed per route so a run reads the same twice.
+    const seed = (from.length * 7 + to.length * 3) % 5;
+    const found = [
+      { number: (1 + seed * 2) + "UP", time: "07:" + two(10 + seed * 5), hours: 4 + seed },
+      { number: (2 + seed * 2) + "DN", time: "16:" + two(20 + seed * 5), hours: 5 + seed },
+    ];
+    return seed === 0 ? found.slice(0, 1) : found;
+  }
+
+  document.getElementById("search").addEventListener("click", () => {
+    const warn = document.getElementById("warn");
+    const results = document.getElementById("results");
+    results.innerHTML = "";
+    warn.textContent = "";
+    window.__searched = { from: model.from, to: model.to, date: model.date };
+    if (!model.from || !model.to || !model.date) {
+      warn.textContent = "Please choose where from, where to and a date.";
+      return;
+    }
+    const found = trains(model.from, model.to);
+    if (!found.length) {
+      warn.textContent = "No trains found for this route.";
+      return;
+    }
+    const table = document.createElement("table");
+    table.innerHTML = "<thead><tr><th>Train No.</th><th>From/To</th><th>Time</th>" +
+                      "<th>Duration</th></tr></thead>";
+    const body = document.createElement("tbody");
+    for (const train of found) {
+      const row = document.createElement("tr");
+      for (const value of [train.number, model.from + " " + model.to, train.time,
+                           train.hours + " h 15 min"]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      }
+      body.appendChild(row);
+    }
+    table.appendChild(body);
+    results.appendChild(table);
+  });
+</script>
+</body>
+</html>

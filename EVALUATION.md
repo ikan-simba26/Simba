@@ -3993,3 +3993,174 @@ smallest home-screen text 20px; text box at 645–714, no scrolling; site view
 **Consequence:** on a machine at 100%, "What are you doing?" can be expected
 to fail to return its picture about half the time, on any site page that is
 idle when it is asked — which is most of them. Not fixed; see STATUS.md.
+
+---
+
+## 2026-09-30 — every flow on the person's own details, and five live runs
+
+The change: a routed goal is read for what it says, whatever is missing is
+asked for one question at a time, and the task — including what has to be true
+at the end — is built from the person's answers rather than from the plan's
+values. Before today "trains to Rawalpindi tomorrow" searched Lahore Cantt to
+Karachi Cantt on the 15th of next month, and reported success.
+
+Hardcoded planner throughout, so **no model quota was spent on any run below**.
+The keyword and date reader did all the reading; the model path is covered by
+fake readers in `test_details.py` and was not exercised live.
+
+### The suite
+
+| | Before (STATUS.md, 2026-09-25) | Mid-change (`e951ced`) | After (`ae26978`) |
+|---|---|---|---|
+| Passing | 544 | 710 | **712** |
+| Skipped | 12 | 12 | 12 |
+| Wall clock | 729s | 1000.85s | **1081.18s** |
+
+**168 tests added**, all in this change. The 12 skips are unchanged and none of
+them ran: 5 need a running Electron host, 2 need a host and
+`SIMBA_HOST_TESTS=1`, 3 open the host themselves and need `SIMBA_HOST_TESTS=1`,
+2 need `SIMBA_LIVE_TESTS=1`. The wall clock carries the usual ±2x for this
+machine (2026-09-17h); the growth is mostly real work — 29 of the new tests
+drive a browser against a replica and 5 build the overlay and drive it.
+
+New files: `test_details.py` (83), `test_trip.py` (29), `test_asking.py` (19),
+`test_course.py` (9), `frontend/test_questions.py` (5); the rest are additions
+to `test_success_conditions.py` (17), `test_billing.py` (7) and
+`test_app_routing.py` (2).
+
+### The three goal shapes, against the local replica
+
+`replicas/railways/` on :5244, the real backend on :8044, keyword routing,
+driven over the websocket the way the overlay drives it. Each run searched and
+reached the closing screen.
+
+| Goal | Asked | Shown | `steps_taken` | Searched |
+|---|---|---|---|---|
+| `trains from Rawalpindi to Multan tomorrow` | nothing | 5 | 5 | `RAWALPINDI → MULTAN CANTT`, `2026-10-01` |
+| `trains to Rawalpindi tomorrow` | where from; which Lahore station | 7 | 5 | `LAHORE CANTT → RAWALPINDI`, `2026-10-01` |
+| `I need a train` | where from; where to; which day; which Lahore station | 9 | 5 | `LAHORE JN → MULTAN CANTT`, `2026-09-30` |
+
+`steps_taken` is 5 in all three: a question is not a step, and neither is
+choosing from the station list the site offered (`Move.quiet`). What the
+replica recorded as searched is its own `window.__searched`, taken from the
+application's state rather than from the boxes.
+
+A fourth run of `I need a train` answered the destination with an empty box
+three times and ended in `help.requested` — "I asked a few times and still
+couldn't work out what you meant." — with nothing searched, which is
+`MAX_TRIES`.
+
+### The counter defect, found by running it
+
+The second run above first read **1 of 7**, then **2 of 5**. Two mistakes in
+opposite directions: the brief recomputed its count on every question and
+counted the question on screen as both asked and still missing, then the steps
+after the questions took their count from the settled task, which knows only
+about the plan. Fixed by reading the count once at `task.started` and keeping
+it (`_Run.total`), and freezing the brief's own promise. Now:
+
+    1/6  2/6  3/6  4/6  5/6  6/6  7/7
+
+It still ends one above the promise, because a question only the page can
+raise — which of two stations in one city — cannot be counted before the page
+has answered. It never goes backwards, and never below what is on screen.
+`test_asking.py::test_the_count_never_goes_backwards_across_the_questions`.
+
+### Five runs on the live site, through the Electron host
+
+`run.ps1 railways`, hardcoded planner, goal typed into the real overlay and
+every answer pressed in the real window over CDP after a 2.5s pause
+(`python -m tools.evaluation.person_details_stack_run "trains to Rawalpindi
+tomorrow" --type Lahore --pick "Lahore Cantt"`). Read-only: one timetable
+search per run. Machine at 150%, window content 1266x606, site view 1280x800.
+
+| # | Commit | Station chosen | Searched | Trains back | `duration_ms` | Wall clock |
+|---|---|---|---|---|---|---|
+| 1 | `ff0c7cc` (dirty) | Lahore Jn. | `LHR → RWP`, `2026-10-01` | **9** | 54,750 | 77.8s |
+| 2 | `ff0c7cc` (dirty) | Lahore Jn. | `LHR → RWP`, `2026-10-01` | **9** | 54,750 | 73.4s |
+| 3 | `d8043e8` | Lahore Jn. | `LHR → RWP`, `2026-10-01` | **9** | 53,467 | 67.1s |
+| 4 | `d8043e8` | — | nothing | — | — | 37.3s |
+| 5 | `ae26978` | **Lahore Cantt** | `LRC → RWP`, `2026-10-01` | **3** | 54,047 | 71.9s |
+
+**What the required check asked for, and what happened.** "Trains to
+Rawalpindi tomorrow" asked **where from** and nothing else — it had read the
+destination and the date out of the sentence. `Lahore` typed into that box
+brought back the site's own two Lahore stations, and it asked which:
+
+    question 1/6  Where are you travelling from?          box: From
+    step     2/6  Let me set where you're starting from.   Starting at Lahore.
+    question 3/6  Which Lahore station do you mean?        Lahore Jn. | Lahore Cantt
+    step     4/6  Now where you're going.                  Arriving at Rawalpindi.
+    step     5/6  Let me find the right month.              Travelling on 1 October.
+    step     6/6  Now the day you're travelling.            1 October.
+    step     7/7  Trains from Lahore Cantt to Rawalpindi on 1 October. Shall I search?
+
+The search the live site actually sent, from its own network:
+
+    POST .../ticket/trainInfo/trainInfoList
+    {"boardStationCode":"LRC","arrivalStationCode":"RWP","travelDate":"2026-10-01"}
+
+and the form it ended holding: `From LAHORE CANTT`, `To RAWALPINDI`,
+`Departure Date 01-10-2026`. Three trains came back on the real page —
+`13UP 07:14→13:20 6 h 6 min`, `39UP 09:22→16:00 6 h 38 min`,
+`1UP 20:12→… 6 h 3 min`, all `LAHORE CANTT / RAWALPINDI` — and the closing
+screen showed all three with their journey times.
+
+**The station the person picked is the one the site searched.** Runs 1–3 chose
+Lahore Jn. and sent `boardStationCode":"LHR"`; run 5 chose Lahore Cantt and
+sent `"LRC"`. Different answer, different code, different trains (9 and 3).
+Runs 1–4 pressed Lahore Jn. whatever `--pick` said, because the stack runner
+re-decided its answer on every look while waiting for the button and took
+another off the front of its list each time; that was a bug in the runner, not
+in the backend, and run 5 is after fixing it.
+
+### Run 4: the station list did not come back, and the run said the wrong thing
+
+One of five runs failed, and it is the useful one.
+
+    step 2/6  Let me set where you're starting from.
+    step.failed  the page did not change at all   (2 strategies tried)
+    help.requested  "I couldn't find a station called Lahore."
+
+The name did reach the box — the form afterwards held `From LAHORE` — but the
+site's list had not opened within the 5s `VERIFY_TIMEOUT_S`, on either
+strategy, so nothing was offered for "Lahore" and the planner concluded there
+is no such station. It had searched from Lahore Jn. three times in the
+previous ten minutes.
+
+A list that has not arrived and a place that has no stations look identical
+from here: both show nothing. So the sentence was changed to say what was
+observed rather than what it means — "The site didn't offer me any stations
+for Lahore." The flakiness itself is **not fixed**: 1 of 5 live runs on this
+machine, and the retry structure gives a station name two fills and two 5s
+waits before the run ends. See STATUS.md.
+
+`duration_ms` in runs 1 and 2 is identical to the millisecond, which is
+coincidence rather than a constant: 7 of the ~54s are deliberate 2.5s pauses
+and the runner looks every 400ms, so the total is heavily quantised. Run 3 and
+run 5 differ from it.
+
+### What the check now refuses
+
+Same loop, same pages, the task's declared values changed to a journey nobody
+asked for:
+
+| Rigged as | Where it stopped | What it said |
+|---|---|---|
+| plan searches Rawalpindi→Multan, task asks Rawalpindi→Peshawar | before the search was sent | `'To'` does not hold `Peshawar` |
+| plan searches tomorrow, task asks 75 days out | after a real search returned real trains | `Departure Date` holds `01-10-2026`, expected `14-12-2026` |
+| plan books MATH-210, task asks CS-401 | on the real confirmation page | `Course` showed `MATH-210 section 001`, expected `CS-401` |
+| plan looks up `0414 9999 999999`, task asks `0414 1234 567890` | on the real bill detail page | `REF NO` showed the other number |
+
+The route case never sends the search at all: the page is holding a station
+the task does not name, and that is noticed while the form is still being
+filled. The day is the case that reaches the end, because nothing types a
+date — it is picked out of the calendar — which is the 2026-09-09 failure
+shape with the person's own day in place of the plan's.
+
+### The billing replica was making its own check meaningless
+
+Its results page printed the worked example's reference number whatever had
+been looked up, so every bill claimed to be the one asked about and
+`About.shows` would have passed for any number. It echoes the number that was
+searched now. Found while writing the check, not by a test.

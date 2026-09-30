@@ -77,6 +77,33 @@ of its CDP targets by origin (`browser.find_site_page`, which refuses rather
 than guessing when two candidates remain). It is handed to `loop.run_task`
 with the chosen planner. Everything after this point is planner-agnostic.
 
+### 1b. Read the goal, and ask for what it left out
+
+Since 2026-09-30 a routed goal is read for the details the flow needs before
+anything runs (`details.py:understand`): where from, where to and which day;
+a reference number; a course code. The configured model reads it, bounded at
+eight seconds, and a keyword and date reader supplies whatever the model did
+not say — or all of it, when there is no model. Nothing the model reports is
+kept unless it can be held to what the person typed.
+
+Whatever is still missing goes to a `Brief`, which `loop.run_brief` asks for
+one question at a time, as ordinary `step.presented` messages with the site
+already open behind them and nothing on it touched. A question has a few
+buttons where the answers are few (`choice:0`, `choice:1`, ...) and one box to
+type in otherwise; every other id the step offers is an answer and only
+`cancel` stops (`loop.is_answer`). Three unusable answers to one question end
+the run the way being stuck does.
+
+When nothing is missing, `Brief.settle()` returns the planner and the task,
+both built from the person's own details — including what has to be true at
+the end, so a search for another route or another day fails rather than
+completes. Trace memory wraps whatever planner it settled on, keyed on the
+details spelled out rather than on the words typed.
+
+A planner may also ask mid-run (`Move.question`), for what only the page can
+raise: `TripPlanner` asks which Lahore station was meant, because the site's
+own list is what says there are two.
+
 ### 2. Perceive
 
 `loop.perceive` calls `perception/serializer.py:read_async`, which makes
@@ -345,10 +372,11 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `backend/perception/interactivity.py` | Controls the accessibility tree calls text |
 | `backend/perception/content.py` | What the page says: headings, tables, pairs, values |
 | `backend/orchestrator/loop.py` | The shared loop: perceive, present, act, verify, recover, finish |
-| `backend/orchestrator/plan.py` | `PlanStep`, `Operation`, `Target`, `Expectation`, `About`; the registration plan; `HardcodedPlanner` |
+| `backend/orchestrator/plan.py` | `PlanStep`, `Operation`, `Target`, `Expectation`, `About`, `FieldValue`, `Shown`; the registration plan, fixed and per course; `HardcodedPlanner` |
 | `backend/orchestrator/voice.py` | Every fixed string the backend puts on screen |
 | `backend/orchestrator/billing_plan.py` | The billing flow's plan and task |
-| `backend/orchestrator/railways_plan.py` | The live read-only train search |
+| `backend/orchestrator/railways_plan.py` | The live read-only train search: the worked example's plan, and `TripPlanner` for a person's own journey |
+| `backend/orchestrator/details.py` | What a goal says, what is still missing, and the briefs that ask for it |
 | `backend/orchestrator/browser.py` | Headless Chromium, or attach to the Electron host |
 | `backend/orchestrator/llm_loop.py` | `LLMPlanner`, the system prompt, `render_page`, the registration task |
 | `backend/orchestrator/llm.py` | Provider interface, validation, token and cost accounting, transcripts |

@@ -158,11 +158,15 @@ interface Store {
 }
 
 /**
- * The one action id the backend treats as "go ahead". Anything else stops the
- * task (`backend/orchestrator/loop.py`, `voice.CONFIRM_ID`); `test_copy.py`
- * checks the two agree.
+ * The one action id that stops a task. Every other id a step offers is an
+ * answer and the run carries on — go-ahead on an ordinary step, and since
+ * 2026-09-30 one of the few buttons a question offers, or the button that
+ * finishes something typed into one (`backend/orchestrator/voice.py`,
+ * `CANCEL_ID` and `choices`). Until then the overlay showed its stop screen
+ * for any answer but go-ahead, so pressing "Tomorrow" ended the task.
+ * `test_copy.py` checks this id and the backend's agree.
  */
-const GO_AHEAD_ID = "confirm";
+const STOP_ID = "cancel";
 
 const EMPTY = {
   task: null,
@@ -318,9 +322,9 @@ export const useStore = create<Store>((set, get) => {
       if (sample) connection.sendTelemetry({ ...sample, answered: true });
       tracker.stop();
       connection.respondToStep(response);
-      if (actionId !== GO_AHEAD_ID) {
-        // The backend stops on anything but go-ahead (loop.run_task). Say so
-        // now; there is nothing to wait for.
+      if (actionId === STOP_ID) {
+        // The backend stops on this one answer and nothing else
+        // (`loop.is_answer`). Say so now; there is nothing to wait for.
         set({ stoppedByPerson: true, step: null, answered: true });
         return;
       }

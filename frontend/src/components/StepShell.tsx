@@ -104,8 +104,13 @@ export function StepShell({
 
   const findings: Finding[] = step.findings ?? [];
 
-  const [primary, ...rest] = orderActions(step.actions);
-  const secondary = rest[0];
+  // Everything but the one way to stop is an answer, and every answer is a
+  // button. Until 2026-09-30 exactly two were rendered — the first and one
+  // more — which was enough while every step offered go-ahead and stop, and
+  // silently dropped the rest once a question offered three answers: "Pick a
+  // day" never appeared, and neither did the way to stop.
+  const [lead, ...alternatives] = orderActions(step.actions);
+  const stop = step.actions.find((action) => action.kind === "secondary");
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -215,7 +220,7 @@ export function StepShell({
             className={spec.actionLayout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}
           >
             <ActionButton
-              action={primary}
+              action={lead}
               height={spec.actionHeight}
               answered={answered}
               waiting={waiting}
@@ -223,13 +228,29 @@ export function StepShell({
               grow={spec.actionLayout === "row"}
             />
 
-            {/* Level 3 demotes the second choice to plain text. The button
+            {/* The other answers to a question. Buttons at every level,
+                including level 3: an answer that has been demoted to a line
+                of text is one the person cannot give. */}
+            {alternatives.map((action) => (
+              <ActionButton
+                key={action.id}
+                action={action}
+                height={spec.actionHeight}
+                answered={answered}
+                waiting={waiting}
+                onAction={onAction}
+                grow={spec.actionLayout === "row"}
+                quiet
+              />
+            ))}
+
+            {/* Level 3 demotes the way to stop to plain text. The button
                 collapsing into a line of text is the clearest single moment
                 in the 2 -> 3 fold, so the two forms are separate presences
                 rather than one element restyled. */}
-            {secondary && spec.secondary === "button" && (
+            {stop && spec.secondary === "button" && (
               <ActionButton
-                action={secondary}
+                action={stop}
                 height={spec.actionHeight}
                 answered={answered}
                 waiting={waiting}
@@ -241,14 +262,14 @@ export function StepShell({
           </motion.div>
         </Fold>
 
-        <Fold show={Boolean(secondary) && spec.secondary === "text"} gap={spec.gap * 0.4}>
+        <Fold show={Boolean(stop) && spec.secondary === "text"} gap={spec.gap * 0.4}>
           <button
             type="button"
             disabled={answered}
-            onClick={() => secondary && onAction(secondary.id)}
+            onClick={() => stop && onAction(stop.id)}
             className={`${buttonClass("quiet")} w-full justify-center disabled:opacity-40`}
           >
-            {secondary?.label}
+            {stop?.label}
           </button>
         </Fold>
       </div>
@@ -345,9 +366,15 @@ function ActionButton({
   );
 }
 
-/** Primary first, whatever order the backend sent them in. */
+/**
+ * Every answer a step offers, the prominent one first and the way to stop
+ * left out — that has its own place below, because it is the one thing on a
+ * step that is not an answer.
+ */
 function orderActions(actions: StepAction[]): StepAction[] {
-  const primary = actions.find((action) => action.kind === "primary");
-  if (!primary) return actions;
-  return [primary, ...actions.filter((action) => action !== primary)];
+  const answers = actions.filter((action) => action.kind !== "secondary");
+  if (answers.length === 0) return actions;
+  const primary = answers.find((action) => action.kind === "primary");
+  if (!primary) return answers;
+  return [primary, ...answers.filter((action) => action !== primary)];
 }

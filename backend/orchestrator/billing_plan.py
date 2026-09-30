@@ -13,7 +13,15 @@ the real goal. See EVALUATION.md, 2026-09-06.
 """
 
 from backend.orchestrator.loop import Task
-from backend.orchestrator.plan import About, Answer, Expectation, Operation, PlanStep, Target
+from backend.orchestrator.plan import (
+    About,
+    Answer,
+    Expectation,
+    Operation,
+    PlanStep,
+    Shown,
+    Target,
+)
 from backend.orchestrator.voice import actions
 from shared.schema import StepField
 
@@ -21,54 +29,68 @@ REFERENCE = "04141234567890"
 GOAL = "Find the amount due for reference number 04141234567890."
 
 
-BILLING_TASK = Task(
-    goal=GOAL,
-    estimated_steps=3,
-    success=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
-    # What the goal is actually asking, and what to call it on screen. The
-    # page's own heading for the amount is `P/WITHIN`, which means nothing
-    # outside a billing department.
-    #
-    # Both are read off the results page and remembered; the run then opens
-    # the detail page, where neither column exists. See `findings_in`.
-    #
-    # Nothing in `holds`: the goal names a reference number, but it is typed
-    # on the lookup page and the run ends two pages later, where there is no
-    # field left to check it in. See `About`.
-    about=About(
-        finds=(
-            Answer("Your bill", reads="P/WITHIN"),
-            Answer("Due", reads="DUE DT"),
+def bill_task(reference: str) -> Task:
+    """The billing task for one reference number — the person's own."""
+    return Task(
+        goal=f"Find the amount due for reference number {reference}.",
+        estimated_steps=3,
+        success=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
+        # What the goal is actually asking, and what to call it on screen. The
+        # page's own heading for the amount is `P/WITHIN`, which means nothing
+        # outside a billing department.
+        #
+        # Both are read off the results page and remembered; the run then opens
+        # the detail page, where neither column exists. See `findings_in`.
+        #
+        # Nothing in `holds`: the goal names a reference number, but it is typed
+        # on the lookup page and the run ends two pages later, where there is no
+        # field left to check it in. What can be checked is what the site says
+        # back: the bill it shows carries a reference number of its own, and it
+        # has to be the one that was asked about. See `Shown`.
+        about=About(
+            finds=(
+                Answer("Your bill", reads="P/WITHIN"),
+                Answer("Due", reads="DUE DT"),
+            ),
+            shows=(Shown(reads="REF NO", says=reference),),
         ),
-    ),
-)
+    )
 
-BILLING_PLAN: list[PlanStep] = [
-    PlanStep(
-        instruction="The site is asking about cookies. I'll say yes.",
-        detail="The site is asking about cookies before anything else.",
-        actions=actions("Accept cookies"),
-        operations=[Operation("click", Target("button", "Accept all cookies"))],
-        expect=Expectation(label_gone="Accept all cookies"),
-    ),
-    PlanStep(
-        instruction="Let me look up your bill.",
-        detail="Using the 14-digit reference number from your bill.",
-        fields=[
-            StepField(id="reference", label="Reference No.", type="text", value=REFERENCE),
-        ],
-        actions=actions("Check the bill"),
-        operations=[
-            Operation("fill", Target("textbox", "Reference No."), value=REFERENCE),
-            Operation("click", Target("button", "Check Bill")),
-        ],
-        expect=Expectation(url_contains="/bill"),
-    ),
-    PlanStep(
-        instruction="Now I'll open the full bill.",
-        detail="This shows what makes up the amount due.",
-        actions=actions("Show me the breakdown"),
-        operations=[Operation("click", Target("link", "View full bill detail"))],
-        expect=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
-    ),
-]
+
+def billing_plan(reference: str) -> list[PlanStep]:
+    """The billing plan for one reference number."""
+    return [
+        PlanStep(
+            instruction="The site is asking about cookies. I'll say yes.",
+            detail="The site is asking about cookies before anything else.",
+            actions=actions("Accept cookies"),
+            operations=[Operation("click", Target("button", "Accept all cookies"))],
+            expect=Expectation(label_gone="Accept all cookies"),
+        ),
+        PlanStep(
+            instruction="Let me look up your bill.",
+            detail="Using the 14-digit reference number from your bill.",
+            fields=[
+                StepField(id="reference", label="Reference No.", type="text", value=reference),
+            ],
+            actions=actions("Check the bill"),
+            operations=[
+                Operation("fill", Target("textbox", "Reference No."), value=reference),
+                Operation("click", Target("button", "Check Bill")),
+            ],
+            expect=Expectation(url_contains="/bill"),
+        ),
+        PlanStep(
+            instruction="Now I'll open the full bill.",
+            detail="This shows what makes up the amount due.",
+            actions=actions("Show me the breakdown"),
+            operations=[Operation("click", Target("link", "View full bill detail"))],
+            expect=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
+        ),
+    ]
+
+
+# The worked example, which every recorded billing number was measured on. A
+# person's request runs `bill_task` and `billing_plan` with their own number.
+BILLING_TASK = bill_task(REFERENCE)
+BILLING_PLAN: list[PlanStep] = billing_plan(REFERENCE)

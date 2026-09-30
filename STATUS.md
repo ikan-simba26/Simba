@@ -8,14 +8,28 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-25 · **544 passing, 12 skipped** · suite wall clock 729s. The 12 skips are 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s and 762s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-30 · **712 passing, 12 skipped** · suite wall clock 1081s. 168 tests were added on 2026-09-30. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s and 1001s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
 ## Where the project actually is
 
-The walking skeleton runs end to end on three flows — two replicas we wrote,
+The walking skeleton runs end to end on three flows — three replicas we wrote,
 and one live public site.
+
+**Every flow runs on the person's own details now, and asks for what they did
+not say** (2026-09-30). Until today a goal was a label: "trains to Rawalpindi
+tomorrow" searched Lahore Cantt to Karachi Cantt on the 15th of next month,
+because that is what the plan said, and the closing screen showed real trains
+for a journey nobody had asked about. The goal is read for what it states, the
+rest is asked for one question at a time, and the run is judged against what
+the person said — so a search for another route or another day fails rather
+than completes. Checked live five times through the Electron host: "trains to
+Rawalpindi tomorrow" asked **where from** and nothing else, `Lahore` brought
+back the site's own `Lahore Jn.` and `Lahore Cantt`, and the station pressed is
+the one the live site searched — three trains back for Lahore Cantt to
+Rawalpindi on the 1st of October, all three on the closing screen
+(EVALUATION.md, 2026-09-30).
 
 **An LLM run has finished a live task correctly, for the first time**
 (EVALUATION.md, 2026-09-17f). Railways, through the real Electron window, 8
@@ -104,6 +118,53 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-30: every flow runs on the person's own details
+
+- **A goal is read for what it says, and what it does not say is asked for.**
+  Where from, where to and which day; a reference number; a course code
+  (`details.py`). The configured model reads it with the same 8s bound routing
+  has, and a keyword and date reader does when there is no model — so it works
+  offline, in the tests and on demo day. Nothing the model reports is kept
+  unless it can be held to what the person typed: an invented reference number
+  looks exactly like a real one and opens somebody else's bill.
+- **Whatever is missing is asked, one question at a time**, as an ordinary
+  `step.presented`, with the site open behind the questions and nothing on it
+  touched until every answer is in (`loop.run_brief`). Buttons where the
+  answers are few, one box otherwise, and the same way to stop underneath.
+  Three unusable answers end the run the way being stuck does. **No contract
+  change**: an answer's id is an id the step offered, which is all
+  `CONTRACT.md` requires.
+- **The train search runs the person's journey** (`TripPlanner`). Places are
+  matched against the site's own station list: one match is taken, up to four
+  are asked about as buttons, more are asked to be narrowed, none stops the
+  run. Checked live: `Lahore` brought back `Lahore Jn.` and `Lahore Cantt`,
+  and the one pressed is the one the site searched — `LHR` for Jn., `LRC` for
+  Cantt, different trains each time (EVALUATION.md).
+- **The journey is said back in one sentence before anything is searched** —
+  "Trains from Lahore Cantt to Rawalpindi on 1 October. Shall I search?" — so
+  a wrong search can be stopped by the person rather than reported afterwards.
+- **A search for the wrong route or the wrong day now fails.** `holds` matches
+  a place the person's way and the date exactly; `shows` covers a value that is
+  in no field by the end — the bill's reference number, the course code — by
+  checking what the site said back about it. Four rigged runs on real pages all
+  ended in `help.requested` with real results on screen (EVALUATION.md).
+- **A step can be answered, not only agreed to.** The overlay showed its stop
+  screen for any answer but go-ahead, so pressing "Tomorrow" ended the run; and
+  `StepShell` rendered exactly two buttons, so a three-answer question dropped
+  the third answer *and* the way to stop. Both fixed, both rendered in a real
+  browser by `frontend/test_questions.py`.
+- **The count on screen no longer moves while the person answers.** It read
+  "1 of 7" then "2 of 5" in one run. Found by running it, not by a test; there
+  is a test now.
+- **Found on the live site, not fixed: a station list that does not arrive
+  looks like a place with no stations.** 1 of 5 live runs. The sentence now says
+  what was observed rather than guessing a cause.
+- **The billing replica made its own new check meaningless** — its results page
+  printed the worked example's reference number whatever had been looked up.
+  It echoes the number that was searched.
+- A local train-search replica (`replicas/railways/`), because this planner
+  needs many runs and CLAUDE.md keeps those off the live site.
 
 ### Changed on 2026-09-27: the 100% capture problem is real
 
@@ -442,6 +503,21 @@ application's state (EVALUATION.md).
   calendar navigated, right day picked, 7 calls, no malformed answers.
 - Content-based success, `press`, covered-element refusal, `step.failed`,
   10s action timeout, a railways date that does not expire.
+- **The person's own details** (2026-09-30): `details.py` reads a routed goal
+  for what it says — model first with an 8s bound, keywords and dates as the
+  fallback — and a `Brief` asks for the rest one question at a time through
+  `loop.run_brief`. 83 unit tests on the reading, 19 on the loop's side of
+  asking, 2 over the real app's websocket.
+- **`TripPlanner`** (2026-09-30): plans one person's journey off the page as it
+  goes, matching places against the site's own station list and asking which
+  when a place names several. 29 tests against a local replica.
+- **`About.shows`** (2026-09-30): a value that is in no field by the end — the
+  bill's reference number, the course code — checked against what the site said
+  back about it, on whichever page it said it.
+- **`FieldValue.names`** (2026-09-30): a place the person named is matched
+  inside the site's own station name; the date stays exact.
+- **A step can be a question** (`Move.question`) and a step already agreed to
+  can finish quietly (`Move.quiet`). Neither counts as a step taken.
 
 **In progress**
 - Nothing.
@@ -459,6 +535,22 @@ application's state (EVALUATION.md).
   the keywords; raising it makes the wait longer. Left at 8.
 - **`goal.answered` and the empty-goal change need ratifying** by all three
   owners (CONTRACT.md).
+- **A station list that does not arrive looks like a place with no stations**
+  (2026-09-30, live, 1 run in 5). The name reached the box, the site's list had
+  not opened within the 5s verification window on either strategy, and the run
+  said the site offered no stations for Lahore — a city with two on that list.
+  The sentence is now true for both cases, but the flakiness is not fixed.
+  Options: wait longer than `VERIFY_TIMEOUT_S` for a list specifically; let the
+  planner retype a name a third time, which needs the loop's two-setback cap
+  raised for quiet moves; or leave it and let the person ask again.
+  Recommended: leave it until it happens a second time, because one run in five
+  on one machine on one day is not yet a rate. **Raham's call.**
+- **A question the page raises is not in the count** (2026-09-30). The number on
+  screen can end one or two above what was promised: which of two stations was
+  meant cannot be known before the site answers. It only ever grows, and never
+  goes below what is on screen. Options: budget for one station question per
+  end, which overstates every unambiguous journey; or leave it.
+  Recommended: leave it.
 - **Durable verification still stops correct runs on undeclared fields.**
   Since 2026-09-17 a field that now holds its task-declared value is accepted;
   every other field is compared with what was typed, character for character,
@@ -523,6 +615,15 @@ application's state (EVALUATION.md).
 - **Stopping is not failing** (2026-09-17): the stop ending shows the moment
   stop is pressed.
 - All copy in `copy.ts`; the component scan catches any words.
+- **A step can be answered, not only agreed to** (2026-09-30). `store.ts`
+  showed the stop screen for any answer but go-ahead, so pressing "Tomorrow" on
+  a question ended the run while the backend waited for a response it already
+  had; only `cancel` stops now. `StepShell` rendered exactly two buttons, the
+  first and one more, so a three-answer question dropped both the third answer
+  and the way to stop — every answer is a button at every level now, and the
+  way to stop keeps the slot that folds to text at level 3.
+  `test_questions.py` renders both shapes of question in a real browser and
+  presses them.
 - **Telemetry**, five numbers per step, on the answer and on a timer
   (`src/telemetry.ts`). No keystrokes, no field values, no coordinates leave
   the renderer.
@@ -734,7 +835,7 @@ application's state (EVALUATION.md).
 ## Infrastructure
 
 **Done**
-- Two replicas and one live flow; `run.ps1` / `run.sh`; `tools/screen_site.py`,
+- **Three replicas** and one live flow; `run.ps1` / `run.sh`; `tools/screen_site.py`,
   `tools/mock_backend.py`, `tools/screenshots.py`, `tools/record_demo.py`,
   `tools/evaluation/`, `spike/`.
 - The test suite from the repo root; `test_terminal_states.py` builds the
@@ -753,13 +854,33 @@ application's state (EVALUATION.md).
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
-- `main` is at `bb16b04` (2026-09-21's interface work, merged and pushed).
+- `main` is at `ac5a23a` (2026-09-25's interface work, merged and pushed).
+- **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
+  it keeps the site view repainting while it is photographed, and it stays out
+  of `main` until the 100% capture rate is measured for real (see 2026-09-27
+  above).
 - **The demo recordings must be made before a demo**, on a machine with the
   stack up: `demo/*.webm` is gitignored, so a fresh clone has no fallbacks
   (DECISIONS.md, 2026-09-23).
 - `tools/evaluation/host_overlay_run` drives the overlay of a running stack,
   which is how an interface claim gets checked live. It presses the step's own
   primary action and nothing else.
+  `tools/evaluation/person_details_stack_run` is the one that can answer a
+  question — it fills a box or presses a named answer — and is what the
+  2026-09-30 live runs used.
+- **`replicas/railways/` is not started by the launcher**, deliberately:
+  `railways` means the live site. The tests start it themselves; by hand it is
+  `PORT=5200 python replicas/railways/app.py`. Nothing in `run.ps1` or
+  `run.sh` opens the window on it, so watching the trip planner in the real
+  overlay means watching it against the live site.
+- **The home screen's cards now lead into questions.** Each card sends its own
+  words as the goal, and "Check my electricity bill" does not name a bill — so
+  pressing it asks for the reference number, and a demo has someone type
+  fourteen digits. Options: leave it; put the worked example's number in the
+  card, which makes the card read like a form; or drop the card's goal and let
+  it only open the ask box. Recommended: leave it, because a card that started
+  looking up a number nobody gave is the defect this change exists to remove.
+  DEMO.md and RUNNING.md now say it happens. **Aly's call.**
 
 **Blocked**
 - Nothing.

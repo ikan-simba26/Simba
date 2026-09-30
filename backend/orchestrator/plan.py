@@ -69,6 +69,39 @@ class FieldValue:
 
     label: str
     equals: str
+    # `names` loosens the match to "the field's value contains this", ignoring
+    # case. It is for a value the person gave in their own words and the page
+    # holds in its: they ask for "Lahore", the site's station is `LAHORE JN`,
+    # and which station it is was settled by asking them. The date stays exact.
+    names: bool = False
+
+    def accepts(self, actual: str) -> bool:
+        if self.names:
+            return self.equals.casefold() in actual.casefold()
+        return actual == self.equals
+
+
+@dataclass(frozen=True)
+class Shown:
+    """Something the page has to have said, under one of its own labels.
+
+    For a value the person named that is in no field by the time the run
+    ends: the bill's reference number is typed on the first page and the run
+    finishes two pages later, and a course is chosen by pressing a button.
+    What is left to check is what the site says back — `REF NO` on the bill,
+    `Course` on the confirmation — so that is what is checked.
+
+    Seen at any point in the run, not only on the last page, for the same
+    reason findings are remembered: the page that says it is often not the
+    page the run ends on. `says` is matched inside the value, ignoring case,
+    because a site adds its own words ("CS-401 section 001").
+    """
+
+    reads: str
+    says: str
+
+    def met_by(self, values: list[str]) -> bool:
+        return any(self.says.casefold() in value.casefold() for value in values)
 
 
 @dataclass(frozen=True)
@@ -118,11 +151,13 @@ class About:
     A limit worth knowing: a held value is checked on the *final* page. A
     field the run has navigated away from is not there to be checked, so a
     value typed on one page of a multi-page flow — the billing reference
-    number — cannot be a `holds` entry. That case still has no check.
+    number — cannot be a `holds` entry. `shows` is for that case: what the
+    site said back about the value, on whichever page it said it (`Shown`).
     """
 
     holds: tuple[FieldValue, ...] = ()
     finds: tuple[Answer, ...] = ()
+    shows: tuple[Shown, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -148,6 +183,10 @@ class Expectation:
     title_contains: str | None = None
     label_gone: str | None = None
     label_present: str | None = None
+    # Some element's label contains this, ignoring case. For a step that types
+    # part of a name and needs the page to have offered something for it —
+    # a station list answering "LAHORE" — before anything can be chosen.
+    label_like: str | None = None
     # Readable content, from perception's second channel.
     content_says: str | None = None
     rows_at_least: int | None = None
@@ -163,7 +202,23 @@ class PlanStep:
     actions: list[StepAction] = field(default_factory=list)
 
 
-REGISTRATION_PLAN: list[PlanStep] = [
+def registration_plan(course: str) -> list[PlanStep]:
+    """The registration plan for one course, by its code as the portal prints
+    it (`CS-401`). The person says which; nothing here picks one for them."""
+    return [
+        *SIGN_IN_AND_CLEAR,
+        PlanStep(
+            instruction=f"Ready to book your place on {course}.",
+            detail="This registers you for the course.",
+            actions=actions(f"Register for {course}"),
+            operations=[Operation("click", Target("button", f"Register for {course}"))],
+            expect=Expectation(url_contains="/register",
+                               title_contains="Registration Confirmed"),
+        ),
+    ]
+
+
+SIGN_IN_AND_CLEAR: list[PlanStep] = [
     PlanStep(
         instruction="Let me sign you in first.",
         detail="Fictional State University student portal.",
@@ -186,6 +241,13 @@ REGISTRATION_PLAN: list[PlanStep] = [
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
     ),
+]
+
+# The plan every recorded registration number was measured on. Its last step
+# carries CS-401's own timetable line, which only a plan written for one
+# course can know; `registration_plan` is what a person's request runs.
+REGISTRATION_PLAN: list[PlanStep] = [
+    *SIGN_IN_AND_CLEAR,
     PlanStep(
         instruction="Ready to book your place on CS-401.",
         detail="3 credit hours. MWF 10:00-10:50, Dr. Aslam, SCI 214.",

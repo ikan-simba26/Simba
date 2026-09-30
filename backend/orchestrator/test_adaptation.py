@@ -202,7 +202,10 @@ def converse(url: str, before: list[tuple[str, dict]]) -> list[dict]:
 
             for kind, payload in before:
                 await send(kind, payload)
-            await send("task.start", {"goal": "Check my electricity bill",
+            # The number is in the goal, so nothing is asked and the run is
+            # the three steps these telemetry samples are written for. What
+            # happens when it is missing is `test_app_routing.py`.
+            await send("task.start", {"goal": f"Check my electricity bill {REFERENCE}",
                                       "input_mode": "text", "flow": "billing"})
             while True:
                 message = json.loads(await asyncio.wait_for(ws.recv(), timeout=90))

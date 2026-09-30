@@ -23,8 +23,16 @@ from dataclasses import replace
 
 import pytest
 
-from backend.orchestrator.loop import Snapshot, Task, findings_in, satisfies, unmet
-from backend.orchestrator.plan import About, Answer, Expectation, FieldValue
+from backend.orchestrator.loop import (
+    Snapshot,
+    Task,
+    findings_in,
+    mismatch,
+    said_so_far,
+    satisfies,
+    unmet,
+)
+from backend.orchestrator.plan import About, Answer, Expectation, FieldValue, Shown
 from backend.orchestrator.railways_plan import (
     DEPARTURE_AS_SHOWN,
     RAILWAYS_TASK,
@@ -330,3 +338,218 @@ def test_the_values_are_remembered_with_the_line() -> None:
     found = findings_in(later, task, known)
 
     assert found[0].values == ["2DN", "14DN"]
+
+
+# --- the person's own values, checked in their own words --------------------
+#
+# Until 2026-09-30 the values a run checked were the plan's. A goal of "trains
+# to Rawalpindi tomorrow" was checked against Lahore Cantt to Karachi Cantt on
+# the 15th of next month, so a run that searched a journey nobody had asked
+# about passed every check it had. Three things were needed before a person's
+# own values could be checked at all, and each is one group below.
+
+
+def station_page(origin: str, destination: str, date_shown: str) -> Snapshot:
+    return Snapshot(
+        url="https://www.pakrailways.gov.pk/train",
+        title="RABTA",
+        labels=LABELS,
+        values=("", "", origin, destination, date_shown, ""),
+        content=RESULTS,
+    )
+
+
+def asked_for(origin: str, destination: str, date_shown: str) -> Task:
+    """A task naming the person's own words, the way `trip_task` declares them."""
+    return Task(
+        goal=f"Find trains from {origin} to {destination}.",
+        estimated_steps=5,
+        success=Expectation(rows_at_least=1),
+        about=About(holds=(
+            FieldValue("Departure Date", date_shown),
+            FieldValue("From", origin, names=True),
+            FieldValue("To", destination, names=True),
+        )),
+    )
+
+
+def test_a_place_the_person_named_is_met_by_the_station_the_site_calls_it() -> None:
+    """They type "Lahore" and the site holds `LAHORE JN`. Which Lahore station
+    they meant was settled by asking, so the box only has to name the place."""
+    task = asked_for("Lahore", "Rawalpindi", "01-10-2026")
+    assert unmet(station_page("LAHORE JN", "RAWALPINDI", "01-10-2026"), task) is None
+    assert unmet(station_page("LAHORE CANTT", "RAWALPINDI", "01-10-2026"), task) is None
+
+
+def test_a_search_for_another_route_fails_rather_than_completes() -> None:
+    """The route half of the defect this file exists for: results came back,
+    and they are for a journey nobody asked about."""
+    wrong_route = station_page("LAHORE CANTT", "KARACHI CANTT", "01-10-2026")
+
+    reason = unmet(wrong_route, asked_for("Lahore", "Rawalpindi", "01-10-2026"))
+
+    assert reason is not None
+    assert "'To'" in reason and "Rawalpindi" in reason and "KARACHI CANTT" in reason
+    # And the check it slips past, so the two are never confused.
+    assert satisfies(wrong_route, Expectation(rows_at_least=1))
+
+
+def test_a_loosely_matched_place_is_not_a_free_pass() -> None:
+    """`names` means "this field names that place", not "anything will do"."""
+    task = asked_for("Lahore", "Rawalpindi", "01-10-2026")
+    assert unmet(station_page("LAHORE JN", "ROHRI JN", "01-10-2026"), task) is not None
+    assert unmet(station_page("MULTAN CANTT", "RAWALPINDI", "01-10-2026"), task) is not None
+
+
+def test_the_day_stays_exact_while_the_places_loosen() -> None:
+    """Two kinds of value in one task. A date that is nearly right is still a
+    wrong answer, whatever the stations say."""
+    task = asked_for("Lahore", "Rawalpindi", "01-10-2026")
+
+    reason = unmet(station_page("LAHORE JN", "RAWALPINDI", "1-10-2026"), task)
+
+    assert reason is not None and "Departure Date" in reason
+    assert FieldValue("Departure Date", "01-10-2026").accepts("01-10-2026")
+    assert not FieldValue("Departure Date", "01-10-2026").accepts("01-10-2026 ")
+
+
+def test_a_named_place_is_matched_whatever_the_case() -> None:
+    assert FieldValue("From", "Lahore", names=True).accepts("LAHORE JN")
+    assert FieldValue("From", "lahore", names=True).accepts("Lahore Jn")
+    assert not FieldValue("From", "Lahore", names=True).accepts("")
+
+
+# --- a value in no field by the end: what the site said back ----------------
+
+
+REFERENCE = "04141234567890"
+
+
+def bill_results(reference: str) -> Snapshot:
+    """The results page, which prints the reference number it looked up."""
+    return Snapshot(
+        url="http://127.0.0.1:5100/bill", title="Bill", labels=(), values=(),
+        content=Content(pairs=[Pair("REF NO", reference), Pair("P/WITHIN", "14,382")]),
+    )
+
+
+BILL_DETAIL = Snapshot(
+    url="http://127.0.0.1:5100/bill/detail", title="Bill Detail",
+    labels=(), values=(), content=Content(pairs=[Pair("Amount", "14,382")]),
+)
+
+
+def looking_up(reference: str) -> Task:
+    return Task(
+        goal=f"Find the amount due for reference number {reference}.",
+        estimated_steps=3,
+        success=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
+        about=About(shows=(Shown(reads="REF NO", says=reference),)),
+    )
+
+
+def test_the_bill_that_was_looked_up_has_to_be_the_one_asked_about() -> None:
+    """The case `holds` cannot reach. The reference number is typed on the
+    first page and the run ends two pages later with no field left to check
+    it in, so what is checked is what the site said back (`About`)."""
+    task = looking_up(REFERENCE)
+    seen: dict[str, list[str]] = {}
+
+    said_so_far(bill_results(REFERENCE), task, seen)
+
+    assert unmet(BILL_DETAIL, task, seen) is None
+
+
+def test_someone_elses_bill_fails_rather_than_completes() -> None:
+    task = looking_up(REFERENCE)
+    seen: dict[str, list[str]] = {}
+
+    said_so_far(bill_results("04149999999999"), task, seen)
+    reason = unmet(BILL_DETAIL, task, seen)
+
+    assert reason is not None
+    assert "REF NO" in reason and REFERENCE in reason and "04149999999999" in reason
+
+
+def test_a_page_that_never_said_it_is_not_success_either() -> None:
+    """Nothing said is not the same as the right thing said."""
+    reason = unmet(BILL_DETAIL, looking_up(REFERENCE), {})
+    assert reason is not None and "nothing" in reason
+
+
+def test_without_the_runs_memory_only_this_page_is_asked() -> None:
+    """`unmet` on its own looks at one page, as it always has."""
+    task = looking_up(REFERENCE)
+    assert unmet(bill_results(REFERENCE), replace(task, success=None)) is None
+    assert unmet(BILL_DETAIL, task) is not None
+
+
+def test_a_task_that_only_names_what_must_be_shown_is_still_checked() -> None:
+    """With no success expectation and nothing held, `shows` alone decides —
+    the registration case, where the course is chosen by pressing its button
+    and the confirmation is the only thing that names it."""
+    task = Task(goal="g", estimated_steps=1,
+                about=About(shows=(Shown(reads="Course", says="CS-401"),)))
+    said = Snapshot(url="u", title="t", labels=(), values=(),
+                    content=Content(pairs=[Pair("Course", "CS-401 section 001")]))
+    another = Snapshot(url="u", title="t", labels=(), values=(),
+                       content=Content(pairs=[Pair("Course", "MT-201")]))
+
+    assert unmet(said, task) is None
+    assert unmet(another, task) is not None
+
+
+def test_what_the_site_said_is_remembered_across_pages() -> None:
+    """The same reason findings are remembered: the page that says it is
+    usually not the page the run ends on."""
+    task = looking_up(REFERENCE)
+    seen: dict[str, list[str]] = {}
+
+    said_so_far(Snapshot(url="u", title="t", labels=(), values=(), content=Content()),
+                task, seen)
+    said_so_far(bill_results(REFERENCE), task, seen)
+    said_so_far(BILL_DETAIL, task, seen)
+
+    assert seen["REF NO"] == [REFERENCE]
+    assert unmet(BILL_DETAIL, task, seen) is None
+
+
+def test_a_shown_value_is_met_inside_a_longer_one() -> None:
+    """A site puts its own words round a value: `CS-401 section 001`. The cost
+    of matching inside is that a longer code containing this one would also
+    pass; the portal's codes are all one shape, so nothing here relies on it."""
+    assert Shown(reads="Course", says="CS-401").met_by(["CS-401 section 001"])
+    assert Shown(reads="Course", says="cs-401").met_by(["CS-401"])
+    assert Shown(reads="Course", says="CS-401").met_by(["CS-4010"])
+    assert not Shown(reads="Course", says="CS-401").met_by([])
+    assert not Shown(reads="Course", says="CS-401").met_by(["MT-201", "CS-402"])
+
+
+# --- a page that has to have offered something ------------------------------
+
+
+def test_a_step_that_types_a_name_expects_the_page_to_offer_it() -> None:
+    """`label_like`: typing "LAHORE" into the station box has to bring a
+    station list back before there is anything to choose. The site's labels
+    are its own words, so the match is loose and ignores case."""
+    offered = Snapshot(url="u", title="t",
+                       labels=("LAHORE JN", "LAHORE CANTT"), values=("", ""))
+    nothing = Snapshot(url="u", title="t", labels=("From", "To"), values=("", ""))
+
+    assert satisfies(offered, Expectation(label_like="Lahore"))
+    assert not satisfies(nothing, Expectation(label_like="Lahore"))
+    reason = mismatch(nothing, Expectation(label_like="Lahore"))
+    assert reason is not None and "Lahore" in reason
+
+
+def test_the_strict_check_is_the_one_a_station_list_defeats() -> None:
+    """Why `label_like` was needed at all: the site's label for a place is
+    never the word that was typed for it."""
+    offered = Snapshot(url="u", title="t", labels=("LAHORE JN",), values=("",))
+    assert satisfies(offered, Expectation(label_like="Lahore"))
+    assert not satisfies(offered, Expectation(label_present="Lahore"))
+
+
+def test_an_expectation_with_no_loose_label_ignores_labels() -> None:
+    """Every existing step is unaffected."""
+    assert satisfies(WRONG_MONTH, Expectation())
