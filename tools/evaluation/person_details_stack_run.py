@@ -13,7 +13,8 @@ question, and picks a named answer on a question that offers several.
 
 Needs the stack up first. The hardcoded planner spends no quota:
 
-    .\\run.ps1 railways
+    .\\run.ps1 railways-local    # our own copy of the train search: rehearse here
+    .\\run.ps1 railways          # the live site: a handful of runs, not a benchmark
 
 then, from the repo root:
 
@@ -24,7 +25,9 @@ then, from the repo root:
 press on each question that offers several, matched loosely and falling back to
 the first one offered. `--goal` may also be given positionally, as above.
 
-**Live site**: the search is read-only, and one run sends one search. What the
+**Live site**: the search is read-only, and one run sends one search. On the
+local copy nothing leaves the machine, and what it searched is read from its
+own record (`window.__searched`) rather than from the network. What the
 overlay received is taken from its own WebSocket; what the site was asked is
 taken from the site view's own network; what came back is read off the site
 view afterwards, so "trains came back for that route" is asserted against the
@@ -109,7 +112,9 @@ async def main() -> None:
         browser = await playwright.chromium.connect_over_cdp(CDP)
         pages = [page for context in browser.contexts for page in context.pages]
         overlay = next(p for p in pages if p.url.startswith("file:") and "index.html" in p.url)
-        site = next(p for p in pages if "pakrailways" in p.url)
+        # The site view: the live train search, or the local copy that
+        # `run.ps1 railways-local` opens on. Anything but the overlay.
+        site = next(p for p in pages if p.url.startswith("http"))
 
         def on_socket(ws):
             ws.on("framereceived", lambda frame: received.append(json.loads(frame)))
@@ -182,11 +187,15 @@ async def main() -> None:
             except Exception as error:  # noqa: BLE001
                 final[name] = f"<{type(error).__name__}>"
         # What the live site actually put on the page, read off the site view.
+        # The local copy records what it searched in its own state; the live
+        # site's search is the network request above.
+        searched_locally = await site.evaluate("window.__searched ?? null")
         rows = await site.evaluate(
             """() => Array.from(document.querySelectorAll('table tr'))
                      .map(r => Array.from(r.cells).map(c => c.innerText.trim()).join(' | '))
                      .filter(t => t)""")
         screen = await overlay.inner_text("body")
+        site_url = site.url
         await browser.close()  # detaches; the host keeps running
 
     print("\nmessages the overlay received:")
@@ -204,7 +213,10 @@ async def main() -> None:
         if message["type"] == "step.response":
             print(f"  {message['type']}: {json.dumps(message['payload'])}")
     print("\nfinal form:", final)
+    print("site view:", site_url)
     print("search requests:", searches or "none")
+    if searched_locally is not None:
+        print("searched (the local copy's own record):", searched_locally)
     print("rows on the site view:")
     for row in rows[:12]:
         print("   ", row)

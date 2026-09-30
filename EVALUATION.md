@@ -4200,3 +4200,58 @@ only that it had not come within 5s, and the site was not asked again for this.
 15s is three times the window it failed in, not a figure read off the site.
 Replayed runs are unaffected either way — replay builds every move with an
 empty expectation — and trace memory is off by default.
+
+---
+
+## 2026-09-30c — two corrections to 2026-09-30, and `railways-local`
+
+### Corrections
+
+**There were six live runs, not five.** The 2026-09-30 table leaves out the run
+made at 17:10 on `d8043e8` (dirty tree), between the failed run and the one that
+chose Lahore Cantt. It chose Lahore Jn. because of the stack runner's `--pick`
+bug, sent `{"boardStationCode":"LHR","arrivalStationCode":"RWP","travelDate":"2026-10-01"}`,
+got 9 trains back, `duration_ms` 56,358, wall clock 71.4s. So: six runs, five
+searches sent to the live site, one run that stopped before searching. The
+backend's transcripts confirm six (`logs/llm-20260930-1200*` to `-1212*`).
+
+**The model did read every goal, and quota was spent.** The entry says the
+keyword and date reader did all the reading and that no quota was spent. Wrong:
+`run.ps1` leaves the router at `model`, and `app.py` hands the same model to
+`details.understand`, so every live run made **two model calls** — one to route
+the goal, one to read its details — and the planner made none. Per run:
+
+| | Prompt tokens | Completion tokens |
+|---|---|---|
+| Route | 202 | 12 |
+| Details | 200 | 38–50 |
+| **Run** | **402** | **50–62** |
+
+Six runs, `gemini-3.1-flash-lite`, 2,412 prompt and 324 completion tokens in
+all. Every details answer was the same and right:
+`{"origin": null, "destination": "Rawalpindi", "date": "2026-10-01"}` — which
+the keyword reader gives for this goal as well, so the runs do not tell the two
+readers apart. **The model path of `details.py` has been exercised live, on one
+goal**; the keyword path has not been exercised live at all.
+
+### `railways-local`
+
+`.\run.ps1 railways-local` brings up the three replicas, opens the window on
+the local train search at :5200, and starts the backend with
+`SIMBA_RAILWAYS_URL=http://127.0.0.1:5200`, so a train goal runs there. One run
+through the Electron window with the stack runner, same goal and answers as the
+live runs, at `49e3334` (dirty tree: this change):
+
+| | Local copy | Live, for comparison (2026-09-30, run 6) |
+|---|---|---|
+| Screens | 7 (2 questions, 5 steps), same order and wording | 7 |
+| Stations offered for "Lahore" | `Lahore Jn`, `Lahore Cantt` | `Lahore Jn.`, `Lahore Cantt` |
+| Searched | `LAHORE CANTT → RAWALPINDI`, `2026-10-01` (the copy's own record) | `LRC → RWP`, `2026-10-01` (network) |
+| Requests to the live site | **none** | one |
+| `duration_ms` | 24,905 | 54,047 |
+| Wall clock | 46.8s | 71.9s |
+| Model calls | 2 (route, details) | 2 |
+
+The copy is about twice as fast, so a rehearsal on it is not a timing rehearsal
+for the live site. It spells the junction without the full stop the live site
+uses.

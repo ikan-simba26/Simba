@@ -15,15 +15,32 @@ in `demo/` (2026-09-23): railways takes 80 seconds at a watchable pace, billing
 
 ## Rehearsing
 
-**Rehearse from the recordings. Run the live railways flow only for the real
-demo.** Every railways run is a search on somebody's public service, and
-CLAUDE.md keeps repeated runs off live sites. Practise the narration against
-`demo/railways.webm` — same screens, same pace — and rehearse the parts that
-run locally (billing, "hello", "book a flight") live as often as you like. On
-the day, the live railways run is the one you do in front of the audience.
+**Rehearse on `railways-local`. Run the live railways flow only for the real
+demo.** Every railways run on the live site is a search on somebody's public
+service, and CLAUDE.md keeps repeated runs off live sites.
 
-If the recordings are missing, make them once, the day before (below); that
-is the one other time the live site is used.
+```powershell
+.\run.ps1 railways-local       # the window opens on our own copy of the train search
+```
+
+Then type exactly what the script below says — `trains to Rawalpindi tomorrow`,
+`Lahore`, `Lahore Cantt` — as many times as you like. Every screen, question
+and sentence is the same as on the live site, in the same order (EVALUATION.md,
+2026-09-30c); nothing leaves the machine. Billing, "hello" and "book a flight"
+run locally from any start page. On the day, the live railways run is the one
+you do in front of the audience, from `.\run.ps1 billing` as below.
+
+Two things the copy does not rehearse. **Pace**: it runs about twice as fast as
+the live site, so time the narration against a recording, not against the copy.
+**The live site's own look**: the copy is plain on purpose, so the opening
+"show them the real website" is still rehearsed on the real page, by looking at
+it, not by searching.
+
+**The recordings in `demo/` show the flow as it was on 2026-09-23**, before the
+questions: they go straight to step 1 of 5. They are the fallback for a failure
+in front of an audience, and they no longer match what the audience has just
+watched. Make them again before the next demo (below); that is the one other
+time the live site is used.
 
 ---
 
