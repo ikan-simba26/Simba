@@ -549,6 +549,12 @@ class _Run:
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
         self.shown = 0
+        #: How many were said there would be, in `task.started`. Read once and
+        #: kept: a count that moves while the person is answering is worse
+        #: than one that is approximate, and on 2026-09-30 it moved twice in
+        #: one run — 1 of 7, then 2 of 5, because the questions counted the
+        #: one on screen and the steps then counted none of them.
+        self.total = 0
 
     async def set_state(self, state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -582,6 +588,7 @@ class _Run:
         )
 
     async def open(self, goal: str, estimated_steps: int, start_url: str) -> None:
+        self.total = estimated_steps
         await self.connection.send(
             "task.started", TaskStarted(goal=goal, estimated_steps=estimated_steps)
         )
@@ -589,8 +596,7 @@ class _Run:
         await self.page.goto(start_url)
 
     async def present(
-        self, move: "Move", *, goal: str, total: int, findings: list[Finding],
-        view: PageView,
+        self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
     ) -> dict:
         """Put a step or a question on screen and wait for the person.
 
@@ -622,7 +628,11 @@ class _Run:
             "step.presented",
             StepPresented(
                 step_index=index,
-                step_total=max(total, index),
+                # Never less than what is on screen, and never less than what
+                # was promised. It can still end higher than promised: a
+                # question only the page can raise — which of two stations in
+                # one city — cannot be counted before the page has answered.
+                step_total=max(self.total, index),
                 instruction=move.instruction,
                 detail=move.detail,
                 fields=move.fields,
@@ -704,7 +714,7 @@ async def run_brief(
         if view is None:
             _, _, view = await perceive(page)
         payload = await run.present(
-            question, goal=brief.goal, total=brief.estimated_steps, findings=[], view=view
+            question, goal=brief.goal, findings=[], view=view
         )
         if not is_answer(question, payload.get("action_id")):
             await run.stopped()
@@ -798,8 +808,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             # on — which of two stations they meant. Shown like a step and
             # acted on by nobody: the answer goes back to the planner.
             payload = await run.present(
-                move, goal=task.goal, total=task.estimated_steps,
-                findings=findings, view=view,
+                move, goal=task.goal, findings=findings, view=view,
             )
             if not is_answer(move, payload.get("action_id")):
                 await run.stopped()
@@ -811,8 +820,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         if not move.quiet:
             steps_taken += 1
             payload = await run.present(
-                move, goal=task.goal, total=task.estimated_steps,
-                findings=findings, view=view,
+                move, goal=task.goal, findings=findings, view=view,
             )
             if payload.get("action_id") != voice.CONFIRM_ID:
                 await run.stopped()

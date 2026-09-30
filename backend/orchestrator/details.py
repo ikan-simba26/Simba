@@ -441,17 +441,26 @@ class _Asking:
         #: run is filed under.
         self.wrap = None
         self._tries: dict[str, int] = {}
-        self._asked = 0
+        #: The count once it has been read. See `estimated_steps`.
+        self._total: int | None = None
 
     def _missing(self) -> list[str]:
         raise NotImplementedError
 
     @property
     def estimated_steps(self) -> int:
-        """Everything still to be shown: what has been asked, what is left to
-        ask, and the plan. Read before the first question, so the count the
-        person sees does not grow as they answer."""
-        return self._asked + len(self._missing()) + self.plan_steps
+        """Everything to be shown: the questions still to ask, and the plan.
+
+        Read once and kept, so the count the person sees does not move while
+        they are answering. Two things can still make a run end higher than
+        this: a question asked a second time because the answer could not be
+        used, and a question only the page can raise (which of two stations in
+        one city). Neither can be counted in advance, and `step_total` never
+        goes below what is on screen (`loop._Run.present`).
+        """
+        if self._total is None:
+            self._total = len(self._missing()) + self.plan_steps
+        return self._total
 
     def _again(self, what: str) -> bool:
         """Count one more unusable answer. False once that is too many."""
@@ -465,7 +474,9 @@ class _Asking:
         return self._tries.get(what, 0) > 0
 
     def _ask(self, move: Move) -> Move:
-        self._asked += 1
+        # The count is read before the first question goes out; asking does
+        # not change it.
+        self.estimated_steps  # noqa: B018 - freeze it before anything is asked
         return move
 
     def sentence(self) -> str:

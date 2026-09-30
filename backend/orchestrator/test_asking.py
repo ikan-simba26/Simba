@@ -383,6 +383,44 @@ def test_a_goal_that_says_everything_asks_nothing(replica: str) -> None:  # noqa
     assert "task.completed" in connection.types()
 
 
+
+
+# --- the count on screen ----------------------------------------------------
+
+
+class CountsDifferently(StubBrief):
+    """A brief whose settled task carries its own, smaller count.
+
+    Which is every real brief: `TripBrief` promises its questions *and* the
+    five steps of the journey, and `trip_task` knows only about the five.
+    """
+
+    def settle(self):
+        return StoppedPlanner(), Task(goal="spelled out", estimated_steps=2, about=About())
+
+
+def test_the_count_never_goes_backwards_across_the_questions(
+    replica: str,  # noqa: F811
+) -> None:
+    """Found on 2026-09-30 in a run of "trains to Rawalpindi tomorrow": the
+    screen said 1 of 7, then 2 of 5. The questions counted the one on screen
+    twice, and the steps after them counted none of the questions at all — so
+    the number both overstated and then shrank, in one run, while the person
+    was being asked things."""
+    brief = CountsDifferently()
+
+    connection = ask(brief, ANSWER_BOTH, replica)
+
+    totals = [(s["step_index"], s["step_total"]) for s in connection.of("step.presented")]
+    assert totals, "nothing was shown"
+    assert [total for _, total in totals] == sorted(total for _, total in totals)
+    for index, total in totals:
+        assert total >= index, totals
+    # And it is what the person was promised, not what the settled task knows.
+    assert connection.of("task.started")[0]["estimated_steps"] == brief.estimated_steps
+    assert {total for _, total in totals} == {brief.estimated_steps}
+
+
 # --- which answer stops --------------------------------------------------
 
 

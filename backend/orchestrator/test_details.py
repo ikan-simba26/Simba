@@ -522,3 +522,21 @@ def test_what_is_still_to_come_is_counted_before_the_first_question() -> None:
     assert BillBrief("g", Understood()).estimated_steps == 1 + BillBrief.plan_steps
     assert BillBrief("g", Understood(reference="04141234567890")).estimated_steps == (
         BillBrief.plan_steps)
+
+
+def test_a_count_read_twice_is_the_same_count() -> None:
+    """The promise is frozen when it is made. A question asked again, because
+    the answer could not be used, does not inflate it — and neither does
+    answering one. On 2026-09-30 the number on screen went 1 of 7 then 2 of 5
+    in one run, which is the failure `test_asking.py` pins from the loop's
+    side."""
+    brief = trip()
+    first = brief.estimated_steps
+
+    brief.question()
+    brief.answered("confirm", {"origin": "Lahore"})
+    brief.question()
+    brief.answered("confirm", {"destination": ""})
+
+    assert first == 3 + TripBrief.plan_steps
+    assert brief.estimated_steps == first
