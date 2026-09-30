@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-30 · **712 passing, 12 skipped** · suite wall clock 1081s. 168 tests were added on 2026-09-30. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s and 1001s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-09-30 (later) · **742 passing, 12 skipped** · suite wall clock 827s, on `feat/multi-october-readiness`. 30 tests were added in the later batch, 198 in the day. The 3 host fit tests among the skips were run separately with the host (`SIMBA_HOST_TESTS=1`) after the last change to them, and passed. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 1001s and 1081s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -24,7 +24,7 @@ because that is what the plan said, and the closing screen showed real trains
 for a journey nobody had asked about. The goal is read for what it states, the
 rest is asked for one question at a time, and the run is judged against what
 the person said — so a search for another route or another day fails rather
-than completes. Checked live five times through the Electron host: "trains to
+than completes. Checked live six times through the Electron host: "trains to
 Rawalpindi tomorrow" asked **where from** and nothing else, `Lahore` brought
 back the site's own `Lahore Jn.` and `Lahore Cantt`, and the station pressed is
 the one the live site searched — three trains back for Lahore Cantt to
@@ -118,6 +118,36 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-09-30 (later): six items, one branch
+
+- **Merged and pushed.** `feat/orchestrator-person-details` is in `main`
+  (`ec6adca`). The rest below is on `feat/multi-october-readiness`, **not
+  merged**.
+- **A station list gets fifteen seconds, not five** (`Expectation.list_opens`,
+  `LIST_TIMEOUT_S`). On the replica with its list 8s late, the old window
+  reproduced the live failure word for word; the new one searched. The cost: a
+  place with no station takes 31.5s to report, not about 11.6s
+  (EVALUATION.md, 2026-09-30b).
+- **`railways-local`** opens the window on our own copy of the train search and
+  runs train goals there. Checked through the window: the same seven screens as
+  live, nothing sent to the live site. Rehearsals use it (DEMO.md).
+- **Two corrections to yesterday's record**: six live runs, not five; and every
+  one made two model calls, routing and reading the goal, where the record said
+  none (2026-09-30c).
+- **CLAUDE.md's phase is October's**, as approved, and Python is 3.12.
+- **The home screen fits with history.** Six cards had put the text box off the
+  window at every scale once three goals were remembered; the fit test never had
+  history, so never saw it. One list of three now; worst case, the box ends at
+  576 of 606 at 150% and nothing scrolls (2026-09-30d).
+- **The site view lays out at 1280px.** Its scrollbars are hidden; before, a
+  page that scrolled laid out at 1263 in the host (2026-09-30e).
+- **`MIN_COVERAGE` is 0.27**, the middle of the empty band; no result on the
+  corpus changes (2026-09-30f).
+- **`text_density` reads where the page is scrolled to**, and the corpus is
+  re-collected: headless and host now differ on 9 of 48 pages, not 14 of 49;
+  both Wikipedia pages read the same; the first page in the 0.27–0.30 band is
+  measured, a drawer at 0.295 (2026-09-30g).
 
 ### Changed on 2026-09-30: every flow runs on the person's own details
 
@@ -448,12 +478,16 @@ application's state (EVALUATION.md).
    target-scoped rule. The data bounds it to **3–2001**: below 3 the
    Guardian's z=2 link cards are admitted; above 2001 the railways date
    picker is lost. Kept at 5. The upper bound is two elements from one site.
-2e. **`MIN_COVERAGE` now has 0.013 of margin.** 0.30 separates every
-   blocker from every non-blocker in 50 pages, but the nearest blocker is a
-   side drawer at 0.3125, and a default 378px Ant Design drawer would sit at
-   0.295. 0.273 is the middle of the remaining gap. Flagged, not changed.
+2e. ~~**`MIN_COVERAGE` now has 0.013 of margin.**~~ **0.27 since 2026-09-30**,
+   the middle of the gap: 0.036 over the largest non-blocker, 0.0425 under the
+   nearest blocker. No page's result changed. The one measured page inside the
+   band is Ant Design's drawer panel at 0.295, now a blocker; a docs sidebar
+   wider than 345px would now be one too. Still argued from a gap.
 2f. **Coverage on scrolled pages** is correct as of 2026-09-21
-   (`Document.scroll`); `text_density` in the estimator is not — see below.
+   (`Document.scroll`), and `text_density` is too since 2026-09-30.
+2g. **The host now lays pages out at 1280px** (scrollbars hidden in the site
+   view, 2026-09-30). Every host-side perception figure before that date was
+   taken at 1263px on a page that scrolled.
 2. A modal's content is skipped along with a dropdown's.
 3. Elements with no accessible name are addressable only by ordinal.
 4. Panel headings are found by class-name fragment; a picker that names its
@@ -535,16 +569,18 @@ application's state (EVALUATION.md).
   the keywords; raising it makes the wait longer. Left at 8.
 - **`goal.answered` and the empty-goal change need ratifying** by all three
   owners (CONTRACT.md).
-- **A station list that does not arrive looks like a place with no stations**
-  (2026-09-30, live, 1 run in 5). The name reached the box, the site's list had
-  not opened within the 5s verification window on either strategy, and the run
-  said the site offered no stations for Lahore — a city with two on that list.
-  The sentence is now true for both cases, but the flakiness is not fixed.
-  Options: wait longer than `VERIFY_TIMEOUT_S` for a list specifically; let the
-  planner retype a name a third time, which needs the loop's two-setback cap
-  raised for quiet moves; or leave it and let the person ask again.
-  Recommended: leave it until it happens a second time, because one run in five
-  on one machine on one day is not yet a rate. **Raham's call.**
+- ~~**A station list that does not arrive looks like a place with no
+  stations**~~ **Fixed 2026-09-30 (later)**: a step that waits on a fetched list
+  has 15s (`LIST_TIMEOUT_S`). Reproduced and fixed on the replica with a late
+  list; **not re-checked on the live site**, where it happened once in six runs.
+- **A mistyped place now takes 31.5s to be reported**, because both strategies
+  wait the full list window. Options: skip the second strategy for a list step
+  (about 16s), shorten the window (15s is three times the one that failed, not a
+  measured figure), or leave it. Recommended: leave it until the live list's
+  real latency is measured. **Raham's call.**
+- **Replayed runs do not get the longer window.** Replay builds every move with
+  an empty expectation. Trace memory is off by default, so nothing uses it
+  today.
 - **A question the page raises is not in the count** (2026-09-30). The number on
   screen can end one or two above what was promised: which of two stations was
   meant cannot be known before the site answers. It only ever grows, and never
@@ -718,12 +754,17 @@ application's state (EVALUATION.md).
 3b. **Nine features, 50 rows, 4 labels.** Nothing can be fitted to this. All
    four labels are passes; one is the rig built to fail and one is a single
    live run. More labels need more *plans*, not more runs.
-3c. **`text_density` assumes the top of the page.** `_inside` ignores the
-   scroll offset, so the ten driven rows measure the top of the document.
-   Same fix as perception's coverage, then a re-collection.
-3d. **The host lays pages out at 1263px on scrollable pages**, not 1280: a
-   classic scrollbar headless does not have. Density differs 3–18% on long
-   pages because of it. Recommended: hide the site view's scrollbar.
+3c. ~~**`text_density` assumes the top of the page.**~~ **Fixed 2026-09-30**
+   and the corpus re-collected: where a drive scrolled, density rose 20–88%
+   with the same characters.
+3d. ~~**The host lays pages out at 1263px.**~~ **Fixed 2026-09-30.** Headless
+   and host now differ on density on 5 of 48 pages, not 9 of 49. Three are
+   drives reaching different states, one is a live page changing, and
+   **lite.cnn.com is unexplained**: same characters, 5% more on screen headless.
+3e. **The driven rows depend on the drive reaching its state in time**, and
+   three did not agree between environments this time. For the same state,
+   overlays agree exactly. A drive that checked it had arrived would stop this
+   being noise in the estimator's training data.
 4. **Reading grade is the narrowest real spread** (3.91–13.68, CV 0.27) and
    the most heuristic number here: block-counted sentences and a vowel-group
    syllable counter (DECISIONS.md).
@@ -813,7 +854,7 @@ application's state (EVALUATION.md).
   sites**, so a feature that separates them from the world may be measuring
   our HTML habits or a component gallery's. Every row says which it is.
 - **Both detector thresholds are measured and the rest are not.**
-  `MIN_COVERAGE` (0.30, 0.013 of margin) and `MIN_STACK_LEVEL` (5, bounded
+  `MIN_COVERAGE` (0.27 since 2026-09-30, the middle of the gap) and `MIN_STACK_LEVEL` (5, bounded
   3–2001) against 50 pages (2026-09-20e); the telemetry constants and every
   definition in `page_features` remain as chosen.
 - **The first `y` exists and is not usable yet**: 4 of 50 pages.
@@ -855,7 +896,14 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `ac5a23a` (2026-09-25's interface work, merged and pushed).
+- `main` is at `ec6adca` (the person's own details, merged and pushed
+  2026-09-30). **`feat/multi-october-readiness` is not merged**: the station
+  list's window, `railways-local`, the CLAUDE.md phase, the home screen, the
+  hidden scrollbars, `MIN_COVERAGE` and the corpus.
+- **The demo recordings predate the questions** and **`tools/record_demo.py`
+  still records the old railways goal**, "Show me trains from Lahore to
+  Karachi", pressing only primary buttons. Both need redoing before a demo that
+  relies on them as a fallback.
 - **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
   of `main` until the 100% capture rate is measured for real (see 2026-09-27
