@@ -61,6 +61,16 @@ from shared.schema import (
 
 VERIFY_TIMEOUT_S = 5.0
 
+# How long a step that waits on a list the site fetches may take to show it
+# (`Expectation.list_opens`). A station list is a network round trip after a
+# name is typed, not a repaint after a click, and on 2026-09-30 one took longer
+# than five seconds on the live site: the run said the site offered no
+# stations for Lahore, which has two (EVALUATION.md). Polled like any other
+# verification, so a list that opens in half a second costs half a second; the
+# price is paid only when no list ever comes, which with two strategies is
+# twice this before the run says so.
+LIST_TIMEOUT_S = 15.0
+
 # How long one action may take before it counts as not having worked.
 #
 # Playwright's own default is 30 seconds, which is the right default for a
@@ -368,8 +378,13 @@ def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
 
 
 async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | None:
-    """Poll until the page settles into the expected state, or give up."""
-    deadline = time.monotonic() + VERIFY_TIMEOUT_S
+    """Poll until the page settles into the expected state, or give up.
+
+    A step waiting on a list the site fetches gets longer to see it than an
+    ordinary step (`LIST_TIMEOUT_S`); nothing else about the check changes.
+    """
+    window = LIST_TIMEOUT_S if expect.list_opens else VERIFY_TIMEOUT_S
+    deadline = time.monotonic() + window
     failure = "the page did not change at all"
     while time.monotonic() < deadline:
         _, after, _ = await perceive(page)

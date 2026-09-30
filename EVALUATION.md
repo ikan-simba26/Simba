@@ -4164,3 +4164,39 @@ Its results page printed the worked example's reference number whatever had
 been looked up, so every bill claimed to be the one asked about and
 `About.shows` would have passed for any number. It echoes the number that was
 searched now. Found while writing the check, not by a test.
+
+---
+
+## 2026-09-30b — a station list that opens late
+
+The live failure from 2026-09-30, run 4: the name went into the box, the site's
+list had not opened within the 5s verification window on either strategy, and
+the run said the site offered no stations for Lahore. A step that waits on a
+fetched list now has `LIST_TIMEOUT_S = 15.0` instead (`Expectation.list_opens`);
+only the trip planner's typing step sets it.
+
+Reproduced on the local replica, which now takes `?list_delay_ms=` and makes
+its list arrive that long after a name is typed. 8000ms throughout — past the
+ordinary window, inside the new one. `test_trip.py`, real Chromium.
+
+| What | Before the fix (window 5s) | After (window 15s) |
+|---|---|---|
+| "trains to Rawalpindi", list 8s late, both ends | `step.failed`, then "The site didn't offer me any stations for Lahore.", nothing searched, 11.6s | searched `LAHORE CANTT → RAWALPINDI`, no `step.failed`, 18.8s |
+| Typing "LAHORE", list 8s late, verification alone | fails at 5.0s | passes, between 5s and 15s |
+| Typing "LAHORE", list immediate, verification alone | — | passes in under 5s: polled, not slept |
+
+"Before" is the same code with `LIST_TIMEOUT_S` set back to 5s for one run, so
+the only difference between the two columns is the window.
+
+**What it costs.** A place the site genuinely has no station for is now found
+out after both strategies have waited the full list window: the Narnia run takes
+**31.5s** to reach "The site didn't offer me any stations for Narnia.", where it
+took about 11.6s before. A person who mistypes a place waits about twenty
+seconds longer to be told so. Nothing else on the trip waits longer: choosing a
+station, the calendar and the search keep the ordinary window.
+
+**Not measured:** how late the live list actually was. The failing run recorded
+only that it had not come within 5s, and the site was not asked again for this.
+15s is three times the window it failed in, not a figure read off the site.
+Replayed runs are unaffected either way — replay builds every move with an
+empty expectation — and trace memory is off by default.

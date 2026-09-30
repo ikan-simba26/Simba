@@ -3282,3 +3282,31 @@ which they deliberately are not.
 **Cost.** A run can end one or two above what it promised — a question the page
 raises, or a question asked again. The number grows silently at that point
 rather than having been right all along.
+
+---
+
+## A step that waits on a fetched list has fifteen seconds, not five
+
+**Date:** 2026-09-30
+
+**Decision.** `Expectation.list_opens` marks a step whose success depends on a
+list the site fetches — today only the trip planner's step that types a station
+name. Its verification polls for `LIST_TIMEOUT_S = 15.0` rather than
+`VERIFY_TIMEOUT_S = 5.0`. Every other step keeps five.
+
+**Alternatives.** Raise the window for every step, which slows every genuine
+failure on every flow. Infer it from `label_like`, which today is only ever set
+on the same step but says what to look for, not how long. Let the planner type
+the name a third time, which needs the loop's two-setback limit raised for one
+kind of step. Leave it, and let the person ask again.
+
+**Why this.** A click is answered by a repaint; a typed name is answered by a
+network round trip, and the live site's took longer than five seconds once in
+five runs. The window is polled, so a list that opens in half a second costs
+half a second — the longer window is spent only when nothing arrives. Saying so
+on the expectation keeps the reason next to the step that needs it, rather than
+as a guess the loop makes from which fields happen to be set.
+
+**Cost.** A place with no station is found out after two full windows: 31.5s on
+the replica, against about 11.6s before (EVALUATION.md, 2026-09-30b). 15s is not
+measured off the live site; it is three times the window that failed.
