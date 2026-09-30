@@ -853,7 +853,8 @@ application's state (EVALUATION.md).
 - `test_levels.py` measures `dist/`, which can be stale.
 - **No formatter or linter.** `black` would reformat 46 of 57 Python files;
   `ruff` reports 69 findings. Adopting them is for all three owners.
-- The venv is Python 3.12.3; `CLAUDE.md` says 3.11.
+- ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
+  CLAUDE.md says 3.12.
 - `main` is at `ac5a23a` (2026-09-25's interface work, merged and pushed).
 - **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
