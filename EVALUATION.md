@@ -4361,3 +4361,80 @@ drawer 378px wide — Ant Design's default — over the full 800px height covers
 378/1280 = 0.295, which 0.30 misses and 0.27 catches. No page in the corpus puts
 anything between 0.27 and 0.30. Perception's suite passes at 0.27 unchanged
 (109 passed, 4 skipped).
+
+---
+
+## 2026-09-30g — the corpus, re-collected
+
+`python -m tools.evaluation.collect_corpus`, both environments, at `3fb9ab4`
+(clean tree): the site view's scrollbars hidden (2026-09-30e), `MIN_COVERAGE`
+0.27 (2026-09-30f), and `text_density` measured where the page is scrolled to.
+The same 50 pages as 2026-09-20e, read-only, the host at 150%. The previous file
+is kept at `.scratch/corpus-before-2026-09-30.json` (ignored, local).
+
+**Failures.** Spiegel, DNS, headless only, as before. New: 
+`practice.expandtesting.com` refused the load in **both** environments
+(`ERR_ABORTED`), so the page with the largest host difference last time
+(3.6×) could not be compared this time.
+
+### Headless against host
+
+Rows compared on `text_density`, `viewport_characters`, `overlays`, `controls`
+and `characters`, over pages read in both:
+
+| | Pages read in both | Differ on any | Differ on `text_density` |
+|---|---|---|---|
+| 2026-09-20e | 49 | 14 | 9 |
+| **Now** | 48 | **9** | **5** |
+
+**Wikipedia, both pages, now read identically in both environments** — they
+differed by 18% and 17% in density, the clearest case of the 1263px layout. So
+does OrangeHRM, which rendered no text in the host last time.
+
+What still differs, and why:
+
+| Page | Density headless / host | Cause |
+|---|---|---|
+| lite.cnn.com | 2.013 / 1.913 | **Not explained.** Same 8,580 characters, same controls, 2,061 against 1,959 on screen: the layout still differs somewhere, and the scrollbar is not it |
+| Hacker News | 2.363 / 2.310 | The page itself: 3,871 against 3,848 characters, a live front page read twice |
+| MUI dialog (driven) | 1.805 / 1.492 | The drive: 0 overlays and 362 controls in the host — the dialog was not open when the host was read |
+| Ant Design modal (driven) | 1.511 / 1.576 | The drive, the other way: the modal opened in the host (2 overlays) and not headless |
+| Ant Design drawer (driven) | 1.525 / 1.584 | The drive: 3 overlays in the host, 0 headless |
+
+The three driven differences were checked by driving those pages once more in
+each environment and reading `analyse` directly. Where the state was reached,
+both environments agreed exactly: the Ant Design drawer gave the same three
+blockers in each, the MUI dialog the same two. **Overlays never differed for the
+same state.** The corpus rows differ because the drive reached a different
+state, which 2026-09-20e also saw on the Ant drawer.
+
+**The first measured page between 0.27 and 0.30.** In that check, the open Ant
+Design drawer's panel — 378x800 at x=902 — covered **0.295** of the viewport in
+both environments, and is a blocker at 0.27 where it would not have been at
+0.30. The page is already blocked by the drawer's full-screen mask either way,
+so the page-level answer does not change; the blocker count does. This is the
+case 2026-09-30f argued for from arithmetic.
+
+### What the scroll-aware density changed
+
+Headless, driven rows, before and after:
+
+| Driven page | Density before | After | Characters before / after |
+|---|---|---|---|
+| MUI dialog | 1.077 | **1.805** | 7,689 / 7,689 |
+| MUI drawer, bottom sheet | 0.924 | **1.739** | 8,126 / 8,126 |
+| Bootstrap offcanvas | 1.175 | **1.811** | 21,891 / 21,933 |
+| Bootstrap modal | 1.477 | **1.769** | 29,895 / 29,899 |
+| Ant Design drawer | 1.235 | **1.525** | 12,827 / 12,827 |
+| SweetAlert2 | 0.408 | **0.585** | 34,917 / 34,918 |
+| Ant Design modal | 1.313 | 1.511 | 18,077 / 20,700 — the page changed |
+| sign-in, both railways states, demoqa, TodoMVC, Element Plus | unchanged | unchanged | unchanged |
+
+Where a drive scrolled the page to open something, the text on screen was
+different from the text at the top of the document, and density rose by 19–88%
+with the character count the same. Where a drive did not scroll, nothing
+moved. Of 35 idle headless rows, 27 read the same density as before; the other
+8 are live pages that changed.
+
+`overlays` is still the one feature that barely varies across the corpus, now
+the only one the collector reports as such.
