@@ -3368,3 +3368,31 @@ there is a moment between a page's first layout and `dom-ready` when it has its
 scrollbars. Nothing reads the page in that moment. It is a stylesheet, not the
 engine's own mode, so a page that draws a scrollbar of its own out of elements
 still has one.
+
+---
+
+## `MIN_COVERAGE` is 0.27, the middle of the gap
+
+**Date:** 2026-09-30 (asked for by Raham; recommended in EVALUATION.md, 2026-09-20e)
+
+**Decision.** A candidate has to cover 0.27 of the viewport, on screen, to block
+the page as a whole. It was 0.30.
+
+**Alternatives.** Leave 0.30. Or go lower still, towards the largest
+non-blocker.
+
+**Why this.** Once partial overlays were added to the corpus (2026-09-20e), the
+real blockers came down to 0.3125 and the furniture stayed at or below 0.234,
+with nothing in between. 0.30 sat 0.0125 under the nearest blocker and 0.066
+over the largest non-blocker: a threshold that close to one side of an empty
+band is a threshold one slightly wider drawer away from missing a real one.
+0.273 is the midpoint; 0.27 leaves 0.036 on one side and 0.0425 on the other.
+Against the probe's data it changes no page's result, so it costs nothing
+measured. It catches the one ordinary thing known to fall in the band — a
+378px drawer at 0.295 — which 0.30 would miss.
+
+**Cost.** The number is argued from a gap, not tested by a page inside it: the
+corpus has nothing between 0.234 and 0.3125, so nothing shows whether a page at
+0.28 is a blocker or furniture. A docs sidebar a little wider than MUI's (above
+345px) would now be flagged as covering the page. Until a corpus has pages in
+the band, 0.27 is as untested as 0.30 was — just centred.

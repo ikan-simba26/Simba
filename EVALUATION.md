@@ -4330,3 +4330,34 @@ back. Checked on a first page and after a second navigation.
 Every perception figure measured in the host before this — the host columns of
 the corpus (2026-09-19b, 2026-09-20e) and every host run since — was measured
 at 1263px on a page that scrolled. Re-collected in 2026-09-30g, below.
+
+---
+
+## 2026-09-30f — `MIN_COVERAGE` 0.27, checked against the coverage probe's data
+
+From `data/overlay_coverage.json` (the probe's run of 2026-09-21, headless, 50
+pages, every candidate above the page with no threshold applied). Coverage does
+not depend on `MIN_COVERAGE`, so this data answers where the line can go
+without being collected again.
+
+| Coverage | Page | What | Blocker |
+|---|---|---|---|
+| 0.4612 | MUI drawer, bottom sheet open | the sheet | yes |
+| 0.3688 | the Guardian | sticky top ad banner (two nested boxes) | yes |
+| 0.3125 | Bootstrap offcanvas, drawer open | the drawer | yes |
+| — | *nothing between 0.2344 and 0.3125* | | |
+| 0.2344 | MUI drawer and dialog pages | the docs sidebar | no |
+| 0.2344 | `entry_ad` | the dialog box inside `#modal` (its parent is caught) | no |
+| 0.2258 | TodoMVC | the `aside` | no |
+
+The sweep over thresholds blocks the same 10 pages at 0.20, 0.25 and 0.30. So
+moving from 0.30 to 0.27 **changes no result on this corpus**; it moves the line
+from 0.0125 under the nearest blocker to the middle of the gap (midpoint
+0.273), 0.036 above the largest non-blocker and 0.0425 under the nearest
+blocker.
+
+The one case it is expected to change is arithmetic, not a measured page: a
+drawer 378px wide — Ant Design's default — over the full 800px height covers
+378/1280 = 0.295, which 0.30 misses and 0.27 catches. No page in the corpus puts
+anything between 0.27 and 0.30. Perception's suite passes at 0.27 unchanged
+(109 passed, 4 skipped).
