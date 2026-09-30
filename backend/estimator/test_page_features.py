@@ -161,6 +161,43 @@ def test_text_outside_the_viewport_is_read_but_not_counted_as_density() -> None:
     assert found.text_density == pytest.approx(9 / 1024, abs=0.001)
 
 
+def test_a_scrolled_read_counts_what_is_on_screen_not_the_top_of_the_page() -> None:
+    """A driven read happens wherever the run left the page. Scrolled to 4900,
+    the screen holds "far below" and not "on screen" — and until 2026-09-30
+    density was measured on the top of the document regardless, the same
+    assumption the overlay clip had until 2026-09-20e."""
+    document = document_of(
+        (-1, ELEMENT_NODE, "HTML", ""),
+        (0, ELEMENT_NODE, "P", ""), (1, TEXT_NODE, "#text", "on screen"),
+        (0, ELEMENT_NODE, "P", ""), (3, TEXT_NODE, "#text", "far below"),
+    )
+    document.bounds[1] = (0.0, 10.0, 200.0, 20.0)
+    document.bounds[3] = (0.0, 5000.0, 200.0, 20.0)
+    document.scroll = (0.0, 4900.0)
+
+    found = features(_view(), document)
+
+    assert found.characters == len("on screen far below")
+    assert found.viewport_characters == len("far below")
+    assert found.text_density == pytest.approx(9 / 1024, abs=0.001)
+
+
+def test_the_screen_is_a_window_of_the_viewports_size_wherever_it_is() -> None:
+    """Its edges: a box that ends where the screen begins is not on it, and a
+    box that crosses into it is. Sideways too."""
+    from backend.estimator.page_features import _inside
+
+    at_900 = (0.0, 900.0)
+    assert not _inside((0.0, 880.0, 100.0, 20.0), VIEWPORT, at_900)   # ends at 900
+    assert _inside((0.0, 880.0, 100.0, 21.0), VIEWPORT, at_900)       # crosses it
+    assert _inside((0.0, 1699.0, 100.0, 20.0), VIEWPORT, at_900)      # starts inside
+    assert not _inside((0.0, 1700.0, 100.0, 20.0), VIEWPORT, at_900)  # starts at the bottom
+    assert not _inside((0.0, 1000.0, 100.0, 20.0), VIEWPORT, (1400.0, 0.0))  # scrolled sideways past it
+    # And unscrolled, exactly what it was.
+    assert _inside((0.0, 10.0, 200.0, 20.0), VIEWPORT)
+    assert not _inside((0.0, 5000.0, 200.0, 20.0), VIEWPORT)
+
+
 def test_a_box_is_read_as_css_pixels_because_parse_converted_it() -> None:
     """The host reads at 1.5 device pixels to the CSS pixel, and CDP sends
     boxes in the first of those units.
