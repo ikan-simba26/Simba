@@ -93,19 +93,29 @@ no menu, no address bar, no advertisement. One question, in large type.
 Type, exactly:
 
 ```
-Show me trains from Lahore to Karachi
+trains to Rawalpindi tomorrow
 ```
 
-Press Start, then narrate as it goes:
+Press Start, then narrate as it goes. **The first two screens are questions,
+not steps** (since 2026-09-30): that sentence does not say where the journey
+starts, and "Lahore" does not say which of the two Lahore stations. Type
+`Lahore` into the box, then press `Lahore Cantt`.
 
 | What is on screen | What to say |
 |---|---|
 | "Let me see what you need." | It is working out what you asked for. Nothing has started yet. |
+| "Where are you travelling from?", one box | It read the rest out of the sentence — the destination, and that "tomorrow" is a date. This is the one thing it could not know, so it asks for that and nothing else. |
+| "Which Lahore station do you mean?", two buttons | The station list is the site's own. Two of them are in Lahore, so it asks rather than picking. Before today it would have searched whichever the plan named. |
 | Step 1 of 5, one sentence, one big button | One step at a time. It never acts until you press. |
 | The dot above the column | That is the assistant: it breathes while it thinks, circles while it acts, and fills when it is your turn. |
 | **Press "What are you doing?"** | It shows the real page, zoomed to the control it is about to press, ringed. "Show the whole page" if they want to see where that is. Then "Hide the page". |
 | Steps 3 and 4 — the calendar | This is the field that could not be typed. It is picking the date the way the page insists on. |
+| "Trains from Lahore Cantt to Rawalpindi on ... Shall I search?" | The last thing it asks for is the search, and it says the whole journey back first. If any of it were wrong, this is where they would stop it. |
 | The ending | The answer, as the biggest thing on the screen: the train and how long it takes. |
+
+If someone asks what a goal that says everything looks like, type
+`trains from Rawalpindi to Multan tomorrow` — nothing is asked, and it goes
+straight to the five steps.
 
 ### 2:40 — it only does what you ask (1 minute)
 
@@ -129,8 +139,10 @@ It says it cannot, in one sentence, and offers what it can.
 
 ### 3:40 — a second task, chosen by pressing (1 minute)
 
-Press the card **"Check my electricity bill"**. Three steps, on our own replica
-of a utility site: it accepts the cookie banner, types the reference number,
+Press the card **"Check my electricity bill"**. The card sends exactly those
+words, and they do not say *which* bill — so the first screen asks for the
+reference number. Type `04141234567890`. Then three steps, on our own replica
+of a utility site: it accepts the cookie banner, types the number you gave it,
 opens the bill. The ending shows **14,382** and the due date **15-09-2026** —
 the page's own figures, in the page's own format.
 

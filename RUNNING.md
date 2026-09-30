@@ -87,6 +87,26 @@ key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
 | `railways` | replicas :5000 and :5100, host, backend | **A live public website.** Read-only: fills a search and reads the timetable. Please treat it as somebody's public service — a handful of runs, not a benchmark. |
 | `mock` | mock backend :8000, host | The overlay alone, driven by a script. No replica, no browser driving, nothing real. |
 
+**SIMBA asks for what your goal left out** (since 2026-09-30). "Trains to
+Rawalpindi tomorrow" does not say where from, so it asks — one question at a
+time, with buttons where the answers are few. "Check my electricity bill" asks
+for the reference number, and the home screen's card sends exactly those
+words, so pressing the card asks too. A goal that names everything is asked
+nothing: type "trains from Rawalpindi to Multan tomorrow", or put the
+fourteen-digit number in the sentence, and it goes straight to the steps.
+
+### The local train search
+
+`replicas/railways/` is a page we wrote that stands in for the live train
+search, for the things repeated runs need and the live site cannot give:
+several stations in one city, a station with no trains, and a search that can
+be run again and again. The launcher does not start it — `railways` means the
+live site, deliberately. The tests start it themselves; by hand it is:
+
+```bash
+PORT=5200 python replicas/railways/app.py    # then open http://127.0.0.1:5200
+```
+
 ### The window fits your screen
 
 The window is sized to the screen's work area, taskbar excluded, and never
