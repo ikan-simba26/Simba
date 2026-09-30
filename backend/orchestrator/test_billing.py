@@ -20,7 +20,14 @@ import pytest
 import websockets
 from playwright.async_api import async_playwright
 
-from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK, REFERENCE
+from backend.orchestrator.billing_plan import (
+    BILLING_PLAN,
+    BILLING_TASK,
+    REFERENCE,
+    bill_task,
+    billing_plan,
+)
+from backend.orchestrator.details import BillBrief, Understood
 from backend.orchestrator.loop import run_task
 from backend.orchestrator.plan import (
     Expectation,
@@ -351,3 +358,86 @@ def test_an_empty_goal_starts_nothing(orchestrator: str) -> None:
 
     assert reply["type"] == "goal.answered"
     assert reply["payload"]["kind"] == "greeting"
+
+
+# --- the person's own reference number --------------------------------------
+#
+# Until 2026-09-30 the plan's number was the only number. "Check the bill for
+# 0414 9999 999999" looked up 04141234567890, because that is what
+# `BILLING_PLAN` holds, and the closing screen then showed a real amount due on
+# somebody else's bill. Checking it needs `About.shows`: the number is typed on
+# the first page and the run ends two pages later, with no field left to read
+# it back from.
+
+OTHER_REFERENCE = "04149999999999"
+
+
+def look_up(reference: str, start_url: str, task=None) -> FakeConnection:
+    brief = BillBrief(f"bill for {reference}", Understood(reference=reference))
+    return drive(HardcodedPlanner(billing_plan(reference)), task or brief.task(), start_url)
+
+
+def test_the_bill_looked_up_is_the_one_the_person_named(billing_replica: str) -> None:
+    connection = look_up(OTHER_REFERENCE, billing_replica)
+
+    assert "help.requested" not in connection.types(), connection.sent[-1]
+    assert connection.payload_of("task.completed")["steps_taken"] == 3
+    # Their number, in the step they agreed to and in the field that was typed.
+    lookup = connection.of("step.presented")[1]
+    assert lookup["fields"][0]["value"] == OTHER_REFERENCE
+
+
+def test_looking_up_another_bill_fails_rather_than_completes(billing_replica: str) -> None:
+    """The check that makes the goal mean something, on the page it has to work
+    on. The run looks up one number and is judged against another: the detail
+    page arrives, the URL and the title are exactly what success looks like,
+    and it still fails."""
+    asked_about = BillBrief("g", Understood(reference=REFERENCE)).task()
+
+    connection = look_up(OTHER_REFERENCE, billing_replica, task=asked_about)
+
+    reason = connection.payload_of("help.requested")["reason"]
+    assert "REF NO" in reason and REFERENCE in reason and OTHER_REFERENCE in reason
+    assert "task.completed" not in connection.types()
+
+
+def test_the_results_page_echoes_the_number_that_was_searched(
+    billing_replica: str,
+) -> None:
+    """What makes the check possible, and it was not true until today: the
+    results page printed the worked example's number whatever had been looked
+    up, so every bill said it was the one asked about."""
+    connection = look_up(OTHER_REFERENCE, billing_replica)
+
+    said = [finding for step in connection.of("step.presented")
+            for finding in step["findings"]]
+    assert said, "nothing was read off the results page"
+    assert "task.completed" in connection.types()
+
+
+def test_the_amount_still_reaches_the_end_for_any_number(billing_replica: str) -> None:
+    """`About.finds` is unchanged by whose bill it is."""
+    completed = look_up(OTHER_REFERENCE, billing_replica).payload_of("task.completed")
+
+    assert [finding["label"] for finding in completed["findings"]] == ["Your bill", "Due"]
+    assert all(finding["value"] for finding in completed["findings"])
+
+
+def test_the_task_names_the_number_and_what_must_say_it() -> None:
+    task = BillBrief("check my bill", Understood(reference=OTHER_REFERENCE)).task()
+
+    # The goal stays the person's own words, because that is what the screen
+    # shows them; the number reached the checks, which is where it is needed.
+    assert task.goal == "check my bill"
+    assert OTHER_REFERENCE in bill_task(OTHER_REFERENCE).goal
+    # Nothing held: there is no field on the final page to hold it.
+    assert task.about.holds == ()
+    assert [(s.reads, s.says) for s in task.about.shows] == [("REF NO", OTHER_REFERENCE)]
+
+
+def test_the_worked_example_is_still_the_worked_example() -> None:
+    """`BILLING_PLAN` and `BILLING_TASK` are what every recorded billing number
+    was measured on, and they are no longer what a typed goal runs."""
+    assert BILLING_PLAN == billing_plan(REFERENCE)
+    assert BILLING_TASK == bill_task(REFERENCE)
+    assert billing_plan(OTHER_REFERENCE) != BILLING_PLAN
