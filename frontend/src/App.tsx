@@ -34,12 +34,60 @@ import {
 import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
 import { ARRIVE, COLUMN, TYPE } from "./design";
 import { StepView } from "./components/StepView";
-import type { Finding, FlowName } from "@shared/schema";
+import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
 
 const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
+
+/**
+ * The most cards the home screen shows, remembered goals and the things SIMBA
+ * can do together. Until 2026-09-30 it was three of each: six cards, and at
+ * 150% the text box below them fell off the bottom of the window.
+ */
+export const HOME_CARDS = 3;
+
+/** One card on the home screen, and what pressing it asks for. */
+export interface HomeCard {
+  goal: string;
+  /** Sent with the goal when the card is one of the things SIMBA can do, so
+   *  the backend runs exactly that and does not guess from the words. */
+  flow?: FlowName;
+  /** Asked for before, which the card's icon says. */
+  remembered: boolean;
+}
+
+/** Two goals are the same card if they differ only in case, spacing or a
+ *  closing full stop — "Check my electricity bill." is the bill card. */
+function sameGoal(a: string, b: string): boolean {
+  const plain = (text: string) =>
+    text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/, "").toLowerCase();
+  return plain(a) === plain(b);
+}
+
+/**
+ * The home screen's one list: what this person asked for before, most recent
+ * first, then the things SIMBA can do, with nothing twice and never more than
+ * `HOME_CARDS`. A remembered goal that is one of the things SIMBA can do stays
+ * in its remembered place and keeps that flow, so pressing it runs exactly
+ * what the card always ran.
+ */
+export function homeCards(history: PastGoal[]): HomeCard[] {
+  const cards: HomeCard[] = [];
+  const add = (card: HomeCard) => {
+    if (cards.length < HOME_CARDS && !cards.some((c) => sameGoal(c.goal, card.goal))) {
+      cards.push(card);
+    }
+  };
+  for (const past of history) {
+    const flow = ALL_FLOWS.find((name) => sameGoal(FLOWS[name], past.goal));
+    add(flow ? { goal: FLOWS[flow], flow, remembered: true }
+             : { goal: past.goal, remembered: true });
+  }
+  for (const flow of ALL_FLOWS) add({ goal: FLOWS[flow], flow, remembered: false });
+  return cards;
+}
 
 export default function App() {
   const connect = useStore((state) => state.connect);
@@ -181,11 +229,14 @@ function Home() {
   // hiding the box as well made asking in your own words look like a
   // secondary route, and it could hide itself mid-sentence when history
   // arrived late.
-  // A remembered goal that is word for word one of the cards is shown once.
-  const again = history.filter((past) => !Object.values(FLOWS).includes(past.goal));
+  // One list, remembered goals first, never more than three cards: a second
+  // list of up to three more is what pushed the box off a 150% screen.
+  const cards = homeCards(history);
 
   return (
-    <div className="flex flex-col gap-10 short:gap-6">
+    // 32px between the greeting, the cards and the box, not 40: three
+    // remembered goals of two lines each need the room at 100%.
+    <div className="flex flex-col gap-8 short:gap-6">
       {/* A step down in a short window: 48px to 38px. The greeting is the
           one line on this screen nobody needs to read twice. */}
       <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
@@ -193,26 +244,20 @@ function Home() {
       </h1>
 
       <Section lead={HOME.canHelp}>
-        {ALL_FLOWS.map((flow) => (
-          <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
-                      onClick={() => startTask(FLOWS[flow], flow)}>
-            {FLOWS[flow]}
+        {cards.map((card) => (
+          <ChoiceCard key={card.goal}
+                      icon={card.remembered || !card.flow ? <AgainIcon />
+                            : <FlowIcon flow={card.flow} />}
+                      onClick={() => startTask(card.goal, card.flow)}>
+            {card.goal}
           </ChoiceCard>
         ))}
       </Section>
 
-      {again.length > 0 && (
-        <Section lead={HOME.againHeading}>
-          {again.map((past) => (
-            <ChoiceCard key={`${past.site}|${past.goal}`} icon={<AgainIcon />}
-                        onClick={() => startTask(past.goal)}>
-              {past.goal}
-            </ChoiceCard>
-          ))}
-        </Section>
-      )}
-
-      <AskBox lead={HOME.askHeading} />
+      {/* In a short window the box's lead-in goes: the greeting above has
+          just asked the same question, and three remembered goals of two
+          lines each need the room at 150%. The box keeps it as its name. */}
+      <AskBox lead={HOME.askHeading} leadWhenShort={false} />
     </div>
   );
 }
@@ -232,7 +277,8 @@ function Section({ lead, children }: { lead: string; children: React.ReactNode }
  * it rather than a bare form field: it should look like somewhere to talk,
  * not a box to fill in.
  */
-function AskBox({ lead, autoFocus }: { lead?: string; autoFocus?: boolean }) {
+function AskBox({ lead, autoFocus, leadWhenShort = true }:
+                { lead?: string; autoFocus?: boolean; leadWhenShort?: boolean }) {
   const { startTask } = useStore();
   const [goal, setGoal] = useState("");
   const start = () => {
@@ -241,7 +287,11 @@ function AskBox({ lead, autoFocus }: { lead?: string; autoFocus?: boolean }) {
 
   return (
     <div className="flex flex-col gap-3 short:gap-2">
-      {lead && <p className="text-small font-medium text-soft">{lead}</p>}
+      {lead && (
+        <p className={`text-small font-medium text-soft${leadWhenShort ? "" : " short:hidden"}`}>
+          {lead}
+        </p>
+      )}
       <div
         className="flex items-center gap-4 rounded-xl border-2 border-line bg-surface py-2.5
                    pr-2.5 pl-6 shadow-card transition-[border-color,box-shadow] duration-200

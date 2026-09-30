@@ -49,5 +49,13 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     # The text box is on screen with nothing to scroll.
     assert result["overlay"]["box_in_viewport"], result["overlay"]
     assert not result["overlay"]["scrolls"], result["overlay"]
+    # And for someone with history: three remembered goals, as long as a card
+    # holds. Not measured until 2026-09-30, when six cards had put the box
+    # below the bottom of the window at every scale.
+    history = result["overlay_with_history"]
+    assert history["cards"] == 3, history
+    assert history["box_in_viewport"], history
+    assert not history["scrolls"], history
+    assert history["smallest_text_px"] >= 20, history
     # Perception's page is exactly what it was.
     assert result["site_view"]["inner"] == [1280, 800], result["site_view"]

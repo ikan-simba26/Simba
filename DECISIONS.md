@@ -3310,3 +3310,34 @@ as a guess the loop makes from which fields happen to be set.
 **Cost.** A place with no station is found out after two full windows: 31.5s on
 the replica, against about 11.6s before (EVALUATION.md, 2026-09-30b). 15s is not
 measured off the live site; it is three times the window that failed.
+
+---
+
+## The home screen is one list of three, and a card holds two lines
+
+**Date:** 2026-09-30 (`frontend/`, Aly's area; asked for by Raham)
+
+**Decision.** Remembered goals first, most recent first, then the things SIMBA
+can do; nothing twice, compared ignoring case, spacing and a closing full stop;
+three cards at most (`App.homeCards`). A remembered goal that is one of the
+cards takes the card's words and flow, in the remembered place. A card's text
+is clamped at two lines. In a window under 760px tall the card text is 23px
+instead of 26px and the text box's lead-in is hidden; at 100% the gaps between
+greeting, cards and box are 32px instead of 40px, and a card's padding is 16px
+instead of 20px.
+
+**Alternatives.** Keep two lists and cap each. Clamp cards at one line. Let the
+page scroll. Show two cards in a short window.
+
+**Why this.** The list is what was asked for. The rest is what it took for the
+worst realistic history to fit at 150% with nothing scrolling: bill look-ups are
+whole sentences with a fourteen-digit number at the end, which wrap at 26px and
+not at 23px. One-line clamping would have hidden exactly that number, so three
+bills would read as three identical cards. The box's lead-in repeats the
+greeting's question, and the input keeps it as its accessible name.
+
+**Cost.** With three remembered goals, the three things SIMBA can do are not on
+the home screen at all; "hello" still shows them. A goal longer than two lines
+is shown clamped, though every word is still in the card. The smaller type and
+missing lead-in apply to the compact layout only, and nothing is under 20px.
+With no history, the box sits 40px higher than it did, at every scale.

@@ -4255,3 +4255,50 @@ live runs, at `49e3334` (dirty tree: this change):
 The copy is about twice as fast, so a rehearsal on it is not a timing rehearsal
 for the live site. It spells the junction without the full stop the live site
 uses.
+
+---
+
+## 2026-09-30d — the home screen with history, at 100%, 125% and 150%
+
+The fit measurement (`display_fit_run`, `test_window_fit.py`) launched the host
+with no backend, so the home screen it measured never had any remembered goals:
+it was always the three-card screen. With history the old screen had six cards
+— three remembered, three defaults, under two headings — and none of that was
+measured.
+
+**Before**, measured in Chromium at each scale's real content size (from
+2026-09-25c) against a scripted backend offering the history, on the code at
+`b6ac3d4`:
+
+| Remembered | 100% (1280x800) | 125% (1280x734) | 150% (1266x606) |
+|---|---|---|---|
+| three bill look-ups | box at **1096–1164**, page 1224 tall | **867–927**, 955 | **867–927**, 955 |
+| three at a card's limit | **1205–1273**, 1333 | **976–1036**, 1064 | **976–1036**, 1064 |
+
+The text box was below the bottom of the window at every scale, not only at
+150%. A bill look-up is a realistic remembered goal — "Find the amount due for
+reference number 04141234567890." is what the trace store files a bill under.
+
+**After**: one list, remembered goals first, nothing twice, three cards at
+most; a card holds two lines; in a short window the card text is 23px and the
+box's lead-in is dropped. Measured in the real host at forced scales
+(`python -m tools.evaluation.display_fit_run`), with no history and with three
+remembered goals at a card's limit (`HISTORY`: two lines even at 23px):
+
+| Scale | Overlay CSS | No history: cards, box | With history: cards, box | Scrolls | Smallest text |
+|---|---|---|---|---|---|
+| 1 | 1280x800 | 3, 605–674 | 3, **656–724** | no | 20px |
+| 1.25 | 1280x734 | 3, 453–513 | 3, **516–576** | no | 20px |
+| 1.5 | 1266x606 | 3, 452–513 | 3, **515–576** | no | 20px |
+
+Site view 1280x800 at every scale; captures 10/20 at scale 1, 20/20 at 1.25 and
+1.5 — the known 100% capture problem (2026-09-27), unchanged.
+
+The worst case at 150% leaves 30px under the box. `frontend/test_home.py` holds
+it in the suite without a host: four histories at three sizes, never more than
+three cards, remembered first, a remembered goal that is one of the cards shown
+once and still sent with its flow. 22 tests.
+
+With no history, the box sits 40px higher than on 2026-09-25c at every scale:
+645–714 → 605–674 at 100%, from the tighter spacing, and 493–553 → 453–513 at
+125% and 492–553 → 452–513 at 150%, from the hidden lead-in.
