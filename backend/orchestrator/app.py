@@ -14,6 +14,12 @@ could be two flows gets a `goal.answered` instead, and the socket stays open
 for whatever the person picks next. Nothing runs that was not asked for —
 until that day `SIMBA_FLOW` chose the task, and "hello" ran the bill.
 
+**And the person's own details are what it runs on** (2026-09-30). Once a
+goal is routed, what it says is read (`details.py`): where from, where to and
+which day; a reference number; a course. Anything missing is asked for, one
+question at a time, before the site is touched. Until that day every flow ran
+on the values written into its plan, whatever had been typed.
+
 The switches, all environment variables:
 
 - `SIMBA_ROUTER` is `model` (default: one classification call to the
@@ -49,11 +55,12 @@ from fastapi import FastAPI, WebSocket
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
 from backend.orchestrator.browser import browser_source, open_page
+from backend.orchestrator.details import BRIEFS, brief_for, understand
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.estimator.pairing import Recorder, recording_enabled
 from backend.estimator.rules import Decision, LevelRules
-from backend.orchestrator.loop import Connection, follow_override, run_task
+from backend.orchestrator.loop import Connection, follow_override, run_brief, run_task
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
@@ -220,7 +227,34 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)),
         )
 
-    _, task, plan, replica_url = flow_setup(decided.flow)
+    name, task, plan, replica_url = flow_setup(decided.flow)
+
+    if name in BRIEFS:
+        # The person's own details, read from what they typed. Whatever is
+        # missing is asked for inside `run_brief`, and the task is built from
+        # the answers — so nothing here knows yet what the task will be.
+        known = await understand(name, goal, model)
+        log.info("understood %r as %s", goal, known)
+        brief = brief_for(
+            name, goal, known,
+            hardcoded=use_hardcoded_plan(),
+            provider=None if use_hardcoded_plan() else provider_from_env(),
+        )
+        # Trace memory wraps whatever planner the brief settles on. It is
+        # keyed on the details spelled out, not on the words typed: "trains
+        # to Rawalpindi tomorrow" is a different journey every day.
+        if use_trace_memory():
+            store = TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB))
+            brief.wrap = lambda planner, spelled_out: TracePlanner(
+                store, spelled_out, site_of(replica_url), planner)
+
+        async with open_page(replica_url) as page:
+            await run_brief(page, connection, brief, replica_url, recorder, rules)
+        await websocket.close()
+        return
+
+    # Only the recovery rig comes this way: a page built to fail, with a plan
+    # and a task of its own, and nothing about it for a person to say.
     # What the person typed is what the task is. A card's goal is its own
     # sentence; an empty goal cannot reach here, because it routes to a
     # greeting.
