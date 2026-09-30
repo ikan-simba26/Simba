@@ -128,6 +128,8 @@ async def main() -> None:
         print("goal:", args.goal, flush=True)
 
         answered = 0
+        #: The answer worked out for the step now on screen, or None.
+        decided: tuple[str, dict] | None = None
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
             text = await overlay.inner_text("body")
@@ -138,7 +140,14 @@ async def main() -> None:
             steps = [m for m in received if m["type"] == "step.presented"]
             if len(steps) > answered:
                 step = steps[-1]["payload"]
-                label, values = answer_for(step, typed, picks)
+                # Worked out once per step, not once per look. Deciding it
+                # again while waiting for the button to appear took another
+                # answer off the front of the list each time, so every run
+                # before this fix pressed the first station whatever `--pick`
+                # said.
+                if decided is None:
+                    decided = answer_for(step, typed, picks)
+                label, values = decided
                 press = overlay.get_by_role("button", name=label, exact=True)
                 try:
                     await press.wait_for(state="visible", timeout=5000)
@@ -161,6 +170,7 @@ async def main() -> None:
                 await overlay.wait_for_timeout(args.pause * 1000)
                 await press.click()
                 answered = len(steps)
+                decided = None
             await overlay.wait_for_timeout(400)
 
         await overlay.wait_for_timeout(2000)

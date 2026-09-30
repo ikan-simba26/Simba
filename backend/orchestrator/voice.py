@@ -132,7 +132,16 @@ def confirm_search(origin: str, destination: str, day: str) -> str:
 
 
 def no_station(place: str) -> str:
-    return f"I couldn't find a station called {place}."
+    """When the site offered nothing for a place the person named.
+
+    It says what happened and not what it means, because the two cases cannot
+    be told apart from here. On 2026-09-30 this read "I couldn't find a
+    station called Lahore." and was shown for Lahore, which has two stations
+    on that site: the name had gone into the box but the list had not opened
+    yet, and a list that has not arrived looks exactly like a place that has
+    no stations (EVALUATION.md).
+    """
+    return f"The site didn't offer me any stations for {place}."
 
 
 NO_TRAINS = "I searched, and no trains came back for that day."
