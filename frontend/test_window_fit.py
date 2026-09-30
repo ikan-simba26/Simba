@@ -59,3 +59,10 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     assert history["smallest_text_px"] >= 20, history
     # Perception's page is exactly what it was.
     assert result["site_view"]["inner"] == [1280, 800], result["site_view"]
+    # And a page that scrolls lays out at the full 1280px, inner scroll boxes
+    # too, as it does headless — on the first page and the next — and still
+    # scrolls. Until 2026-09-30 the host laid it out at 1263px.
+    for page in ("first_page", "next_page"):
+        layout = result["site_view"]["layout"][page]
+        assert layout["client"] == layout["wide"] == layout["inner_box"] == 1280, layout
+        assert layout["scrolled_to"] == 600, layout

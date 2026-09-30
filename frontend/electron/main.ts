@@ -42,6 +42,10 @@ import { BaseWindow, WebContentsView, app, screen, type Display, type Rectangle 
 
 const CDP_PORT = process.env.SIMBA_CDP_PORT ?? "9222";
 const START_URL = process.env.SIMBA_START_URL ?? "about:blank";
+
+/** Every scrollbar in the site view, gone and taking no room. See below. */
+const HIDE_SCROLLBARS =
+  "* { scrollbar-width: none !important; } ::-webkit-scrollbar { display: none !important; }";
 const DEV_SERVER = process.env.SIMBA_DEV_SERVER;
 
 // Must be set before the app is ready.
@@ -87,6 +91,18 @@ app.whenReady().then(() => {
   const siteView = new WebContentsView();
   win.contentView.addChildView(siteView);
   siteView.setBounds(VIEWPORT);
+  // No scrollbars in the site view, so a page lays out at the full 1280px.
+  // Headless Chromium hides them, and the host did not: a page that scrolled
+  // laid out at 1263px here and 1280px there, and every inner scroll box lost
+  // another 17px — so perception read a different page in each environment,
+  // and a scrolling table's heading strip grew the spacer column
+  // `content.py` has to discount (EVALUATION.md, 2026-09-17i, 2026-09-30e).
+  // Nobody sees this view, so nothing is lost; it still scrolls. Put back on
+  // every page, since a stylesheet lasts only as long as its document; the
+  // user origin, so no page's own stylesheet can bring them back.
+  siteView.webContents.on("dom-ready", () => {
+    void siteView.webContents.insertCSS(HIDE_SCROLLBARS, { cssOrigin: "user" });
+  });
   void siteView.webContents.loadURL(START_URL);
 
   const overlay = new WebContentsView();

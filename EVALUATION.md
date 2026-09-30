@@ -4302,3 +4302,31 @@ once and still sent with its flow. 22 tests.
 With no history, the box sits 40px higher than on 2026-09-25c at every scale:
 645–714 → 605–674 at 100%, from the tighter spacing, and 493–553 → 453–513 at
 125% and 492–553 → 452–513 at 150%, from the hidden lead-in.
+
+---
+
+## 2026-09-30e — the site view's scrollbar, hidden
+
+A page that scrolls, with an inner scroll box, in the Electron site view and in
+headless Chromium (Playwright's own launch, which hides scrollbars). The host at
+forced scales, over CDP.
+
+| | Page layout width | Inner scroll box | Page still scrolls |
+|---|---|---|---|
+| Headless | 1280 | 1280 | yes |
+| Host, before, at 1, 1.25 and 1.5 | **1263** | **1246–1247** | yes |
+| Host, after, at 1, 1.25 and 1.5 | **1280** | **1280** | yes, to 600 of 600 asked |
+
+So until today the host laid out every page that scrolls 17px narrower than
+headless, and every inner scroller another 17px narrower still, at every scale.
+That is the environment difference behind the scrollbar spacer column on the
+live railways results (2026-09-17i): it appeared only in the host.
+
+The fix is a user-origin stylesheet put into the site view on every page
+(`frontend/electron/main.ts`), so a page's own CSS cannot bring the scrollbars
+back. Checked on a first page and after a second navigation.
+`test_window_fit.py` holds both, at all three scales, when the host tests run.
+
+Every perception figure measured in the host before this — the host columns of
+the corpus (2026-09-19b, 2026-09-20e) and every host run since — was measured
+at 1263px on a page that scrolled. Re-collected in 2026-09-30g, below.

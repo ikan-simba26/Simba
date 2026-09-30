@@ -3341,3 +3341,30 @@ the home screen at all; "hello" still shows them. A goal longer than two lines
 is shown clamped, though every word is still in the card. The smaller type and
 missing lead-in apply to the compact layout only, and nothing is under 20px.
 With no history, the box sits 40px higher than it did, at every scale.
+
+---
+
+## The site view hides its scrollbars with a user stylesheet, not a Chromium switch
+
+**Date:** 2026-09-30 (asked for by Raham)
+
+**Decision.** `main.ts` inserts `* { scrollbar-width: none !important }` (and the
+`::-webkit-scrollbar` equivalent) into the site view as a user-origin stylesheet
+on every `dom-ready`. The overlay is untouched.
+
+**Alternatives.** Chromium's `--hide-scrollbars` switch, which is what headless
+Playwright uses and so would match it by construction. Or leave the host at
+1263px and correct for it in perception.
+
+**Why this.** The switch is process-wide: it would take the overlay's scrollbars
+too, and the overlay is the one view a person uses. A stylesheet can be scoped
+to the view that needs it. User origin with `!important` outranks anything a
+page's own stylesheet says. Correcting in perception would mean every feature
+that reads a width knowing which environment it is in — the thing the frozen
+viewport exists to avoid.
+
+**Cost.** A stylesheet is per document, so it is put back on every page, and
+there is a moment between a page's first layout and `dom-ready` when it has its
+scrollbars. Nothing reads the page in that moment. It is a stylesheet, not the
+engine's own mode, so a page that draws a scrollbar of its own out of elements
+still has one.

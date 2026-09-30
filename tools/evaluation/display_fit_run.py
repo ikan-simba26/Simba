@@ -45,6 +45,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import quote
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -106,6 +107,36 @@ class ScriptedHistory:
 
         threading.Thread(target=run, daemon=True).start()
         started.wait(timeout=10)
+
+
+# A page that scrolls, with an inner scroll box, for the site view's layout
+# width. Hidden scrollbars (2026-09-30) must leave both at the full 1280px and
+# the page still scrollable, on the first page and on the next.
+LAYOUT_PAGE = "data:text/html," + quote(
+    "<!doctype html><html><body style='margin:0'>"
+    "<div id=wide style='width:100%;height:40px'></div>"
+    "<div id=box style='height:120px;overflow-y:scroll'>" + "line<br>" * 40 + "</div>"
+    + "<p>text</p>" * 200 + "</body></html>")
+
+LAYOUT_JS = """() => {
+    window.scrollTo(0, 600);
+    return {
+        client: document.documentElement.clientWidth,
+        wide: Math.round(document.getElementById('wide').getBoundingClientRect().width),
+        inner_box: document.getElementById('box').clientWidth,
+        scrolled_to: Math.round(window.scrollY),
+    };
+}"""
+
+
+def site_layout(site: Page) -> dict:
+    """The site view's layout width on a page that scrolls, twice over."""
+    first = None
+    for _ in range(2):
+        site.goto(LAYOUT_PAGE)
+        site.wait_for_timeout(500)
+        first = first or site.evaluate(LAYOUT_JS)
+    return {"first_page": first, "next_page": site.evaluate(LAYOUT_JS)}
 
 
 HOME_JS = """(label) => {
@@ -229,6 +260,7 @@ def measure(scale: str) -> dict:
             view = read_home(overlay)
 
             site_view = site.evaluate("() => ({inner: [innerWidth, innerHeight], dpr: devicePixelRatio})")
+            site_view["layout"] = site_layout(site)
             site.set_content("<h1 style='font:48px sans-serif'>site view</h1>"
                              "<p>" + "text " * 400 + "</p>")
             ok = 0
