@@ -4438,3 +4438,22 @@ moved. Of 35 idle headless rows, 27 read the same density as before; the other
 
 `overlays` is still the one feature that barely varies across the corpus, now
 the only one the collector reports as such.
+
+---
+
+## 2026-10-01 — one attempt for a step that waits on a list
+
+A step that waits on a fetched list (`Expectation.list_opens`) now makes one
+attempt instead of two. `test_trip.py`, local replica, real Chromium.
+
+| | Before (2026-09-30b) | After |
+|---|---|---|
+| "Narnia": no station, reported after | 31.5s | **16.7s** (16.68, 16.84, 16.65 over three runs) |
+| `step.failed.strategies_tried` on that step | 2 | 1 |
+| A list 8s late, one attempt | — | found, searched, no `step.failed` |
+
+One run of the same Narnia search took 24.8s; it was the first browser run in
+that test session, and the three repeats above did not reproduce it. Every other
+step still makes two attempts, which `test_setback.py` and `test_durability.py`
+assert (`strategies_tried == 2`); 78 tests across those files, `test_trip.py`
+and `test_verification.py` pass.

@@ -845,8 +845,17 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         await set_state("acting")
 
         # The retry: same move, different strategy. Identical for every planner.
+        #
+        # Except a step that waits on a list the site fetches, which gets one
+        # attempt (2026-10-01). Its verification already waits three times as
+        # long as an ordinary step's (`LIST_TIMEOUT_S`), so a second attempt
+        # doubled that for the case where no list ever comes — a mistyped
+        # place took 31.5s to be reported. The longer wait is that step's
+        # second chance. An exception to CLAUDE.md's "retry once with a
+        # different strategy"; DECISIONS.md.
+        strategies = 1 if move.expect.list_opens else 2
         failure = await attempt_move(page, move, input_values, strategy=0, before=before)
-        if failure is not None:
+        if failure is not None and strategies > 1:
             _, before_retry, _ = await perceive(page)
             failure = await attempt_move(page, move, input_values, 1, before_retry)
 
@@ -868,7 +877,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                     step_index=run.shown,
                     instruction=move.instruction,
                     reason=failure,
-                    strategies_tried=2,
+                    strategies_tried=strategies,
                 ),
             )
             last_failure = f"{move.instruction} did not work: {failure}"

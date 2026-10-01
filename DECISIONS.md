@@ -3396,3 +3396,30 @@ corpus has nothing between 0.234 and 0.3125, so nothing shows whether a page at
 0.28 is a blocker or furniture. A docs sidebar a little wider than MUI's (above
 345px) would now be flagged as covering the page. Until a corpus has pages in
 the band, 0.27 is as untested as 0.30 was — just centred.
+
+---
+
+## A step that waits on a list gets one attempt, not two
+
+**Date:** 2026-10-01 (asked for by Raham)
+
+**Decision.** In `loop.carry_out`, a move whose expectation has `list_opens` is
+attempted once; every other move keeps the retry with a different strategy.
+`step.failed.strategies_tried` says 1 for such a step.
+
+**Alternatives.** Keep two attempts and accept 31.5s before a mistyped place is
+reported. Keep two and shorten the window. Keep the second attempt but give it
+a short window of its own.
+
+**Why this.** The list window is already three times an ordinary step's, and it
+is polled: a list that comes at all is seen within it. A second attempt helped
+only when no list was ever coming, and then it doubled the wait — for a person
+who mistyped a place, 31.5s of a working screen before being told. One attempt
+reports it in 16.7s, and a list 8s late is still found.
+
+**Cost.** It is an exception to CLAUDE.md's loop rule — "retry once with a
+different strategy, then hand control to the user" — for one kind of step, and
+CLAUDE.md does not yet say so. The second strategy types the name differently;
+a site that ignored the first way of typing and answered the second would now
+be reported as having no such station. None of ours does, and the live site
+answered the first way in five of six runs.

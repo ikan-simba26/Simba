@@ -570,3 +570,36 @@ def test_no_other_step_on_the_trip_waits_longer() -> None:
 
     assert searching is not None and searching.expect.list_opens is False
     assert choosing is not None and choosing.expect.list_opens is False
+
+
+# --- one attempt for a step that waits on a list ----------------------------
+#
+# With two attempts, each waiting the full list window, a place with no station
+# took 31.5s to be reported (EVALUATION.md, 2026-09-30b). Since 2026-10-01 a
+# step that waits on a list gets one attempt: its longer wait is its second
+# chance. Every other step keeps two, which `test_setback.py` and
+# `test_durability.py` hold.
+
+
+def test_a_place_with_no_station_is_reported_after_one_window(railways: str) -> None:
+    import time
+
+    from backend.orchestrator.loop import LIST_TIMEOUT_S
+
+    started = time.monotonic()
+    run = search("Narnia", "Multan", TOMORROW, [], railways)
+    took = time.monotonic() - started
+
+    assert run.of("help.requested")[0]["reason"] == no_station("Narnia")
+    assert [f["strategies_tried"] for f in run.of("step.failed")] == [1]
+    # One window and the page around it, not two windows.
+    assert LIST_TIMEOUT_S < took < 2 * LIST_TIMEOUT_S
+
+
+def test_a_late_list_is_still_found_with_one_attempt(railways: str) -> None:
+    """What the second attempt was for, before the window was lengthened: a
+    list that is late but does come. One attempt still sees it."""
+    run = search("Rawalpindi", "Multan", TOMORROW, [], late(railways))
+
+    assert "step.failed" not in run.types()
+    assert run.searched["to"] == "MULTAN CANTT"
