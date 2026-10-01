@@ -4,7 +4,7 @@ A demo can fail for reasons that have nothing to do with the work: the live
 railways site is down, the room has no internet, the host will not start. These
 are the same runs, recorded, so the talk can go on.
 
-    .\\run.ps1 billing                       # in one terminal, for the real ones
+    .\\run.ps1 railways-local                # in one terminal, for the real ones
     python -m tools.record_demo              # in another
 
     python -m tools.record_demo mock         # only the clips needing no stack
@@ -17,12 +17,22 @@ overlay is simply rendered in a browser that can record, which the Electron
 window cannot. The picture is the overlay's own 1280x800, never the desktop
 (CLAUDE.md, "Tooling boundaries").
 
-The railways clip uses the live site once. One recording, kept, is the point:
-it is what saves the demo from needing the site at all.
+**No clip touches the live site.** The railways clip runs on our own copy of
+the train search: start the stack with `railways-local`, and this asks the
+backend where a train goal would run before recording one, and refuses if the
+answer is the live site (since 2026-10-01; until then the railways clip was the
+one time a recording used the live site).
+
+**Clips answer questions.** Since 2026-09-30 a goal that leaves something out
+is asked about, and a clip that only pressed the first button on every screen
+would press "That's it" on an empty box until the run gave up. Each clip says
+what to type when it is asked and which answer to press (`ANSWERS`), the way
+DEMO.md tells a presenter to.
 """
 
 import functools
 import http.server
+import json
 import shutil
 import socketserver
 import subprocess
@@ -54,17 +64,32 @@ ENDED = ("I'm done", "I'm stuck, so I've stopped.", "I couldn't finish this.")
 
 #: (name, which backend, what to type, what it shows)
 CLIPS: list[tuple[str, str, str, str]] = [
-    ("railways", "real", "Show me trains from Lahore to Karachi",
-     "the live site, five steps, ending on the train and the journey time"),
+    ("railways", "real", "trains to Rawalpindi tomorrow",
+     "our copy of the train search: where from, which Lahore station, five steps, "
+     "the journey said back, ending on the trains"),
     ("billing", "real", "What do I owe on my electricity bill?",
-     "the billing replica, three steps, ending on the amount and the due date"),
+     "the billing replica: the reference number asked for, three steps, ending on "
+     "the amount and the due date"),
     ("hello", "real", "hello",
      "a greeting and the three things SIMBA can do — no task started"),
     ("fold", "mock", "Register for CS-401",
      "the scripted run, including the fold from one detail level to the next"),
-    ("adapt", "real", "What do I owe on my electricity bill?",
+    # The number is in the goal so nothing is asked, and the clip stays about
+    # the level: it hesitates on the first *step*.
+    ("adapt", "real", "What do I owe on my electricity bill 04141234567890?",
      "billing, hesitating on step 1 until it folds, then two calm answers and back"),
 ]
+
+#: What each clip types when it is asked something, in order, and which answer
+#: it presses when a question offers several — what DEMO.md tells a presenter
+#: to do. A clip with nothing here presses each screen's first button.
+ANSWERS: dict[str, dict[str, list[str]]] = {
+    "railways": {"type": ["Lahore"], "pick": ["Lahore Cantt"]},
+    "billing": {"type": ["04141234567890"]},
+}
+
+#: The live site. No clip may run there.
+LIVE_RAILWAYS = "pakrailways.gov.pk"
 
 #: Clips that hesitate on their first step instead of pressing it: the pointer
 #: drifts over the step until the overlay says it is showing less, the way
@@ -99,8 +124,56 @@ def build() -> None:
         raise SystemExit(done.stderr)
 
 
+def railways_site(health_url: str = "http://127.0.0.1:8000/") -> str:
+    """Where the running backend would run a train goal."""
+    import urllib.request
+
+    with urllib.request.urlopen(health_url, timeout=5) as answer:
+        return json.loads(answer.read()).get("railways_site", "")
+
+
+def refuse_the_live_site(site: str) -> None:
+    """Stop before a railways clip that would search the live site."""
+    if not site or LIVE_RAILWAYS in site:
+        raise SystemExit(
+            f"the backend would run the railways clip on {site or 'an unknown site'}. "
+            "Start the stack with `.\\run.ps1 railways-local` (or `./run.sh "
+            "railways-local`) so it runs on our own copy, then record again.")
+
+
+def answer_screen(page, shell, typed: list[str], picks: list[str]) -> str | None:
+    """Answer whatever the screen in `shell` asks. Returns what was done, or
+    None when there is nothing to press yet.
+
+    A box: type the next answer into it, then press the screen's own button.
+    Several answers offered: press the next one named in `picks`, if it is
+    there. Anything else: the first button, which is the screen's go-ahead.
+    """
+    buttons = shell.locator("button:not([disabled])")
+    if not buttons.count():
+        return None
+    box = shell.locator("input:not([disabled])")
+    if box.count() and typed:
+        value = typed.pop(0)
+        box.first.click()
+        box.first.type(value, delay=60)
+        page.wait_for_timeout(500)
+        buttons.first.click()
+        return f"typed {value!r}"
+    if picks:
+        wanted = shell.get_by_role("button", name=picks[0], exact=True)
+        if wanted.count():
+            picks.pop(0)
+            label = wanted.first.inner_text().strip()
+            wanted.first.click()
+            return f"chose {label!r}"
+    label = buttons.first.inner_text().strip()
+    buttons.first.click()
+    return label
+
+
 def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Path, list[str]]:
-    """One clip: type the goal, press through whatever comes back, keep it.
+    """One clip: type the goal, answer whatever comes back, keep it.
 
     Returns the file and what was on screen along the way. A recording nobody
     has watched is not evidence of anything, so the caller prints the path: a
@@ -123,13 +196,22 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
     page.wait_for_timeout(700)
     page.keyboard.press("Enter")
 
+    script = ANSWERS.get(name, {})
+    typed, picks = list(script.get("type", [])), list(script.get("pick", []))
     seen: list[str] = []
+    #: The screen last acted on, by its words: a new screen is new words.
+    last = ""
     deadline = time.time() + 300
     while time.time() < deadline:
         page.wait_for_timeout(600)
         text = page.evaluate("() => document.body.innerText")
-        if any(ending in text for ending in ENDED):
-            seen.append("ended")
+        ending = next((e for e in ENDED if e in text), None)
+        if ending:
+            # Which ending, because "I'm stuck" is an ending too, and a clip
+            # that ends on it is not a fallback for a run that worked.
+            found = "Here's what I found" in text
+            seen.append("found an answer" if found
+                        else "done" if ending == "I'm done" else f"ended: {ending}")
             break
         # A reply: nothing starts, and that is the clip.
         if "Here's what I can help with" in text:
@@ -140,18 +222,19 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
             break
         shell = page.locator("[data-testid=step-shell]")
         if shell.count() and shell.first.is_visible():
-            go = shell.first.locator("button:not([disabled])").first
-            if go.count():
-                label = go.inner_text().strip()
-                if not seen or seen[-1] != label:
-                    seen.append(label)
-                    page.wait_for_timeout(BEAT_MS)
-                    if name in HESITATES and len(seen) == 1:
-                        folded = hesitate(page, SIMPLER)
-                        seen.append(f"folded after {folded}s" if folded else "never folded")
-                        page.wait_for_timeout(BEAT_MS * 2)  # let the fold be seen
-                        seen.append(label)
-                    go.click()
+            words = " ".join(shell.first.inner_text().split())
+            ready = shell.first.locator("button:not([disabled])").count()
+            if ready and words != last:
+                last = words
+                page.wait_for_timeout(BEAT_MS)
+                if name in HESITATES and not seen:
+                    folded = hesitate(page, SIMPLER)
+                    seen.append(f"folded after {folded}s" if folded else "never folded")
+                    page.wait_for_timeout(BEAT_MS * 2)  # let the fold be seen
+                    last = " ".join(shell.first.inner_text().split())
+                done = answer_screen(page, shell.first, typed, picks)
+                if done:
+                    seen.append(done)
     page.wait_for_timeout(2500)  # let the last screen be read
 
     video = page.video
@@ -198,6 +281,11 @@ def main() -> None:
     print("building the overlay", flush=True)
     build()
     page_url = serve(BUILD)
+
+    if any(c[0] == "railways" for c in clips):
+        site = railways_site()
+        refuse_the_live_site(site)
+        print(f"railways clip runs on {site}", flush=True)
 
     mock = start_mock() if any(c[1] == "mock" for c in clips) else None
     try:

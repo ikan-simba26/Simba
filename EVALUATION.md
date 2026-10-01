@@ -4490,3 +4490,38 @@ against the real files, which the tests leave unchanged.
 
 scikit-learn 1.9.1 (numpy 2.5.3, scipy 1.18.1, joblib 1.6.0), new in
 `backend/requirements.txt`.
+
+---
+
+## 2026-10-01c — the demo clips, re-recorded on our copy of the train search
+
+`python -m tools.record_demo` with the stack started by `.\run.ps1
+railways-local`, overlay built from source, every clip pressing at a 1.8s beat.
+The backend's health check said `"railways_site": "http://127.0.0.1:5200"`
+before the railways clip, and the recorder refuses to record that clip unless
+it does.
+
+| Clip | What it did | Ending | Length to record |
+|---|---|---|---|
+| railways | typed "Lahore", chose "Lahore Cantt", five steps | **found an answer** | 45s |
+| billing | typed `04141234567890` when asked, three steps | **found an answer** | 32s |
+| hello | — | greeted, nothing started | 8s |
+| fold (mock) | four steps, the scripted fold | done | 30s |
+| adapt | folded after 9.4s of hesitation on step 1, three steps | **found an answer** | 40s |
+
+The first pass reported only "ended" for every task clip, which an "I'm stuck"
+ending would also have produced; the recorder now says which ending it reached,
+and the task clips were recorded again. Before the question flow, the recorder
+pressed the first button on every screen, which on a question with a box is
+"That's it" on an empty box: the railways, billing and (asked for a reference)
+adapt clips could not have completed.
+
+**What shows the railways clip ran on the copy**: the health check reports
+`flow_setup("railways")`, the same function the run itself uses to choose the
+site, and the recorder refused to start until it named the copy. Not a network
+capture: the three replicas' request logs cannot be told apart, and no request
+to the live site is in the stack's output.
+
+The railways clip is 45s; the 2026-09-23 recording on the live site was 80s,
+with three fewer screens. The copy is faster than the live site (EVALUATION.md,
+2026-09-30c), so the clips no longer show the live run's pace.

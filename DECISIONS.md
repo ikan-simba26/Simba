@@ -3466,3 +3466,29 @@ re-collected on 2026-09-30, so for a live page the features may not describe
 the exact picture rated. Fifty pages is a small sample for nine features; the
 R² will be noisy, which the fold-by-fold figures will show. The ten-rater floor
 is a choice, not a statistical threshold, and the refusal says so.
+
+---
+
+## The demo recorder asks the backend where a train goal runs, and refuses the live site
+
+**Date:** 2026-10-01 (recording against `railways-local` asked for by Raham)
+
+**Decision.** The health check reports `railways_site`, from
+`flow_setup("railways")`. `tools/record_demo.py` reads it before a railways clip
+and stops, naming `railways-local`, unless it is our copy. Each clip carries the
+answers DEMO.md tells a presenter to give (`ANSWERS`); the billing clip answers
+the reference question, and the adaptation clip puts the number in its goal so
+it still hesitates on a *step*.
+
+**Alternatives.** Trust whoever runs it to have started the right stack. Make
+the recorder start its own stack. Point the recorder at the replica directly.
+
+**Why this.** The recorder talks only to a backend someone else started, and the
+one thing it cannot see is where that backend will send a train goal — which is
+the whole of the requirement. Asking the same function the run uses is the
+check that cannot drift from it. The overlay is still recorded against the real
+backend and the real host, which is what makes it a recording of the product.
+
+**Cost.** One new field on the health check (HTTP, not part of the WebSocket
+contract). The recordings run at the copy's pace, about twice the live site's,
+and show invented trains; DEMO.md says to tell the audience so.
