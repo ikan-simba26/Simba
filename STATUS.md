@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-09-30 (later) · **742 passing, 12 skipped** · suite wall clock 827s, on `feat/multi-october-readiness`. 30 tests were added in the later batch, 198 in the day. The 3 host fit tests among the skips were run separately with the host (`SIMBA_HOST_TESTS=1`) after the last change to them, and passed. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 1001s and 1081s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-01 · **776 passing, 12 skipped** · suite wall clock 1222s, on `feat/multi-october-pipeline-and-demo`. 34 tests added today. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s and 1081s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -118,6 +118,26 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-01: the training pipeline, one attempt, the recordings
+
+- **Merged and pushed.** `feat/multi-october-readiness` is in `main`
+  (`85bbf69`). The rest below is on `feat/multi-october-pipeline-and-demo`,
+  **not merged**.
+- **A mistyped place is reported in 16.7s**, not 31.5s: a step that waits on a
+  list gets one attempt. An exception to CLAUDE.md's retry rule, and CLAUDE.md
+  does not yet say so (2026-10-01).
+- **The estimator's training pipeline exists and has trained nothing.**
+  `python -m backend.estimator.train` measures agreement, averages per page,
+  fits a ridge regression, cross-validates, and refuses fewer than ten raters.
+  No person has rated a page, so today it says where ratings come from and
+  stops. Checked on synthetic ratings only, and those can never be written as
+  the model or into EVALUATION.md (2026-10-01b).
+- **scikit-learn is a dependency** (with numpy, scipy, joblib), installed in
+  `backend/venv` and named in `backend/requirements.txt`.
+- **The demo clips are re-recorded on our copy of the train search**, answering
+  the questions; the recorder refuses to record railways on the live site. All
+  three task clips ended on an answer found (2026-10-01c).
 
 ### Changed on 2026-09-30 (later): six items, one branch
 
@@ -573,11 +593,12 @@ application's state (EVALUATION.md).
   stations**~~ **Fixed 2026-09-30 (later)**: a step that waits on a fetched list
   has 15s (`LIST_TIMEOUT_S`). Reproduced and fixed on the replica with a late
   list; **not re-checked on the live site**, where it happened once in six runs.
-- **A mistyped place now takes 31.5s to be reported**, because both strategies
-  wait the full list window. Options: skip the second strategy for a list step
-  (about 16s), shorten the window (15s is three times the one that failed, not a
-  measured figure), or leave it. Recommended: leave it until the live list's
-  real latency is measured. **Raham's call.**
+- ~~**A mistyped place now takes 31.5s to be reported**~~ **16.7s since
+  2026-10-01**: one attempt for a step that waits on a list. **CLAUDE.md's loop
+  rule — "retry once with a different strategy" — does not name the exception.**
+  Options: add one line to CLAUDE.md naming it; or leave the exception recorded
+  only in DECISIONS.md. Recommended: add the line, since CLAUDE.md is what a
+  newcomer reads as the rule. Not done: CLAUDE.md is changed when asked.
 - **Replayed runs do not get the longer window.** Replay builds every move with
   an empty expectation. Trace memory is off by default, so nothing uses it
   today.
@@ -714,6 +735,15 @@ application's state (EVALUATION.md).
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
+- **The training pipeline** (`train.py`, 2026-10-01): agreement between raters
+  (Krippendorff's alpha, interval, checked against the published 0.849) and
+  within them (the repeated pages), per-page means with every rater counted
+  once, ridge regression on the nine headless features, 5-fold R² beside
+  predicting the mean, held-out permutation importance, the model saved with
+  what it was trained on, and a section appended to EVALUATION.md. Refuses
+  fewer than ten raters, too few pages, and synthetic rows mixed with real
+  ones. 24 tests, all on synthetic ratings. **Nothing trained: there are no
+  ratings.**
 - **The page-side features**, raw: `interactive`, `links`, `inferred`,
   `text_density` (characters per 1000px² of the viewport), `max_depth`,
   `overlays`, `form_fields`, `dead_link_ratio`, `reading_grade` — nine — plus
@@ -896,14 +926,19 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `ec6adca` (the person's own details, merged and pushed
-  2026-09-30). **`feat/multi-october-readiness` is not merged**: the station
-  list's window, `railways-local`, the CLAUDE.md phase, the home screen, the
-  hidden scrollbars, `MIN_COVERAGE` and the corpus.
-- **The demo recordings predate the questions** and **`tools/record_demo.py`
-  still records the old railways goal**, "Show me trains from Lahore to
-  Karachi", pressing only primary buttons. Both need redoing before a demo that
-  relies on them as a fallback.
+- `main` is at `85bbf69` (the October readiness items, merged and pushed
+  2026-10-01). **`feat/multi-october-pipeline-and-demo` is not merged**: one
+  attempt for list steps, the training pipeline, and the recorder.
+- ~~**The demo recordings predate the questions**~~ **Re-recorded 2026-10-01**
+  on our copy, answering the questions. They run at the copy's pace, about
+  twice the live site's, and show invented trains; DEMO.md says so. `demo/` is
+  not committed, so a fresh clone has to record them again.
+- **Most existing tests write to the system temp directory** (`tmp_path`:
+  `test_pairing.py`, `test_adaptation.py`, `test_billing.py`, `test_llm.py`,
+  `test_replay.py`, `test_conditions.py`, `test_rating.py`), which CLAUDE.md's
+  tooling rules forbid. The new estimator tests use `.scratch/`. Options: point
+  pytest's `--basetemp` at `.scratch/pytest` in one place; or change each test.
+  Recommended: `--basetemp`, one line, no test changes.
 - **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
   of `main` until the 100% capture rate is measured for real (see 2026-09-27
