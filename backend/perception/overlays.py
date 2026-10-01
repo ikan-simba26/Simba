@@ -110,11 +110,19 @@ MIN_STACK_LEVEL = 5
 # the gap between 0.30 and 0.50 filled with real blockers: a bottom sheet at
 # 0.461, a sticky banner at 0.369, a side drawer at 0.3125 (2026-09-20e).
 #
-# 0.30 still separates them, with far less room: 0.013 above the nearest
+# 0.30 still separated them, with far less room: 0.0125 below the nearest
 # blocker and 0.066 above the largest non-blocker (a docs sidebar at 0.234).
 # Measured on screen, clipped to where the page is scrolled. EVALUATION.md,
 # 2026-09-20e, has both distributions.
-MIN_COVERAGE = 0.30
+#
+# 0.27 since 2026-09-30: the middle of the empty band that is left, 0.234 to
+# 0.3125, whose exact midpoint is 0.273. That puts the same room either side —
+# 0.036 above the largest non-blocker, 0.0425 below the nearest blocker —
+# where 0.30 left five times as much on one side as the other. It also catches
+# a default Ant Design drawer, 378px of 1280 wide at 0.295, which 0.30 would
+# miss. No page in the corpus lies between 0.27 and 0.30, so the move is
+# argued from the gap, not tested by a page inside it. DECISIONS.md.
+MIN_COVERAGE = 0.27
 
 
 @dataclass

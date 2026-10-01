@@ -12,6 +12,7 @@ page. `run.ps1` called it `-Flow` until 2026-09-25 and still accepts that name.
 .\run.ps1                # opens on the registration replica
 .\run.ps1 billing        # opens on the billing replica
 .\run.ps1 railways       # opens on the live railways site
+.\run.ps1 railways-local # opens on our own copy of the train search — rehearse here
 .\run.ps1 mock           # the overlay against the scripted backend
 ```
 
@@ -19,6 +20,7 @@ page. `run.ps1` called it `-Flow` until 2026-09-25 and still accepts that name.
 ./run.sh                 # opens on the registration replica
 ./run.sh billing
 ./run.sh railways
+./run.sh railways-local
 ./run.sh mock
 ```
 
@@ -85,6 +87,7 @@ key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
 | `registration` | replicas :5000 and :5100, host, backend | The registration replica — a page we wrote, a modal to dismiss, ends on a confirmation screen. The thing to run first. |
 | `billing` | replicas :5000 and :5100, host, backend | The billing replica — a cookie bar, breadcrumbs, an accordion, and an amount that only `content.py` can read. |
 | `railways` | replicas :5000 and :5100, host, backend | **A live public website.** Read-only: fills a search and reads the timetable. Please treat it as somebody's public service — a handful of runs, not a benchmark. |
+| `railways-local` | replicas :5000, :5100 and **:5200**, host, backend with `SIMBA_RAILWAYS_URL` set | **Our own copy of the train search.** A train goal runs here instead of on the live site, as often as you like. Two stations in Lahore, two in Karachi, one with no trains. **Use this to rehearse and to try things out.** |
 | `mock` | mock backend :8000, host | The overlay alone, driven by a script. No replica, no browser driving, nothing real. |
 
 **SIMBA asks for what your goal left out** (since 2026-09-30). "Trains to
@@ -100,8 +103,19 @@ fourteen-digit number in the sentence, and it goes straight to the steps.
 `replicas/railways/` is a page we wrote that stands in for the live train
 search, for the things repeated runs need and the live site cannot give:
 several stations in one city, a station with no trains, and a search that can
-be run again and again. The launcher does not start it — `railways` means the
-live site, deliberately. The tests start it themselves; by hand it is:
+be run again and again. **`railways-local` opens the window on it** and tells
+the backend that the railways flow lives there, so "trains to Rawalpindi
+tomorrow" runs end to end without touching the live site. `railways` still
+means the live site. Nothing else changes: the other two replicas are up as
+usual, and the backend's health check reads the same.
+
+What the copy is not: a timing rehearsal. The same run takes about 25s of task
+time here and about 54s on the live site (EVALUATION.md, 2026-09-30c), because
+the live site's lists and search are network round trips. Add
+`?list_delay_ms=8000` to the page's address to make its station list arrive
+late, the way the live one sometimes does.
+
+The tests start the copy themselves. By hand, without the rest of the stack:
 
 ```bash
 PORT=5200 python replicas/railways/app.py    # then open http://127.0.0.1:5200

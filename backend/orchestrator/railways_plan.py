@@ -413,8 +413,9 @@ class TripPlanner:
                     Operation("fill", Target("textbox", box), value=query),
                 ],
                 # The site has to offer something for the name before there
-                # is anything to choose.
-                expect=Expectation(label_like=place),
+                # is anything to choose, and the list is fetched, so it is
+                # given the longer window a fetched list needs.
+                expect=Expectation(label_like=place, list_opens=True),
                 quiet=self._typed[end] > 1,
             )
 

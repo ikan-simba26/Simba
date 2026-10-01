@@ -8,6 +8,8 @@
         .\run.ps1                 opens on the registration replica
         .\run.ps1 billing         opens on the billing replica
         .\run.ps1 railways        opens on the live public site (read-only)
+        .\run.ps1 railways-local  opens on our own copy of the train search;
+                                  a train goal runs there, not on the live site
         .\run.ps1 mock            overlay + scripted backend, nothing real
 
     .\run.ps1 mock -Seconds 20 starts everything, waits, and shuts down again.
@@ -25,7 +27,7 @@
 [CmdletBinding()]
 param(
     # Named -Flow until 2026-09-25, and still accepted under that name.
-    [ValidateSet("registration", "billing", "railways", "mock")]
+    [ValidateSet("registration", "billing", "railways", "railways-local", "mock")]
     [Alias("Flow")]
     [string]$StartPage = "registration",
 
@@ -39,6 +41,8 @@ Set-Location -Path $PSScriptRoot
 $BackendPort = if ($env:SIMBA_BACKEND_PORT) { $env:SIMBA_BACKEND_PORT } else { "8000" }
 $CdpPort = if ($env:SIMBA_CDP_PORT) { $env:SIMBA_CDP_PORT } else { "9222" }
 $Hardcoded = if ($null -ne $env:SIMBA_USE_HARDCODED_PLAN) { $env:SIMBA_USE_HARDCODED_PLAN } else { "1" }
+# Where `railways-local` serves our own copy of the train search.
+$RailwaysLocalPort = "5200"
 $PlannerName = if ($Hardcoded -eq "1") { "hardcoded (no API quota spent)" } else { "LLM (spends API quota)" }
 
 # Electron reads this and runs as plain Node when it is set: no window, no
@@ -155,25 +159,29 @@ function Start-Host([string]$StartUrl) {
     Wait-For "http://127.0.0.1:$CdpPort/json/version" "the host (CDP $CdpPort)" 120
 }
 
-function Start-Backend {
+function Start-Backend([hashtable]$Extra = @{}) {
     # No SIMBA_FLOW: the typed goal chooses the task (2026-09-21), and setting
     # it here only made the backend's health check name the start page as if
     # it were the task. One set in the calling shell -- `stubborn` -- passes
     # through untouched.
     Say "starting the backend on :$BackendPort - the typed goal picks the task, planner=$PlannerName"
     [void]$Ports.Add($BackendPort)
-    Start-Tracked $Py @("-m", "uvicorn", "backend.orchestrator.app:app", "--port", $BackendPort) @{
+    $variables = @{
         SIMBA_BROWSER            = "electron"
         SIMBA_CDP_URL            = "http://127.0.0.1:$CdpPort"
         SIMBA_USE_HARDCODED_PLAN = $Hardcoded
-    } | Out-Null
+    }
+    foreach ($key in $Extra.Keys) { $variables[$key] = $Extra[$key] }
+    Start-Tracked $Py @("-m", "uvicorn", "backend.orchestrator.app:app", "--port", $BackendPort) $variables | Out-Null
     Wait-For "http://127.0.0.1:$BackendPort/" "the backend" 45
 }
 
 # Refuse to start on top of another run. Without this the second launcher
 # attaches to the first one's host and backend without saying so, and its
 # cleanup then kills processes it did not start.
-foreach ($port in @($BackendPort, $CdpPort, "5000", "5100")) {
+$Needed = @($BackendPort, $CdpPort, "5000", "5100")
+if ($StartPage -eq "railways-local") { $Needed += $RailwaysLocalPort }
+foreach ($port in $Needed) {
     if (Get-PortOwners $port) {
         Die "port $port is already in use - another SIMBA run is probably up. Stop that one first."
     }
@@ -203,6 +211,18 @@ try {
             Start-Replica "billing" "5100"
             Start-Host "https://www.pakrailways.gov.pk/train"
             Start-Backend
+        }
+        "railways-local" {
+            # Our own copy of the train search, for rehearsing and for the
+            # repeated runs the live site is not ours to give. The window opens
+            # on it, and a train goal runs on it: the backend is told the
+            # railways flow lives here instead of on the live site.
+            Start-Replica "registration" "5000"
+            Start-Replica "billing" "5100"
+            Start-Replica "railways" $RailwaysLocalPort
+            Start-Host "http://127.0.0.1:$RailwaysLocalPort"
+            Start-Backend @{ SIMBA_RAILWAYS_URL = "http://127.0.0.1:$RailwaysLocalPort" }
+            Say "a train goal runs on the local copy at :$RailwaysLocalPort, not on the live site"
         }
         "mock" {
             # No replica and no real backend: the scripted one plays the

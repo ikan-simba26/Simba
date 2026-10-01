@@ -9,7 +9,12 @@ display scale, and measures from outside it, over CDP:
   beside them as a cross-check;
 - **the overlay**: its CSS viewport, which is the window's content size at
   zoom 1, the smallest text on the home screen, and where the text box sits —
-  it must end inside the viewport with nothing to scroll;
+  it must end inside the viewport with nothing to scroll. **Twice**: once as
+  the host opens, with no backend and so no history, and once pointed at a
+  scripted backend that offers three remembered goals as long as a card will
+  hold (`HISTORY`). Until 2026-09-30 only the first was measured, so the
+  home screen this checked always had three cards, while a person with
+  history saw six and, at 150%, no text box;
 - **the site view**: its CSS viewport, which must be exactly 1280x800, and 20
   screenshots of it in a row, the capture `page.preview` depends on.
 
@@ -40,6 +45,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import quote
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -54,6 +60,118 @@ CDP = f"http://127.0.0.1:{PORT}"
 SCALES = ["1", "1.25", "1.5"]
 TEXTBOX = "What would you like me to do?"
 CAPTURES = 20
+
+# Three remembered goals at the limit of what a card holds: two lines even at
+# the compact layout's 23px, so every card is as tall as a card can be.
+HISTORY = [
+    f"Find the amount due for reference number {n}. Then tell me which of them "
+    "is due first and how much it is."
+    for n in ("04141234567890", "04149999999999", "04145555555555")
+]
+
+
+class ScriptedHistory:
+    """A backend that says hello with `HISTORY` and nothing more."""
+
+    def __init__(self) -> None:
+        import asyncio
+        import threading
+
+        import websockets
+
+        self.port = 0
+        started = threading.Event()
+
+        def run() -> None:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            async def handler(ws):
+                await ws.send(json.dumps({
+                    "v": 1, "type": "history.offered", "task_id": "t_fit", "seq": 1,
+                    "ts": 0, "payload": {"goals": [{"goal": g, "site": "fit"} for g in HISTORY]},
+                }))
+                try:
+                    async for _ in ws:
+                        pass
+                except websockets.ConnectionClosed:
+                    return
+
+            async def main() -> None:
+                server = await websockets.serve(handler, "127.0.0.1", 0)
+                self.port = server.sockets[0].getsockname()[1]
+                started.set()
+                await asyncio.Future()
+
+            loop.run_until_complete(main())
+
+        threading.Thread(target=run, daemon=True).start()
+        started.wait(timeout=10)
+
+
+# A page that scrolls, with an inner scroll box, for the site view's layout
+# width. Hidden scrollbars (2026-09-30) must leave both at the full 1280px and
+# the page still scrollable, on the first page and on the next.
+LAYOUT_PAGE = "data:text/html," + quote(
+    "<!doctype html><html><body style='margin:0'>"
+    "<div id=wide style='width:100%;height:40px'></div>"
+    "<div id=box style='height:120px;overflow-y:scroll'>" + "line<br>" * 40 + "</div>"
+    + "<p>text</p>" * 200 + "</body></html>")
+
+LAYOUT_JS = """() => {
+    window.scrollTo(0, 600);
+    return {
+        client: document.documentElement.clientWidth,
+        wide: Math.round(document.getElementById('wide').getBoundingClientRect().width),
+        inner_box: document.getElementById('box').clientWidth,
+        scrolled_to: Math.round(window.scrollY),
+    };
+}"""
+
+
+def site_layout(site: Page) -> dict:
+    """The site view's layout width on a page that scrolls, twice over."""
+    first = None
+    for _ in range(2):
+        site.goto(LAYOUT_PAGE)
+        site.wait_for_timeout(500)
+        first = first or site.evaluate(LAYOUT_JS)
+    return {"first_page": first, "next_page": site.evaluate(LAYOUT_JS)}
+
+
+HOME_JS = """(label) => {
+    const box = document.querySelector(`[aria-label="${label}"]`)
+        || [...document.querySelectorAll('textarea,input')][0];
+    const r = box.getBoundingClientRect();
+    // The smallest text a person can see: every element that
+    // holds text of its own, is rendered, and is inside the
+    // window.
+    const sizes = [...document.querySelectorAll('body *')]
+        .filter(el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())
+                      || (el.tagName === 'INPUT' && el.placeholder))
+        .filter(el => { const b = el.getBoundingClientRect();
+                        return b.width > 0 && b.height > 0 && b.top < innerHeight
+                               && getComputedStyle(el).opacity !== '0'; })
+        .map(el => parseFloat(getComputedStyle(el).fontSize));
+    return {
+        inner: [innerWidth, innerHeight],
+        dpr: devicePixelRatio,
+        scroll_height: document.documentElement.scrollHeight,
+        box_top: Math.round(r.top), box_bottom: Math.round(r.bottom),
+        smallest_text_px: Math.min(...sizes),
+        input_text_px: parseFloat(getComputedStyle(box).fontSize),
+        cards: document.querySelectorAll('section button').length,
+    };
+}"""
+
+
+def read_home(overlay: Page) -> dict:
+    """Where the home screen's text box is, and whether the page scrolls."""
+    view = overlay.evaluate(HOME_JS, TEXTBOX)
+    box = overlay.get_by_role("textbox", name=TEXTBOX)
+    view["box_in_viewport"] = box.is_visible() and view["box_bottom"] <= view["inner"][1]
+    view["scrolls"] = view["scroll_height"] > view["inner"][1]
+    return view
 
 
 def launch(scale: str) -> tuple[subprocess.Popen, Path]:
@@ -139,34 +257,10 @@ def measure(scale: str) -> dict:
                 avail: [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight],
             })""")
 
-            view = overlay.evaluate("""(label) => {
-                const box = document.querySelector(`[aria-label="${label}"]`)
-                    || [...document.querySelectorAll('textarea,input')][0];
-                const r = box.getBoundingClientRect();
-                // The smallest text a person can see: every element that
-                // holds text of its own, is rendered, and is inside the
-                // window.
-                const sizes = [...document.querySelectorAll('body *')]
-                    .filter(el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())
-                                  || (el.tagName === 'INPUT' && el.placeholder))
-                    .filter(el => { const b = el.getBoundingClientRect();
-                                    return b.width > 0 && b.height > 0 && b.top < innerHeight
-                                           && getComputedStyle(el).opacity !== '0'; })
-                    .map(el => parseFloat(getComputedStyle(el).fontSize));
-                return {
-                    inner: [innerWidth, innerHeight],
-                    dpr: devicePixelRatio,
-                    scroll_height: document.documentElement.scrollHeight,
-                    box_top: Math.round(r.top), box_bottom: Math.round(r.bottom),
-                    smallest_text_px: Math.min(...sizes),
-                    input_text_px: parseFloat(getComputedStyle(box).fontSize),
-                };
-            }""", TEXTBOX)
-            box = overlay.get_by_role("textbox", name=TEXTBOX)
-            view["box_in_viewport"] = box.is_visible() and view["box_bottom"] <= view["inner"][1]
-            view["scrolls"] = view["scroll_height"] > view["inner"][1]
+            view = read_home(overlay)
 
             site_view = site.evaluate("() => ({inner: [innerWidth, innerHeight], dpr: devicePixelRatio})")
+            site_view["layout"] = site_layout(site)
             site.set_content("<h1 style='font:48px sans-serif'>site view</h1>"
                              "<p>" + "text " * 400 + "</p>")
             ok = 0
@@ -180,6 +274,17 @@ def measure(scale: str) -> dict:
             OUT.mkdir(parents=True, exist_ok=True)
             name = f"home-{scale}.png"
             capture_view(overlay, OUT / name)
+
+            # The same screen for someone with history: the overlay pointed
+            # at a backend that offers three remembered goals.
+            history = ScriptedHistory()
+            overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{history.port}")
+            overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
+            overlay.wait_for_function(
+                "g => document.body.textContent.includes(g)", arg=HISTORY[0], timeout=15000)
+            overlay.wait_for_timeout(1200)
+            with_history = read_home(overlay)
+            capture_view(overlay, OUT / f"home-{scale}-history.png")
             browser.close()
     finally:
         stop(proc)
@@ -192,6 +297,7 @@ def measure(scale: str) -> dict:
         "host_says": fit,
         "page_says": page_window,
         "overlay": view,
+        "overlay_with_history": with_history,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
     }

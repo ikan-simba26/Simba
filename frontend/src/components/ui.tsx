@@ -118,7 +118,7 @@ export function ChoiceCard({
       type="button"
       onClick={onClick}
       className="group flex w-full items-center gap-6 rounded-lg border border-line bg-surface
-                 px-6 py-5 text-left shadow-press transition-[box-shadow,border-color,transform]
+                 px-6 py-4 text-left shadow-press transition-[box-shadow,border-color,transform]
                  short:gap-5 short:py-3
                  duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-accent/50
                  hover:shadow-lift active:translate-y-px active:shadow-press"
@@ -130,7 +130,13 @@ export function ChoiceCard({
       >
         {icon}
       </span>
-      <span className="flex-1 text-lead font-medium text-ink">{children}</span>
+      {/* Two lines at most. A remembered goal is a whole sentence, and three of
+          them wrapping onto a third line each would push the text box off a
+          100% window (2026-09-30). The words are all still there — clamped,
+          not cut — so a screen reader and the button's name read the lot. */}
+      <span className="line-clamp-2 flex-1 text-lead font-medium text-ink short:text-body">
+        {children}
+      </span>
       <Arrow />
     </button>
   );

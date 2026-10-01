@@ -9,6 +9,8 @@
 #   ./run.sh                 opens on the registration replica
 #   ./run.sh billing         opens on the billing replica
 #   ./run.sh railways        opens on the live public site (read-only)
+#   ./run.sh railways-local  opens on our own copy of the train search;
+#                            a train goal runs there, not on the live site
 #   ./run.sh mock            overlay + scripted backend, nothing real
 #
 # SIMBA_RUN_SECONDS=20 ./run.sh mock starts everything, waits, and shuts down
@@ -27,6 +29,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 START_PAGE="${1:-registration}"
 BACKEND_PORT="${SIMBA_BACKEND_PORT:-8000}"
 CDP_PORT="${SIMBA_CDP_PORT:-9222}"
+# Where `railways-local` serves our own copy of the train search.
+RAILWAYS_LOCAL_PORT=5200
 
 # Electron reads this and runs as plain Node when it is set: no window, no
 # CDP, and an error naming our entry point rather than the real cause. Some
@@ -154,7 +158,9 @@ start_backend() {
 # Refuse to start on top of another run. Without this the second launcher
 # attaches to the first one's host and backend without saying so, and its
 # cleanup then kills processes it did not start.
-for port in "$BACKEND_PORT" "$CDP_PORT" 5000 5100; do
+NEEDED=("$BACKEND_PORT" "$CDP_PORT" 5000 5100)
+if [ "$START_PAGE" = "railways-local" ]; then NEEDED+=("$RAILWAYS_LOCAL_PORT"); fi
+for port in "${NEEDED[@]}"; do
   if port_busy "$port"; then
     die "port $port is already in use — another SIMBA run is probably up. Stop that one first."
   fi
@@ -190,6 +196,20 @@ case "$START_PAGE" in
     start_host "https://www.pakrailways.gov.pk/train"
     start_backend
     ;;
+  railways-local)
+    # Our own copy of the train search, for rehearsing and for the repeated
+    # runs the live site is not ours to give. The window opens on it, and a
+    # train goal runs on it: the backend is told the railways flow lives here
+    # instead of on the live site. Exported in this script only, so it reaches
+    # the backend and never the shell that ran it.
+    start_replica registration 5000
+    start_replica billing 5100
+    start_replica railways "$RAILWAYS_LOCAL_PORT"
+    start_host "http://127.0.0.1:$RAILWAYS_LOCAL_PORT"
+    export SIMBA_RAILWAYS_URL="http://127.0.0.1:$RAILWAYS_LOCAL_PORT"
+    start_backend
+    say "a train goal runs on the local copy at :$RAILWAYS_LOCAL_PORT, not on the live site"
+    ;;
   mock)
     # No replica and no real backend: the scripted one plays the backend's
     # whole side of the conversation, including a mid-task level change, so
@@ -202,7 +222,7 @@ case "$START_PAGE" in
     start_host "about:blank"
     ;;
   *)
-    die "unknown start page '$START_PAGE' — expected registration, billing, railways or mock"
+    die "unknown start page '$START_PAGE' — expected registration, billing, railways, railways-local or mock"
     ;;
 esac
 

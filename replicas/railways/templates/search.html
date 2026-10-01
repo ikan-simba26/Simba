@@ -91,6 +91,10 @@
 <script>
   const STATIONS = {{ stations | tojson }};
   const NO_SERVICE = {{ no_service | tojson }};
+  // `?list_delay_ms=8000` makes the station list arrive that long after a
+  // name is typed, the way the live site's does when its request is slow.
+  // Nothing else changes, so a test can ask for a late list on the same page.
+  const LIST_DELAY_MS = Number(new URLSearchParams(location.search).get("list_delay_ms")) || 0;
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
                   "August", "September", "October", "November", "December"];
 
@@ -107,7 +111,19 @@
     const panel = document.getElementById(name + "-list");
     const list = panel.querySelector("ul");
 
+    let pending = null;
+
     function offer() {
+      // A late list answers the latest name typed, not every keystroke.
+      clearTimeout(pending);
+      if (LIST_DELAY_MS) {
+        pending = setTimeout(show, LIST_DELAY_MS);
+      } else {
+        show();
+      }
+    }
+
+    function show() {
       const typed = input.value.trim().toUpperCase();
       const matches = typed ? STATIONS.filter((s) => s.includes(typed)) : [];
       list.innerHTML = "";

@@ -108,7 +108,7 @@ something passing its tests is the one nobody reviews.
 
 ## Conventions
 
-- Python 3.11, type hints everywhere. Tests in `pytest`.
+- Python 3.12, type hints everywhere. Tests in `pytest`.
 - **No formatter or linter is in use.** `ruff` and `black` were named here
   until 2026-09-17, but neither was ever installed or run. Measured that day
   over the repository's 57 Python files: `black` would reformat 46 of them
@@ -175,9 +175,17 @@ Findings from the `spike/` Electron + CDP + Playwright test.
 
 ## Current phase
 
-September: walking skeleton. One task, one local replica, full loop, fixed
-detail level, **plan hardcoded — no LLM yet**. Get the pipes working before
-adding intelligence.
+October 2026: from skeleton to evidence. Feature freeze is 1 November;
+November is evaluation and writing; December is the report and demo.
 
-Do not build the estimator, replay, or the three-level UI until the skeleton
-runs end to end.
+Priorities, in order: (1) the estimator trained on human ratings with
+tools/rating, a small interpretable scikit-learn model, cross-validated, with
+feature importance, replacing the provisional rules and checked against their
+logged decisions; (2) the product for its audience: the home screen fits at
+every scaling, a minimal credential store, and the answer explained in one
+plain sentence; (3) early sessions with two or three people, including someone
+who works with people with cognitive disabilities; (4) evaluation readiness:
+benchmarks re-run on current perception, the stronger-model ablation, and an
+LLM baseline on an unseen goal.
+
+Do not add new sites or flows, or any feature not listed here, without asking.

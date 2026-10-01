@@ -456,3 +456,117 @@ def test_a_task_built_for_a_journey_is_the_journey_it_says_it_is() -> None:
     assert "2026-10-03" in task.goal
     # And changing the goal's words does not change what is checked.
     assert replace(task, goal="trains to Pindi").about == task.about
+
+
+# --- a station list that opens late -----------------------------------------
+#
+# On 2026-09-30 the live site's list for "Lahore" did not open within the five
+# seconds every step was given, on either strategy, and the run said the site
+# offered no stations for Lahore — a city with two on that list. A step that
+# waits on a list the site fetches is given `LIST_TIMEOUT_S` now. The replica's
+# `?list_delay_ms=` makes its list arrive late, the way the live one did.
+
+LATE_MS = 8000  # past the ordinary window, well inside the list window
+
+
+def late(railways: str) -> str:
+    return f"{railways}/?list_delay_ms={LATE_MS}"
+
+
+async def _type_then_verify(start_url: str, expect) -> tuple[str | None, float]:
+    """Type a station name on a real page and time the verification."""
+    import time
+
+    from backend.orchestrator.loop import perceive, verify
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        page = await browser.new_page(viewport={"width": 1280, "height": 800})
+        try:
+            await page.goto(start_url)
+            _, before, _ = await perceive(page)
+            await page.click("#from")
+            await page.fill("#from", "LAHORE")
+            started = time.monotonic()
+            failure = await verify(page, before, expect)
+            return failure, time.monotonic() - started
+        finally:
+            await browser.close()
+
+
+def test_the_ordinary_window_misses_a_late_list(railways: str) -> None:
+    """The defect, reproduced: an ordinary step's five seconds end before the
+    list arrives, and what the check sees is a page with nothing on offer."""
+    from backend.orchestrator.loop import LIST_TIMEOUT_S, VERIFY_TIMEOUT_S
+    from backend.orchestrator.plan import Expectation
+
+    failure, took = asyncio.run(
+        _type_then_verify(late(railways), Expectation(label_like="Lahore")))
+
+    assert failure is not None
+    assert VERIFY_TIMEOUT_S - 0.5 < took < LIST_TIMEOUT_S
+
+
+def test_a_step_that_waits_on_a_list_sees_it_arrive(railways: str) -> None:
+    """The fix: the same page, the same typing, and the list is waited for.
+    It took longer than the ordinary window, so the ordinary window could not
+    have seen it."""
+    from backend.orchestrator.loop import LIST_TIMEOUT_S, VERIFY_TIMEOUT_S
+    from backend.orchestrator.plan import Expectation
+
+    failure, took = asyncio.run(_type_then_verify(
+        late(railways), Expectation(label_like="Lahore", list_opens=True)))
+
+    assert failure is None
+    assert VERIFY_TIMEOUT_S < took < LIST_TIMEOUT_S
+
+
+def test_a_list_that_opens_quickly_costs_no_more_than_it_did(railways: str) -> None:
+    """Polled, not slept: the longer window is only spent when it is needed."""
+    from backend.orchestrator.loop import VERIFY_TIMEOUT_S
+    from backend.orchestrator.plan import Expectation
+
+    failure, took = asyncio.run(_type_then_verify(
+        railways, Expectation(label_like="Lahore", list_opens=True)))
+
+    assert failure is None
+    assert took < VERIFY_TIMEOUT_S
+
+
+def test_a_whole_journey_with_late_lists_is_searched(railways: str) -> None:
+    """End to end, with both station lists arriving late: the station is asked
+    about, chosen, and searched, and nothing fails along the way."""
+    run = search("Lahore", "Rawalpindi", TOMORROW, [(f"{CHOICE_PREFIX}1", {})],
+                 late(railways))
+
+    assert "step.failed" not in run.types()
+    assert "help.requested" not in run.types()
+    assert run.searched == {"from": "LAHORE CANTT", "to": "RAWALPINDI",
+                            "date": TOMORROW.isoformat()}
+
+
+def test_typing_a_station_name_is_a_step_that_waits_on_a_list() -> None:
+    planner = TripPlanner("Lahore", "Rawalpindi", TOMORROW, TODAY)
+
+    typing = move_for(planner, [])
+
+    assert typing is not None
+    assert typing.expect.list_opens is True
+    assert typing.expect.label_like == "Lahore"
+
+
+def test_no_other_step_on_the_trip_waits_longer() -> None:
+    """The longer window is for the one thing that is fetched. Choosing, the
+    calendar and the search keep the ordinary one."""
+    planner = TripPlanner("Rawalpindi", "Multan", TOMORROW, TODAY)
+    planner.stations = {"origin": "RAWALPINDI", "destination": "MULTAN CANTT"}
+    planner._done = {"choose origin", "choose destination", "pick day"}
+
+    searching = move_for(planner, [textbox("From", "RAWALPINDI"),
+                                   textbox("To", "MULTAN CANTT"),
+                                   textbox("Departure Date", as_shown(TOMORROW))])
+    choosing = move_for(TripPlanner("Rawalpindi", "Multan", TOMORROW, TODAY),
+                        [option("RAWALPINDI")])
+
+    assert searching is not None and searching.expect.list_opens is False
+    assert choosing is not None and choosing.expect.list_opens is False

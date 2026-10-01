@@ -62,10 +62,10 @@ export const ONWARD = "Do something else";
 export const HOME = {
   /** The first thing anyone sees. A greeting, not a prompt. */
   greeting: "Hello. What can I do for you?",
-  /** Above the three things SIMBA can do. A lead-in. */
+  /** Above the home screen's cards: what this person asked for before, then
+   *  what SIMBA can do, three at most. One list since 2026-09-30, so one
+   *  lead-in; the remembered ones say so with their icon. A lead-in. */
   canHelp: "I can help with these",
-  /** Above the remembered goals. Only shown when there are some. A lead-in. */
-  againHeading: "You asked me for these",
   /** Reveals the text box. Deliberately last, and quiet. */
   somethingElse: "Ask for something new",
   /** Above the text box, once it is showing. */
@@ -359,7 +359,6 @@ export const SITUATIONS: Record<string, string> = {
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
 export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
-  "home.againHeading": HOME.againHeading,
   "home.canHelp": HOME.canHelp,
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,

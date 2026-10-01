@@ -4164,3 +4164,277 @@ Its results page printed the worked example's reference number whatever had
 been looked up, so every bill claimed to be the one asked about and
 `About.shows` would have passed for any number. It echoes the number that was
 searched now. Found while writing the check, not by a test.
+
+---
+
+## 2026-09-30b — a station list that opens late
+
+The live failure from 2026-09-30, run 4: the name went into the box, the site's
+list had not opened within the 5s verification window on either strategy, and
+the run said the site offered no stations for Lahore. A step that waits on a
+fetched list now has `LIST_TIMEOUT_S = 15.0` instead (`Expectation.list_opens`);
+only the trip planner's typing step sets it.
+
+Reproduced on the local replica, which now takes `?list_delay_ms=` and makes
+its list arrive that long after a name is typed. 8000ms throughout — past the
+ordinary window, inside the new one. `test_trip.py`, real Chromium.
+
+| What | Before the fix (window 5s) | After (window 15s) |
+|---|---|---|
+| "trains to Rawalpindi", list 8s late, both ends | `step.failed`, then "The site didn't offer me any stations for Lahore.", nothing searched, 11.6s | searched `LAHORE CANTT → RAWALPINDI`, no `step.failed`, 18.8s |
+| Typing "LAHORE", list 8s late, verification alone | fails at 5.0s | passes, between 5s and 15s |
+| Typing "LAHORE", list immediate, verification alone | — | passes in under 5s: polled, not slept |
+
+"Before" is the same code with `LIST_TIMEOUT_S` set back to 5s for one run, so
+the only difference between the two columns is the window.
+
+**What it costs.** A place the site genuinely has no station for is now found
+out after both strategies have waited the full list window: the Narnia run takes
+**31.5s** to reach "The site didn't offer me any stations for Narnia.", where it
+took about 11.6s before. A person who mistypes a place waits about twenty
+seconds longer to be told so. Nothing else on the trip waits longer: choosing a
+station, the calendar and the search keep the ordinary window.
+
+**Not measured:** how late the live list actually was. The failing run recorded
+only that it had not come within 5s, and the site was not asked again for this.
+15s is three times the window it failed in, not a figure read off the site.
+Replayed runs are unaffected either way — replay builds every move with an
+empty expectation — and trace memory is off by default.
+
+---
+
+## 2026-09-30c — two corrections to 2026-09-30, and `railways-local`
+
+### Corrections
+
+**There were six live runs, not five.** The 2026-09-30 table leaves out the run
+made at 17:10 on `d8043e8` (dirty tree), between the failed run and the one that
+chose Lahore Cantt. It chose Lahore Jn. because of the stack runner's `--pick`
+bug, sent `{"boardStationCode":"LHR","arrivalStationCode":"RWP","travelDate":"2026-10-01"}`,
+got 9 trains back, `duration_ms` 56,358, wall clock 71.4s. So: six runs, five
+searches sent to the live site, one run that stopped before searching. The
+backend's transcripts confirm six (`logs/llm-20260930-1200*` to `-1212*`).
+
+**The model did read every goal, and quota was spent.** The entry says the
+keyword and date reader did all the reading and that no quota was spent. Wrong:
+`run.ps1` leaves the router at `model`, and `app.py` hands the same model to
+`details.understand`, so every live run made **two model calls** — one to route
+the goal, one to read its details — and the planner made none. Per run:
+
+| | Prompt tokens | Completion tokens |
+|---|---|---|
+| Route | 202 | 12 |
+| Details | 200 | 38–50 |
+| **Run** | **402** | **50–62** |
+
+Six runs, `gemini-3.1-flash-lite`, 2,412 prompt and 324 completion tokens in
+all. Every details answer was the same and right:
+`{"origin": null, "destination": "Rawalpindi", "date": "2026-10-01"}` — which
+the keyword reader gives for this goal as well, so the runs do not tell the two
+readers apart. **The model path of `details.py` has been exercised live, on one
+goal**; the keyword path has not been exercised live at all.
+
+### `railways-local`
+
+`.\run.ps1 railways-local` brings up the three replicas, opens the window on
+the local train search at :5200, and starts the backend with
+`SIMBA_RAILWAYS_URL=http://127.0.0.1:5200`, so a train goal runs there. One run
+through the Electron window with the stack runner, same goal and answers as the
+live runs, at `49e3334` (dirty tree: this change):
+
+| | Local copy | Live, for comparison (2026-09-30, run 6) |
+|---|---|---|
+| Screens | 7 (2 questions, 5 steps), same order and wording | 7 |
+| Stations offered for "Lahore" | `Lahore Jn`, `Lahore Cantt` | `Lahore Jn.`, `Lahore Cantt` |
+| Searched | `LAHORE CANTT → RAWALPINDI`, `2026-10-01` (the copy's own record) | `LRC → RWP`, `2026-10-01` (network) |
+| Requests to the live site | **none** | one |
+| `duration_ms` | 24,905 | 54,047 |
+| Wall clock | 46.8s | 71.9s |
+| Model calls | 2 (route, details) | 2 |
+
+The copy is about twice as fast, so a rehearsal on it is not a timing rehearsal
+for the live site. It spells the junction without the full stop the live site
+uses.
+
+---
+
+## 2026-09-30d — the home screen with history, at 100%, 125% and 150%
+
+The fit measurement (`display_fit_run`, `test_window_fit.py`) launched the host
+with no backend, so the home screen it measured never had any remembered goals:
+it was always the three-card screen. With history the old screen had six cards
+— three remembered, three defaults, under two headings — and none of that was
+measured.
+
+**Before**, measured in Chromium at each scale's real content size (from
+2026-09-25c) against a scripted backend offering the history, on the code at
+`b6ac3d4`:
+
+| Remembered | 100% (1280x800) | 125% (1280x734) | 150% (1266x606) |
+|---|---|---|---|
+| three bill look-ups | box at **1096–1164**, page 1224 tall | **867–927**, 955 | **867–927**, 955 |
+| three at a card's limit | **1205–1273**, 1333 | **976–1036**, 1064 | **976–1036**, 1064 |
+
+The text box was below the bottom of the window at every scale, not only at
+150%. A bill look-up is a realistic remembered goal — "Find the amount due for
+reference number 04141234567890." is what the trace store files a bill under.
+
+**After**: one list, remembered goals first, nothing twice, three cards at
+most; a card holds two lines; in a short window the card text is 23px and the
+box's lead-in is dropped. Measured in the real host at forced scales
+(`python -m tools.evaluation.display_fit_run`), with no history and with three
+remembered goals at a card's limit (`HISTORY`: two lines even at 23px):
+
+| Scale | Overlay CSS | No history: cards, box | With history: cards, box | Scrolls | Smallest text |
+|---|---|---|---|---|---|
+| 1 | 1280x800 | 3, 605–674 | 3, **656–724** | no | 20px |
+| 1.25 | 1280x734 | 3, 453–513 | 3, **516–576** | no | 20px |
+| 1.5 | 1266x606 | 3, 452–513 | 3, **515–576** | no | 20px |
+
+Site view 1280x800 at every scale; captures 10/20 at scale 1, 20/20 at 1.25 and
+1.5 — the known 100% capture problem (2026-09-27), unchanged.
+
+The worst case at 150% leaves 30px under the box. `frontend/test_home.py` holds
+it in the suite without a host: four histories at three sizes, never more than
+three cards, remembered first, a remembered goal that is one of the cards shown
+once and still sent with its flow. 22 tests.
+
+With no history, the box sits 40px higher than on 2026-09-25c at every scale:
+645–714 → 605–674 at 100%, from the tighter spacing, and 493–553 → 453–513 at
+125% and 492–553 → 452–513 at 150%, from the hidden lead-in.
+
+---
+
+## 2026-09-30e — the site view's scrollbar, hidden
+
+A page that scrolls, with an inner scroll box, in the Electron site view and in
+headless Chromium (Playwright's own launch, which hides scrollbars). The host at
+forced scales, over CDP.
+
+| | Page layout width | Inner scroll box | Page still scrolls |
+|---|---|---|---|
+| Headless | 1280 | 1280 | yes |
+| Host, before, at 1, 1.25 and 1.5 | **1263** | **1246–1247** | yes |
+| Host, after, at 1, 1.25 and 1.5 | **1280** | **1280** | yes, to 600 of 600 asked |
+
+So until today the host laid out every page that scrolls 17px narrower than
+headless, and every inner scroller another 17px narrower still, at every scale.
+That is the environment difference behind the scrollbar spacer column on the
+live railways results (2026-09-17i): it appeared only in the host.
+
+The fix is a user-origin stylesheet put into the site view on every page
+(`frontend/electron/main.ts`), so a page's own CSS cannot bring the scrollbars
+back. Checked on a first page and after a second navigation.
+`test_window_fit.py` holds both, at all three scales, when the host tests run.
+
+Every perception figure measured in the host before this — the host columns of
+the corpus (2026-09-19b, 2026-09-20e) and every host run since — was measured
+at 1263px on a page that scrolled. Re-collected in 2026-09-30g, below.
+
+---
+
+## 2026-09-30f — `MIN_COVERAGE` 0.27, checked against the coverage probe's data
+
+From `data/overlay_coverage.json` (the probe's run of 2026-09-21, headless, 50
+pages, every candidate above the page with no threshold applied). Coverage does
+not depend on `MIN_COVERAGE`, so this data answers where the line can go
+without being collected again.
+
+| Coverage | Page | What | Blocker |
+|---|---|---|---|
+| 0.4612 | MUI drawer, bottom sheet open | the sheet | yes |
+| 0.3688 | the Guardian | sticky top ad banner (two nested boxes) | yes |
+| 0.3125 | Bootstrap offcanvas, drawer open | the drawer | yes |
+| — | *nothing between 0.2344 and 0.3125* | | |
+| 0.2344 | MUI drawer and dialog pages | the docs sidebar | no |
+| 0.2344 | `entry_ad` | the dialog box inside `#modal` (its parent is caught) | no |
+| 0.2258 | TodoMVC | the `aside` | no |
+
+The sweep over thresholds blocks the same 10 pages at 0.20, 0.25 and 0.30. So
+moving from 0.30 to 0.27 **changes no result on this corpus**; it moves the line
+from 0.0125 under the nearest blocker to the middle of the gap (midpoint
+0.273), 0.036 above the largest non-blocker and 0.0425 under the nearest
+blocker.
+
+The one case it is expected to change is arithmetic, not a measured page: a
+drawer 378px wide — Ant Design's default — over the full 800px height covers
+378/1280 = 0.295, which 0.30 misses and 0.27 catches. No page in the corpus puts
+anything between 0.27 and 0.30. Perception's suite passes at 0.27 unchanged
+(109 passed, 4 skipped).
+
+---
+
+## 2026-09-30g — the corpus, re-collected
+
+`python -m tools.evaluation.collect_corpus`, both environments, at `3fb9ab4`
+(clean tree): the site view's scrollbars hidden (2026-09-30e), `MIN_COVERAGE`
+0.27 (2026-09-30f), and `text_density` measured where the page is scrolled to.
+The same 50 pages as 2026-09-20e, read-only, the host at 150%. The previous file
+is kept at `.scratch/corpus-before-2026-09-30.json` (ignored, local).
+
+**Failures.** Spiegel, DNS, headless only, as before. New: 
+`practice.expandtesting.com` refused the load in **both** environments
+(`ERR_ABORTED`), so the page with the largest host difference last time
+(3.6×) could not be compared this time.
+
+### Headless against host
+
+Rows compared on `text_density`, `viewport_characters`, `overlays`, `controls`
+and `characters`, over pages read in both:
+
+| | Pages read in both | Differ on any | Differ on `text_density` |
+|---|---|---|---|
+| 2026-09-20e | 49 | 14 | 9 |
+| **Now** | 48 | **9** | **5** |
+
+**Wikipedia, both pages, now read identically in both environments** — they
+differed by 18% and 17% in density, the clearest case of the 1263px layout. So
+does OrangeHRM, which rendered no text in the host last time.
+
+What still differs, and why:
+
+| Page | Density headless / host | Cause |
+|---|---|---|
+| lite.cnn.com | 2.013 / 1.913 | **Not explained.** Same 8,580 characters, same controls, 2,061 against 1,959 on screen: the layout still differs somewhere, and the scrollbar is not it |
+| Hacker News | 2.363 / 2.310 | The page itself: 3,871 against 3,848 characters, a live front page read twice |
+| MUI dialog (driven) | 1.805 / 1.492 | The drive: 0 overlays and 362 controls in the host — the dialog was not open when the host was read |
+| Ant Design modal (driven) | 1.511 / 1.576 | The drive, the other way: the modal opened in the host (2 overlays) and not headless |
+| Ant Design drawer (driven) | 1.525 / 1.584 | The drive: 3 overlays in the host, 0 headless |
+
+The three driven differences were checked by driving those pages once more in
+each environment and reading `analyse` directly. Where the state was reached,
+both environments agreed exactly: the Ant Design drawer gave the same three
+blockers in each, the MUI dialog the same two. **Overlays never differed for the
+same state.** The corpus rows differ because the drive reached a different
+state, which 2026-09-20e also saw on the Ant drawer.
+
+**The first measured page between 0.27 and 0.30.** In that check, the open Ant
+Design drawer's panel — 378x800 at x=902 — covered **0.295** of the viewport in
+both environments, and is a blocker at 0.27 where it would not have been at
+0.30. The page is already blocked by the drawer's full-screen mask either way,
+so the page-level answer does not change; the blocker count does. This is the
+case 2026-09-30f argued for from arithmetic.
+
+### What the scroll-aware density changed
+
+Headless, driven rows, before and after:
+
+| Driven page | Density before | After | Characters before / after |
+|---|---|---|---|
+| MUI dialog | 1.077 | **1.805** | 7,689 / 7,689 |
+| MUI drawer, bottom sheet | 0.924 | **1.739** | 8,126 / 8,126 |
+| Bootstrap offcanvas | 1.175 | **1.811** | 21,891 / 21,933 |
+| Bootstrap modal | 1.477 | **1.769** | 29,895 / 29,899 |
+| Ant Design drawer | 1.235 | **1.525** | 12,827 / 12,827 |
+| SweetAlert2 | 0.408 | **0.585** | 34,917 / 34,918 |
+| Ant Design modal | 1.313 | 1.511 | 18,077 / 20,700 — the page changed |
+| sign-in, both railways states, demoqa, TodoMVC, Element Plus | unchanged | unchanged | unchanged |
+
+Where a drive scrolled the page to open something, the text on screen was
+different from the text at the top of the document, and density rose by 19–88%
+with the character count the same. Where a drive did not scroll, nothing
+moved. Of 35 idle headless rows, 27 read the same density as before; the other
+8 are live pages that changed.
+
+`overlays` is still the one feature that barely varies across the corpus, now
+the only one the collector reports as such.

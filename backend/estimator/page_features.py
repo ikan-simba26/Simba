@@ -56,9 +56,12 @@ derived number nor a merge can be checked or undone later.
 
 **Viewport.** Density is per *visible* area, which is why CLAUDE.md freezes
 the viewport at 1280x800: change it and the density changes without the page
-changing. Only text whose box falls inside the viewport counts, and the page
-is assumed to be at the top of its scroll, which is how every read in this
-project happens.
+changing. Only text whose box falls inside the viewport counts — the viewport
+where the page was scrolled to (`document.scroll`), not the top of the
+document. Until 2026-09-30 it was the top, which is true of an idle read and
+false of every driven one: a page scrolled to 900 had its density measured on
+text nobody could see. The overlay clip made the same assumption and was
+corrected on 2026-09-20e; this was the other half.
 
 **Pixels.** Everything here is CSS pixels. `snapshot.parse` converts the
 snapshot's device-pixel boxes on the way in (2026-09-20), so this module reads
@@ -225,15 +228,22 @@ def reading_grade(text: str | Sequence[str]) -> tuple[float, int, int, int]:
 # --- the page ---------------------------------------------------------------
 
 
-def _inside(box: Rect, viewport: tuple[int, int]) -> bool:
-    """Whether a box shows any of itself in the viewport, unscrolled.
+def _inside(
+    box: Rect, viewport: tuple[int, int], scroll: tuple[float, float] = (0.0, 0.0)
+) -> bool:
+    """Whether a box shows any of itself on screen.
 
-    Both are CSS pixels: `snapshot.parse` converted the box on the way in.
+    Boxes are in document coordinates, so the screen is the viewport wherever
+    the page was scrolled to: `(scroll_x, scroll_y, width, height)` — the same
+    rectangle `overlays._on_screen_area` clips to. All CSS pixels:
+    `snapshot.parse` converted both on the way in.
     """
     x, y, width, height = box
     if width <= 0 or height <= 0:
         return False
-    return x < viewport[0] and y < viewport[1] and x + width > 0 and y + height > 0
+    view_x, view_y = scroll
+    return (x < view_x + viewport[0] and y < view_y + viewport[1]
+            and x + width > view_x and y + height > view_y)
 
 
 def _visible_text(
@@ -298,7 +308,7 @@ def _visible_text(
         # in, so its box is the right answer for "is this on screen".
         parent = document.parents[index] if index < len(document.parents) else -1
         box = document.bounds.get(index) or document.bounds.get(parent)
-        if box is not None and _inside(box, viewport):
+        if box is not None and _inside(box, viewport, document.scroll):
             in_viewport += len(value)
     return [" ".join(blocks[owner]) for owner in order], in_viewport
 

@@ -44,7 +44,7 @@ isn't in the contract.
 
 | | Version used here | Check it |
 |---|---|---|
-| **Python** | 3.12.3 (3.11 or newer) | `python --version` |
+| **Python** | 3.12.3 (3.12 or newer) | `python --version` |
 | **Node.js** | 24.12.0 (18 or newer) | `node --version` |
 | **npm** | 11.6.2 (ships with Node) | `npm --version` |
 | **git** | any | `git --version` |
@@ -306,7 +306,7 @@ root (`python -m pytest`), not from inside a package directory. The root
 
 ## Conventions
 
-- Python 3.11, type hints everywhere. Tests in `pytest`.
+- Python 3.12, type hints everywhere. Tests in `pytest`.
 - **No formatter or linter is in use.** `ruff` and `black` were named here
   until 2026-09-17, but neither was ever installed or run. Measured that day
   over the repository's 57 Python files: `black` would reformat 46 of them

@@ -3282,3 +3282,117 @@ which they deliberately are not.
 **Cost.** A run can end one or two above what it promised — a question the page
 raises, or a question asked again. The number grows silently at that point
 rather than having been right all along.
+
+---
+
+## A step that waits on a fetched list has fifteen seconds, not five
+
+**Date:** 2026-09-30
+
+**Decision.** `Expectation.list_opens` marks a step whose success depends on a
+list the site fetches — today only the trip planner's step that types a station
+name. Its verification polls for `LIST_TIMEOUT_S = 15.0` rather than
+`VERIFY_TIMEOUT_S = 5.0`. Every other step keeps five.
+
+**Alternatives.** Raise the window for every step, which slows every genuine
+failure on every flow. Infer it from `label_like`, which today is only ever set
+on the same step but says what to look for, not how long. Let the planner type
+the name a third time, which needs the loop's two-setback limit raised for one
+kind of step. Leave it, and let the person ask again.
+
+**Why this.** A click is answered by a repaint; a typed name is answered by a
+network round trip, and the live site's took longer than five seconds once in
+five runs. The window is polled, so a list that opens in half a second costs
+half a second — the longer window is spent only when nothing arrives. Saying so
+on the expectation keeps the reason next to the step that needs it, rather than
+as a guess the loop makes from which fields happen to be set.
+
+**Cost.** A place with no station is found out after two full windows: 31.5s on
+the replica, against about 11.6s before (EVALUATION.md, 2026-09-30b). 15s is not
+measured off the live site; it is three times the window that failed.
+
+---
+
+## The home screen is one list of three, and a card holds two lines
+
+**Date:** 2026-09-30 (`frontend/`, Aly's area; asked for by Raham)
+
+**Decision.** Remembered goals first, most recent first, then the things SIMBA
+can do; nothing twice, compared ignoring case, spacing and a closing full stop;
+three cards at most (`App.homeCards`). A remembered goal that is one of the
+cards takes the card's words and flow, in the remembered place. A card's text
+is clamped at two lines. In a window under 760px tall the card text is 23px
+instead of 26px and the text box's lead-in is hidden; at 100% the gaps between
+greeting, cards and box are 32px instead of 40px, and a card's padding is 16px
+instead of 20px.
+
+**Alternatives.** Keep two lists and cap each. Clamp cards at one line. Let the
+page scroll. Show two cards in a short window.
+
+**Why this.** The list is what was asked for. The rest is what it took for the
+worst realistic history to fit at 150% with nothing scrolling: bill look-ups are
+whole sentences with a fourteen-digit number at the end, which wrap at 26px and
+not at 23px. One-line clamping would have hidden exactly that number, so three
+bills would read as three identical cards. The box's lead-in repeats the
+greeting's question, and the input keeps it as its accessible name.
+
+**Cost.** With three remembered goals, the three things SIMBA can do are not on
+the home screen at all; "hello" still shows them. A goal longer than two lines
+is shown clamped, though every word is still in the card. The smaller type and
+missing lead-in apply to the compact layout only, and nothing is under 20px.
+With no history, the box sits 40px higher than it did, at every scale.
+
+---
+
+## The site view hides its scrollbars with a user stylesheet, not a Chromium switch
+
+**Date:** 2026-09-30 (asked for by Raham)
+
+**Decision.** `main.ts` inserts `* { scrollbar-width: none !important }` (and the
+`::-webkit-scrollbar` equivalent) into the site view as a user-origin stylesheet
+on every `dom-ready`. The overlay is untouched.
+
+**Alternatives.** Chromium's `--hide-scrollbars` switch, which is what headless
+Playwright uses and so would match it by construction. Or leave the host at
+1263px and correct for it in perception.
+
+**Why this.** The switch is process-wide: it would take the overlay's scrollbars
+too, and the overlay is the one view a person uses. A stylesheet can be scoped
+to the view that needs it. User origin with `!important` outranks anything a
+page's own stylesheet says. Correcting in perception would mean every feature
+that reads a width knowing which environment it is in — the thing the frozen
+viewport exists to avoid.
+
+**Cost.** A stylesheet is per document, so it is put back on every page, and
+there is a moment between a page's first layout and `dom-ready` when it has its
+scrollbars. Nothing reads the page in that moment. It is a stylesheet, not the
+engine's own mode, so a page that draws a scrollbar of its own out of elements
+still has one.
+
+---
+
+## `MIN_COVERAGE` is 0.27, the middle of the gap
+
+**Date:** 2026-09-30 (asked for by Raham; recommended in EVALUATION.md, 2026-09-20e)
+
+**Decision.** A candidate has to cover 0.27 of the viewport, on screen, to block
+the page as a whole. It was 0.30.
+
+**Alternatives.** Leave 0.30. Or go lower still, towards the largest
+non-blocker.
+
+**Why this.** Once partial overlays were added to the corpus (2026-09-20e), the
+real blockers came down to 0.3125 and the furniture stayed at or below 0.234,
+with nothing in between. 0.30 sat 0.0125 under the nearest blocker and 0.066
+over the largest non-blocker: a threshold that close to one side of an empty
+band is a threshold one slightly wider drawer away from missing a real one.
+0.273 is the midpoint; 0.27 leaves 0.036 on one side and 0.0425 on the other.
+Against the probe's data it changes no page's result, so it costs nothing
+measured. It catches the one ordinary thing known to fall in the band — a
+378px drawer at 0.295 — which 0.30 would miss.
+
+**Cost.** The number is argued from a gap, not tested by a page inside it: the
+corpus has nothing between 0.234 and 0.3125, so nothing shows whether a page at
+0.28 is a blocker or furniture. A docs sidebar a little wider than MUI's (above
+345px) would now be flagged as covering the page. Until a corpus has pages in
+the band, 0.27 is as untested as 0.30 was — just centred.

@@ -187,6 +187,13 @@ class Expectation:
     # part of a name and needs the page to have offered something for it —
     # a station list answering "LAHORE" — before anything can be chosen.
     label_like: str | None = None
+    # The step waits on a list the site fetches — a station list answering a
+    # typed name — so it is given `loop.LIST_TIMEOUT_S` to appear instead of
+    # the ordinary window. Not a condition on the page: it says how long to
+    # look, and the conditions above say what for. Until 2026-09-30 such a
+    # step had the same five seconds as a click, and on the live site a list
+    # that took longer was reported as a place with no stations.
+    list_opens: bool = False
     # Readable content, from perception's second channel.
     content_says: str | None = None
     rows_at_least: int | None = None

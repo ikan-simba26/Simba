@@ -244,8 +244,9 @@ backend/venv/bin/python -m playwright install chromium
 ```
 
 The launchers look for `backend/venv` and fall back to `python` on the PATH.
-The venv on the development machine is Python 3.12.3; CLAUDE.md says 3.11.
-Nothing is known to depend on the difference.
+The venv on the development machine is Python 3.12.3, and CLAUDE.md has
+asked for 3.12 since 2026-09-30; until then it said 3.11, which nothing
+depended on.
 
 **For the LLM planner only**, copy `.env.example` to `.env` and fill it in.
 The variables are `SIMBA_LLM_PROVIDER` (`anthropic` or `openai`),
@@ -671,7 +672,6 @@ Stated so nobody trusts the wrong one:
   Its 2026-09-17 entry lists them.
 - `CONTRACT.md`'s examples for `step.presented` and `help.requested` still use
   wording the system no longer says ("Not now", "I'll carry on from there").
-- CLAUDE.md says Python 3.11; the venv is 3.12.3.
 
 Fixed on 2026-09-17, and listed here earlier the same day: README.md's test
 count and start command, frontend/README.md calling the overlay a harness,
