@@ -3423,3 +3423,46 @@ CLAUDE.md does not yet say so. The second strategy types the name differently;
 a site that ignored the first way of typing and answered the second would now
 be reported as having no such station. None of ours does, and the live site
 answered the first way in five of six runs.
+
+---
+
+## How the estimator is trained, before there is anything to train it on
+
+**Date:** 2026-10-01 (pipeline asked for by Raham; the choices below were not
+specified)
+
+**Decision.**
+- **Features:** the nine raw `page_features`, from the **headless** corpus rows,
+  standardised. The pictures raters see are headless captures, so those are the
+  features of what they saw.
+- **Averaging:** a rater's answers to one page (first showing and repeat) are
+  averaged first, then raters are averaged, so every rater counts once per page.
+- **Agreement:** Krippendorff's alpha (interval) on first showings, which
+  tolerates a rater who stopped halfway; each rater's Spearman correlation with
+  the mean of the others, to pick out one who read the question differently;
+  and the repeated pages as test-retest within a rater.
+- **Model and score:** `RidgeCV` inside a scaler pipeline, its penalty chosen
+  inside each training fold; 5-fold `KFold`, shuffled, seed 0; R² beside the R²
+  of predicting the training mean.
+- **Importance:** permutation importance on each held-out fold, 50 shuffles,
+  pooled — not on the pages the model was fitted to.
+- **Synthetic rows** carry `"synthetic": true`; mixed with real rows the run is
+  refused, and alone they can never be written to `data/estimator.joblib` or
+  `EVALUATION.md`.
+- **Tests write under `.scratch/`**, not the system temp directory.
+
+**Alternatives.** Host rows instead of headless. Every rating as its own row
+rather than page means. ICC instead of alpha. Importance on the full fit.
+Nested CV for the penalty.
+
+**Why this.** Each choice is the one where a mistake would otherwise go
+unnoticed: features of a different rendering than was rated; a repeat counting
+as a second person; importance that rewards memorising; a synthetic number
+pasted into the report. RidgeCV inside the fold gives the same honesty as
+nested CV at a fraction of the code.
+
+**Cost.** The pictures were captured on 2026-09-25 and the corpus features
+re-collected on 2026-09-30, so for a live page the features may not describe
+the exact picture rated. Fifty pages is a small sample for nine features; the
+R² will be noisy, which the fold-by-fold figures will show. The ten-rater floor
+is a choice, not a statistical threshold, and the refusal says so.
