@@ -6,14 +6,12 @@ finds a rule that is there, finds nothing when there is nothing, measures
 agreement the way it says it does, refuses what it should refuse — and never
 lets a synthetic run into the project's own model file or EVALUATION.md.
 
-Files go under `.scratch/` (ignored), not the system temp directory: CLAUDE.md
-keeps temporary files inside the repository.
+Files go in `tmp_path`, which is inside the repository (`.scratch/pytest`,
+set in the root `conftest.py`), as CLAUDE.md requires.
 """
 
 import json
 import random
-import shutil
-from collections.abc import Iterator
 from pathlib import Path
 
 import joblib
@@ -40,17 +38,9 @@ from backend.estimator.train import (
     write_evaluation,
 )
 
-SCRATCH = Path(__file__).resolve().parents[2] / ".scratch" / "test-train"
-
-
 @pytest.fixture
-def here(request) -> Iterator[Path]:
-    """A directory of this test's own under `.scratch/`, emptied after."""
-    path = SCRATCH / request.node.name.replace("[", "-").replace("]", "")
-    shutil.rmtree(path, ignore_errors=True)
-    path.mkdir(parents=True)
-    yield path
-    shutil.rmtree(path, ignore_errors=True)
+def here(tmp_path: Path) -> Path:
+    return tmp_path
 
 
 # --- synthetic data ---------------------------------------------------------

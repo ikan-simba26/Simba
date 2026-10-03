@@ -930,12 +930,9 @@ application's state (EVALUATION.md).
   on our copy, answering the questions. They run at the copy's pace, about
   twice the live site's, and show invented trains; DEMO.md says so. `demo/` is
   not committed, so a fresh clone has to record them again.
-- **Most existing tests write to the system temp directory** (`tmp_path`:
-  `test_pairing.py`, `test_adaptation.py`, `test_billing.py`, `test_llm.py`,
-  `test_replay.py`, `test_conditions.py`, `test_rating.py`), which CLAUDE.md's
-  tooling rules forbid. The new estimator tests use `.scratch/`. Options: point
-  pytest's `--basetemp` at `.scratch/pytest` in one place; or change each test.
-  Recommended: `--basetemp`, one line, no test changes.
+- ~~**Most existing tests write to the system temp directory.**~~ **Fixed
+  2026-10-03**: the root `conftest.py` sets `--basetemp` to `.scratch/pytest`;
+  `test_basetemp.py` holds it.
 - **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
   of `main` until the 100% capture rate is measured for real (see 2026-09-27
