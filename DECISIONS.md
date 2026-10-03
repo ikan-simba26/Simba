@@ -3492,3 +3492,32 @@ backend and the real host, which is what makes it a recording of the product.
 **Cost.** One new field on the health check (HTTP, not part of the WebSocket
 contract). The recordings run at the copy's pace, about twice the live site's,
 and show invented trains; DEMO.md says to tell the audience so.
+
+---
+
+## The trained model is committed; the ratings are not
+
+**Date:** 2026-10-03 (decided by Raham)
+
+**Decision.** `data/estimator.joblib` is committed once it has been trained on
+real ratings. `data/ratings.jsonl` stays out of the repository, as it has since
+the rating tool was built (`.gitignore`). A model trained on synthetic ratings
+is never committed — `train.py` already refuses to write one to that path.
+
+**Alternatives.** Commit neither, so every machine trains its own. Commit both.
+
+**Why this.** The model is what the product runs on and what the report
+evaluates; everyone needs the same one, and a model that only exists on one
+laptop cannot be reviewed or reproduced in a demo. The ratings are people's
+answers, given with their consent for this study, and whether they leave the
+machine that recorded them is not a code decision. The model carries no
+individual answer: it is nine coefficients, a scaler and an intercept, plus the
+rater count, the page list and the cross-validated R² it was saved with.
+
+**Cost.** A committed model cannot be retrained by someone who does not have the
+ratings; its EVALUATION.md entry, with the ratings file's sha256, is what
+connects the two. And a model fitted to fifty pages can in principle say
+something about how the raters rated those pages, which is the reason only the
+aggregate model is committed and not the per-page means. `data/estimator.joblib`
+is not in `.gitignore`, so it shows as untracked once trained and has to be
+added by name, as every file is (CLAUDE.md).
