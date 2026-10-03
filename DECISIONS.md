@@ -3521,3 +3521,47 @@ something about how the raters rated those pages, which is the reason only the
 aggregate model is committed and not the per-page means. `data/estimator.joblib`
 is not in `.gitignore`, so it shows as untracked once trained and has to be
 added by name, as every file is (CLAUDE.md).
+
+---
+
+## A minimal credential store: Windows' own encryption, one entry per site, saved only on request
+
+**Date:** 2026-10-03 (store asked for by Raham; these choices were not specified)
+
+**Decision.**
+- **Encryption:** Windows DPAPI (`CryptProtectData`) through `ctypes`, with
+  entropy of our own, no UI. No new dependency and no key of ours to store. On
+  any other operating system the vault is unavailable and the step asks every
+  time.
+- **Storage:** `data/vault.json`, ignored by git; `SIMBA_VAULT` overrides it,
+  and the tests always point it at `.scratch/`.
+- **Entries:** one per site origin, the username and password encrypted
+  together. The username is the one other text field on a step that asks for a
+  password; with more than one, only the password is kept.
+- **Saving:** only when the person presses "… and save my password", and only
+  after the step has worked. **Using:** the step hides both fields, says it will
+  use the saved details, and offers "Forget my saved password", which deletes
+  the entry and asks again on the same step.
+- **Perception never holds a password:** `snapshot.parse` masks a password
+  field's value.
+- **The LLM planner offers a protected password field** for a password it types.
+  Before, it offered none and, with no vault, could not sign in at all.
+
+**Alternatives.** Electron's `safeStorage` in the main process (the same OS
+keys, but the secret would then cross from the frontend to the backend for every
+use). The `cryptography` and `keyring` packages (two dependencies, and a key to
+manage). Save every password typed, without asking. A settings screen for
+deleting saved details.
+
+**Why this.** The backend is what types into the page (CLAUDE.md), so the
+backend should hold what it types. DPAPI ties the file to this Windows account,
+which is the protection that matters for a laptop shared at home. Asking before
+saving keeps it the person's decision; saving only after a successful step
+keeps a mistyped password out of the store.
+
+**Cost.** Windows only. Forgetting is only possible from a sign-in step, during a
+task; deleting a saved password from the home screen would need a new message in
+the contract. A password still travels once, from the overlay to the backend in
+`step.response`, over the local socket — as it always has. The registration
+replica accepts any password, so a rejected sign-in is tested with a rigged step,
+not a real rejection.

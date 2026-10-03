@@ -60,3 +60,7 @@ data/steps.jsonl
 # answers and stay on the machine that recorded them, like data/steps.jsonl.
 data/rating/pages/
 data/ratings.jsonl
+
+# Saved sign-in details (backend/orchestrator/vault.py). Encrypted with this
+# Windows account's own key, and still never committed.
+data/vault.json

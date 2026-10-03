@@ -21,7 +21,7 @@ import base64
 import json
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from playwright.async_api import Error as PlaywrightError
@@ -33,6 +33,7 @@ from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
+from backend.orchestrator.vault import Credentials, Vault
 from backend.perception.content import Content
 from backend.perception.serializer import (
     Element,
@@ -545,6 +546,67 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
     )
 
 
+# --- saved sign-in details ---------------------------------------------------
+
+
+def sign_in_fields(move: "Move") -> tuple[StepField | None, StepField | None]:
+    """The step's username and password fields, if it asks for a password.
+
+    The password is the field of type password. The username is the one other
+    text field beside it, when there is exactly one; a step that asks for more
+    than that is not a plain sign-in, and only its password is saved."""
+    password = next((f for f in move.fields if f.type == "password"), None)
+    if password is None:
+        return None, None
+    others = [f for f in move.fields if f is not password and f.type == "text"]
+    return (others[0] if len(others) == 1 else None), password
+
+
+def with_saved_details(move: "Move", saved: Credentials | None, can_save: bool) -> "Move":
+    """The step as the person sees it, given what is saved for this site.
+
+    Saved: the sign-in fields are gone — the backend types them — the detail
+    line says so, and there is a way to forget them. Not saved: the step asks
+    as it always did, with a second button that keeps the password. A step
+    that asks for no password is returned unchanged."""
+    username, password = sign_in_fields(move)
+    if password is None:
+        return move
+    primary, *rest = move.actions
+    stop = [a for a in rest if a.id == voice.CANCEL_ID]
+    if saved is not None:
+        return replace(
+            move,
+            detail=voice.USING_SAVED,
+            fields=[f for f in move.fields if f is not password and f is not username],
+            actions=[primary, StepAction(id=voice.FORGET_ID, label=voice.FORGET,
+                                         kind="primary"), *stop],
+        )
+    if not can_save:
+        return move
+    return replace(move, actions=[
+        primary, StepAction(id=voice.REMEMBER_ID, label=voice.remember(primary.label),
+                            kind="primary"), *stop])
+
+
+def saved_answers(move: "Move", saved: Credentials) -> dict[str, str]:
+    """What the saved details answer, keyed the way the step's fields are."""
+    username, password = sign_in_fields(move)
+    answers = {password.id: saved.password} if password is not None else {}
+    if username is not None and saved.username:
+        answers[username.id] = saved.username
+    return answers
+
+
+def answers_to_save(move: "Move", input_values: dict[str, str]) -> Credentials | None:
+    """The details the person just typed, to keep — or None if no password."""
+    username, password = sign_in_fields(move)
+    if password is None or not input_values.get(password.id):
+        return None
+    return Credentials(input_values.get(username.id, "") if username else "",
+                       input_values[password.id])
+
+
 class _Run:
     """One task's conversation with the person: what is on screen, and the
     few things every part of a run says the same way."""
@@ -555,11 +617,15 @@ class _Run:
         connection: Connection,
         recorder: Recorder | None,
         rules: LevelRules | None,
+        vault: Vault | None = None,
     ) -> None:
         self.page = page
         self.connection = connection
         self.recorder = recorder
         self.rules = rules
+        #: Saved sign-in details, or None to ask every time (`vault.py`).
+        self.vault = vault
+        self._can_save: bool | None = None
         self.started = time.monotonic()
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
@@ -570,6 +636,16 @@ class _Run:
         #: one run — 1 of 7, then 2 of 5, because the questions counted the
         #: one on screen and the steps then counted none of them.
         self.total = 0
+
+    @property
+    def can_save(self) -> bool:
+        """Whether a password can be kept on this machine. Asked once."""
+        if self._can_save is None:
+            self._can_save = self.vault is not None and self.vault.available
+        return self._can_save
+
+    def saved(self) -> Credentials | None:
+        return self.vault.get(self.page.url) if self.can_save else None
 
     async def set_state(self, state: str) -> None:
         # Exactly one state is active at a time, so don't re-announce it.
@@ -688,6 +764,7 @@ async def run_task(
     start_url: str,
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
+    vault: Vault | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -699,7 +776,7 @@ async def run_task(
     `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    run = _Run(page, connection, recorder, rules)
+    run = _Run(page, connection, recorder, rules, vault)
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -711,6 +788,7 @@ async def run_brief(
     start_url: str,
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
+    vault: Vault | None = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -721,7 +799,7 @@ async def run_brief(
     stopped the task; a brief that cannot make sense of the answers ends the
     run the way being stuck does, and says why.
     """
-    run = _Run(page, connection, recorder, rules)
+    run = _Run(page, connection, recorder, rules, vault)
     await run.open(brief.goal, brief.estimated_steps, start_url)
 
     view: PageView | None = None
@@ -832,15 +910,33 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             continue
 
         input_values: dict[str, str] = {}
+        keep: Credentials | None = None
         if not move.quiet:
             steps_taken += 1
-            payload = await run.present(
-                move, goal=task.goal, findings=findings, view=view,
-            )
-            if payload.get("action_id") != voice.CONFIRM_ID:
+            # A step that asks for a password uses the saved one if there is
+            # one, and offers to keep it if there is not. Either way the
+            # password is never in what is shown: a saved one is typed by the
+            # backend, and the field for a new one is always empty.
+            saved = run.saved() if sign_in_fields(move)[1] is not None else None
+            shown = with_saved_details(move, saved, run.can_save)
+            payload = await run.present(shown, goal=task.goal, findings=findings, view=view)
+            if payload.get("action_id") == voice.FORGET_ID and saved is not None:
+                # Deleted, then the same step again, asking.
+                run.vault.forget(page.url)
+                saved = None
+                shown = replace(with_saved_details(move, None, run.can_save),
+                                detail=voice.FORGOTTEN)
+                payload = await run.present(shown, goal=task.goal, findings=findings,
+                                            view=view)
+            action = payload.get("action_id")
+            if action not in (voice.CONFIRM_ID, voice.REMEMBER_ID):
                 await run.stopped()
                 return
             input_values = payload.get("input_values", {})
+            if saved is not None:
+                input_values = {**input_values, **saved_answers(move, saved)}
+            if action == voice.REMEMBER_ID:
+                keep = answers_to_save(move, input_values)
 
         await set_state("acting")
 
@@ -889,6 +985,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         consecutive_setbacks = 0
         last_failure = None
+        if keep is not None:
+            # Only now: a password that did not sign anyone in is not kept.
+            run.vault.put(page.url, keep)
         completed.append(move)
         history.append(move.instruction)
         # Anything typed on a page we have since left is not ours to police.

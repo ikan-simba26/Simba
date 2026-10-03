@@ -184,6 +184,28 @@ class Document:
         return " > ".join(reversed(steps))
 
 
+#: What a password field holds, as far as anything reading the page knows: that
+#: it holds something, never what. Fixed length, so not even how long it is.
+SECRET_MASK = "********"
+
+
+def _readable(value: str, attributes: dict) -> str:
+    """A field's value as everything downstream of the snapshot sees it.
+
+    CDP reads every input's live value, a password field's included, so after
+    a password was typed the secret was in `Document.input_values`, in every
+    `Element.value` and in every `Snapshot` built from them (found 2026-10-03).
+    Nothing sent it on — the model's page shows no values, and the loop's own
+    checks skip passwords — but every new reader of a value was one line from
+    leaking it. A password field reads as the mask when it holds anything and
+    empty when it does not, so "filled or not" stays visible and the secret
+    never enters perception at all.
+    """
+    if str(attributes.get("type", "")).lower() == "password":
+        return SECRET_MASK if value else ""
+    return value
+
+
 def parse(
     snapshot: dict[str, Any] | None, device_pixel_ratio: float = 1.0
 ) -> Document | None:
@@ -254,7 +276,8 @@ def parse(
     # nodes that have one, rather than a full-length column of mostly blanks.
     rare = nodes.get("inputValue") or {}
     input_values = {
-        node_index: text(string_index)
+        node_index: _readable(text(string_index), attributes[node_index]
+                              if node_index < len(attributes) else {})
         for node_index, string_index in zip(
             rare.get("index", []), rare.get("value", [])
         )

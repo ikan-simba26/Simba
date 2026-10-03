@@ -37,6 +37,13 @@ os.environ.setdefault("SIMBA_ROUTER", "keywords")
 # step, and the suite would have filled the file with its own.
 os.environ.setdefault("SIMBA_RECORD_STEPS", "0")
 
+# And no test reads or writes the person's saved passwords. A password saved
+# for the registration replica would change what its sign-in step shows, and a
+# test that pressed "save" would write to `data/vault.json`. Tests that need a
+# vault make one of their own.
+os.environ.setdefault(
+    "SIMBA_VAULT", str(Path(__file__).resolve().parents[1] / ".scratch" / "vault-tests.json"))
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

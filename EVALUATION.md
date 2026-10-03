@@ -4565,3 +4565,50 @@ are read in the capture's browser context — `--hide-scrollbars`, the scrollbar
 style injected, `bypass_csp` so that style is accepted on pypi.org and gov.uk —
 rather than `collect_corpus`'s plain one. That is what makes them the features
 of the picture. `collect_corpus` on its own still reads the plain way.
+
+---
+
+## 2026-10-03b — the credential store: a saved password, searched for everywhere
+
+`backend/orchestrator/test_vault.py`, the registration replica, real Chromium.
+The headline test runs a whole registration task through the real loop, the
+real LLM planner and the real `OpenAICompatibleProvider` — only its HTTP call
+answered offline — with a password saved for the site, trace memory on, the
+step recorder on and every log record captured at DEBUG. Then it searches for
+the password in:
+
+| Where | Found |
+|---|---|
+| Every prompt the model was sent (5) | no |
+| The provider's transcript file | no |
+| The trace database | no |
+| The step recorder's file | no |
+| Every log record | no |
+| Every message to the overlay | no |
+| The vault file (nor the username) | no |
+| Every file created or changed under `logs/` and `data/` during the run | no |
+
+And the backend did type it: the fill on the "Password" field carried it. The
+password step was shown with no field for it and the line "I'll use the sign-in
+details you saved for this site."
+
+**The test catches a leak.** Planting one log line carrying the password failed
+it on "every log record"; planting the password in a step's instruction failed
+it on "the step recorder". Both plants were in a scratch copy, removed after.
+
+**A leak found while building it.** CDP's snapshot reads every input's live
+value, a password field's included, so after a password was typed the secret
+was in `Document.input_values`, in `Element.value` and in every `Snapshot` built
+from them. Nothing sent it further — the model's page has no values, and the
+loop's checks already skipped passwords — but it was one new reader away from a
+prompt or a log. `snapshot.parse` now reads a password field as `********` when
+it holds anything and empty when not; `test_serializer.py` types a password into
+the real replica and finds it nowhere in the read.
+
+The other twelve tests: nothing readable on disk; an entry is per site (origin);
+a tampered entry is refused, not misread; saved details never print; asked once
+and kept only when the person presses "Sign in and save my password"; typed
+without asking the next time; forgotten on request and the step asked again in
+the same run; a password whose step did not work is not kept; with no vault the
+step is exactly as before. At 150% (1266x606) the sign-in step with its third
+button keeps both fields and all three buttons on screen. 13 + 2 + 2 tests.

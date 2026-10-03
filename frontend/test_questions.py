@@ -190,3 +190,75 @@ def test_the_question_is_not_a_web_address_and_has_buttons(
         assert address not in body, address
     # Nothing was sent before the person answered.
     assert not [m for m in backend.responses if m.get("type") == "step.response"]
+
+
+# --- a sign-in step that offers to keep the password ---------------------------
+
+SIGN_IN = {
+    "step_index": 1, "step_total": 3,
+    "instruction": "Let me sign you in first.",
+    "detail": "Fictional State University student portal.",
+    "fields": [
+        {"id": "username", "label": "Student ID or Username", "type": "text", "value": ""},
+        {"id": "password", "label": "Password", "type": "password", "value": ""},
+    ],
+    "requires_confirmation": True, "findings": [],
+    "actions": [
+        {"id": "confirm", "label": "Sign in", "kind": "primary"},
+        {"id": "remember", "label": "Sign in and save my password", "kind": "primary"},
+        {"id": "cancel", "label": "Stop this", "kind": "secondary"},
+    ],
+}
+
+
+@pytest.fixture
+def short_page(playwright_instance: Playwright) -> Iterator[Page]:
+    """The window's content at 150% (EVALUATION.md, 2026-09-25c)."""
+    browser = playwright_instance.chromium.launch()
+    yield browser.new_page(viewport={"width": 1266, "height": 606}, device_scale_factor=1.5)
+    browser.close()
+
+
+def test_a_sign_in_step_with_three_buttons_fits_at_150_percent(
+    short_page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The step that offers to keep a password has a third button. Every one of
+    them, and both fields, must be on screen in a 150% window — by the
+    overflow guard folding the step if it has to."""
+    ask(short_page, overlay, backend, [
+        ("task.started", {"goal": "Register for CS-401", "estimated_steps": 3}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", SIGN_IN),
+        (AWAIT_RESPONSE, {}),
+    ])
+    short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
+
+    height = short_page.viewport_size["height"]
+    for name in ("Sign in", "Sign in and save my password", "Stop this"):
+        box = short_page.get_by_role("button", name=name, exact=True).bounding_box()
+        assert box is not None and box["y"] + box["height"] <= height, (name, box)
+    password = short_page.locator("input[aria-label='Password']")
+    assert password.get_attribute("type") == "password"
+    box = password.bounding_box()
+    assert box is not None and box["y"] + box["height"] <= height
+
+
+def test_the_password_typed_goes_back_with_the_save_answer(
+    short_page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(short_page, overlay, backend, [
+        ("task.started", {"goal": "Register for CS-401", "estimated_steps": 3}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", SIGN_IN),
+        (AWAIT_RESPONSE, {}),
+        ("state.changed", {"state": "acting"}),
+    ])
+    short_page.fill("input[aria-label='Student ID or Username']", "raham")
+    short_page.fill("input[aria-label='Password']", "typed-here")
+    short_page.get_by_role("button", name="Sign in and save my password", exact=True).click()
+    short_page.wait_for_timeout(800)
+
+    payload = answer(backend)
+    assert payload["action_id"] == "remember"
+    assert payload["input_values"] == {"username": "raham", "password": "typed-here"}
+    assert "I've stopped, as you asked." not in short_page.inner_text("body")
