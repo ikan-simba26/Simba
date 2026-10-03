@@ -3565,3 +3565,31 @@ the contract. A password still travels once, from the overlay to the backend in
 `step.response`, over the local socket — as it always has. The registration
 replica accepts any password, so a rejected sign-in is tested with a rigged step,
 not a real rejection.
+
+---
+
+## The closing screen's sentence is a new optional field, built by the backend
+
+**Date:** 2026-10-03 (sentence asked for by Raham; where it lives was not specified)
+
+**Decision.** `task.completed` gains `explanation: str | None`, additive and
+optional (CONTRACT.md, `shared/schema.py`, `shared/schema.ts`). The backend
+builds it in `voice.explain_trains`, `explain_bill` and `explain_course`, each
+task naming its own (`Task.explain`). The overlay shows it above the findings,
+and on an ending with no findings in place of restating the goal. `copy.ts`
+gains nothing: the overlay writes no words of this sentence, and
+`test_copy.py` holds the backend's to the same rules.
+
+**Alternatives.** Put the sentence in `summary`, which CONTRACT.md's own example
+shows as a plain sentence. Build it in the overlay from the findings.
+
+**Why this.** `summary` has carried the goal and the final URL since the
+skeleton, and tests and logs read it to see where a run ended; changing what an
+existing field means is the kind of change CLAUDE.md asks all three owners for,
+and an additive optional field is the kind it does not. Built in the overlay,
+the sentence would need to know that "Journey" is a duration in `6 h 3 min` and
+that "Your bill" is an amount — the backend's knowledge, in the frontend.
+
+**Cost.** One more field in the contract, absent from every message before
+today, and two places the closing screen's text comes from. The sentence is in
+English only, as everything else is.

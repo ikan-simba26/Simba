@@ -39,6 +39,7 @@ from backend.orchestrator.router import (  # noqa: E402
 )
 from backend.orchestrator.voice import actions  # noqa: E402
 from shared.envelope import envelope  # noqa: E402
+from backend.orchestrator import voice
 from shared.schema import (  # noqa: E402
     BaseModel,
     Finding,
@@ -182,6 +183,12 @@ app = FastAPI()
 
 
 @app.get("/")
+def explain(findings: list[Finding]) -> str | None:
+    """The closing screen's sentence, by the backend's own rules (`voice.py`)."""
+    found = {f.label: list(f.values or [f.value]) for f in findings}
+    return voice.explain_trains(found, {}) or voice.explain_bill(found, {})
+
+
 async def health() -> dict[str, str]:
     """Same shape as the real backend's, so a launcher can poll either.
 
@@ -318,5 +325,8 @@ async def play(flow: str, goal: str, send, receive) -> None:
             llm_calls=0,
             replayed=False,
             findings=findings,
+            # Built the same way the real backend builds it, from the same
+            # findings, so the overlay shows what a real run would.
+            explanation=explain(findings),
         ),
     )

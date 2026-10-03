@@ -191,6 +191,11 @@ class TaskCompleted(BaseModel):
     # The answer, when the task had one. A run that ends without saying what
     # it found has not finished from the user's side of the screen.
     findings: List[Finding] = []
+    # One plain sentence above the result, saying what it means — "There are
+    # 3 trains. The fastest takes 6 hours 3 minutes." Built by the backend
+    # only from values the page returned (`voice.explain_*`). Optional and
+    # additive (2026-10-03): absent when there is nothing it can say safely.
+    explanation: Optional[str] = None
 
 
 class TaskFailed(BaseModel):

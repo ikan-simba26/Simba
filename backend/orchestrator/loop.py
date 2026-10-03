@@ -22,7 +22,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
-from typing import Protocol
+from typing import Callable, Protocol
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
@@ -452,6 +452,12 @@ class Task:
     # of them — but it has to be written, so that leaving it out is a
     # TypeError rather than a task that silently checks and shows nothing.
     about: About = field(kw_only=True)
+    # The closing screen's one plain sentence, built from what the run found
+    # (`found`, by the names the task shows them under) and what the site said
+    # back (`seen`, by the page's own labels). None means no sentence. Only
+    # ever from those values: `voice.explain_*`.
+    explain: "Callable[[dict[str, list[str]], dict[str, list[str]]], str | None] | None" = field(
+        default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -1028,6 +1034,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
+            explanation=task.explain(found, seen) if task.explain else None,
         ),
     )
 

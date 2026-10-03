@@ -165,6 +165,12 @@ export interface TaskCompleted {
   replayed: boolean;
   /** The answer, when the task had one. */
   findings?: Finding[];
+  /**
+   * One plain sentence above the result, saying what it means — "There are 3
+   * trains. The fastest takes 6 hours 3 minutes." Built by the backend only
+   * from values the page returned. Optional and additive (2026-10-03).
+   */
+  explanation?: string | null;
 }
 
 export interface TaskFailed {

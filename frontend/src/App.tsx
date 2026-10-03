@@ -499,12 +499,24 @@ function Step() {
 function Completed() {
   const { completed, task, startOver } = useStore();
   const findings = completed?.findings ?? [];
+  // One plain sentence saying what the result means, written by the backend
+  // from the page's own values (`voice.explain_*`). This screen writes none of
+  // its own: there is nothing in `copy.ts` for it because every word of it is
+  // the page's or `voice.py`'s, and `test_copy.py` holds those to the same
+  // rules. Absent, the screen is exactly what it was.
+  const explanation = completed?.explanation ?? null;
 
   return (
     <div className="flex flex-col gap-8 short:gap-5">
       {findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
           <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
+          {explanation && (
+            <p className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
+               data-testid="explanation">
+              {explanation}
+            </p>
+          )}
           <Findings findings={findings} size={TYPE.hero} />
         </Card>
       ) : (
@@ -516,7 +528,10 @@ function Completed() {
           <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
             {ENDING.withoutAnswer}
           </h1>
-          <p className="text-lead text-soft">{task?.goal}</p>
+          {/* What happened, when the page said; otherwise what was asked for. */}
+          <p className="text-lead text-soft" data-testid={explanation ? "explanation" : undefined}>
+            {explanation ?? task?.goal}
+          </p>
         </div>
       )}
 

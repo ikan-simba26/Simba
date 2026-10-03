@@ -4612,3 +4612,41 @@ without asking the next time; forgotten on request and the step asked again in
 the same run; a password whose step did not work is not kept; with no vault the
 step is exactly as before. At 150% (1266x606) the sign-in step with its third
 button keeps both fields and all three buttons on screen. 13 + 2 + 2 tests.
+
+---
+
+## 2026-10-03c — one plain sentence on the closing screen, and the screen it lands on
+
+`task.completed.explanation`, built by `voice.explain_*` from the values the
+page returned. On the replicas, end to end (`test_explanation.py`):
+
+| Flow | Sentence |
+|---|---|
+| Train search, our copy, Rawalpindi to Multan | "There are 2 trains. The fastest takes 5 hours 15 minutes." (3UP, 5 h 15 min; 4DN, 6 h 15 min) |
+| Bill | "Your bill is 14,382, and it is due on 15-09-2026." |
+| Registration, MATH-210 | "You are registered for MATH-210 section 001." |
+| Fixed registration plan | none: it declares no sentence, and the screen is as before |
+
+On the live search of 2026-09-30 (run 6), the same function gives "There are 3
+trains. The fastest takes 6 hours 3 minutes." Every number in a sentence is one
+the page printed or a count of what it returned, which a test checks number by
+number; a journey it cannot read leaves "the fastest" unsaid, two amounts leave
+the bill unexplained, and a value that is a web address is never said. 23 tests,
+and the six new sentences pass every wording rule `test_copy.py` holds the
+backend to.
+
+**The closing screen did not fit before the sentence.** Measured in Chromium at
+each scale's content size, with the sentence and without:
+
+| Results | Scale | "I'm done" (no sentence) | "Do something else" ends (no sentence) | With the sentence |
+|---|---|---|---|---|
+| 3 trains | 100% (800 tall) | 679–759 | **851** | +61px |
+| 3 trains | 125% / 150% (734 / 606) | 595–659 | **735** | +51px |
+| 9 trains | 100% | **1057** | — | **1118** |
+| 9 trains | 150% | **973** | — | **1024** |
+
+So with any answer of three or more results the way onward has been partly or
+wholly below the window, at every scale, since before this change; the fit was
+only ever measured for the home screen and for steps (2026-09-25c, 2026-09-30d).
+The sentence makes it 51–61px worse. Both cases are pinned in
+`frontend/test_closing.py` as strict known failures. Not fixed here: flagged.
