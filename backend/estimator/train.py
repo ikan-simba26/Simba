@@ -42,6 +42,13 @@ project's own `data/estimator.joblib` or `EVALUATION.md`.
 captures (`tools/rating/capture.py`). Standardised before the fit, so the
 ridge coefficients are comparable with each other.
 
+**Each rating is paired with the features of the picture it was given for.**
+Since 2026-10-03 the pictures and the corpus are captured in one run, from one
+load per page, and both carry the run's id. A rating is used only if the
+picture it was given for is the one in the manifest now (`image_sha256`), and
+only if that picture and the page's corpus row came from the same run; the
+rest are left out and listed, with why.
+
 **What it does not do.** It does not replace the provisional level rules; that
 is a separate step, to be checked against the rules' logged decisions
 (CLAUDE.md, current phase).
@@ -74,6 +81,7 @@ REPO = Path(__file__).resolve().parents[2]
 CORPUS = REPO / "data" / "corpus.json"
 RATINGS = REPO / "data" / "ratings.jsonl"
 MODEL = REPO / "data" / "estimator.joblib"
+PICTURES = REPO / "data" / "rating" / "pages.json"
 EVALUATION = REPO / "EVALUATION.md"
 
 #: The nine raw features `page_features` measures, in its own order.
@@ -110,6 +118,8 @@ class Rating:
     repeat: bool
     rating: int
     synthetic: bool = False
+    #: The sha256 of the picture this answer was given for (`tools/rating/serve.py`).
+    image: str = ""
 
     @property
     def key(self) -> tuple[str, str]:
@@ -132,6 +142,7 @@ def read_ratings(path: Path) -> list[Rating]:
                 rater=int(row["rater"]), url=str(row["url"]), state=str(row["state"]),
                 page=str(row.get("page", "")), repeat=bool(row.get("repeat", False)),
                 rating=int(row["rating"]), synthetic=bool(row.get("synthetic", False)),
+                image=str(row.get("image_sha256", "")),
             )
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise RefusedToTrain(f"{path}, line {number}, is not a rating: {error}") from error
@@ -151,6 +162,33 @@ def read_corpus(path: Path, environment: str = ENVIRONMENT) -> tuple[dict, dict]
     rows = data["results"][environment]
     usable = {(r["url"], r["state"]): r for r in rows if "error" not in r}
     return usable, data.get("conditions", {})
+
+
+def read_pictures(path: Path) -> dict:
+    """The rating manifest's pictures, keyed by `(url, state)`."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {(r["url"], r["state"]): r for r in data["pages"] if "error" not in r}
+
+
+def paired(ratings: list[Rating], corpus: dict, pictures: dict
+           ) -> tuple[list[Rating], list[tuple[tuple[str, str], str]]]:
+    """The ratings whose picture is current and whose features were read from
+    the same load as it; and every page left out, with why."""
+    kept: list[Rating] = []
+    left_out: dict[tuple[str, str], str] = {}
+    for rating in ratings:
+        picture = pictures.get(rating.key)
+        features = corpus.get(rating.key)
+        if picture is None:
+            left_out.setdefault(rating.key, "not in the picture manifest")
+        elif rating.image and rating.image != picture.get("sha256"):
+            left_out.setdefault(rating.key, "rated an earlier picture than the one captured now")
+        elif features is not None and features.get("run") != picture.get("run"):
+            left_out.setdefault(rating.key, "the picture and the features are from different "
+                                f"capture runs ({picture.get('run')} and {features.get('run')})")
+        else:
+            kept.append(rating)
+    return kept, sorted(left_out.items())
 
 
 # --- agreement ------------------------------------------------------------------
@@ -273,6 +311,8 @@ class Trained:
     pages: list[tuple[str, str]]
     #: Rated pages the corpus could not supply features for.
     unmatched: list[tuple[str, str]]
+    #: Rated pages left out because picture, rating and features did not pair.
+    unpaired: list[tuple[tuple[str, str], str]]
     fold_r2: list[float]
     baseline_r2: list[float]
     #: Feature -> (mean, standard deviation) of the R² lost when it is shuffled,
@@ -297,8 +337,19 @@ def _model() -> Pipeline:
     return make_pipeline(StandardScaler(), RidgeCV(alphas=ALPHAS))
 
 
-def train(ratings: list[Rating], corpus: dict, min_raters: int = MIN_RATERS) -> Trained:
-    """Everything above, in order. Raises `RefusedToTrain` with the reason."""
+def train(ratings: list[Rating], corpus: dict, min_raters: int = MIN_RATERS,
+          pictures: dict | None = None) -> Trained:
+    """Everything above, in order. Raises `RefusedToTrain` with the reason.
+
+    With `pictures`, ratings are first paired with them (`paired`); the raters
+    and pages counted afterwards are the ones that paired."""
+    unpaired: list[tuple[tuple[str, str], str]] = []
+    if pictures is not None:
+        ratings, unpaired = paired(ratings, corpus, pictures)
+        if not ratings:
+            raise RefusedToTrain(
+                "no rating pairs with a current picture and features from its run: "
+                + "; ".join(f"{k[0]} [{k[1]}]: {why}" for k, why in unpaired[:5]))
     synthetic = {r.synthetic for r in ratings}
     if synthetic == {True, False}:
         raise RefusedToTrain(
@@ -350,6 +401,7 @@ def train(ratings: list[Rating], corpus: dict, min_raters: int = MIN_RATERS) -> 
     ridge: RidgeCV = final[-1]
     return Trained(
         synthetic=is_synthetic, agreement=found, pages=pages, unmatched=unmatched,
+        unpaired=unpaired,
         fold_r2=fold_r2, baseline_r2=baseline_r2,
         importance={f: (float(np.mean(v)), float(np.std(v))) for f, v in lost.items()},
         coefficients={f: float(c) for f, c in zip(FEATURES, ridge.coef_)},
@@ -450,6 +502,10 @@ def report(trained: Trained, when: datetime | None = None) -> str:
     ranked = sorted(FEATURES, key=lambda f: trained.importance[f][0], reverse=True)
     lines += [f"| `{f}` | {trained.importance[f][0]:.3f} ± {trained.importance[f][1]:.3f} | "
               f"{trained.coefficients[f]:+.3f} |" for f in ranked]
+    if trained.unpaired:
+        lines += ["", f"**{len(trained.unpaired)} rated pages did not pair** with a current "
+                  "picture and features from its run, and were left out: "
+                  + "; ".join(f"{u} [{st}]: {why}" for (u, st), why in trained.unpaired)]
     if trained.unmatched:
         lines += ["", f"**{len(trained.unmatched)} rated pages had no {ENVIRONMENT} features** "
                   "and were left out: " + ", ".join(f"{u} [{s}]" for u, s in trained.unmatched)]
@@ -470,10 +526,12 @@ def write_evaluation(trained: Trained, path: Path = EVALUATION) -> str:
 
 
 def run(ratings_path: Path = RATINGS, corpus_path: Path = CORPUS, model_path: Path = MODEL,
-        evaluation_path: Path = EVALUATION, environment: str = ENVIRONMENT) -> Trained:
+        evaluation_path: Path = EVALUATION, environment: str = ENVIRONMENT,
+        pictures_path: Path | None = PICTURES) -> Trained:
     ratings = read_ratings(ratings_path)
     corpus, corpus_conditions = read_corpus(corpus_path, environment)
-    trained = train(ratings, corpus)
+    pictures = read_pictures(pictures_path) if pictures_path is not None else None
+    trained = train(ratings, corpus, pictures=pictures)
     trained.sources = {
         "commit": _commit(),
         "ratings": str(ratings_path.relative_to(REPO)) if ratings_path.is_relative_to(REPO)

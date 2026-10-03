@@ -184,7 +184,7 @@ def test_a_capture_is_1280x800_with_no_scrollbar(tmp_path: Path, monkeypatch) ->
     monkeypatch.setattr(capture, "PAGES", tmp_path)
     tall = "data:text/html," + "<p style='height:2400px;margin:0'>tall</p>"
 
-    async def go() -> dict:
+    async def go() -> tuple[dict, dict]:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(args=["--hide-scrollbars"])
             page = await browser.new_page(viewport=capture.VIEWPORT, device_scale_factor=1)
@@ -194,9 +194,51 @@ def test_a_capture_is_1280x800_with_no_scrollbar(tmp_path: Path, monkeypatch) ->
                 await browser.close()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        row = pool.submit(lambda: asyncio.run(go())).result()
+        row, _ = pool.submit(lambda: asyncio.run(go())).result()
 
     assert "error" not in row, row
     assert row["layout_width"] == 1280
     width, height = struct.unpack(">II", (tmp_path / row["file"]).read_bytes()[16:24])
     assert (width, height) == (1280, 800)
+
+
+def test_the_features_are_of_the_page_in_the_picture(tmp_path: Path, monkeypatch) -> None:
+    """Since 2026-10-03 the picture and its corpus row come from one load: the
+    page is navigated to once, read, and photographed. A page that says
+    something different every time it loads shows it: the row's text is what
+    that one load said, and both rows carry the run's id."""
+    monkeypatch.setattr(capture, "PAGES", tmp_path)
+    # Different text on every load, so two loads would not agree.
+    changing = ("data:text/html,<p id=t></p><script>document.getElementById('t')"
+                ".textContent = 'x'.repeat(10 + Math.floor(Math.random() * 500))</script>")
+    run = capture.new_run()
+
+    async def go() -> tuple[dict, dict, int, int]:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(args=["--hide-scrollbars"])
+            page = await browser.new_page(viewport=capture.VIEWPORT, device_scale_factor=1)
+            loads = []
+            page.on("load", lambda _: loads.append(1))
+            try:
+                row, features = await capture.photograph(page, changing, None, "test", run)
+                shown = len(await page.inner_text("#t"))
+                return row, features, len(loads), shown
+            finally:
+                await browser.close()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        row, features, loads, shown = pool.submit(lambda: asyncio.run(go())).result()
+
+    assert "error" not in row and "error" not in features, (row, features)
+    assert loads == 1
+    # The text the features counted is the text on the page that was photographed.
+    assert features["characters"] == shown
+    assert row["run"] == features["run"] == run["id"]
+    assert run["date"] == run["taken_at"][:10]
+
+
+def test_a_partial_capture_is_refused(monkeypatch) -> None:
+    """Recapturing some pages would leave two runs side by side."""
+    monkeypatch.setattr("sys.argv", ["capture", "--only", "pypi-org"])
+    with pytest.raises(SystemExit, match="all pages in one run"):
+        capture.main()
