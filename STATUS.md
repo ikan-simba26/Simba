@@ -594,11 +594,8 @@ application's state (EVALUATION.md).
   has 15s (`LIST_TIMEOUT_S`). Reproduced and fixed on the replica with a late
   list; **not re-checked on the live site**, where it happened once in six runs.
 - ~~**A mistyped place now takes 31.5s to be reported**~~ **16.7s since
-  2026-10-01**: one attempt for a step that waits on a list. **CLAUDE.md's loop
-  rule — "retry once with a different strategy" — does not name the exception.**
-  Options: add one line to CLAUDE.md naming it; or leave the exception recorded
-  only in DECISIONS.md. Recommended: add the line, since CLAUDE.md is what a
-  newcomer reads as the rule. Not done: CLAUDE.md is changed when asked.
+  2026-10-01**: one attempt for a step that waits on a list. CLAUDE.md's loop
+  rule names the exception since 2026-10-03.
 - **Replayed runs do not get the longer window.** Replay builds every move with
   an empty expectation. Trace memory is off by default, so nothing uses it
   today.

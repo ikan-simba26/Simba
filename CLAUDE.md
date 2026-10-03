@@ -39,6 +39,7 @@ Anyone may work anywhere. The owner reviews changes to their area.
 Verification is not optional. After every action, snapshot the page and check
 it changed the way the plan expected. If it didn't: retry once with a different
 strategy, then hand control to the user. Never assume a click worked.
+The one exception: a step that waits for a list to open gets one attempt, not two.
 
 ## Rules
 
