@@ -4525,3 +4525,43 @@ to the live site is in the stack's output.
 The railways clip is 45s; the 2026-09-23 recording on the live site was 80s,
 with three fewer screens. The copy is faster than the live site (EVALUATION.md,
 2026-09-30c), so the clips no longer show the live run's pace.
+
+---
+
+## 2026-10-03 — the rating pictures and the corpus, one run
+
+`python -m tools.rating.capture`, run `58dc053cdac7`, 2026-10-03 16:47 +05:00,
+at `7b1a1f9` (clean tree), with the stack up for the corpus's host half. For
+every page: one headless load, the drive, the scrollbars hidden, the features
+read and the picture taken moments apart from that same page; then the host
+half, straight after. `data/rating/pages.json` and `data/corpus.json` both
+carry the run's id and date, on the file and on every row.
+
+| | |
+|---|---|
+| Pictures captured | **50 of 50**, all laid out at 1280px |
+| Headless rows (the features the estimator uses) | 50 of 50, every one from run `58dc053cdac7`, the same as its picture |
+| Host rows | 49 of 50; `practice.expandtesting.com` refused the host (`ERR_ABORTED`) |
+| Pictures identical to the 2026-09-25 set | 23 of 50 |
+| Headless density changed since 2026-09-30 | 12 of 50 pages |
+
+So 27 of the 50 pictures people would have rated were no longer the pages the
+features described. That is now impossible by construction for a rating given
+from here on: `train.py` uses a rating only if it was given for the picture in
+the manifest and that picture's features came from the same run.
+
+Headless and host differ on 13 of 50 pages by the collector's count. What
+differs, and why, is the same kind as 2026-09-30g: driven pages where the drive
+reached a different state in each environment (both Ant Design pages), live
+pages read twice minutes apart (Hacker News, BBC, the Guardian, Bootstrap's two
+docs pages by a few dozen characters), and small unexplained density
+differences with identical text (lite.cnn.com 1.920/1.867, Wikipedia's main
+page 1.903/1.940). `entry_ad` shows its modal in the host and not headless, so
+its picture shows no modal, and its features say so too — they agree with each
+other, which is the point.
+
+**One thing about how the headless features are read changed with this.** They
+are read in the capture's browser context — `--hide-scrollbars`, the scrollbar
+style injected, `bypass_csp` so that style is accepted on pypi.org and gov.uk —
+rather than `collect_corpus`'s plain one. That is what makes them the features
+of the picture. `collect_corpus` on its own still reads the plain way.
