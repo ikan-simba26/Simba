@@ -151,6 +151,10 @@ async def health() -> dict[str, str]:
         "level": "provisional rules" if adapt_level() else "fixed",
         "browser": browser_source(),
         "replica": "per flow",
+        # Where a train goal would run: the live site, or our own copy when
+        # started with `railways-local`. Said here so a script can check before
+        # it runs one (`tools/record_demo.py` refuses the live site).
+        "railways_site": flow_setup("railways")[3],
     }
 
 

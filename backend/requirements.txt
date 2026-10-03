@@ -5,3 +5,6 @@ playwright
 anthropic
 openai
 python-dotenv
+# The estimator's training pipeline (backend/estimator/train.py). Brings numpy,
+# scipy and joblib. Named in CLAUDE.md's October phase; added 2026-10-01.
+scikit-learn

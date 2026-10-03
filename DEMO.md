@@ -7,9 +7,11 @@ The shape of it: **show them the real website first.** The clutter is the
 problem SIMBA exists for, and nobody feels it from a description. Then the same
 task, in SIMBA, in one window.
 
-Everything below has been run end to end. The timings are from the recordings
-in `demo/` (2026-09-23): railways takes 80 seconds at a watchable pace, billing
-24, a greeting 8.
+Everything below has been run end to end. The recordings in `demo/` were made
+on 2026-10-01 on our own copy of the train search: railways takes 45 seconds at
+a watchable pace, billing 32, a greeting 8. **The live railways run is slower**
+— about 54 seconds of task time against 25 on the copy (EVALUATION.md,
+2026-09-30c), before any pauses for narration.
 
 ---
 
@@ -31,16 +33,18 @@ run locally from any start page. On the day, the live railways run is the one
 you do in front of the audience, from `.\run.ps1 billing` as below.
 
 Two things the copy does not rehearse. **Pace**: it runs about twice as fast as
-the live site, so time the narration against a recording, not against the copy.
+the live site, and so do the recordings, which are made on it. Leave room: the
+live search steps take longer, and nothing short of the live site shows how
+much on the day.
 **The live site's own look**: the copy is plain on purpose, so the opening
 "show them the real website" is still rehearsed on the real page, by looking at
 it, not by searching.
 
-**The recordings in `demo/` show the flow as it was on 2026-09-23**, before the
-questions: they go straight to step 1 of 5. They are the fallback for a failure
-in front of an audience, and they no longer match what the audience has just
-watched. Make them again before the next demo (below); that is the one other
-time the live site is used.
+**The recordings show the flow as it is**: the questions, then the steps
+(re-recorded 2026-10-01). They are made on our own copy of the train search, so
+**the live site is never used to make them** — `tools/record_demo.py` asks the
+backend where a train goal would run and refuses to record the railways clip
+anywhere but the copy. Re-record whenever the flow changes.
 
 ---
 
@@ -80,11 +84,16 @@ Open a second, ordinary browser window at
 SIMBA window on screen two, or alt-tab between them.
 
 **Have `demo/` open in a file manager too.** Those recordings are the fallback
-for every failure below. They are not committed — record them the day before:
+for every failure below. They are not committed — record them the day before,
+with the stack on our copy of the train search:
 
 ```powershell
-python -m tools.record_demo          # with the stack up: all five clips
+.\run.ps1 railways-local            # in one terminal
+python -m tools.record_demo          # in another: all five clips
 ```
+
+It prints what each clip did. Every task clip should end on "found an answer";
+one that ends on "I'm stuck" is not a fallback for a run that worked.
 
 ---
 
@@ -183,7 +192,8 @@ failure and continues is stronger than one that pretends.
 
 | What failed | What you see | What to do |
 |---|---|---|
-| **The live railways site is down or very slow** | The run sits on step 1, or the stuck screen appears | *"The site is down; here is the same run from yesterday."* Play `demo/railways.webm`. Then do the billing task live — it is local and unaffected. |
+| **The live railways site is down or very slow** | The run sits on step 1, or the stuck screen appears | *"The site is down; here is the same run from yesterday."* Play `demo/railways.webm` — and say it was recorded on our own copy of the
+train search: the screens are the same, **the trains in it are invented**. Then do the billing task live — it is local and unaffected. |
 | **No internet at all** | The railways site will not load | Skip railways entirely. Open the billing replica page (`http://127.0.0.1:5100`) as the cluttered "before", then run the billing task. Both replicas are local. Routing falls back to keywords with no network, so typing still works. |
 | **The Electron window never appears** | `run.ps1` stops at "starting the Electron host" | Almost always `ELECTRON_RUN_AS_NODE`, set by some editors' terminals. `run.ps1` clears it, so start from a plain PowerShell window, not the editor's. Otherwise play the recordings. |
 | **A port is already in use** | `port 8000 is already in use - another SIMBA run is probably up` | An earlier run is still alive. Close it, or `Get-Process electron, python \| Stop-Process`, then start again. |
@@ -206,4 +216,5 @@ failure and continues is stronger than one that pretends.
   page changed the way the plan expected. If it did not, it retries once
   differently, then hands over and says so.
 - **"Is it always this slow?"** The pace is deliberate — it waits for you.
-  The recordings are at the same speed as the live runs.
+  The recordings run faster than the live railways site, because they are
+  made on our own copy of it; billing and the greeting are the same speed.

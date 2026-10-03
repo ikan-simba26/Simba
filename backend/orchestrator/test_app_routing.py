@@ -239,3 +239,29 @@ def test_an_empty_goal_starts_nothing(app_url: str) -> None:
 
     assert answer_of(talk)["kind"] == "greeting"
     assert "task.started" not in talk.types()
+
+
+# --- where a train goal would run ---------------------------------------------
+
+
+def test_the_health_check_says_where_a_train_goal_would_run(app_url: str) -> None:
+    """A script that must not touch the live site can ask first
+    (`tools/record_demo.py`). Started without `railways-local`, it is the
+    live site, and says so."""
+    import urllib.request
+
+    health = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/", timeout=5).read())
+
+    assert health["railways_site"] == RAILWAYS_URL
+
+
+def test_railways_local_is_what_the_health_check_reports(monkeypatch) -> None:
+    import asyncio as aio
+
+    from backend.orchestrator.app import health
+
+    monkeypatch.setenv("SIMBA_RAILWAYS_URL", "http://127.0.0.1:5200")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        said = pool.submit(aio.run, health()).result()
+
+    assert said["railways_site"] == "http://127.0.0.1:5200"

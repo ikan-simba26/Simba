@@ -3396,3 +3396,99 @@ corpus has nothing between 0.234 and 0.3125, so nothing shows whether a page at
 0.28 is a blocker or furniture. A docs sidebar a little wider than MUI's (above
 345px) would now be flagged as covering the page. Until a corpus has pages in
 the band, 0.27 is as untested as 0.30 was — just centred.
+
+---
+
+## A step that waits on a list gets one attempt, not two
+
+**Date:** 2026-10-01 (asked for by Raham)
+
+**Decision.** In `loop.carry_out`, a move whose expectation has `list_opens` is
+attempted once; every other move keeps the retry with a different strategy.
+`step.failed.strategies_tried` says 1 for such a step.
+
+**Alternatives.** Keep two attempts and accept 31.5s before a mistyped place is
+reported. Keep two and shorten the window. Keep the second attempt but give it
+a short window of its own.
+
+**Why this.** The list window is already three times an ordinary step's, and it
+is polled: a list that comes at all is seen within it. A second attempt helped
+only when no list was ever coming, and then it doubled the wait — for a person
+who mistyped a place, 31.5s of a working screen before being told. One attempt
+reports it in 16.7s, and a list 8s late is still found.
+
+**Cost.** It is an exception to CLAUDE.md's loop rule — "retry once with a
+different strategy, then hand control to the user" — for one kind of step, and
+CLAUDE.md does not yet say so. The second strategy types the name differently;
+a site that ignored the first way of typing and answered the second would now
+be reported as having no such station. None of ours does, and the live site
+answered the first way in five of six runs.
+
+---
+
+## How the estimator is trained, before there is anything to train it on
+
+**Date:** 2026-10-01 (pipeline asked for by Raham; the choices below were not
+specified)
+
+**Decision.**
+- **Features:** the nine raw `page_features`, from the **headless** corpus rows,
+  standardised. The pictures raters see are headless captures, so those are the
+  features of what they saw.
+- **Averaging:** a rater's answers to one page (first showing and repeat) are
+  averaged first, then raters are averaged, so every rater counts once per page.
+- **Agreement:** Krippendorff's alpha (interval) on first showings, which
+  tolerates a rater who stopped halfway; each rater's Spearman correlation with
+  the mean of the others, to pick out one who read the question differently;
+  and the repeated pages as test-retest within a rater.
+- **Model and score:** `RidgeCV` inside a scaler pipeline, its penalty chosen
+  inside each training fold; 5-fold `KFold`, shuffled, seed 0; R² beside the R²
+  of predicting the training mean.
+- **Importance:** permutation importance on each held-out fold, 50 shuffles,
+  pooled — not on the pages the model was fitted to.
+- **Synthetic rows** carry `"synthetic": true`; mixed with real rows the run is
+  refused, and alone they can never be written to `data/estimator.joblib` or
+  `EVALUATION.md`.
+- **Tests write under `.scratch/`**, not the system temp directory.
+
+**Alternatives.** Host rows instead of headless. Every rating as its own row
+rather than page means. ICC instead of alpha. Importance on the full fit.
+Nested CV for the penalty.
+
+**Why this.** Each choice is the one where a mistake would otherwise go
+unnoticed: features of a different rendering than was rated; a repeat counting
+as a second person; importance that rewards memorising; a synthetic number
+pasted into the report. RidgeCV inside the fold gives the same honesty as
+nested CV at a fraction of the code.
+
+**Cost.** The pictures were captured on 2026-09-25 and the corpus features
+re-collected on 2026-09-30, so for a live page the features may not describe
+the exact picture rated. Fifty pages is a small sample for nine features; the
+R² will be noisy, which the fold-by-fold figures will show. The ten-rater floor
+is a choice, not a statistical threshold, and the refusal says so.
+
+---
+
+## The demo recorder asks the backend where a train goal runs, and refuses the live site
+
+**Date:** 2026-10-01 (recording against `railways-local` asked for by Raham)
+
+**Decision.** The health check reports `railways_site`, from
+`flow_setup("railways")`. `tools/record_demo.py` reads it before a railways clip
+and stops, naming `railways-local`, unless it is our copy. Each clip carries the
+answers DEMO.md tells a presenter to give (`ANSWERS`); the billing clip answers
+the reference question, and the adaptation clip puts the number in its goal so
+it still hesitates on a *step*.
+
+**Alternatives.** Trust whoever runs it to have started the right stack. Make
+the recorder start its own stack. Point the recorder at the replica directly.
+
+**Why this.** The recorder talks only to a backend someone else started, and the
+one thing it cannot see is where that backend will send a train goal — which is
+the whole of the requirement. Asking the same function the run uses is the
+check that cannot drift from it. The overlay is still recorded against the real
+backend and the real host, which is what makes it a recording of the product.
+
+**Cost.** One new field on the health check (HTTP, not part of the WebSocket
+contract). The recordings run at the copy's pace, about twice the live site's,
+and show invented trains; DEMO.md says to tell the audience so.
