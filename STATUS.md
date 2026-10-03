@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-01 · **776 passing, 12 skipped** · suite wall clock 1222s, on `feat/multi-october-pipeline-and-demo`. 34 tests added today. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s and 1081s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-03 · **827 passing, 12 skipped, 6 known failures** · suite wall clock 1066s, on `feat/multi-october-third`. 51 tests added today. The 6 known failures are strict `xfail`s in `frontend/test_closing.py`: the closing screen does not fit with three or more results (see Interface). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1081s and 1222s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -118,6 +118,30 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-03: pictures with their features, a vault, a sentence
+
+- **Merged and pushed.** `feat/multi-october-pipeline-and-demo` is in `main`
+  (`6ebdb8b`). The rest below is on `feat/multi-october-third`, **not merged**.
+- **The rating pictures and the corpus are one run** (`58dc053cdac7`,
+  2026-10-03): each page's features read from the same load as its picture,
+  both files dated. 27 of 50 pictures had changed since the old set. The
+  estimator refuses to pair a rating with features from another run, or a
+  rating of an earlier picture. No ratings exist yet.
+- **A minimal credential store.** A password typed once into a protected field
+  is kept when the person asks, encrypted with Windows' own key, and typed by
+  the backend after that; it can be forgotten from the sign-in step. A whole
+  LLM-planned task was searched for it everywhere — prompts, transcript,
+  traces, recorder, logs, overlay messages, files written — and it is nowhere
+  (2026-10-03b). Perception no longer holds any typed password at all.
+- **One plain sentence on the closing screen**, from the page's own values, in a
+  new optional field `task.completed.explanation` (2026-10-03c).
+- **The closing screen does not fit with three or more results, at any scale**,
+  and has not since before today; measured for the first time (2026-10-03c).
+  See Interface.
+- CLAUDE.md names the one-attempt exception; every test's temp files are in
+  `.scratch/pytest`; the trained model will be committed and the ratings not
+  (DECISIONS.md).
 
 ### Changed on 2026-10-01: the training pipeline, one attempt, the recordings
 
@@ -541,6 +565,13 @@ application's state (EVALUATION.md).
 ## Orchestrator — Raham · `backend/orchestrator/`
 
 **Done**
+- **Saved sign-in details** (`vault.py`, 2026-10-03): DPAPI-encrypted, one entry
+  per site, kept only on request and only after the step worked, typed by the
+  backend, forgettable from the step. 13 tests, the first of which searches a
+  whole LLM-planned task's every output for the password and fails when a leak
+  is planted.
+- **The closing sentence** (`voice.explain_*`, 2026-10-03), sent as
+  `task.completed.explanation`. 23 tests.
 - **Goal routing** (`router.py`, 2026-09-21): model first with an 8s bound,
   keywords as the fallback, and a small-talk floor under both. 42 unit tests,
   9 over the real app's websocket, 7 over the mock's.
@@ -708,10 +739,19 @@ application's state (EVALUATION.md).
   does not show what is about to be typed. Pre-filling it belongs with the
   credential vault.
 - **"Click element 13."** reached the screen in the watched run.
-- **A long list of results scrolls the ending.** The overflow guard drops a
-  detail level when a *step* will not fit; the closing screen has no such
-  guard, so past roughly eight values the answer runs off the bottom. Nothing
-  has measured where the line is.
+- **The closing screen does not fit with three or more results, at any
+  scale** (measured 2026-10-03, EVALUATION.md 2026-10-03c). With three trains
+  and no sentence, "Do something else" ended at 851 of 800 at 100%, and "I'm
+  done" began at 595 of 606 at 150%; with nine, "I'm done" was at 1057 and 973.
+  The new sentence adds 51–61px. The overflow guard only acts on steps.
+  Options: show results side by side (a train and its journey on one line),
+  which roughly halves the list; step the findings' type down when a sentence
+  is present, since the sentence now carries the headline; extend the
+  overflow guard to endings; or show the first few and "and 6 more", as the
+  step screen already does. Recommended: side by side, then the smaller type
+  if it still does not fit — both keep every result on screen, which is what
+  this screen exists for. `frontend/test_closing.py` pins both cases as strict
+  known failures. **Aly's call.**
 - **The step screen shows one finding**, as one line that stops at four
   values. That is the design, not an oversight — but it means a run in
   progress can show "and 2 more" for a while before the ending shows them.
@@ -722,7 +762,11 @@ application's state (EVALUATION.md).
 - A backend that dies mid-task leaves "Give me a moment." on screen with
   nothing to press.
 - Nothing chooses a level automatically; only the mock sends `load.updated`.
-- The credential vault is not built. Voice input is not built.
+- ~~The credential vault is not built.~~ **A minimal one, 2026-10-03**
+  (`backend/orchestrator/vault.py`). What it is not: saved details can be
+  forgotten only from a sign-in step, during a task — deleting them from the
+  home screen needs a new contract message; Windows only; one entry per site.
+  Voice input is not built.
 
 **Blocked**
 - Nothing.
@@ -732,6 +776,10 @@ application's state (EVALUATION.md).
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
+- **Pictures and features from one load** (2026-10-03): `tools/rating/capture`
+  writes the rating pictures and `data/corpus.json` in one run, both dated;
+  `train.py` uses a rating only when its picture is current and its features
+  came from the same run.
 - **The training pipeline** (`train.py`, 2026-10-01): agreement between raters
   (Krippendorff's alpha, interval, checked against the published 0.849) and
   within them (the repeated pages), per-page means with every rater counted
@@ -923,9 +971,10 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `85bbf69` (the October readiness items, merged and pushed
-  2026-10-01). **`feat/multi-october-pipeline-and-demo` is not merged**: one
-  attempt for list steps, the training pipeline, and the recorder.
+- `main` is at `6ebdb8b` (the training pipeline and the recorder, merged and
+  pushed 2026-10-03). **`feat/multi-october-third` is not merged**: the
+  CLAUDE.md line, `--basetemp`, the model-and-ratings decision, the recapture,
+  the credential store and the closing sentence.
 - ~~**The demo recordings predate the questions**~~ **Re-recorded 2026-10-01**
   on our copy, answering the questions. They run at the copy's pace, about
   twice the live site's, and show invented trains; DEMO.md says so. `demo/` is
