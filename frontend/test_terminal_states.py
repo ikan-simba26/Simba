@@ -15,7 +15,11 @@ ending in a real browser, from the current source, and asserts:
   * there is at least one enabled button on it;
   * every one of them leads somewhere — pressing it leaves the ending for the
     home screen, rather than being a button that does nothing;
-  * nothing on it is a web address.
+  * nothing on it is a web address;
+  * at the window's size at 100%, 125% and 150%, every button on it is wholly
+    on screen and nothing scrolls. Until 2026-10-05 the fit was measured for
+    the home screen and for steps only, and the closing screen had put its way
+    onward below the window, with three results or more, at every scale.
 
 **Built from source, not from `dist/`.** `test_levels.py` measures whatever
 `dist/` holds and skips without it, which means a stale build is tested
@@ -99,6 +103,46 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                  "values": ["39UP", "1UP", "7UP", "27UP", "101UP"]},
                 {"label": "Journey", "value": "6 h 38 min, 6 h 3 min",
                  "values": ["6 h 38 min", "6 h 3 min"]},
+            ],
+        }),
+    ],
+    # The tallest closing screen a real search has produced: nine trains, each
+    # with a journey time, and the sentence above them (EVALUATION.md,
+    # 2026-09-30 and 2026-10-03c). Here so the fit is checked on it too.
+    "completed with nine results and a sentence": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
+            "steps_taken": 3, "llm_calls": 0, "replayed": False,
+            "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "findings": [
+                {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
+                 "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
+                            "107UP", "1UP"]},
+                {"label": "Journey",
+                 "value": "4 h 30 min, 4 h 45 min, 5 h 20 min, 5 h 45 min and 5 more",
+                 "values": ["4 h 30 min", "4 h 45 min", "5 h 20 min", "5 h 45 min",
+                            "5 h 30 min", "4 h 25 min", "5 h 10 min", "4 h 15 min",
+                            "5 h 15 min"]},
+            ],
+        }),
+    ],
+    # The same nine trains, two with the same journey time: perception keeps a
+    # repeated value once, so eight times for nine trains, which cannot be put
+    # beside them. Found by the fit check below on the day it was written:
+    # both buttons were below a 606px window.
+    "completed with nine results and a detail that does not line up": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
+            "steps_taken": 3, "llm_calls": 0, "replayed": False,
+            "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "findings": [
+                {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
+                 "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
+                            "107UP", "1UP"]},
+                {"label": "Journey",
+                 "value": "4 h 30 min, 4 h 45 min, 5 h 20 min, 5 h 45 min and 4 more",
+                 "values": ["4 h 30 min", "4 h 45 min", "5 h 20 min", "5 h 45 min",
+                            "5 h 30 min", "4 h 25 min", "5 h 10 min", "4 h 15 min"]},
             ],
         }),
     ],
@@ -334,6 +378,71 @@ def test_a_closing_screen_shows_every_result(
     for train in MULTIPLE:
         assert train in text, f"{train} missing from the closing screen: {text}"
     assert "and 1 more" not in text, "the closing screen showed the summary line"
+
+
+# The window's content at each display scale, in CSS pixels, with the scale
+# factor to match (EVALUATION.md, 2026-09-25c; `test_home.SIZES`).
+WINDOWS = {
+    "100%": (1280, 800, 1.0),
+    "125%": (1280, 734, 1.25),
+    "150%": (1266, 606, 1.5),
+}
+
+# Every button a person could press, and whether each is wholly inside the
+# window; and whether the page is taller than the window. Also run inside the
+# real host by `tools/evaluation/display_fit_run.py`.
+ONWARD_JS = """() => {
+    const shown = [...document.querySelectorAll('button')]
+        .filter(b => b.offsetParent !== null && !b.disabled
+                     && getComputedStyle(b).visibility !== 'hidden');
+    const off = shown.filter(b => {
+        const r = b.getBoundingClientRect();
+        return r.top < 0 || r.left < 0 || r.bottom > innerHeight || r.right > innerWidth;
+    });
+    const name = b => b.innerText.trim() || b.getAttribute('aria-label') || '?';
+    return {
+        inner: [innerWidth, innerHeight],
+        buttons: shown.map(name),
+        off_screen: off.map(name),
+        lowest: Math.round(Math.max(0, ...shown.map(b => b.getBoundingClientRect().bottom))),
+        scroll_height: document.scrollingElement.scrollHeight,
+        scrolls: document.scrollingElement.scrollHeight > innerHeight,
+    };
+}"""
+
+
+def onward(page: Page) -> dict:
+    """Where an ending's buttons are, from outside it."""
+    return page.evaluate(ONWARD_JS)
+
+
+@pytest.fixture(scope="module")
+def windows(playwright_instance: Playwright) -> Iterator[dict[str, Page]]:
+    """One page per window size, reused across endings."""
+    browser = playwright_instance.chromium.launch()
+    pages = {
+        size: browser.new_page(viewport={"width": width, "height": height},
+                               device_scale_factor=scale)
+        for size, (width, height, scale) in WINDOWS.items()
+    }
+    yield pages
+    browser.close()
+
+
+@pytest.mark.parametrize("size", list(WINDOWS))
+@pytest.mark.parametrize("name", list(ENDINGS))
+def test_every_ending_fits_the_window(
+    name: str, size: str, windows: dict[str, Page], overlay: str, backend: Backend
+) -> None:
+    """Every way onward is on screen without scrolling, at every scale."""
+    page = windows[size]
+    reach(page, overlay, backend, name)
+
+    measured = onward(page)
+
+    assert measured["buttons"], (name, size, measured)
+    assert measured["off_screen"] == [], (name, size, measured)
+    assert not measured["scrolls"], (name, size, measured)
 
 
 @pytest.mark.parametrize("name", list(ENDINGS))

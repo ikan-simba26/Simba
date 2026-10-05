@@ -57,6 +57,17 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     assert history["box_in_viewport"], history
     assert not history["scrolls"], history
     assert history["smallest_text_px"] >= 20, history
+    # And every way a task can end: each button wholly in the window, nothing
+    # to scroll. Not measured until 2026-10-05, when the closing screen had put
+    # its way onward below the window, with three results or more, at every
+    # scale.
+    from frontend.test_terminal_states import ENDINGS
+
+    assert set(result["endings"]) == set(ENDINGS), sorted(result["endings"])
+    for name, ending in result["endings"].items():
+        assert ending["buttons"], (name, ending)
+        assert ending["off_screen"] == [], (name, ending)
+        assert not ending["scrolls"], (name, ending)
     # Perception's page is exactly what it was.
     assert result["site_view"]["inner"] == [1280, 800], result["site_view"]
     # And a page that scrolls lays out at the full 1280px, inner scroll boxes

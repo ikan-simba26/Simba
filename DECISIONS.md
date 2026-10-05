@@ -3609,8 +3609,11 @@ one line per result, smaller type with a sentence, first six and "and N more")
    `voice.found` already uses on the step screen).
 3. When the sentence is there it takes the place of the lead-in "Here's what I
    found"; without it, the lead-in stays.
-4. In a short window (under 760px tall: 125% and 150%) the two buttons sit side
-   by side, "I'm done" first. At 100% they stay stacked.
+4. The two buttons sit side by side, "I'm done" first. First only in a short
+   window (under 760px tall: 125% and 150%); the same day the fit check over
+   every ending found nine results 0–6px from a scrollbar at 100% with them
+   stacked, so they are side by side at every height, and the closing screen
+   is one layout at every scale.
 
 The type is a step smaller past four results (30px), with or without a
 sentence, rather than only when a sentence is present: the list without a
@@ -3627,8 +3630,8 @@ readable size, and only the button stack and the doubled heading stood
 between that and 606px. The sentence says what the lead-in says and more.
 Side by side, each button is still about 434px wide and 64px tall.
 
-**Cost.** The closing screen is the one screen whose buttons are not stacked
-at 125% and 150%; every step stacks its own (`levels.ts`), on purpose. Scripts
+**Cost.** The closing screen is the one screen whose buttons are not stacked;
+every step stacks its own (`levels.ts`), on purpose. Scripts
 that recognised the closing screen by "Here's what I found" had to learn
 "I'm done" instead (`host_overlay_run`, `person_details_stack_run`,
 `railways_llm_stack_run`, `record_demo`).
@@ -3638,8 +3641,11 @@ that recognised the closing screen by "Here's what I found" had to learn
 **Date:** 2026-10-05
 
 **Decision.** A finding is put on a result's line only when it has exactly as
-many values as the first finding. Otherwise it is shown on its own line under
-the list, as the step screen shows it.
+many values as the first finding. Otherwise it is one line under the list
+("Journey: 4 h 30 min, … and 4 more", the step screen's form), and it takes one
+result's place: nine trains with eight journey times show five trains and
+"and 4 more". As a block of its own, label and all, it put both buttons 87px
+below a 606px window (found by the fit check over every ending, 2026-10-05).
 
 **Alternatives.** Pair by position whatever the lengths.
 

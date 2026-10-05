@@ -11,8 +11,8 @@ results the way onward was partly below the window at every scale, and with
 nine — the longest answer a real search has given (EVALUATION.md,
 2026-09-30) — entirely. Six strict known failures here recorded that. Now
 each result is one line with its detail beside it, past six the rest are
-counted, the sentence takes the lead-in's place, and in a short window the two
-buttons sit side by side; with 1, 3 and 9 results, at 100%, 125% and 150%,
+counted, the sentence takes the lead-in's place, and the two buttons sit side
+by side; with 1, 3 and 9 results, at 100%, 125% and 150%,
 both buttons are wholly on screen. `test_terminal_states.py` checks the same
 for every ending.
 """
@@ -218,4 +218,24 @@ def test_a_detail_that_does_not_line_up_is_not_put_beside_a_result(
     assert "13UP, 6 h 6 min" not in text
     for train in ("13UP", "39UP", "1UP"):
         assert page.get_by_text(train, exact=True).count() == 1, train
-    assert page.get_by_text("6 h 6 min, 6 h 38 min", exact=True).count() == 1
+    assert "Journey: 6 h 6 min, 6 h 38 min" in text
+
+
+@pytest.mark.parametrize("size, scale", SIZES)
+def test_nine_trains_and_eight_journeys_leave_the_way_onward_on_screen(
+    size, scale, browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Two of nine trains with the same journey time, so eight times. Each
+    detail that cannot go beside a result takes one result's place: five
+    trains, "and 4 more", and the times on a line of their own. As a block of
+    its own it put both buttons 87px below a 606px window."""
+    eight = [TRAINS[0], {"label": "Journey",
+                         "value": "4 h 30 min, 4 h 45 min, 5 h 20 min, 5 h 45 min and 4 more",
+                         "values": JOURNEYS[:8]}]
+    page = end(browser, overlay, backend, completed(SENTENCE, eight), size, scale)
+    text = page.inner_text("body")
+
+    assert onward_on_screen(page, size[1]) == []
+    assert all(page.get_by_text(train, exact=True).count() == 1 for train in NINE[:5])
+    assert page.get_by_text("and 4 more", exact=True).count() == 1
+    assert "Journey: 4 h 30 min" in text

@@ -4697,3 +4697,54 @@ The six strict known failures in `frontend/test_closing.py` now pass and are
 ordinary tests; five tests were added there (one result at three scales, the
 count past six, six with nothing counted, a detail that does not line up), and
 one in `test_copy.py`.
+
+## 2026-10-05b — every ending, fitted, in a browser and in the real window
+
+The fit had been measured for the home screen and for steps, never for an
+ending. It now is, twice over: `test_terminal_states.test_every_ending_fits_the_window`
+renders all 17 endings (four of them new: the two below, each also reached
+through a step) in Chromium at each scale's content size on every suite run, and
+`display_fit_run` plays the same 17 into the real Electron window at forced
+100%, 125% and 150% (`test_window_fit.py`, `SIMBA_HOST_TESTS=1`). Each asserts
+every button wholly inside the window and nothing to scroll.
+
+Two endings were added to the list for it, each direct and after a step: nine
+results with a sentence, and nine results with eight journey times — two
+trains sharing a time, which perception keeps once, so the times cannot be put
+beside the trains.
+
+**What the check found on its first run, both fixed here:**
+
+| Case | Scale | Before | After |
+|---|---|---|---|
+| 9 trains, 8 times, sentence | 150% | both buttons off screen, lowest at 693 of 606 (−87) | 572 of 606 |
+| 9 trains, 8 times, sentence | 100% | "Do something else" off screen, 887 of 800 | 666 of 800 |
+| 5 trains, 2 times (an existing ending) | 100% | buttons on screen, page 821 of 800: a scrollbar | 621 of 800, no scroll |
+| 9 trains, sentence (paired) | 100% | 752 of 800, page exactly 800: 0px from a scrollbar | 660 of 800 |
+
+The unpaired times were a block of their own, label and all; they are now one
+line under the list that takes one result's place. And the buttons, side by
+side only in short windows in the morning's change, are side by side at every
+height (DECISIONS.md).
+
+**In the real window**, the lowest button and the window's height, every
+ending (the 8 "after a step" variants measure the same as their direct form,
+to the pixel, and are left out):
+
+| Ending | 100% (800) | 125% (734) | 150% (606) |
+|---|---|---|---|
+| answer: bill and due date | 592 | 492 | 492 |
+| five trains, two times | 621 | 529 | 529 |
+| nine trains, sentence | 660 | 566 | 566 |
+| nine trains, eight times, sentence | 666 | 572 | **572** |
+| no answer | 404 | 352 | 352 |
+| failed | 446 | 370 | 370 |
+| stuck (both orders) | 442 | 366 | 366 |
+| stopped by the person | 347 | 295 | 295 |
+
+Nothing scrolls anywhere. The tightest is nine trains with eight times at 150%:
+34px. The headless figures are identical to the host's at every scale.
+
+Site-view captures in the same runs: 10/20, 11/20 and 10/20 at forced 100%,
+20/20 at 125% and 150% — the known 100% capture problem (2026-09-27),
+unchanged and unrelated: the captures are taken before any ending is played.

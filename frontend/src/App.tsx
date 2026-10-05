@@ -539,12 +539,13 @@ function Completed() {
         </div>
       )}
 
-      {/* Side by side in a short window, in the same order, finish first.
-          Stacked, the pair is 140px, and at 150% that is what put six results
-          and both buttons out of reach of a 606px window (2026-10-05). */}
-      <div className="flex flex-col gap-3 short:flex-row">
-        <Button className="short:flex-1" onClick={startOver}>{ENDING.finish}</Button>
-        <Button className="short:flex-1" variant="secondary" onClick={startOver}>
+      {/* Side by side, in the same order, finish first. Stacked, the pair is
+          140px at 150% and 172px at 100%: at 150% that is what put six results
+          and both buttons out of reach of a 606px window, and at 100% it left
+          nine results 0px from a scrollbar (2026-10-05). */}
+      <div className="flex flex-row gap-3">
+        <Button className="flex-1" onClick={startOver}>{ENDING.finish}</Button>
+        <Button className="flex-1" variant="secondary" onClick={startOver}>
           {ENDING.again}
         </Button>
       </div>
@@ -576,7 +577,8 @@ function Completed() {
  * Perception drops a repeated value within a column (`values_for`), so two
  * trains with the same journey time give two trains and one time, and pairing
  * those by position would put a time beside the wrong train. A finding that
- * does not line up is shown on its own line below, as the step screen shows it.
+ * does not line up is one line under the list, in the step screen's form, and
+ * takes the place of one result.
  *
  * Past `LISTED` results the first ones are shown and the rest counted, and
  * past four the type is a step smaller. Both are for the same reason: the
@@ -606,25 +608,31 @@ export function Findings({ findings, size }: { findings: Finding[]; size: number
 
   const beside = findings.filter((_, index) => lists[index].length === count);
   const apart = findings.filter((_, index) => lists[index].length !== count);
-  const rows = Array.from({ length: Math.min(count, LISTED) }, (_, row) =>
+  // Each detail that does not line up takes one result's place, so the screen
+  // is no taller for it: as its own block, label and all, it put both buttons
+  // below a 606px window with nine trains and eight journey times
+  // (`test_terminal_states.py`, 2026-10-05).
+  const shown = Math.max(1, Math.min(count, LISTED - apart.length));
+  const rows = Array.from({ length: shown }, (_, row) =>
     findings.flatMap((_, index) => lists[index].length === count ? [lists[index][row]] : [])
       .join(", "));
   // 54px for a few; past four, the size of a step's instruction.
   const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);
 
   return (
-    <div className="flex flex-col gap-7 short:gap-5" data-testid="findings">
+    <div className="flex flex-col gap-2" data-testid="findings">
       <Found label={beside.map((finding) => finding.label).join(", ")}
              size={rowSize}>
         {rows.map((row, index) => <span key={index}>{row}</span>)}
-        {count > LISTED && (
-          <span className="text-body font-medium text-soft">{ENDING.more(count - LISTED)}</span>
+        {count > shown && (
+          <span className="text-body font-medium text-soft">{ENDING.more(count - shown)}</span>
         )}
       </Found>
+      {/* Not beside any one result, so under the list, in the label's type. */}
       {apart.map((finding) => (
-        <Found key={finding.label} label={finding.label} size={TYPE.title}>
-          <span>{finding.value}</span>
-        </Found>
+        <p key={finding.label} className="text-body text-soft">
+          {finding.label}: <span className="font-medium text-ink">{finding.value}</span>
+        </p>
       ))}
     </div>
   );

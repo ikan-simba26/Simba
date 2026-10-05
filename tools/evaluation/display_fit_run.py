@@ -15,6 +15,12 @@ display scale, and measures from outside it, over CDP:
   hold (`HISTORY`). Until 2026-09-30 only the first was measured, so the
   home screen this checked always had three cards, while a person with
   history saw six and, at 150%, no text box;
+- **every ending**: the overlay pointed at a scripted backend that plays each
+  of `frontend/test_terminal_states.ENDINGS` in turn — answers of one, five
+  and nine results, no answer, failed, stuck, stopped — and, for each, every
+  button on it must be wholly inside the window with nothing to scroll. Until
+  2026-10-05 only the home screen was measured, and the closing screen had put
+  its way onward below the window with three results or more, at every scale;
 - **the site view**: its CSS viewport, which must be exactly 1280x800, and 20
   screenshots of it in a row, the capture `page.preview` depends on.
 
@@ -174,6 +180,30 @@ def read_home(overlay: Page) -> dict:
     return view
 
 
+# The ending whose picture is saved: the tallest closing screen there is.
+TALLEST_ENDING = "completed with nine results and a sentence"
+
+
+def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
+    """Every ending, played into the real window, and where its buttons are.
+
+    The same endings and the same measurement `test_terminal_states.py` runs
+    in a headless browser at each scale's size, here inside the host itself.
+    """
+    # Here, not at the top: the tests import this module.
+    from frontend.test_terminal_states import ENDINGS, Backend, onward, reach
+
+    backend = Backend()
+    base = overlay.url.split("?")[0]
+    measured = {}
+    for name in ENDINGS:
+        reach(overlay, base, backend, name)
+        measured[name] = onward(overlay)
+        if name == TALLEST_ENDING:
+            capture_view(overlay, OUT / f"ending-{scale}.png")
+    return measured
+
+
 def launch(scale: str) -> tuple[subprocess.Popen, Path]:
     electron = FRONTEND / "node_modules" / ".bin" / ("electron.cmd" if os.name == "nt" else "electron")
     log = OUT / f"host-{scale}.log"
@@ -285,6 +315,8 @@ def measure(scale: str) -> dict:
             overlay.wait_for_timeout(1200)
             with_history = read_home(overlay)
             capture_view(overlay, OUT / f"home-{scale}-history.png")
+
+            endings = read_endings(overlay, scale)
             browser.close()
     finally:
         stop(proc)
@@ -298,6 +330,7 @@ def measure(scale: str) -> dict:
         "page_says": page_window,
         "overlay": view,
         "overlay_with_history": with_history,
+        "endings": endings,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
     }
