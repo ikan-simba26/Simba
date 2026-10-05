@@ -3492,3 +3492,104 @@ backend and the real host, which is what makes it a recording of the product.
 **Cost.** One new field on the health check (HTTP, not part of the WebSocket
 contract). The recordings run at the copy's pace, about twice the live site's,
 and show invented trains; DEMO.md says to tell the audience so.
+
+---
+
+## The trained model is committed; the ratings are not
+
+**Date:** 2026-10-03 (decided by Raham)
+
+**Decision.** `data/estimator.joblib` is committed once it has been trained on
+real ratings. `data/ratings.jsonl` stays out of the repository, as it has since
+the rating tool was built (`.gitignore`). A model trained on synthetic ratings
+is never committed — `train.py` already refuses to write one to that path.
+
+**Alternatives.** Commit neither, so every machine trains its own. Commit both.
+
+**Why this.** The model is what the product runs on and what the report
+evaluates; everyone needs the same one, and a model that only exists on one
+laptop cannot be reviewed or reproduced in a demo. The ratings are people's
+answers, given with their consent for this study, and whether they leave the
+machine that recorded them is not a code decision. The model carries no
+individual answer: it is nine coefficients, a scaler and an intercept, plus the
+rater count, the page list and the cross-validated R² it was saved with.
+
+**Cost.** A committed model cannot be retrained by someone who does not have the
+ratings; its EVALUATION.md entry, with the ratings file's sha256, is what
+connects the two. And a model fitted to fifty pages can in principle say
+something about how the raters rated those pages, which is the reason only the
+aggregate model is committed and not the per-page means. `data/estimator.joblib`
+is not in `.gitignore`, so it shows as untracked once trained and has to be
+added by name, as every file is (CLAUDE.md).
+
+---
+
+## A minimal credential store: Windows' own encryption, one entry per site, saved only on request
+
+**Date:** 2026-10-03 (store asked for by Raham; these choices were not specified)
+
+**Decision.**
+- **Encryption:** Windows DPAPI (`CryptProtectData`) through `ctypes`, with
+  entropy of our own, no UI. No new dependency and no key of ours to store. On
+  any other operating system the vault is unavailable and the step asks every
+  time.
+- **Storage:** `data/vault.json`, ignored by git; `SIMBA_VAULT` overrides it,
+  and the tests always point it at `.scratch/`.
+- **Entries:** one per site origin, the username and password encrypted
+  together. The username is the one other text field on a step that asks for a
+  password; with more than one, only the password is kept.
+- **Saving:** only when the person presses "… and save my password", and only
+  after the step has worked. **Using:** the step hides both fields, says it will
+  use the saved details, and offers "Forget my saved password", which deletes
+  the entry and asks again on the same step.
+- **Perception never holds a password:** `snapshot.parse` masks a password
+  field's value.
+- **The LLM planner offers a protected password field** for a password it types.
+  Before, it offered none and, with no vault, could not sign in at all.
+
+**Alternatives.** Electron's `safeStorage` in the main process (the same OS
+keys, but the secret would then cross from the frontend to the backend for every
+use). The `cryptography` and `keyring` packages (two dependencies, and a key to
+manage). Save every password typed, without asking. A settings screen for
+deleting saved details.
+
+**Why this.** The backend is what types into the page (CLAUDE.md), so the
+backend should hold what it types. DPAPI ties the file to this Windows account,
+which is the protection that matters for a laptop shared at home. Asking before
+saving keeps it the person's decision; saving only after a successful step
+keeps a mistyped password out of the store.
+
+**Cost.** Windows only. Forgetting is only possible from a sign-in step, during a
+task; deleting a saved password from the home screen would need a new message in
+the contract. A password still travels once, from the overlay to the backend in
+`step.response`, over the local socket — as it always has. The registration
+replica accepts any password, so a rejected sign-in is tested with a rigged step,
+not a real rejection.
+
+---
+
+## The closing screen's sentence is a new optional field, built by the backend
+
+**Date:** 2026-10-03 (sentence asked for by Raham; where it lives was not specified)
+
+**Decision.** `task.completed` gains `explanation: str | None`, additive and
+optional (CONTRACT.md, `shared/schema.py`, `shared/schema.ts`). The backend
+builds it in `voice.explain_trains`, `explain_bill` and `explain_course`, each
+task naming its own (`Task.explain`). The overlay shows it above the findings,
+and on an ending with no findings in place of restating the goal. `copy.ts`
+gains nothing: the overlay writes no words of this sentence, and
+`test_copy.py` holds the backend's to the same rules.
+
+**Alternatives.** Put the sentence in `summary`, which CONTRACT.md's own example
+shows as a plain sentence. Build it in the overlay from the findings.
+
+**Why this.** `summary` has carried the goal and the final URL since the
+skeleton, and tests and logs read it to see where a run ended; changing what an
+existing field means is the kind of change CLAUDE.md asks all three owners for,
+and an additive optional field is the kind it does not. Built in the overlay,
+the sentence would need to know that "Journey" is a duration in `6 h 3 min` and
+that "Your bill" is an amount — the backend's knowledge, in the frontend.
+
+**Cost.** One more field in the contract, absent from every message before
+today, and two places the closing screen's text comes from. The sentence is in
+English only, as everything else is.

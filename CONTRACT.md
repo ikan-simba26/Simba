@@ -235,8 +235,15 @@ Sent only in response to `trust.requested`.
 ```json
 { "summary": "Registered for CS-401.", "duration_ms": 48200,
   "steps_taken": 6, "llm_calls": 4, "replayed": false,
-  "findings": [{ "label": "Your bill", "value": "14,382" }] }
+  "findings": [{ "label": "Your bill", "value": "14,382" }],
+  "explanation": "Your bill is 14,382, and it is due on 15-09-2026." }
 ```
+`explanation` (optional, added 2026-10-03) is one plain sentence the closing
+screen shows above the result. The backend builds it only from values the page
+returned; it is absent when nothing can be said safely. The overlay never
+writes it itself. (In practice `summary` is the goal followed by the final URL,
+which tests and logs read to see where a run ended; the closing screen does not
+show it.)
 `findings` is the answer, when the task had one, and the closing screen is
 built from it. A task that looked something up and ends without saying what it
 found has not finished from the user's side of the screen.

@@ -372,15 +372,37 @@ def backend_sentences() -> dict[str, str]:
     for kind, key in (("fill", ""), ("select", ""), ("click", ""), ("press", "Enter"),
                       ("press", "F13")):
         sentences[f"voice.caption {kind} {key}"] = voice.caption(kind, "Reference No.", key)
+    # Saved sign-in details (2026-10-03).
+    sentences["voice.USING_SAVED"] = voice.USING_SAVED
+    sentences["voice.FORGOTTEN"] = voice.FORGOTTEN
+    # The closing screen's sentence, over the shapes of value it is built from
+    # (2026-10-03). The values are the pages' own, as measured.
+    for where, text in {
+        "three trains": voice.explain_trains(
+            {"Train": ["13UP", "39UP", "1UP"],
+             "Journey": ["6 h 6 min", "6 h 38 min", "6 h 3 min"]}, {}),
+        "one train": voice.explain_trains({"Train": ["9UP"], "Journey": ["8 h 15 min"]}, {}),
+        "trains, journeys unreadable": voice.explain_trains(
+            {"Train": ["9UP", "10DN"], "Journey": ["overnight"]}, {}),
+        "a bill": voice.explain_bill({"Your bill": ["14,382"], "Due": ["15-09-2026"]}, {}),
+        "a bill with no date": voice.explain_bill({"Your bill": ["14,382"]}, {}),
+        "a course": voice.explain_course("MATH-210")({}, {"Course": ["MATH-210 section 001"]}),
+    }.items():
+        assert text, where
+        sentences[f"voice.explain {where}"] = text
     return sentences
 
 
 def backend_labels() -> dict[str, str]:
-    return {
+    labels = {
         f"{where} action {action.id}": action.label
         for where, _, _, actions in every_step()
         for action in actions
     }
+    labels["voice.FORGET"] = voice.FORGET
+    labels["voice.remember(Sign in)"] = voice.remember("Sign in")
+    labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
+    return labels
 
 
 def test_every_backend_sentence_is_a_sentence() -> None:

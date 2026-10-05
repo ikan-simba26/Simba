@@ -1,10 +1,10 @@
 {
   "conditions": {
-    "taken_at": "2026-09-30T21:57:27+05:00",
+    "taken_at": "2026-10-03T16:57:34+05:00",
     "git": {
-      "commit": "3fb9ab4997de",
-      "branch": "feat/multi-october-readiness",
-      "dirty": false
+      "commit": "7b1a1f912279",
+      "branch": "feat/multi-october-third",
+      "dirty": true
     },
     "python": {
       "version": "3.12.3",
@@ -31,7 +31,7 @@
     "machine": {
       "platform": "Windows-11-10.0.26200-SP0",
       "cpus": 8,
-      "load_percent": 33
+      "load_percent": 26
     },
     "pages": 50,
     "viewport": [
@@ -53,7 +53,13 @@
       "target": 3,
       "public": 21,
       "demo": 21
-    }
+    },
+    "run": {
+      "id": "58dc053cdac7",
+      "taken_at": "2026-10-03T16:47:53+0500",
+      "date": "2026-10-03"
+    },
+    "pictures": "data/rating/pages.json, the same run"
   },
   "results": {
     "headless": [
@@ -79,7 +85,8 @@
         "words": 393,
         "sentences": 44,
         "syllables": 733,
-        "link_share": 0.918
+        "link_share": 0.918,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5000/",
@@ -103,7 +110,8 @@
         "words": 680,
         "sentences": 202,
         "syllables": 1192,
-        "link_share": 0.682
+        "link_share": 0.682,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5000/stubborn",
@@ -127,7 +135,8 @@
         "words": 111,
         "sentences": 13,
         "syllables": 209,
-        "link_share": 0.926
+        "link_share": 0.926,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5100/",
@@ -151,7 +160,8 @@
         "words": 336,
         "sentences": 47,
         "syllables": 609,
-        "link_share": 0.838
+        "link_share": 0.838,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
@@ -175,7 +185,8 @@
         "words": 427,
         "sentences": 121,
         "syllables": 793,
-        "link_share": 0.923
+        "link_share": 0.923,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -199,7 +210,8 @@
         "words": 1061,
         "sentences": 700,
         "syllables": 2300,
-        "link_share": 0.667
+        "link_share": 0.667,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -223,7 +235,8 @@
         "words": 1061,
         "sentences": 700,
         "syllables": 2300,
-        "link_share": 0.5
+        "link_share": 0.5,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -247,7 +260,8 @@
         "words": 1083,
         "sentences": 722,
         "syllables": 2324,
-        "link_share": 0.182
+        "link_share": 0.182,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://example.com/",
@@ -258,20 +272,21 @@
         "interactive": 0,
         "links": 1,
         "inferred": 0,
-        "text_density": 0.139,
+        "text_density": 0.884,
         "max_depth": 6,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 13.24,
+        "reading_grade": 11.43,
         "controls": 1,
         "dead_links": 0,
-        "characters": 274,
-        "viewport_characters": 142,
-        "words": 131,
-        "sentences": 3,
-        "syllables": 131,
-        "link_share": 1.0
+        "characters": 911,
+        "viewport_characters": 905,
+        "words": 86,
+        "sentences": 7,
+        "syllables": 162,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
@@ -295,7 +310,8 @@
         "words": 153,
         "sentences": 22,
         "syllables": 268,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://httpbin.org/html",
@@ -319,7 +335,8 @@
         "words": 605,
         "sentences": 22,
         "syllables": 951,
-        "link_share": 0.0
+        "link_share": 0.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://text.npr.org/",
@@ -330,20 +347,21 @@
         "interactive": 0,
         "links": 28,
         "inferred": 0,
-        "text_density": 1.046,
+        "text_density": 0.985,
         "max_depth": 8,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.21,
+        "reading_grade": 8.48,
         "controls": 28,
         "dead_links": 0,
-        "characters": 1726,
-        "viewport_characters": 1071,
-        "words": 271,
-        "sentences": 29,
-        "syllables": 463,
-        "link_share": 1.0
+        "characters": 1655,
+        "viewport_characters": 1009,
+        "words": 254,
+        "sentences": 30,
+        "syllables": 447,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://lite.cnn.com/",
@@ -354,20 +372,21 @@
         "interactive": 0,
         "links": 106,
         "inferred": 0,
-        "text_density": 2.013,
+        "text_density": 1.92,
         "max_depth": 10,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.009,
-        "reading_grade": 9.34,
+        "reading_grade": 8.72,
         "controls": 106,
         "dead_links": 1,
-        "characters": 8580,
-        "viewport_characters": 2061,
-        "words": 1342,
-        "sentences": 109,
-        "syllables": 2289,
-        "link_share": 1.0
+        "characters": 8166,
+        "viewport_characters": 1966,
+        "words": 1284,
+        "sentences": 116,
+        "syllables": 2175,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://danluu.com/",
@@ -391,7 +410,8 @@
         "words": 1218,
         "sentences": 212,
         "syllables": 2133,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://quotes.toscrape.com/",
@@ -415,7 +435,8 @@
         "words": 278,
         "sentences": 47,
         "syllables": 440,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://books.toscrape.com/",
@@ -439,7 +460,8 @@
         "words": 272,
         "sentences": 120,
         "syllables": 429,
-        "link_share": 0.825
+        "link_share": 0.825,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.python.org/",
@@ -455,15 +477,16 @@
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.007,
-        "reading_grade": 6.89,
+        "reading_grade": 6.83,
         "controls": 153,
         "dead_links": 1,
-        "characters": 8544,
+        "characters": 8199,
         "viewport_characters": 1071,
-        "words": 1187,
-        "sentences": 336,
-        "syllables": 2123,
-        "link_share": 0.987
+        "words": 1134,
+        "sentences": 334,
+        "syllables": 2027,
+        "link_share": 0.987,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://pypi.org/",
@@ -479,15 +502,16 @@
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.87,
+        "reading_grade": 8.83,
         "controls": 55,
         "dead_links": 0,
         "characters": 1866,
         "viewport_characters": 554,
-        "words": 253,
+        "words": 254,
         "sentences": 80,
-        "syllables": 498,
-        "link_share": 0.945
+        "syllables": 499,
+        "link_share": 0.945,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
@@ -511,7 +535,8 @@
         "words": 1816,
         "sentences": 530,
         "syllables": 3265,
-        "link_share": 0.891
+        "link_share": 0.891,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://en.wikipedia.org/wiki/Cognitive_load",
@@ -520,22 +545,23 @@
         "title": "Cognitive load - Wikipedia",
         "device_pixel_ratio": 1.0,
         "interactive": 21,
-        "links": 806,
+        "links": 715,
         "inferred": 0,
-        "text_density": 2.141,
+        "text_density": 2.541,
         "max_depth": 45,
         "overlays": 0,
         "form_fields": 12,
         "dead_link_ratio": 0.001,
-        "reading_grade": 10.13,
-        "controls": 827,
+        "reading_grade": 9.8,
+        "controls": 736,
         "dead_links": 1,
-        "characters": 59177,
-        "viewport_characters": 2192,
-        "words": 7418,
-        "sentences": 1441,
-        "syllables": 14909,
-        "link_share": 0.975
+        "characters": 51563,
+        "viewport_characters": 2602,
+        "words": 6478,
+        "sentences": 1367,
+        "syllables": 12923,
+        "link_share": 0.971,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://en.wikipedia.org/wiki/Main_Page",
@@ -544,22 +570,23 @@
         "title": "Wikipedia, the free encyclopedia",
         "device_pixel_ratio": 1.0,
         "interactive": 14,
-        "links": 266,
+        "links": 238,
         "inferred": 0,
-        "text_density": 1.816,
-        "max_depth": 22,
+        "text_density": 1.903,
+        "max_depth": 23,
         "overlays": 0,
         "form_fields": 12,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.06,
-        "controls": 280,
+        "reading_grade": 8.02,
+        "controls": 252,
         "dead_links": 0,
-        "characters": 12500,
-        "viewport_characters": 1860,
-        "words": 1701,
-        "sentences": 418,
-        "syllables": 3180,
-        "link_share": 0.95
+        "characters": 11353,
+        "viewport_characters": 1949,
+        "words": 1531,
+        "sentences": 406,
+        "syllables": 2872,
+        "link_share": 0.944,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.gov.uk/",
@@ -583,7 +610,8 @@
         "words": 861,
         "sentences": 162,
         "syllables": 1549,
-        "link_share": 0.898
+        "link_share": 0.898,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.gov.uk/browse/benefits",
@@ -607,7 +635,8 @@
         "words": 681,
         "sentences": 115,
         "syllables": 1222,
-        "link_share": 0.875
+        "link_share": 0.875,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.nhs.uk/",
@@ -623,15 +652,16 @@
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 5.42,
+        "reading_grade": 5.82,
         "controls": 51,
         "dead_links": 0,
-        "characters": 2717,
+        "characters": 2755,
         "viewport_characters": 532,
         "words": 444,
         "sentences": 80,
-        "syllables": 709,
-        "link_share": 0.922
+        "syllables": 724,
+        "link_share": 0.922,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://news.ycombinator.com/",
@@ -640,22 +670,23 @@
         "title": "Hacker News",
         "device_pixel_ratio": 1.0,
         "interactive": 1,
-        "links": 229,
+        "links": 230,
         "inferred": 0,
-        "text_density": 2.363,
+        "text_density": 2.335,
         "max_depth": 16,
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 7.13,
-        "controls": 230,
+        "reading_grade": 6.35,
+        "controls": 231,
         "dead_links": 0,
-        "characters": 3871,
-        "viewport_characters": 2420,
-        "words": 511,
+        "characters": 3800,
+        "viewport_characters": 2391,
+        "words": 510,
         "sentences": 67,
-        "syllables": 855,
-        "link_share": 0.996
+        "syllables": 820,
+        "link_share": 0.996,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://arxiv.org/list/cs.HC/recent",
@@ -664,22 +695,23 @@
         "title": "Human-Computer Interaction",
         "device_pixel_ratio": 1.0,
         "interactive": 0,
-        "links": 438,
+        "links": 462,
         "inferred": 0,
-        "text_density": 1.547,
+        "text_density": 1.724,
         "max_depth": 13,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 11.28,
-        "controls": 438,
+        "reading_grade": 11.27,
+        "controls": 462,
         "dead_links": 0,
-        "characters": 17698,
-        "viewport_characters": 1584,
-        "words": 2195,
-        "sentences": 318,
-        "syllables": 4497,
-        "link_share": 1.0
+        "characters": 19328,
+        "viewport_characters": 1765,
+        "words": 2400,
+        "sentences": 341,
+        "syllables": 4905,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.bbc.co.uk/news",
@@ -687,23 +719,24 @@
         "kind": "public",
         "title": "BBC News - Breaking news, video and the latest top stories from the U.S. and aro",
         "device_pixel_ratio": 1.0,
-        "interactive": 8,
-        "links": 107,
-        "inferred": 0,
-        "text_density": 0.557,
-        "max_depth": 23,
+        "interactive": 2,
+        "links": 106,
+        "inferred": 29,
+        "text_density": 0.503,
+        "max_depth": 21,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 7.28,
-        "controls": 115,
+        "reading_grade": 6.54,
+        "controls": 108,
         "dead_links": 0,
-        "characters": 8033,
-        "viewport_characters": 570,
-        "words": 1268,
-        "sentences": 198,
-        "syllables": 2189,
-        "link_share": 0.93
+        "characters": 7513,
+        "viewport_characters": 515,
+        "words": 1203,
+        "sentences": 192,
+        "syllables": 2007,
+        "link_share": 0.981,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/entry_ad",
@@ -711,23 +744,24 @@
         "kind": "demo",
         "title": "The Internet",
         "device_pixel_ratio": 1.0,
-        "interactive": 1,
-        "links": 2,
-        "inferred": 1,
-        "text_density": 0.282,
+        "interactive": 0,
+        "links": 3,
+        "inferred": 0,
+        "text_density": 0.143,
         "max_depth": 9,
-        "overlays": 1,
+        "overlays": 0,
         "form_fields": 0,
-        "dead_link_ratio": 0.5,
-        "reading_grade": 5.1,
+        "dead_link_ratio": 0.333,
+        "reading_grade": 5.43,
         "controls": 3,
         "dead_links": 1,
         "characters": 327,
-        "viewport_characters": 289,
+        "viewport_characters": 146,
         "words": 60,
-        "sentences": 9,
+        "sentences": 8,
         "syllables": 92,
-        "link_share": 0.667
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/",
@@ -751,7 +785,8 @@
         "words": 107,
         "sentences": 47,
         "syllables": 231,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/login",
@@ -775,7 +810,8 @@
         "words": 39,
         "sentences": 9,
         "syllables": 70,
-        "link_share": 0.286
+        "link_share": 0.286,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://demo.testfire.net/",
@@ -799,7 +835,8 @@
         "words": 392,
         "sentences": 52,
         "syllables": 688,
-        "link_share": 0.956
+        "link_share": 0.956,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://parabank.parasoft.com/parabank/index.htm",
@@ -823,7 +860,8 @@
         "words": 79,
         "sentences": 42,
         "syllables": 145,
-        "link_share": 0.917
+        "link_share": 0.917,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demo.applitools.com/",
@@ -847,7 +885,8 @@
         "words": 8,
         "sentences": 5,
         "syllables": 14,
-        "link_share": 0.625
+        "link_share": 0.625,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
@@ -871,7 +910,8 @@
         "words": 18,
         "sentences": 10,
         "syllables": 36,
-        "link_share": 0.556
+        "link_share": 0.556,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.saucedemo.com/",
@@ -895,7 +935,8 @@
         "words": 25,
         "sentences": 5,
         "syllables": 46,
-        "link_share": 0.0
+        "link_share": 0.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demo.opencart.com/",
@@ -911,21 +952,41 @@
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 9.18,
+        "reading_grade": 9.5,
         "controls": 2,
         "dead_links": 0,
         "characters": 329,
         "viewport_characters": 256,
-        "words": 52,
+        "words": 50,
         "sentences": 8,
-        "syllables": 98,
-        "link_share": 1.0
+        "syllables": 96,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://practice.expandtesting.com/",
         "state": "as it loads",
         "kind": "demo",
-        "error": "Error: Page.goto: net::ERR_ABORTED at https://practice.expandtesting.com/\nCall log:\n  - navigating to \"https://practice.expandt"
+        "title": "Automation Testing Practice Website for QA and Developers | UI and API",
+        "device_pixel_ratio": 1.0,
+        "interactive": 8,
+        "links": 249,
+        "inferred": 6,
+        "text_density": 1.221,
+        "max_depth": 23,
+        "overlays": 0,
+        "form_fields": 1,
+        "dead_link_ratio": 0.0,
+        "reading_grade": 7.94,
+        "controls": 257,
+        "dead_links": 0,
+        "characters": 15997,
+        "viewport_characters": 1250,
+        "words": 2530,
+        "sentences": 360,
+        "syllables": 4458,
+        "link_share": 0.969,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demoqa.com/automation-practice-form",
@@ -949,7 +1010,8 @@
         "words": 101,
         "sentences": 57,
         "syllables": 189,
-        "link_share": 0.083
+        "link_share": 0.083,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demoqa.com/modal-dialogs",
@@ -973,7 +1035,8 @@
         "words": 94,
         "sentences": 46,
         "syllables": 166,
-        "link_share": 0.375
+        "link_share": 0.375,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://todomvc.com/examples/react/dist/",
@@ -997,7 +1060,8 @@
         "words": 116,
         "sentences": 25,
         "syllables": 190,
-        "link_share": 0.824
+        "link_share": 0.824,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://getbootstrap.com/docs/5.3/components/modal/",
@@ -1013,15 +1077,16 @@
         "overlays": 2,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 9.9,
+        "reading_grade": 9.92,
         "controls": 282,
         "dead_links": 0,
-        "characters": 29899,
+        "characters": 29951,
         "viewport_characters": 1811,
-        "words": 3686,
-        "sentences": 567,
-        "syllables": 7171,
-        "link_share": 0.801
+        "words": 3693,
+        "sentences": 568,
+        "syllables": 7189,
+        "link_share": 0.801,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://element-plus.org/en-US/component/dialog.html",
@@ -1045,7 +1110,8 @@
         "words": 2958,
         "sentences": 1623,
         "syllables": 5850,
-        "link_share": 0.717
+        "link_share": 0.717,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://mui.com/material-ui/react-dialog/",
@@ -1069,7 +1135,8 @@
         "words": 1110,
         "sentences": 276,
         "syllables": 2077,
-        "link_share": 0.5
+        "link_share": 0.5,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://ant.design/components/modal",
@@ -1077,23 +1144,24 @@
         "kind": "demo",
         "title": "Modal - Ant Design",
         "device_pixel_ratio": 1.0,
-        "interactive": 217,
-        "links": 290,
-        "inferred": 161,
-        "text_density": 1.511,
+        "interactive": 145,
+        "links": 200,
+        "inferred": 29,
+        "text_density": 1.34,
         "max_depth": 26,
         "overlays": 0,
         "form_fields": 2,
-        "dead_link_ratio": 0.003,
-        "reading_grade": 7.18,
-        "controls": 507,
+        "dead_link_ratio": 0.005,
+        "reading_grade": 7.11,
+        "controls": 345,
         "dead_links": 1,
-        "characters": 20700,
-        "viewport_characters": 1547,
-        "words": 2905,
-        "sentences": 782,
-        "syllables": 5250,
-        "link_share": 0.572
+        "characters": 19085,
+        "viewport_characters": 1372,
+        "words": 2660,
+        "sentences": 733,
+        "syllables": 4799,
+        "link_share": 0.58,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://sweetalert2.github.io/",
@@ -1117,7 +1185,8 @@
         "words": 4698,
         "sentences": 707,
         "syllables": 8414,
-        "link_share": 0.981
+        "link_share": 0.981,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://mui.com/material-ui/react-drawer/",
@@ -1141,7 +1210,8 @@
         "words": 1176,
         "sentences": 253,
         "syllables": 2100,
-        "link_share": 0.48
+        "link_share": 0.48,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
@@ -1157,15 +1227,16 @@
         "overlays": 2,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 10.63,
+        "reading_grade": 10.64,
         "controls": 237,
         "dead_links": 0,
-        "characters": 21933,
+        "characters": 21910,
         "viewport_characters": 1854,
-        "words": 2641,
-        "sentences": 418,
-        "syllables": 5317,
-        "link_share": 0.831
+        "words": 2637,
+        "sentences": 419,
+        "syllables": 5313,
+        "link_share": 0.831,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://ant.design/components/drawer",
@@ -1173,23 +1244,24 @@
         "kind": "demo",
         "title": "Drawer - Ant Design",
         "device_pixel_ratio": 1.0,
-        "interactive": 196,
-        "links": 243,
-        "inferred": 137,
-        "text_density": 1.525,
+        "interactive": 197,
+        "links": 256,
+        "inferred": 46,
+        "text_density": 1.584,
         "max_depth": 24,
-        "overlays": 0,
-        "form_fields": 2,
-        "dead_link_ratio": 0.008,
-        "reading_grade": 6.83,
-        "controls": 439,
-        "dead_links": 2,
-        "characters": 12827,
-        "viewport_characters": 1562,
-        "words": 1813,
-        "sentences": 546,
-        "syllables": 3246,
-        "link_share": 0.554
+        "overlays": 3,
+        "form_fields": 20,
+        "dead_link_ratio": 0.016,
+        "reading_grade": 6.82,
+        "controls": 453,
+        "dead_links": 4,
+        "characters": 12891,
+        "viewport_characters": 1622,
+        "words": 1821,
+        "sentences": 550,
+        "syllables": 3259,
+        "link_share": 0.565,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.theguardian.com/international",
@@ -1197,29 +1269,49 @@
         "kind": "public",
         "title": "Latest news, sport and opinion from the Guardian",
         "device_pixel_ratio": 1.0,
-        "interactive": 11,
-        "links": 252,
+        "interactive": 13,
+        "links": 255,
         "inferred": 6,
-        "text_density": 0.554,
+        "text_density": 0.575,
         "max_depth": 22,
         "overlays": 3,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 6.02,
-        "controls": 263,
+        "reading_grade": 5.84,
+        "controls": 268,
         "dead_links": 0,
-        "characters": 18931,
-        "viewport_characters": 567,
-        "words": 3019,
-        "sentences": 616,
-        "syllables": 5041,
-        "link_share": 0.958
+        "characters": 20030,
+        "viewport_characters": 589,
+        "words": 3229,
+        "sentences": 631,
+        "syllables": 5318,
+        "link_share": 0.951,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.spiegel.de/",
         "state": "as it loads",
         "kind": "public",
-        "error": "Error: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.spiegel.de/\nCall log:\n  - navigating to \"https://www.spiegel.de/\", "
+        "title": "DER SPIEGEL | Online-Nachrichten",
+        "device_pixel_ratio": 1.0,
+        "interactive": 151,
+        "links": 553,
+        "inferred": 3,
+        "text_density": 0.799,
+        "max_depth": 27,
+        "overlays": 1,
+        "form_fields": 1,
+        "dead_link_ratio": 0.0,
+        "reading_grade": 6.48,
+        "controls": 704,
+        "dead_links": 0,
+        "characters": 38096,
+        "viewport_characters": 818,
+        "words": 5777,
+        "sentences": 1041,
+        "syllables": 9743,
+        "link_share": 0.786,
+        "run": "58dc053cdac7"
       }
     ],
     "host": [
@@ -1245,7 +1337,8 @@
         "words": 393,
         "sentences": 44,
         "syllables": 733,
-        "link_share": 0.918
+        "link_share": 0.918,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5000/",
@@ -1269,7 +1362,8 @@
         "words": 680,
         "sentences": 202,
         "syllables": 1192,
-        "link_share": 0.682
+        "link_share": 0.682,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5000/stubborn",
@@ -1293,7 +1387,8 @@
         "words": 111,
         "sentences": 13,
         "syllables": 209,
-        "link_share": 0.926
+        "link_share": 0.926,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5100/",
@@ -1317,7 +1412,8 @@
         "words": 336,
         "sentences": 47,
         "syllables": 609,
-        "link_share": 0.838
+        "link_share": 0.838,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
@@ -1341,7 +1437,8 @@
         "words": 427,
         "sentences": 121,
         "syllables": 793,
-        "link_share": 0.923
+        "link_share": 0.923,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -1365,7 +1462,8 @@
         "words": 1061,
         "sentences": 700,
         "syllables": 2300,
-        "link_share": 0.667
+        "link_share": 0.667,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -1389,7 +1487,8 @@
         "words": 1061,
         "sentences": 700,
         "syllables": 2300,
-        "link_share": 0.5
+        "link_share": 0.5,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.pakrailways.gov.pk/train",
@@ -1413,7 +1512,8 @@
         "words": 1083,
         "sentences": 722,
         "syllables": 2324,
-        "link_share": 0.182
+        "link_share": 0.182,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://example.com/",
@@ -1424,20 +1524,21 @@
         "interactive": 0,
         "links": 1,
         "inferred": 0,
-        "text_density": 0.139,
+        "text_density": 0.884,
         "max_depth": 6,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 13.24,
+        "reading_grade": 11.43,
         "controls": 1,
         "dead_links": 0,
-        "characters": 274,
-        "viewport_characters": 142,
-        "words": 131,
-        "sentences": 3,
-        "syllables": 131,
-        "link_share": 1.0
+        "characters": 911,
+        "viewport_characters": 905,
+        "words": 86,
+        "sentences": 7,
+        "syllables": 162,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
@@ -1461,7 +1562,8 @@
         "words": 153,
         "sentences": 22,
         "syllables": 268,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://httpbin.org/html",
@@ -1485,7 +1587,8 @@
         "words": 605,
         "sentences": 22,
         "syllables": 951,
-        "link_share": 0.0
+        "link_share": 0.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://text.npr.org/",
@@ -1496,20 +1599,21 @@
         "interactive": 0,
         "links": 28,
         "inferred": 0,
-        "text_density": 1.046,
+        "text_density": 0.985,
         "max_depth": 8,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.21,
+        "reading_grade": 8.48,
         "controls": 28,
         "dead_links": 0,
-        "characters": 1726,
-        "viewport_characters": 1071,
-        "words": 271,
-        "sentences": 29,
-        "syllables": 463,
-        "link_share": 1.0
+        "characters": 1655,
+        "viewport_characters": 1009,
+        "words": 254,
+        "sentences": 30,
+        "syllables": 447,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://lite.cnn.com/",
@@ -1520,20 +1624,21 @@
         "interactive": 0,
         "links": 106,
         "inferred": 0,
-        "text_density": 1.913,
+        "text_density": 1.867,
         "max_depth": 10,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.009,
-        "reading_grade": 9.34,
+        "reading_grade": 8.72,
         "controls": 106,
         "dead_links": 1,
-        "characters": 8580,
-        "viewport_characters": 1959,
-        "words": 1342,
-        "sentences": 109,
-        "syllables": 2289,
-        "link_share": 1.0
+        "characters": 8166,
+        "viewport_characters": 1912,
+        "words": 1284,
+        "sentences": 116,
+        "syllables": 2175,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://danluu.com/",
@@ -1557,7 +1662,8 @@
         "words": 1218,
         "sentences": 212,
         "syllables": 2133,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://quotes.toscrape.com/",
@@ -1581,7 +1687,8 @@
         "words": 278,
         "sentences": 47,
         "syllables": 440,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://books.toscrape.com/",
@@ -1605,7 +1712,8 @@
         "words": 272,
         "sentences": 120,
         "syllables": 429,
-        "link_share": 0.825
+        "link_share": 0.825,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.python.org/",
@@ -1621,15 +1729,16 @@
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.007,
-        "reading_grade": 6.89,
+        "reading_grade": 6.83,
         "controls": 153,
         "dead_links": 1,
-        "characters": 8544,
+        "characters": 8199,
         "viewport_characters": 1071,
-        "words": 1187,
-        "sentences": 336,
-        "syllables": 2123,
-        "link_share": 0.987
+        "words": 1134,
+        "sentences": 334,
+        "syllables": 2027,
+        "link_share": 0.987,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://pypi.org/",
@@ -1653,7 +1762,8 @@
         "words": 254,
         "sentences": 80,
         "syllables": 499,
-        "link_share": 0.945
+        "link_share": 0.945,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
@@ -1677,7 +1787,8 @@
         "words": 1816,
         "sentences": 530,
         "syllables": 3265,
-        "link_share": 0.891
+        "link_share": 0.891,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://en.wikipedia.org/wiki/Cognitive_load",
@@ -1686,22 +1797,23 @@
         "title": "Cognitive load - Wikipedia",
         "device_pixel_ratio": 1.5,
         "interactive": 21,
-        "links": 806,
+        "links": 715,
         "inferred": 0,
-        "text_density": 2.141,
+        "text_density": 2.541,
         "max_depth": 45,
         "overlays": 0,
         "form_fields": 12,
         "dead_link_ratio": 0.001,
-        "reading_grade": 10.13,
-        "controls": 827,
+        "reading_grade": 9.8,
+        "controls": 736,
         "dead_links": 1,
-        "characters": 59177,
-        "viewport_characters": 2192,
-        "words": 7418,
-        "sentences": 1441,
-        "syllables": 14909,
-        "link_share": 0.975
+        "characters": 51563,
+        "viewport_characters": 2602,
+        "words": 6478,
+        "sentences": 1367,
+        "syllables": 12923,
+        "link_share": 0.971,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://en.wikipedia.org/wiki/Main_Page",
@@ -1710,22 +1822,23 @@
         "title": "Wikipedia, the free encyclopedia",
         "device_pixel_ratio": 1.5,
         "interactive": 14,
-        "links": 266,
+        "links": 238,
         "inferred": 0,
-        "text_density": 1.816,
-        "max_depth": 22,
+        "text_density": 1.94,
+        "max_depth": 23,
         "overlays": 0,
         "form_fields": 12,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.06,
-        "controls": 280,
+        "reading_grade": 8.02,
+        "controls": 252,
         "dead_links": 0,
-        "characters": 12500,
-        "viewport_characters": 1860,
-        "words": 1701,
-        "sentences": 418,
-        "syllables": 3180,
-        "link_share": 0.95
+        "characters": 11353,
+        "viewport_characters": 1987,
+        "words": 1531,
+        "sentences": 406,
+        "syllables": 2872,
+        "link_share": 0.944,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.gov.uk/",
@@ -1749,7 +1862,8 @@
         "words": 861,
         "sentences": 162,
         "syllables": 1549,
-        "link_share": 0.898
+        "link_share": 0.898,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.gov.uk/browse/benefits",
@@ -1773,7 +1887,8 @@
         "words": 681,
         "sentences": 115,
         "syllables": 1222,
-        "link_share": 0.875
+        "link_share": 0.875,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.nhs.uk/",
@@ -1789,15 +1904,16 @@
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 5.42,
+        "reading_grade": 5.82,
         "controls": 51,
         "dead_links": 0,
-        "characters": 2717,
+        "characters": 2755,
         "viewport_characters": 532,
         "words": 444,
         "sentences": 80,
-        "syllables": 709,
-        "link_share": 0.922
+        "syllables": 724,
+        "link_share": 0.922,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://news.ycombinator.com/",
@@ -1806,22 +1922,23 @@
         "title": "Hacker News",
         "device_pixel_ratio": 1.5,
         "interactive": 1,
-        "links": 229,
+        "links": 230,
         "inferred": 0,
-        "text_density": 2.31,
+        "text_density": 2.319,
         "max_depth": 16,
         "overlays": 0,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 7.02,
-        "controls": 230,
+        "reading_grade": 6.54,
+        "controls": 231,
         "dead_links": 0,
-        "characters": 3848,
-        "viewport_characters": 2365,
-        "words": 508,
+        "characters": 3847,
+        "viewport_characters": 2375,
+        "words": 515,
         "sentences": 67,
-        "syllables": 846,
-        "link_share": 0.996
+        "syllables": 835,
+        "link_share": 0.996,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://arxiv.org/list/cs.HC/recent",
@@ -1830,46 +1947,48 @@
         "title": "Human-Computer Interaction",
         "device_pixel_ratio": 1.5,
         "interactive": 0,
-        "links": 438,
+        "links": 462,
         "inferred": 0,
-        "text_density": 1.547,
+        "text_density": 1.724,
         "max_depth": 13,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 11.28,
-        "controls": 438,
+        "reading_grade": 11.27,
+        "controls": 462,
         "dead_links": 0,
-        "characters": 17698,
-        "viewport_characters": 1584,
-        "words": 2195,
-        "sentences": 318,
-        "syllables": 4497,
-        "link_share": 1.0
+        "characters": 19328,
+        "viewport_characters": 1765,
+        "words": 2400,
+        "sentences": 341,
+        "syllables": 4905,
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.bbc.co.uk/news",
         "state": "as it loads",
         "kind": "public",
         "title": "BBC News - Breaking news, video and the latest top stories from the U.S. and aro",
-        "device_pixel_ratio": 1.5,
-        "interactive": 8,
-        "links": 107,
-        "inferred": 0,
-        "text_density": 0.557,
+        "device_pixel_ratio": 1.5003958828186856,
+        "interactive": 2,
+        "links": 75,
+        "inferred": 77,
+        "text_density": 0.528,
         "max_depth": 23,
         "overlays": 0,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 7.29,
-        "controls": 115,
+        "reading_grade": 6.71,
+        "controls": 77,
         "dead_links": 0,
-        "characters": 8032,
-        "viewport_characters": 570,
-        "words": 1268,
-        "sentences": 198,
-        "syllables": 2190,
-        "link_share": 0.93
+        "characters": 7628,
+        "viewport_characters": 541,
+        "words": 1217,
+        "sentences": 193,
+        "syllables": 2046,
+        "link_share": 0.974,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/entry_ad",
@@ -1893,7 +2012,8 @@
         "words": 60,
         "sentences": 9,
         "syllables": 92,
-        "link_share": 0.667
+        "link_share": 0.667,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/",
@@ -1917,7 +2037,8 @@
         "words": 107,
         "sentences": 47,
         "syllables": 231,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://the-internet.herokuapp.com/login",
@@ -1941,7 +2062,8 @@
         "words": 39,
         "sentences": 9,
         "syllables": 70,
-        "link_share": 0.286
+        "link_share": 0.286,
+        "run": "58dc053cdac7"
       },
       {
         "url": "http://demo.testfire.net/",
@@ -1965,7 +2087,8 @@
         "words": 392,
         "sentences": 52,
         "syllables": 688,
-        "link_share": 0.956
+        "link_share": 0.956,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://parabank.parasoft.com/parabank/index.htm",
@@ -1989,7 +2112,8 @@
         "words": 79,
         "sentences": 42,
         "syllables": 145,
-        "link_share": 0.917
+        "link_share": 0.917,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demo.applitools.com/",
@@ -2013,7 +2137,8 @@
         "words": 8,
         "sentences": 5,
         "syllables": 14,
-        "link_share": 0.625
+        "link_share": 0.625,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
@@ -2037,7 +2162,8 @@
         "words": 18,
         "sentences": 10,
         "syllables": 36,
-        "link_share": 0.556
+        "link_share": 0.556,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.saucedemo.com/",
@@ -2061,7 +2187,8 @@
         "words": 25,
         "sentences": 5,
         "syllables": 46,
-        "link_share": 0.0
+        "link_share": 0.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demo.opencart.com/",
@@ -2085,13 +2212,15 @@
         "words": 52,
         "sentences": 8,
         "syllables": 98,
-        "link_share": 1.0
+        "link_share": 1.0,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://practice.expandtesting.com/",
         "state": "as it loads",
         "kind": "demo",
-        "error": "Error: Page.goto: net::ERR_ABORTED at https://practice.expandtesting.com/\nCall log:\n  - navigating to \"https://practice.expandt"
+        "error": "Error: Page.goto: net::ERR_ABORTED at https://practice.expandtesting.com/\nCall log:\n  - navigating to \"https://practice.expandt",
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demoqa.com/automation-practice-form",
@@ -2115,7 +2244,8 @@
         "words": 101,
         "sentences": 57,
         "syllables": 189,
-        "link_share": 0.083
+        "link_share": 0.083,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://demoqa.com/modal-dialogs",
@@ -2139,7 +2269,8 @@
         "words": 94,
         "sentences": 46,
         "syllables": 166,
-        "link_share": 0.375
+        "link_share": 0.375,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://todomvc.com/examples/react/dist/",
@@ -2163,7 +2294,8 @@
         "words": 116,
         "sentences": 25,
         "syllables": 190,
-        "link_share": 0.824
+        "link_share": 0.824,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://getbootstrap.com/docs/5.3/components/modal/",
@@ -2179,15 +2311,16 @@
         "overlays": 2,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 9.88,
+        "reading_grade": 9.91,
         "controls": 282,
         "dead_links": 0,
-        "characters": 29938,
+        "characters": 29918,
         "viewport_characters": 1811,
-        "words": 3694,
+        "words": 3687,
         "sentences": 569,
-        "syllables": 7180,
-        "link_share": 0.801
+        "syllables": 7178,
+        "link_share": 0.801,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://element-plus.org/en-US/component/dialog.html",
@@ -2211,7 +2344,8 @@
         "words": 2958,
         "sentences": 1623,
         "syllables": 5850,
-        "link_share": 0.717
+        "link_share": 0.717,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://mui.com/material-ui/react-dialog/",
@@ -2219,23 +2353,24 @@
         "kind": "demo",
         "title": "React Dialog component - Material UI",
         "device_pixel_ratio": 1.5,
-        "interactive": 172,
-        "links": 190,
-        "inferred": 59,
-        "text_density": 1.492,
+        "interactive": 154,
+        "links": 154,
+        "inferred": 305,
+        "text_density": 1.816,
         "max_depth": 23,
-        "overlays": 0,
-        "form_fields": 1,
+        "overlays": 2,
+        "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 8.1,
-        "controls": 362,
+        "reading_grade": 8.06,
+        "controls": 308,
         "dead_links": 0,
-        "characters": 7622,
-        "viewport_characters": 1528,
-        "words": 1099,
-        "sentences": 272,
-        "syllables": 2060,
-        "link_share": 0.525
+        "characters": 7689,
+        "viewport_characters": 1860,
+        "words": 1110,
+        "sentences": 276,
+        "syllables": 2077,
+        "link_share": 0.5,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://ant.design/components/modal",
@@ -2259,7 +2394,8 @@
         "words": 2915,
         "sentences": 788,
         "syllables": 5266,
-        "link_share": 0.583
+        "link_share": 0.583,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://sweetalert2.github.io/",
@@ -2283,7 +2419,8 @@
         "words": 4698,
         "sentences": 707,
         "syllables": 8414,
-        "link_share": 0.981
+        "link_share": 0.981,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://mui.com/material-ui/react-drawer/",
@@ -2307,7 +2444,8 @@
         "words": 1176,
         "sentences": 253,
         "syllables": 2100,
-        "link_share": 0.48
+        "link_share": 0.48,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
@@ -2323,15 +2461,16 @@
         "overlays": 2,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 10.65,
+        "reading_grade": 10.62,
         "controls": 237,
         "dead_links": 0,
-        "characters": 21877,
+        "characters": 21882,
         "viewport_characters": 1854,
-        "words": 2632,
-        "sentences": 419,
-        "syllables": 5306,
-        "link_share": 0.831
+        "words": 2634,
+        "sentences": 420,
+        "syllables": 5305,
+        "link_share": 0.831,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://ant.design/components/drawer",
@@ -2339,23 +2478,24 @@
         "kind": "demo",
         "title": "Drawer - Ant Design",
         "device_pixel_ratio": 1.5,
-        "interactive": 197,
-        "links": 256,
-        "inferred": 46,
-        "text_density": 1.584,
+        "interactive": 196,
+        "links": 243,
+        "inferred": 137,
+        "text_density": 1.525,
         "max_depth": 24,
-        "overlays": 3,
-        "form_fields": 20,
-        "dead_link_ratio": 0.016,
-        "reading_grade": 6.82,
-        "controls": 453,
-        "dead_links": 4,
-        "characters": 12891,
-        "viewport_characters": 1622,
-        "words": 1821,
-        "sentences": 550,
-        "syllables": 3259,
-        "link_share": 0.565
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.008,
+        "reading_grade": 6.83,
+        "controls": 439,
+        "dead_links": 2,
+        "characters": 12827,
+        "viewport_characters": 1562,
+        "words": 1813,
+        "sentences": 546,
+        "syllables": 3246,
+        "link_share": 0.554,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.theguardian.com/international",
@@ -2363,23 +2503,24 @@
         "kind": "public",
         "title": "Latest news, sport and opinion from the Guardian",
         "device_pixel_ratio": 1.5,
-        "interactive": 11,
-        "links": 252,
+        "interactive": 13,
+        "links": 255,
         "inferred": 6,
-        "text_density": 0.554,
+        "text_density": 0.575,
         "max_depth": 22,
         "overlays": 3,
         "form_fields": 0,
         "dead_link_ratio": 0.0,
-        "reading_grade": 6.02,
-        "controls": 263,
+        "reading_grade": 5.84,
+        "controls": 268,
         "dead_links": 0,
-        "characters": 18930,
-        "viewport_characters": 567,
-        "words": 3019,
-        "sentences": 616,
-        "syllables": 5041,
-        "link_share": 0.958
+        "characters": 20021,
+        "viewport_characters": 589,
+        "words": 3228,
+        "sentences": 631,
+        "syllables": 5316,
+        "link_share": 0.951,
+        "run": "58dc053cdac7"
       },
       {
         "url": "https://www.spiegel.de/",
@@ -2387,23 +2528,24 @@
         "kind": "public",
         "title": "DER SPIEGEL | Online-Nachrichten",
         "device_pixel_ratio": 1.5,
-        "interactive": 154,
-        "links": 564,
+        "interactive": 151,
+        "links": 553,
         "inferred": 3,
-        "text_density": 0.891,
+        "text_density": 0.799,
         "max_depth": 27,
         "overlays": 1,
         "form_fields": 1,
         "dead_link_ratio": 0.0,
-        "reading_grade": 6.33,
-        "controls": 718,
+        "reading_grade": 6.48,
+        "controls": 704,
         "dead_links": 0,
-        "characters": 39061,
-        "viewport_characters": 912,
-        "words": 5948,
-        "sentences": 1056,
-        "syllables": 9943,
-        "link_share": 0.786
+        "characters": 38096,
+        "viewport_characters": 818,
+        "words": 5777,
+        "sentences": 1041,
+        "syllables": 9743,
+        "link_share": 0.786,
+        "run": "58dc053cdac7"
       }
     ]
   }

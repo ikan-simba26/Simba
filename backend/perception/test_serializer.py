@@ -115,3 +115,40 @@ def _log_in(page: Page, replica: str) -> None:
     page.fill("#password", "hunter2")
     page.click("button[type=submit]")
     page.wait_for_url(replica + "/courses")
+
+
+# --- a password field's value never enters perception -------------------------
+
+
+def test_a_typed_password_is_never_read_into_the_page(replica: str, page: Page) -> None:
+    """CDP's snapshot reads every input's live value, a password field's
+    included. Until 2026-10-03 a typed password sat in `Element.value` and in
+    the document's `input_values`; nothing sent it on, but every reader of a
+    value was one line from leaking it. Now a password field reads as a fixed
+    mask, and the text field beside it still reads what it holds."""
+    from backend.perception.snapshot import SECRET_MASK
+    from backend.perception.serializer import read
+
+    secret = "S3cret-perception-probe!"
+    page.goto(replica)
+    page.fill("#username", "raham")
+    page.fill("#password", secret)
+
+    view = read(page)
+
+    password = next(e for e in view.elements if e.is_password)
+    username = next(e for e in view.elements if e.label == "Student ID or Username")
+    assert password.value == SECRET_MASK
+    assert username.value == "raham"
+    assert secret not in repr(view.elements)
+    assert all(secret not in v for v in view.document.input_values.values())
+
+
+def test_an_empty_password_field_reads_empty(replica: str, page: Page) -> None:
+    """Filled or not is still visible: the mask means something is there."""
+    from backend.perception.serializer import read
+
+    page.goto(replica)
+    password = next(e for e in read(page).elements if e.is_password)
+
+    assert password.value == ""

@@ -183,18 +183,22 @@ class LLMPlanner:
             value=action.value,
         )
 
-        # Only offer a field when the user could reasonably fill it. A password
-        # is never round-tripped through the step, it comes from the vault.
+        # A field for whatever is being typed, so the person can say it. A
+        # password field is offered too, as a protected one, always empty: the
+        # loop types a saved password itself and hides the field, or the person
+        # types it and may keep it (`vault.py`). Until 2026-10-03 a password
+        # step offered no field and, with no vault, could not be done at all.
+        # The model's own value for a password is never used (`resolve_value`).
         fields = (
             [
                 StepField(
                     id=element.name or str(element.id),
                     label=element.label,
-                    type=element.input_type or "text",
+                    type="password" if element.is_password else (element.input_type or "text"),
                     value="",
                 )
             ]
-            if action.action == "type" and not element.is_password
+            if action.action == "type"
             else []
         )
 

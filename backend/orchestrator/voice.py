@@ -28,6 +28,8 @@ Imports nothing but the schema, so a plan, the mock backend and a test can
 all use it without pulling in a browser.
 """
 
+import re
+
 from shared.schema import StepAction
 
 # --- the two buttons on every step ------------------------------------------
@@ -147,6 +149,108 @@ def no_station(place: str) -> str:
 NO_TRAINS = "I searched, and no trains came back for that day."
 WRONG_MONTH = "The calendar on the page isn't showing the month you asked for."
 FORM_CHANGED = "The page no longer holds what I put in it, so I haven't searched."
+
+
+# --- the sentence on the closing screen ------------------------------------
+#
+# One plain sentence above the result, saying what it means: "There are 3
+# trains. The fastest takes 6 hours 3 minutes." (2026-10-03). Built only from
+# values the page returned — every number in it is one the page printed, or a
+# count of them — and when a value is not in a shape these can read safely, the
+# sentence says less rather than guess: no sentence at all, or the page's own
+# words where a rewording would have been.
+
+_JOURNEY = re.compile(r"\s*(\d+)\s*h\s*(\d+)\s*min\s*")
+
+
+def _minutes(journey: str) -> int | None:
+    """`6 h 3 min` as 363, or None for anything else."""
+    match = _JOURNEY.fullmatch(journey)
+    return int(match[1]) * 60 + int(match[2]) if match else None
+
+
+def _plural(count: int, word: str) -> str:
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
+def duration(journey: str) -> str:
+    """`6 h 3 min` as `6 hours 3 minutes`; anything else exactly as the page
+    wrote it."""
+    minutes = _minutes(journey)
+    if minutes is None:
+        return journey.strip()
+    hours, rest = divmod(minutes, 60)
+    parts = [_plural(hours, "hour")] if hours else []
+    if rest or not hours:
+        parts.append(_plural(rest, "minute"))
+    return " ".join(parts)
+
+
+def _readable(*values: str) -> bool:
+    """Nothing in a sentence a person reads may be a web address (the same
+    rule as every other string here)."""
+    return all(v and "://" not in v and "www." not in v.lower() for v in values)
+
+
+def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+    """How many trains came back, and how long the fastest takes."""
+    trains = found.get("Train") or []
+    if not trains:
+        return None
+    count = (f"There is {_plural(1, 'train')}." if len(trains) == 1
+             else f"There are {len(trains)} trains.")
+    journeys = found.get("Journey") or []
+    minutes = [_minutes(j) for j in journeys]
+    if not journeys or None in minutes or not _readable(*journeys):
+        return count
+    fastest = duration(journeys[minutes.index(min(minutes))])
+    return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
+
+
+def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+    """The amount and the date it is due, in the page's own figures."""
+    amount, due = found.get("Your bill") or [], found.get("Due") or []
+    if len(amount) != 1 or not _readable(*amount):
+        return None
+    if len(due) == 1 and _readable(*due):
+        return f"Your bill is {amount[0]}, and it is due on {due[0]}."
+    return f"Your bill is {amount[0]}."
+
+
+def explain_course(course: str):
+    """For a registration: which course the confirmation named, as it named it."""
+    def explain(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+        named = [v for v in seen.get("Course") or [] if course.casefold() in v.casefold()]
+        if not named or not _readable(named[0]):
+            return None
+        return f"You are registered for {named[0]}."
+    return explain
+
+
+# --- saved sign-in details -------------------------------------------------
+#
+# A step that asks for a password offers to remember it; once remembered, the
+# step says it will use it and offers to forget it (`vault.py`, 2026-10-03).
+# The password itself is never in any of these, or in any message at all.
+
+#: Agrees to the step and keeps the password typed into it.
+REMEMBER_ID = "remember"
+#: Deletes what was saved for this site, and asks again.
+FORGET_ID = "forget"
+
+#: The detail line on a step that will sign in with saved details.
+USING_SAVED = "I'll use the sign-in details you saved for this site."
+#: The detail line once they have been forgotten, on the same step asked again.
+FORGOTTEN = "I've forgotten them. Type them in to sign in this time."
+FORGET = "Forget my saved password"
+
+
+def remember(label: str) -> str:
+    """The button that does the step and keeps the password: the step's own
+    words, then what else it does."""
+    if label == GO_AHEAD:
+        return "Yes, and save my password"
+    return f"{label} and save my password"
 
 
 # --- when a run ends without finishing --------------------------------------

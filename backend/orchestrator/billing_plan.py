@@ -22,6 +22,7 @@ from backend.orchestrator.plan import (
     Shown,
     Target,
 )
+from backend.orchestrator import voice
 from backend.orchestrator.voice import actions
 from shared.schema import StepField
 
@@ -54,6 +55,7 @@ def bill_task(reference: str) -> Task:
             ),
             shows=(Shown(reads="REF NO", says=reference),),
         ),
+        explain=voice.explain_bill,
     )
 
 

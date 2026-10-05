@@ -346,23 +346,33 @@ async def read_features(page, url: str, drive=None, kind: str = PUBLIC) -> dict:
         if drive is not None:
             await drive(page)
             await page.wait_for_timeout(600)
-        view = await read_async(page, VIEWPORT)
-        if view.document is None:
-            return {"url": url, "state": name_of(drive), "kind": kind,
-                    "error": "no snapshot; are the switches off?"}
-        found: PageFeatures = features(view, view.document, VIEWPORT)
-        # The ratio the read was taken at, recorded rather than applied: since
-        # 2026-09-20 `snapshot.parse` converts the boxes and every length here
-        # is CSS pixels. Kept in the row because a corpus should say what the
-        # display was doing.
-        return {"url": url, "state": name_of(drive), "kind": kind,
-                "title": (await page.title())[:80],
-                "device_pixel_ratio": view.document.device_pixel_ratio,
-                **found.as_dict()}
+        return await features_now(page, url, drive, kind)
     except PlaywrightError as refused:
         await reset(page)
         return {"url": url, "state": name_of(drive), "kind": kind,
                 "error": f"{type(refused).__name__}: {str(refused)[:120]}"}
+
+
+async def features_now(page, url: str, drive, kind: str) -> dict:
+    """The corpus row for a page that is already in the state to be read.
+
+    Split out of `read_features` so `tools/rating/capture.py` can read the
+    features of exactly the page it photographs, in the same load and the same
+    state, moments apart (2026-10-03).
+    """
+    view = await read_async(page, VIEWPORT)
+    if view.document is None:
+        return {"url": url, "state": name_of(drive), "kind": kind,
+                "error": "no snapshot; are the switches off?"}
+    found: PageFeatures = features(view, view.document, VIEWPORT)
+    # The ratio the read was taken at, recorded rather than applied: since
+    # 2026-09-20 `snapshot.parse` converts the boxes and every length here is
+    # CSS pixels. Kept in the row because a corpus should say what the display
+    # was doing.
+    return {"url": url, "state": name_of(drive), "kind": kind,
+            "title": (await page.title())[:80],
+            "device_pixel_ratio": view.document.device_pixel_ratio,
+            **found.as_dict()}
 
 
 def name_of(drive) -> str:
@@ -539,6 +549,14 @@ async def main() -> None:
         headless = await in_headless(pages)
         host = [] if headless_only else await in_host(pages)
 
+    write_corpus(pages, headless, host)
+
+
+def write_corpus(pages: list[tuple], headless: list[dict], host: list[dict],
+                 out: Path | None = None, **extra) -> Path:
+    """Report on both environments and write `data/corpus.json`. `extra` goes
+    into the file's conditions beside everything else — the capture puts its
+    run there, so the corpus says which pictures it was read with."""
     flat = report("headless", headless)
     if host:
         report("in the host", host)
@@ -568,7 +586,7 @@ async def main() -> None:
               f"{row['interactive']} interactive"
               f" (share {row['link_share']})")
 
-    out = REPO_ROOT / "data" / "corpus.json"
+    out = out or REPO_ROOT / "data" / "corpus.json"
     # Which environments this corpus was actually read in. `"host": []` on its
     # own reads like "the host found nothing" rather than "the host was not
     # asked", and the standing rule is that both are read (DECISIONS.md,
@@ -578,8 +596,9 @@ async def main() -> None:
            pages=len(pages), viewport=list(VIEWPORT), settle_ms=SETTLE_MS,
            environments=environments,
            flat_features=flat, separating_pages=len(separating),
-           pages_with_no_controls=len(empty), made_of=dict(made_of))
+           pages_with_no_controls=len(empty), made_of=dict(made_of), **extra)
     print(f"wrote {out}")
+    return out
 
 
 if __name__ == "__main__":

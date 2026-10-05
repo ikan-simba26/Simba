@@ -4525,3 +4525,128 @@ to the live site is in the stack's output.
 The railways clip is 45s; the 2026-09-23 recording on the live site was 80s,
 with three fewer screens. The copy is faster than the live site (EVALUATION.md,
 2026-09-30c), so the clips no longer show the live run's pace.
+
+---
+
+## 2026-10-03 — the rating pictures and the corpus, one run
+
+`python -m tools.rating.capture`, run `58dc053cdac7`, 2026-10-03 16:47 +05:00,
+at `7b1a1f9` (clean tree), with the stack up for the corpus's host half. For
+every page: one headless load, the drive, the scrollbars hidden, the features
+read and the picture taken moments apart from that same page; then the host
+half, straight after. `data/rating/pages.json` and `data/corpus.json` both
+carry the run's id and date, on the file and on every row.
+
+| | |
+|---|---|
+| Pictures captured | **50 of 50**, all laid out at 1280px |
+| Headless rows (the features the estimator uses) | 50 of 50, every one from run `58dc053cdac7`, the same as its picture |
+| Host rows | 49 of 50; `practice.expandtesting.com` refused the host (`ERR_ABORTED`) |
+| Pictures identical to the 2026-09-25 set | 23 of 50 |
+| Headless density changed since 2026-09-30 | 12 of 50 pages |
+
+So 27 of the 50 pictures people would have rated were no longer the pages the
+features described. That is now impossible by construction for a rating given
+from here on: `train.py` uses a rating only if it was given for the picture in
+the manifest and that picture's features came from the same run.
+
+Headless and host differ on 13 of 50 pages by the collector's count. What
+differs, and why, is the same kind as 2026-09-30g: driven pages where the drive
+reached a different state in each environment (both Ant Design pages), live
+pages read twice minutes apart (Hacker News, BBC, the Guardian, Bootstrap's two
+docs pages by a few dozen characters), and small unexplained density
+differences with identical text (lite.cnn.com 1.920/1.867, Wikipedia's main
+page 1.903/1.940). `entry_ad` shows its modal in the host and not headless, so
+its picture shows no modal, and its features say so too — they agree with each
+other, which is the point.
+
+**One thing about how the headless features are read changed with this.** They
+are read in the capture's browser context — `--hide-scrollbars`, the scrollbar
+style injected, `bypass_csp` so that style is accepted on pypi.org and gov.uk —
+rather than `collect_corpus`'s plain one. That is what makes them the features
+of the picture. `collect_corpus` on its own still reads the plain way.
+
+---
+
+## 2026-10-03b — the credential store: a saved password, searched for everywhere
+
+`backend/orchestrator/test_vault.py`, the registration replica, real Chromium.
+The headline test runs a whole registration task through the real loop, the
+real LLM planner and the real `OpenAICompatibleProvider` — only its HTTP call
+answered offline — with a password saved for the site, trace memory on, the
+step recorder on and every log record captured at DEBUG. Then it searches for
+the password in:
+
+| Where | Found |
+|---|---|
+| Every prompt the model was sent (5) | no |
+| The provider's transcript file | no |
+| The trace database | no |
+| The step recorder's file | no |
+| Every log record | no |
+| Every message to the overlay | no |
+| The vault file (nor the username) | no |
+| Every file created or changed under `logs/` and `data/` during the run | no |
+
+And the backend did type it: the fill on the "Password" field carried it. The
+password step was shown with no field for it and the line "I'll use the sign-in
+details you saved for this site."
+
+**The test catches a leak.** Planting one log line carrying the password failed
+it on "every log record"; planting the password in a step's instruction failed
+it on "the step recorder". Both plants were in a scratch copy, removed after.
+
+**A leak found while building it.** CDP's snapshot reads every input's live
+value, a password field's included, so after a password was typed the secret
+was in `Document.input_values`, in `Element.value` and in every `Snapshot` built
+from them. Nothing sent it further — the model's page has no values, and the
+loop's checks already skipped passwords — but it was one new reader away from a
+prompt or a log. `snapshot.parse` now reads a password field as `********` when
+it holds anything and empty when not; `test_serializer.py` types a password into
+the real replica and finds it nowhere in the read.
+
+The other twelve tests: nothing readable on disk; an entry is per site (origin);
+a tampered entry is refused, not misread; saved details never print; asked once
+and kept only when the person presses "Sign in and save my password"; typed
+without asking the next time; forgotten on request and the step asked again in
+the same run; a password whose step did not work is not kept; with no vault the
+step is exactly as before. At 150% (1266x606) the sign-in step with its third
+button keeps both fields and all three buttons on screen. 13 + 2 + 2 tests.
+
+---
+
+## 2026-10-03c — one plain sentence on the closing screen, and the screen it lands on
+
+`task.completed.explanation`, built by `voice.explain_*` from the values the
+page returned. On the replicas, end to end (`test_explanation.py`):
+
+| Flow | Sentence |
+|---|---|
+| Train search, our copy, Rawalpindi to Multan | "There are 2 trains. The fastest takes 5 hours 15 minutes." (3UP, 5 h 15 min; 4DN, 6 h 15 min) |
+| Bill | "Your bill is 14,382, and it is due on 15-09-2026." |
+| Registration, MATH-210 | "You are registered for MATH-210 section 001." |
+| Fixed registration plan | none: it declares no sentence, and the screen is as before |
+
+On the live search of 2026-09-30 (run 6), the same function gives "There are 3
+trains. The fastest takes 6 hours 3 minutes." Every number in a sentence is one
+the page printed or a count of what it returned, which a test checks number by
+number; a journey it cannot read leaves "the fastest" unsaid, two amounts leave
+the bill unexplained, and a value that is a web address is never said. 23 tests,
+and the six new sentences pass every wording rule `test_copy.py` holds the
+backend to.
+
+**The closing screen did not fit before the sentence.** Measured in Chromium at
+each scale's content size, with the sentence and without:
+
+| Results | Scale | "I'm done" (no sentence) | "Do something else" ends (no sentence) | With the sentence |
+|---|---|---|---|---|
+| 3 trains | 100% (800 tall) | 679–759 | **851** | +61px |
+| 3 trains | 125% / 150% (734 / 606) | 595–659 | **735** | +51px |
+| 9 trains | 100% | **1057** | — | **1118** |
+| 9 trains | 150% | **973** | — | **1024** |
+
+So with any answer of three or more results the way onward has been partly or
+wholly below the window, at every scale, since before this change; the fit was
+only ever measured for the home screen and for steps (2026-09-25c, 2026-09-30d).
+The sentence makes it 51–61px worse. Both cases are pinned in
+`frontend/test_closing.py` as strict known failures. Not fixed here: flagged.

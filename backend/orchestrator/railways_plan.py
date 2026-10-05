@@ -161,6 +161,7 @@ RAILWAYS_TASK = Task(
             Answer("Journey", reads="Duration"),
         ),
     ),
+    explain=voice.explain_trains,
 )
 
 RAILWAYS_PLAN: list[PlanStep] = [
@@ -278,6 +279,7 @@ def trip_task(origin: str, destination: str, day: date) -> Task:
                 Answer("Journey", reads="Duration"),
             ),
         ),
+        explain=voice.explain_trains,
     )
 
 

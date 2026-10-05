@@ -685,6 +685,7 @@ class CourseBrief(_Asking):
             # field to check afterwards. The confirmation says which course
             # was registered, and that is what has to name this one.
             about=About(shows=(Shown(reads="Course", says=self.course),)),
+            explain=voice.explain_course(self.course),
         )
 
     def _plan(self) -> tuple[Planner, Task]:

@@ -6,14 +6,12 @@ finds a rule that is there, finds nothing when there is nothing, measures
 agreement the way it says it does, refuses what it should refuse — and never
 lets a synthetic run into the project's own model file or EVALUATION.md.
 
-Files go under `.scratch/` (ignored), not the system temp directory: CLAUDE.md
-keeps temporary files inside the repository.
+Files go in `tmp_path`, which is inside the repository (`.scratch/pytest`,
+set in the root `conftest.py`), as CLAUDE.md requires.
 """
 
 import json
 import random
-import shutil
-from collections.abc import Iterator
 from pathlib import Path
 
 import joblib
@@ -40,17 +38,9 @@ from backend.estimator.train import (
     write_evaluation,
 )
 
-SCRATCH = Path(__file__).resolve().parents[2] / ".scratch" / "test-train"
-
-
 @pytest.fixture
-def here(request) -> Iterator[Path]:
-    """A directory of this test's own under `.scratch/`, emptied after."""
-    path = SCRATCH / request.node.name.replace("[", "-").replace("]", "")
-    shutil.rmtree(path, ignore_errors=True)
-    path.mkdir(parents=True)
-    yield path
-    shutil.rmtree(path, ignore_errors=True)
+def here(tmp_path: Path) -> Path:
+    return tmp_path
 
 
 # --- synthetic data ---------------------------------------------------------
@@ -69,6 +59,7 @@ def synthetic_corpus(pages: int = 50, seed: int = 1) -> dict:
             "form_fields": int(rng.integers(0, 20)),
             "dead_link_ratio": float(rng.uniform(0, 1)),
             "reading_grade": float(rng.uniform(3, 14)),
+            "run": "run-1",
         }
     return rows
 
@@ -113,6 +104,14 @@ def as_ratings(rows: list[dict]) -> list[Rating]:
 
 def write_jsonl(path: Path, rows: list[dict]) -> Path:
     path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    return path
+
+
+def write_pictures(path: Path, rows: dict, run: str = "run-1") -> Path:
+    """A picture manifest for the synthetic corpus, every picture from `run`."""
+    path.write_text(json.dumps({"run": {"id": run}, "pages": [
+        {"url": k[0], "state": k[1], "run": run, "sha256": f"sha-{i}"}
+        for i, k in enumerate(rows)]}), encoding="utf-8")
     return path
 
 
@@ -380,7 +379,9 @@ def test_the_whole_pipeline_runs_and_writes_where_it_is_told(here: Path) -> None
     evaluation = here / "EVALUATION.md"
     evaluation.write_text("# scratch\n", encoding="utf-8")
 
-    trained = run(ratings, corpus_file, model, evaluation)
+    pictures = write_pictures(here / "pages.json", corpus)
+
+    trained = run(ratings, corpus_file, model, evaluation, pictures_path=pictures)
 
     saved = joblib.load(model)
     assert saved["synthetic"] is True
@@ -404,3 +405,70 @@ def test_it_reads_the_real_corpus_file() -> None:
     assert len(rows) >= 40
     assert all(all(f in row for f in FEATURES) for row in rows.values())
     assert conditions.get("taken_at")
+
+
+# --- a rating is paired with the features of the picture it was given for ---
+
+
+def pictures_of(corpus: dict, run: str = "run-1") -> dict:
+    return {k: {"url": k[0], "state": k[1], "run": run, "sha256": f"sha-{i}"}
+            for i, k in enumerate(corpus)}
+
+
+def test_ratings_of_pictures_and_features_from_one_run_are_used() -> None:
+    corpus = synthetic_corpus()
+    pictures = pictures_of(corpus)
+    rows = synthetic_ratings(corpus)
+    for row in rows:
+        row["image_sha256"] = pictures[(row["url"], row["state"])]["sha256"]
+
+    trained = train(as_rated(rows), corpus, pictures=pictures)
+
+    assert trained.unpaired == []
+    assert len(trained.pages) == len(corpus)
+
+
+def test_features_from_another_run_than_the_picture_are_left_out() -> None:
+    """The 2026-09-25 pictures and the 2026-09-30 features, as a test: a page
+    whose features were read in a different run than its picture was taken in
+    is not trained on."""
+    corpus = synthetic_corpus()
+    stale = next(iter(corpus))
+    corpus[stale] = {**corpus[stale], "run": "run-0"}
+
+    trained = train(as_rated(synthetic_ratings(corpus)), corpus, pictures=pictures_of(corpus))
+
+    assert [k for k, _ in trained.unpaired] == [stale]
+    assert "different capture runs" in trained.unpaired[0][1]
+    assert stale not in trained.pages
+    assert "did not pair" in report(trained)
+
+
+def test_a_rating_of_an_earlier_picture_is_left_out() -> None:
+    corpus = synthetic_corpus()
+    pictures = pictures_of(corpus)
+    rows = synthetic_ratings(corpus)
+    for row in rows:
+        row["image_sha256"] = pictures[(row["url"], row["state"])]["sha256"]
+    first = next(iter(corpus))
+    for row in rows:
+        if (row["url"], row["state"]) == first:
+            row["image_sha256"] = "an-older-picture"
+
+    trained = train(as_rated(rows), corpus, pictures=pictures)
+
+    assert trained.unpaired == [(first, "rated an earlier picture than the one captured now")]
+
+
+def test_nothing_that_pairs_is_refused_with_the_reason() -> None:
+    corpus = synthetic_corpus()
+
+    with pytest.raises(RefusedToTrain, match="different capture runs"):
+        train(as_rated(synthetic_ratings(corpus)), corpus, pictures=pictures_of(corpus, "run-9"))
+
+
+def as_rated(rows: list[dict]) -> list[Rating]:
+    """`as_ratings`, keeping which picture each answer was given for."""
+    return [Rating(rater=r["rater"], url=r["url"], state=r["state"], page=r["page"],
+                   repeat=r["repeat"], rating=r["rating"], synthetic=r.get("synthetic", False),
+                   image=r.get("image_sha256", "")) for r in rows]

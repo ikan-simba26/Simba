@@ -64,6 +64,7 @@ from backend.orchestrator.loop import Connection, follow_override, run_brief, ru
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
+from backend.orchestrator.vault import Vault
 from backend.orchestrator.router import (
     ROUTABLE,
     Route,
@@ -253,7 +254,8 @@ async def ws_endpoint(websocket: WebSocket) -> None:
                 store, spelled_out, site_of(replica_url), planner)
 
         async with open_page(replica_url) as page:
-            await run_brief(page, connection, brief, replica_url, recorder, rules)
+            await run_brief(page, connection, brief, replica_url, recorder, rules,
+                            vault=Vault())
         await websocket.close()
         return
 
@@ -281,6 +283,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         planner = TracePlanner(store, task, site_of(replica_url), planner)
 
     async with open_page(replica_url) as page:
-        await run_task(page, connection, planner, task, replica_url, recorder, rules)
+        await run_task(page, connection, planner, task, replica_url, recorder, rules,
+                       vault=Vault())
 
     await websocket.close()
