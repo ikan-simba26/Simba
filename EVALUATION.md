@@ -1666,6 +1666,14 @@ one session and publish its conditions block.
   and is covered; the record-then-replay cycle on a real run is not.
 - **The JS-click fallback can click through a modal.** With overlay detection
   off it does so in 10/10 runs and the run still passes.
+- **The credential store works only on Windows.** A saved password is
+  encrypted with Windows' own key for the signed-in account (DPAPI,
+  `backend/orchestrator/vault.py`). On any other system the store reports
+  itself unavailable, nothing is saved, and the step offers no way to save:
+  the person is asked for their password every time, as before the store
+  existed (2026-10-03b). That path is the same branch as running with no store
+  at all, which `test_vault.py` covers; it has not been run on another system.
+  *Added 2026-10-05.*
 
 ### What is measured, and what that leaves
 
