@@ -1,9 +1,11 @@
 # SIMBA — handover
 
 For someone who has never seen this repository and needs to reason about it
-without reading the code. Written 2026-09-17 against commit `cc4704f`, and
-updated twice since: that evening after the owed LLM run, and on 2026-09-18
-after the fixes that followed it. About twenty minutes end to end.
+without reading the code. Written 2026-09-17 against commit `cc4704f`,
+updated on 2026-09-18, and **refreshed on 2026-10-05** against `main` at
+`9fd09bc` plus `feat/multi-october-fifth` — sections 1 to 4, 6 to 8 and 10
+rewritten for what has changed since; section 9 is still the 2026-09-17
+capture, and says so. About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -53,24 +55,35 @@ Three hard rules shape everything ([CLAUDE.md](CLAUDE.md)):
 
 It is a final-year project by three people — Nahail (perception, estimator),
 Raham (orchestrator), Aly (interface) — with a hard deadline of December
-2026. The current phase is the "walking skeleton": the whole loop working
-end to end before any intelligence is added on top.
+2026. The walking skeleton (the whole loop end to end) was done in September.
+**October is "from skeleton to evidence"**: feature freeze on 1 November,
+November for evaluation and writing, December for the report and demo. The
+priorities, in order, are in [CLAUDE.md](CLAUDE.md), *Current phase*: the
+estimator trained on human ratings; the product for its audience; early
+sessions with two or three people; evaluation readiness.
 
 ### The shape of it
 
 Two processes that talk only over one WebSocket:
 
-- **Frontend** — an Electron window with two views stacked at 1280x800. Below
-  is the real website. On top, covering it completely, is the React overlay
-  the person actually sees. (Covered, not hidden: a hidden view stops being
-  repainted and screenshots fail — 20/20 captures covered, 2/5 hidden,
-  measured in `spike/`.)
+- **Frontend** — an Electron window with two views. Below is the real website,
+  always 1280x800 in CSS pixels. On top, covering it completely, is the React
+  overlay the person actually sees, laid out at the window's real size — the
+  window fits the screen's work area, so on a 1080p laptop at 150% the overlay
+  is 1266x606 and uses a compact layout (EVALUATION.md, 2026-09-25c). (Covered,
+  not hidden: a hidden view stops being repainted and screenshots fail — 20/20
+  captures covered, 2/5 hidden, measured in `spike/`.)
 - **Backend** — Python and FastAPI. It attaches to the hidden website view
   over the Chrome DevTools Protocol and drives it with Playwright.
 
-The loop, per step: read the page → decide the next action → show it to the
-person → wait for them to agree → do it → read the page again and check →
-retry once a different way, or stop and ask for help.
+Before the loop, the typed goal is **routed** — run a flow, greet, decline, or
+ask which — and **read for the person's own details** (where from, which day,
+a reference number); anything missing is asked for, one question at a time,
+before the site is touched. Then the loop, per step: read the page → decide
+the next action → show it to the person → wait for them to agree → do it →
+read the page again and check → retry once a different way, or stop and ask
+for help. It ends on one of five screens; the one with an answer shows it,
+with one plain sentence saying what it means.
 
 Deciding the next action is done by one of three "planners", and they are
 interchangeable because everything else is shared: a **hardcoded plan**
@@ -83,9 +96,11 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-09-18: **323 passed, 7 skipped, 459s**. The
-7 skips are 5 tests that need a running Electron window and 2 that hit the
-live website; **none of those 7 were run today.**
+The full suite was last run on 2026-10-05: **906 passed, 12 skipped, 0 known failures, 1242s**. The 12 skips are
+5 tests that need a running Electron window, 2 that need one and
+`SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
+`SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on
+2026-10-05: 3 passed), and 2 that hit the live website (not run today).
 
 ### Perception — `backend/perception/` (Nahail)
 
@@ -100,7 +115,12 @@ interactive elements, and the readable content.
 | Tells two calendar cells labelled "30" apart ("previous month") and says which month a calendar shows | `test_interactivity.py`; live-tested 2026-09-09 |
 | Reads what a page *says*: headings, table cells paired with their column headers, prominent text | `test_content.py`; `P/WITHIN → 14,382` on the billing replica, 2026-09-17, and `Train No. → 2DN` on the live site, 2026-09-18 |
 | Flags links that go nowhere | 44 of 66 elements on the registration replica, 2026-09-17 |
-| Costs little | whole read 0.19s idle, 0.22s with the calendar open, on the live site (EVALUATION.md, 2026-09-08) |
+| Every value a label has, not the first — so "which trains?" is answered by all of them | `test_content.py`; fixed 2026-09-18 (EVALUATION.md, 2026-09-18b) |
+| Reads the same in the Electron window as headless | all three sites read both ways, no serialized figure differs (EVALUATION.md, 2026-09-18c) |
+| Bounds in CSS pixels at the source, so every reader uses the frozen viewport's units | `snapshot.parse`; every recorded figure re-measured both ways, none moved (2026-09-20) |
+| The blocker threshold is measured on real pages, not guessed | `MIN_COVERAGE` 0.27, from 50 pages and 96 candidates; `MIN_STACK_LEVEL` 5, bounded 3–2001 (EVALUATION.md, 2026-09-20d, 2026-09-30f) |
+| Never holds a typed password | `snapshot.parse` masks a password field (`test_serializer.py`, 2026-10-03) |
+| Costs little | whole read 0.19s idle, 0.22s with the calendar open, on the live site (EVALUATION.md, 2026-09-08; a single-session figure, ±2x) |
 
 ### Orchestrator — `backend/orchestrator/` (Raham)
 
@@ -117,22 +137,38 @@ interactive elements, and the readable content.
 | The LLM planner drives the live site's dropdowns and calendar correctly, and finishes | **2026-09-17, two runs**: the first was stopped short by a false durability check; the second, through the Electron window, committed both stations, reached October, picked the 15th and sent the search for `2026-10-15` (EVALUATION.md, 2026-09-17f) |
 | A step that fails is handed back and the run carries on, or stops safely | `test_setback.py`, 9 tests on a replica page rigged to fail; and 8 LLM runs on it, where a wrong recovery ended in `help.requested` rather than a false success (EVALUATION.md, 2026-09-18) |
 | Trace replay records a run and replays it with no model calls | `test_replay.py`, `test_billing.py` (second run replays, 0 model calls) |
-| Drives either its own headless Chromium or the Electron window's hidden view | headless: most of the suite. Electron: `test_electron_stack.py`, **skipped today** |
+| Drives either its own headless Chromium or the Electron window's hidden view | headless: most of the suite. Electron: `test_electron_stack.py`, skipped without a running window |
+| Routes the typed goal before anything runs: a flow, a greeting, a polite no, or a question when two are named | `router.py`, `test_router.py`; through the real stack on billing and railways (EVALUATION.md, 2026-09-21) |
+| Runs on the person's own details and asks for what they did not say, one question at a time | `details.py`, `loop.run_brief`; live six times, "trains to Rawalpindi tomorrow" asked only where from (EVALUATION.md, 2026-09-30) |
+| Plans a journey off the live station list, and a search for the wrong route or day fails | `TripPlanner`, `test_trip.py`, `test_success_conditions.py`; four rigged runs on real pages all ended in `help.requested` (2026-09-30) |
+| A step that waits on a list gets one attempt, so a mistyped place is reported in 16.7s | `test_verification.py` (EVALUATION.md, 2026-10-01) |
+| Keeps a password, encrypted, when the person asks, and types it itself after that | `vault.py`, `test_vault.py`; a whole LLM task searched for it everywhere and it is nowhere (EVALUATION.md, 2026-10-03b). **Windows only**; elsewhere the person is asked each time |
+| Says in one plain sentence what the answer means, from the page's own values | `voice.explain_*`, `test_explanation.py` (EVALUATION.md, 2026-10-03c) |
 
 ### Interface — `frontend/` (Aly)
 
 | Claim | Evidence |
 |---|---|
-| One calm column: a home screen, a working state, a step, and five endings (found an answer, done, failed, stuck, stopped by the person) | `test_terminal_states.py` renders all five in a real browser, three of them reached from a step |
+| One calm column: a home screen, a working state, a step, and five endings (found an answer, done, failed, stuck, stopped by the person), in a design system with a light and a dark theme | `test_terminal_states.py` renders all five in a real browser, each also reached from a step; before-and-after captures in both themes (2026-09-21) |
 | **Every ending offers a way onward, and it can be pressed** | same file. Fixed 2026-09-17 twice: the stuck ending had nothing to press, and every ending reached from a step had an invisible leftover screen over its buttons (EVALUATION.md, 2026-09-17c) |
+| **Every screen fits the window at 100%, 125% and 150%** — the home screen with or without history, every step, and since 2026-10-05 every ending, with nothing below 20px | `test_home.py`, `test_terminal_states.py` (17 endings at three sizes), and `test_window_fit.py` in the real window (EVALUATION.md, 2026-09-30d, 2026-10-05b) |
+| The closing screen shows the answer: one line per result with its detail, the first six and a count past that, under the sentence | `test_closing.py` (EVALUATION.md, 2026-10-05) |
+| A question can be answered, not only agreed to | `test_questions.py` (2026-09-30) |
 | Three detail levels that fold into each other; level 3 is never the tallest | `test_levels.py` measures rendered heights (tests whatever is in `frontend/dist/`) |
-| Every word the overlay writes is in one file, `copy.ts`, and the backend's words obey the same rules | `test_copy.py`, 25 tests; 8 deliberate breakages tried on 2026-09-17, all now caught |
-| "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test |
-| A level change the person did not make is always announced | `store.ts`, `LevelControl.tsx`; no dedicated test |
+| The level adapts in a real run, by provisional rules: a heavy page starts simpler, hesitation folds the step, calm steps bring it back, a lock holds | `backend/estimator/rules.py`; live on billing (EVALUATION.md, 2026-09-25) |
+| Every word the overlay writes is in one file, `copy.ts`, and the backend's words obey the same rules | `test_copy.py`; 8 deliberate breakages tried on 2026-09-17, all caught |
+| "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test. At 100% the capture behind it succeeds about half the time (EVALUATION.md, 2026-09-27) |
+| Telemetry — hesitation, pointer path, backtracks, re-reads, help presses — sent on every answer and on a 3s timer | `frontend/src/telemetry.ts`, `test_telemetry.py`; no keystrokes, field values or coordinates leave the window |
 
 ### Estimator — `backend/estimator/` (Nahail)
 
-Empty. See §3.
+| Claim | Evidence |
+|---|---|
+| Nine raw page features per page read — counts, a text density, a depth, a dead-link ratio, a reading grade | `page_features.py`, `test_page_features.py` |
+| A corpus of 50 pages, read headless and in the window | `data/corpus.json`, recaptured with the rating pictures in one run (EVALUATION.md, 2026-10-03) |
+| Each step's telemetry is paired with that step's page features and logged | `pairing.py`, `data/steps.jsonl` (not committed: it holds what people typed) |
+| A training pipeline: agreement between raters, per-page means, ridge regression, 5-fold cross-validation, feature importance | `train.py`, `test_train.py` — **on synthetic ratings only. Nothing is trained, because nobody has rated a page yet** |
+| A rating tool: 50 pictures at 1280x800, rated 1–7 with repeats | `tools/rating/`; no ratings collected |
 
 ---
 
@@ -140,20 +176,21 @@ Empty. See §3.
 
 | Not built | Why not |
 |---|---|
-| **The estimator** (cognitive load score that changes the detail level) | Deliberately deferred by CLAUDE.md until the skeleton ran end to end. It now does, so it is unblocked, but it needs perception's page-side load features, which are not started. The frontend already obeys `load.updated`; only the mock backend sends it |
-| **Telemetry** (hesitation, cursor path, backtracks) | In the contract, sent by nothing. It is the estimator's other input |
-| **The credential vault** | Not started. Today a password travels from the overlay to the backend in the step response. The backend already refuses to type a password a planner made up |
+| **A trained estimator** (a load score learned from people's ratings) | The features, the corpus, the pairing and the training pipeline exist; **no person has rated a page**, so there is nothing to train on. Until there is, hand-written provisional rules (`rules.py`) choose the level, and are logged so the trained model can be checked against them. CLAUDE.md's first October priority |
+| **A credential store beyond the minimum** | One saved password per site, Windows only, forgettable only from a sign-in step during a task. Deleting it from the home screen would need a new contract message |
 | **Voice input** | In the contract, out of scope for now |
-| **Replay tuning** (when to trust a trace over fresh planning) | Not started |
+| **Replay tuning** (when to trust a trace over fresh planning) | Not started. Trace memory is off by default |
 | **Anything irreversible** | By design, permanently |
-| **CI** | Nobody has set it up. Tests run when someone runs them |
+| **CI** | Nobody has set it up. Tests run when someone runs them, and the tests that need the Electron window skip silently without one |
+| **New sites or flows** | Not before asking: CLAUDE.md's October phase forbids them |
 
 ---
 
 ## 4. What the project has found
 
-Six findings, each with the numbers behind it. The full account of each is in
-[EVALUATION.md](EVALUATION.md).
+Seven findings, each with the numbers behind it. The full account of each is
+in [EVALUATION.md](EVALUATION.md). The first six date from September and still
+stand; the seventh is from the fit work of late September and October.
 
 **1. What perception emits decides what the model can use — where it sits in
 the prompt is unproven.** On the registration replica the model clicked
@@ -220,6 +257,18 @@ it measures perfect planning, not a rival to the LLM. **There is no honest
 baseline for the LLM yet**; that needs both planners, in one session, on a
 goal neither has seen.
 
+**7. A screen is checked only where someone has rendered it.** The fit test
+launched the window with no backend, so it only ever saw a home screen with
+no history: six cards then put the text box off the window at every scale for
+anyone with three remembered goals (2026-09-30d). The fit was never measured
+for an ending at all, and the closing screen had put its buttons below the
+window with three results or more, at every scale — "I'm done" at y=1057 in an
+800px window with nine trains (2026-10-03c). Both were fixed, and the check now
+covers every ending at three sizes, in a browser and in the real window. Its
+first run found the fix itself still wrong for nine trains with eight journey
+times, 87px off a 606px window (2026-10-05b). Every claim in §2 that something
+"fits" now names the cases it was rendered in.
+
 ---
 
 ## 5. How to run it
@@ -256,7 +305,7 @@ The variables are `SIMBA_LLM_PROVIDER` (`anthropic` or `openai`),
 ### Mode 1 — the tests
 
 ```powershell
-backend\venv\Scripts\python -m pytest                     # everything; ~5 minutes
+backend\venv\Scripts\python -m pytest                     # everything; ~21 minutes
 backend\venv\Scripts\python -m pytest frontend\test_copy.py   # one file
 ```
 
@@ -271,6 +320,11 @@ $env:SIMBA_LIVE_TESTS = "1"; backend\venv\Scripts\python -m pytest -k live   # h
 backend\venv\Scripts\python -m pytest backend\orchestrator\test_electron_stack.py
 ```
 
+```powershell
+# opens the window itself at 100%, 125% and 150%; needs npm run build first
+$env:SIMBA_HOST_TESTS = "1"; backend\venv\Scripts\python -m pytest frontend\test_window_fit.py
+```
+
 `frontend/test_levels.py` measures `frontend/dist/`, so run `npm run build` in
 `frontend/` first or it measures an old build. `test_terminal_states.py`
 builds its own copy and does not have this problem.
@@ -278,9 +332,10 @@ builds its own copy and does not have this problem.
 ### Mode 2 — the whole app, one command
 
 ```powershell
-.\run.ps1                 # registration replica
-.\run.ps1 billing         # billing replica
+.\run.ps1                 # opens on the registration replica
+.\run.ps1 billing         # opens on the billing replica
 .\run.ps1 railways        # the LIVE site, read-only — a handful of runs, not a benchmark
+.\run.ps1 railways-local  # our own copy of the train search — rehearse here
 .\run.ps1 mock            # the overlay driven by a script; nothing real
 ```
 
@@ -288,12 +343,14 @@ builds its own copy and does not have this problem.
 ./run.sh
 ./run.sh billing
 ./run.sh railways
+./run.sh railways-local
 ./run.sh mock
 ```
 
-Each starts, in order, the replica (if any), the Electron window, and the
-backend attached to it; a SIMBA window opens; type a goal or pick one and
-press Start. Ctrl+C stops everything. Ctrl+Shift+D in the window shows the
+The argument is only the page the window opens on (since 2026-09-25); what
+runs is decided by the goal typed. Each starts the replicas, the Electron
+window, and the backend attached to it; a SIMBA window opens; type a goal or
+pick one and press Start. Ctrl+C stops everything. Ctrl+Shift+D in the window shows the
 raw message log. [RUNNING.md](RUNNING.md) has the expected output and what to
 do when a step of it fails.
 
@@ -342,7 +399,7 @@ backend\venv\Scripts\python replicas\billing\app.py             # port 5100
 cd frontend; $env:SIMBA_START_URL = "http://127.0.0.1:5000"; npm start
 
 # 3. the backend, attached to the window
-$env:SIMBA_FLOW = "registration"; $env:SIMBA_USE_HARDCODED_PLAN = "1"; $env:SIMBA_BROWSER = "electron"
+$env:SIMBA_USE_HARDCODED_PLAN = "1"; $env:SIMBA_BROWSER = "electron"
 backend\venv\Scripts\python -m uvicorn backend.orchestrator.app:app --port 8000
 ```
 
@@ -434,8 +491,10 @@ shared/                        schema.py and schema.ts — every message, mirror
 backend/perception/            the page → numbered elements + readable content
 backend/orchestrator/          the loop, the three planners, the plans for each site,
                                the LLM interface, trace memory, the WebSocket server,
+                               router.py and details.py (reading the goal), vault.py,
                                voice.py (every fixed string the backend puts on screen)
-backend/estimator/             empty
+backend/estimator/             page features, the provisional level rules, telemetry
+                               pairing, the training pipeline (nothing trained yet)
 
 frontend/electron/             the window: website view below, overlay on top
 frontend/src/                  the React overlay; copy.ts holds every word it writes
@@ -443,12 +502,18 @@ frontend/test_*.py             tests that compile or render the overlay for real
 
 replicas/registration/         a cluttered student portal with a blocking modal (port 5000)
 replicas/billing/              a cluttered electricity bill lookup with a cookie bar (port 5100)
+replicas/railways/             our own copy of the live train search, for repeated runs (port 5200)
 tools/mock_backend.py          a scripted backend for working on the overlay alone
 tools/screen_site.py           read-only site screener
 tools/evaluation/              the scripts behind every table in EVALUATION.md
+tools/rating/                  the rating pictures and the session that collects ratings
+tools/record_demo.py           records the demo's fallback clips into demo/
 spike/                         the original Electron + CDP experiment
 
-.scratch/, logs/, traces.db    gitignored: scratch scripts, LLM transcripts, trace store
+data/                          the corpus and rating pictures (committed); steps.jsonl,
+                               ratings.jsonl, vault.json (never committed)
+.scratch/, logs/, traces.db,   gitignored: scratch and test temp files, LLM transcripts,
+demo/*.webm                    the trace store, the demo clips
 ```
 
 The three flows, what each one is for, and what each plan does step by step
@@ -469,7 +534,7 @@ which table*, maps every result to one; three results have none.
 
 | Blocked | On | Notes |
 |---|---|---|
-| **Ratifying the contract** | Nahail, Raham and Aly in one session | `CONTRACT.md` has been a draft since 2026-09-04. Two message types were added since, `step.failed` and `history.offered`; the second is recorded as pending |
+| **Ratifying the contract** | Nahail, Raham and Aly in one session | `CONTRACT.md` has been a draft since 2026-09-04. Message types added since — `step.failed`, `history.offered`, `goal.answered` — are recorded as pending; the additive optional fields (`Finding.values`, `Telemetry.answered`, `task.completed.explanation`, `level.override`'s `by`) need no session under CLAUDE.md's rule |
 
 That is the only one. Until 2026-09-17 several items below were recorded as
 blocked on quota, days after the quota had reset.
@@ -478,14 +543,15 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17 and the railways LLM run then completed. Undeclared fields still false-stop, and that is where the LLM planner works |
-| **Why a model prefers a plausible wrong button to a setback it was just given** | Measurement, not a fix | Answered on 2026-09-18: placement changed nothing across 8 runs; what decided recovery was the options the page left. A stronger model on the same rig is the next thing to try |
+| **Ratings from people** | People rating the 50 pictures (`tools/rating/`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
+| **Early sessions with two or three people** | People, including someone who works with people with cognitive disabilities | Nobody from the audience has seen the interface. Second and third October priorities |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
-| **The estimator** | Page-side load features, then the estimator — both Nahail's, neither started | |
-| **The credential vault** | Aly, not started | |
+| **Benchmarks re-run on current perception** | Runs | Every model-behaviour figure predates the perception work it would now measure |
+| **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17. Undeclared fields still false-stop, and that is where the LLM planner works |
+| **"What are you doing?" at 100%** | A fix to the site-view capture | It succeeds about half the time on a 100% screen; a page that repaints every frame captures 20/20. `feat/orchestrator-preview-capture` keeps the view repainting and is deliberately unmerged until measured (EVALUATION.md, 2026-09-27) |
 | **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
-| **A second train from the railways results** | Perception — Nahail's | `value_for` returns the first pair, so "which trains?" answers with one |
+| **The demo clips** | Re-recording, on a machine with the stack up | They show the closing screen as it was before 2026-10-05, and are not committed, so a fresh clone has none |
 
 **Uncertain: the quota itself.** The documents disagree on how many requests
 a day the free model allows and which model name the stronger one was
@@ -520,6 +586,14 @@ options and a recommendation; this is the list.
    Reformatting means inventing; not reformatting is hard for this audience.
 7. **"I'm showing a bit more again."** is also what an overflow adjustment
    says, where "again" may be untrue.
+7b. **The closing screen's layout, for Aly to review** (2026-10-05). To fit
+   nine results at 150% the sentence replaced the "Here's what I found"
+   lead-in, and the two buttons sit side by side — the one screen whose
+   buttons are not stacked. A detail that cannot be put beside its result is
+   one line under the list. DECISIONS.md has the alternatives.
+7c. **The home screen's cards lead into questions.** "Check my electricity
+   bill" names no bill, so pressing it asks for a reference number. Aly's call;
+   STATUS.md, Infrastructure.
 
 **The backend**
 
@@ -534,10 +608,16 @@ options and a recommendation; this is the list.
    have.
 10. **Named values are checked on the final page only**, so a value typed on
     the first page of a multi-page flow cannot be checked.
-11. **The results table's first row is the answer.** Two trains came back and
-    "Train" shows one of them.
-12. **`task.completed.summary`** is the goal plus a URL, read by tests; the
-    contract's example shows a human sentence. Which is it for?
+11. *(Settled 2026-09-18: a finding carries every value for its label, and
+    the closing screen shows them.)*
+12. *(Settled 2026-10-03: `task.completed.summary` stays the goal plus a URL,
+    which tests and logs read, and the human sentence is a new optional field,
+    `explanation`.)*
+12b. **Two of a result's details can stop lining up.** Perception keeps a
+    repeated value once per column, so nine trains can come with eight journey
+    times, and the closing screen then cannot say which time is whose. Rows
+    from perception, rather than columns, would fix it; that is a perception
+    and contract change.
 13. **The JavaScript click fallback can click through a modal** when overlay
     detection is off, and the run passes. Should the fallback refuse an
     element perception knows is covered?
@@ -565,7 +645,9 @@ options and a recommendation; this is the list.
 
 Real output of `perception/serializer.py:read_async`, rendered by
 `llm_loop.render_page` exactly as the model is given it, captured
-2026-09-17 at 1280x800.
+2026-09-17 at 1280x800. **Not re-captured since**: perception has changed
+underneath (CSS-pixel bounds, measured thresholds), so read this as the shape
+of what a planner gets, not today's exact output.
 
 ### The live site
 
@@ -669,9 +751,16 @@ The billing plan declares that `P/WITHIN` is "Your bill" and `DUE DT` is
 Stated so nobody trusts the wrong one:
 
 - EVALUATION.md contains several statements its own later entries contradict.
-  Its 2026-09-17 entry lists them.
+  Its 2026-09-17 entry lists them, and it is append-only, so the older entry
+  is never corrected in place: read the newest entry on a subject.
 - `CONTRACT.md`'s examples for `step.presented` and `help.requested` still use
   wording the system no longer says ("Not now", "I'll carry on from there").
+- STATUS.md's dated "Changed on" sections are a log: an item marked open on
+  one day may be fixed in a later one. The per-module sections below them are
+  current.
+- This file was not refreshed between 2026-09-18 and 2026-10-05; anything it
+  said in that window about the estimator, telemetry, the vault or the closing
+  screen was out of date.
 
 Fixed on 2026-09-17, and listed here earlier the same day: README.md's test
 count and start command, frontend/README.md calling the overlay a harness,
