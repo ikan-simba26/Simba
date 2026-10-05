@@ -3688,3 +3688,18 @@ value pairs) have no rows, and those findings are still paired by length on
 the closing screen, with its known weakness. The railways replica gained one
 route, Hyderabad Jn to Sukkur, with four trains whose journey times repeat, so
 the case can be run end to end; every other route is unchanged.
+
+## The closing screen's side-by-side buttons: approved
+
+**Date:** 2026-10-05
+
+**Decision.** The closing screen's two buttons sitting side by side, "I'm done"
+first, at every scale — decision 4 of "The closing screen fits by changing its
+layout, not only its type" above — is **approved by Raham**.
+
+**What this settles, and what it does not.** It settles the button layout; the
+closing screen stays the one screen whose buttons are not stacked. It does not
+record a review by Aly, who owns the interface: CLAUDE.md has the owner review
+changes to their area, and the other layout changes in that entry (the
+sentence in the lead-in's place, a detail that cannot be put beside its result
+taking one result's place) are not covered by this approval.
