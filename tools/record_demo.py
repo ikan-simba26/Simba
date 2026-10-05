@@ -209,7 +209,9 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
         if ending:
             # Which ending, because "I'm stuck" is an ending too, and a clip
             # that ends on it is not a fallback for a run that worked.
-            found = "Here's what I found" in text
+            # The results themselves, not the lead-in above them: since
+            # 2026-10-05 a sentence takes the lead-in's place.
+            found = page.locator("[data-testid=findings]").count() > 0
             seen.append("found an answer" if found
                         else "done" if ending == "I'm done" else f"ended: {ending}")
             break

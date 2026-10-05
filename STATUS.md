@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-03 · **827 passing, 12 skipped, 6 known failures** · suite wall clock 1066s, on `feat/multi-october-third`. 51 tests added today. The 6 known failures are strict `xfail`s in `frontend/test_closing.py`: the closing screen does not fit with three or more results (see Interface). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1081s and 1222s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-05 · **906 passing, 12 skipped, 0 known failures** · suite wall clock 1242s, on `feat/multi-october-fifth`. 73 tests added today, and the 6 strict `xfail`s in `frontend/test_closing.py` (the closing screen did not fit) now pass as ordinary tests. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`; run separately today, 3 passed), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s and 1222s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -44,7 +44,8 @@ difference between the two runs.
 results' heading strip was extracted as a table of its own, so nothing paired
 `Train No.` with a train; joining them fixed it (2026-09-17i), and on
 2026-09-18 a finding carries *every* value for a label rather than the first,
-so a two-train search reads `2DN, 14DN` (2026-09-18b).
+so a two-train search reads `2DN, 14DN` (2026-09-18b). Since 2026-10-05 it
+shows the first six and counts the rest, so that the screen fits.
 
 **The perception figures are confirmed in the environment that runs them.**
 Every figure in EVALUATION.md before today was measured headless; the
@@ -118,6 +119,31 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-05: the closing screen fits, and every ending is checked
+
+- **Merged and pushed.** `feat/multi-october-third` is in `main` (`9fd09bc`).
+  The rest below is on `feat/multi-october-fifth`, **not merged**.
+- **The closing screen fits** with 1, 3 and 9 results at 100%, 125% and 150%:
+  both buttons on screen, nothing scrolls, tightest 34px. Each result is one
+  line with its detail ("13UP, 6 h 6 min"); past six the rest are counted;
+  past four the type is 30px; the sentence takes the lead-in's place; the two
+  buttons sit side by side. The six strict known failures pass. One line per
+  result and the first six were not enough at 150% (−123px), which is why the
+  layout changed too (EVALUATION.md, 2026-10-05). **For Aly to review.**
+- **A detail goes beside a result only when the lists line up.** Perception
+  keeps a repeated value once, so nine trains can come with eight journey
+  times, and pairing by position would put a time beside the wrong train.
+- **Every ending is checked for fit**, all 17, at three window sizes in a
+  browser on every run and in the real host with `SIMBA_HOST_TESTS=1`. Its
+  first run found the morning's fix still wrong: nine trains with eight times
+  put both buttons 87px below a 606px window, and five trains with two times
+  scrolled at 100%. Both fixed (EVALUATION.md, 2026-10-05b).
+- **Four evaluation scripts recognised the closing screen by "Here's what I
+  found"**, which a closing screen with a sentence no longer says. They now
+  also know "I'm done", and the demo recorder looks for the results.
+- **EVALUATION.md's known limitations** say the credential store works only on
+  Windows, and that elsewhere the person is asked each time.
 
 ### Changed on 2026-10-03: pictures with their features, a vault, a sentence
 
@@ -693,7 +719,8 @@ application's state (EVALUATION.md).
 - **Five endings, all with a way onward, all pressable after a step**:
   found an answer, done, failed, stuck, stopped by the person.
   `test_terminal_states.py` renders each, including three reached from a
-  step, and presses every button.
+  step, presses every button, and since 2026-10-05 checks every button is on
+  screen at three window sizes.
 - **The stuck screen is true** (2026-09-17): the run has stopped, nothing
   more will happen, ask for something else. `test_copy.py` fails if it
   promises to carry on or asks the person to do part of the task.
@@ -712,9 +739,16 @@ application's state (EVALUATION.md).
 - **Telemetry**, five numbers per step, on the answer and on a timer
   (`src/telemetry.ts`). No keystrokes, no field values, no coordinates leave
   the renderer.
-- **The closing screen shows every result**, one per line, shrinking the type
-  as the list grows. Verified live: two trains, two journey times, nothing the
-  site returned missing from the screen (2026-09-19).
+- **The closing screen shows every result**, verified live: two trains, two
+  journey times, nothing the site returned missing from the screen
+  (2026-09-19). **Since 2026-10-05, one line per result**, its detail beside
+  it ("13UP, 6 h 6 min"), the first six and "and N more" past that, the
+  sentence in the lead-in's place, and the two buttons side by side.
+- **Every ending fits the window, and is checked to** (2026-10-05): with 1, 3
+  and 9 results, at 100%, 125% and 150%, every button is wholly on screen and
+  nothing scrolls; tightest 34px. `test_terminal_states.py` checks all 17
+  endings at three window sizes on every run, and `test_window_fit.py` the
+  same 17 in the real host (EVALUATION.md, 2026-10-05 and 2026-10-05b).
 
 **In progress**
 - Nothing.
@@ -739,19 +773,15 @@ application's state (EVALUATION.md).
   does not show what is about to be typed. Pre-filling it belongs with the
   credential vault.
 - **"Click element 13."** reached the screen in the watched run.
-- **The closing screen does not fit with three or more results, at any
-  scale** (measured 2026-10-03, EVALUATION.md 2026-10-03c). With three trains
-  and no sentence, "Do something else" ended at 851 of 800 at 100%, and "I'm
-  done" began at 595 of 606 at 150%; with nine, "I'm done" was at 1057 and 973.
-  The new sentence adds 51–61px. The overflow guard only acts on steps.
-  Options: show results side by side (a train and its journey on one line),
-  which roughly halves the list; step the findings' type down when a sentence
-  is present, since the sentence now carries the headline; extend the
-  overflow guard to endings; or show the first few and "and 6 more", as the
-  step screen already does. Recommended: side by side, then the smaller type
-  if it still does not fit — both keep every result on screen, which is what
-  this screen exists for. `frontend/test_closing.py` pins both cases as strict
-  known failures. **Aly's call.**
+- ~~**The closing screen does not fit with three or more results, at any
+  scale.**~~ **Fixed 2026-10-05**, by the cascade Raham chose (one line per
+  result, smaller type, the first six) and two layout changes it needed and
+  did not name: the sentence replaces the "Here's what I found" lead-in, and
+  the two buttons sit side by side at every scale — the one screen whose
+  buttons are not stacked. A detail that cannot be put beside its result
+  (eight journey times for nine trains) is one line under the list and takes
+  a result's place. **For Aly to review**: DECISIONS.md, "The closing screen
+  fits by changing its layout".
 - **The step screen shows one finding**, as one line that stops at four
   values. That is the design, not an oversight — but it means a run in
   progress can show "and 2 more" for a while before the ending shows them.
@@ -971,10 +1001,13 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `6ebdb8b` (the training pipeline and the recorder, merged and
-  pushed 2026-10-03). **`feat/multi-october-third` is not merged**: the
-  CLAUDE.md line, `--basetemp`, the model-and-ratings decision, the recapture,
-  the credential store and the closing sentence.
+- `main` is at `9fd09bc` (`feat/multi-october-third`, merged and pushed
+  2026-10-05: the recapture, the credential store, the closing sentence).
+  **`feat/multi-october-fifth` is not merged or pushed**: the closing screen's
+  fit, the fit check over every ending, the credential-store limitation, and
+  this refresh.
+- **The demo recordings show the old closing screen**: each result's values a
+  line apiece and the buttons stacked (2026-10-01c). Re-record before a demo.
 - ~~**The demo recordings predate the questions**~~ **Re-recorded 2026-10-01**
   on our copy, answering the questions. They run at the copy's pace, about
   twice the live site's, and show invented trains; DEMO.md says so. `demo/` is

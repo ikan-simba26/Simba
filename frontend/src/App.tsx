@@ -503,19 +503,23 @@ function Completed() {
   // from the page's own values (`voice.explain_*`). This screen writes none of
   // its own: there is nothing in `copy.ts` for it because every word of it is
   // the page's or `voice.py`'s, and `test_copy.py` holds those to the same
-  // rules. Absent, the screen is exactly what it was.
+  // rules. Absent, the lead-in "Here's what I found" is there instead.
   const explanation = completed?.explanation ?? null;
 
   return (
     <div className="flex flex-col gap-8 short:gap-5">
       {findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
-          <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
-          {explanation && (
+          {/* The sentence, when there is one, in the lead-in's place: it
+              says what the lead-in says and more, and both together were the
+              line that kept nine results off a 606px window (2026-10-05). */}
+          {explanation ? (
             <p className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
                data-testid="explanation">
               {explanation}
             </p>
+          ) : (
+            <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
           )}
           <Findings findings={findings} size={TYPE.hero} />
         </Card>
@@ -535,9 +539,15 @@ function Completed() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        <Button onClick={startOver}>{ENDING.finish}</Button>
-        <Button variant="secondary" onClick={startOver}>{ENDING.again}</Button>
+      {/* Side by side, in the same order, finish first. Stacked, the pair is
+          140px at 150% and 172px at 100%: at 150% that is what put six results
+          and both buttons out of reach of a 606px window, and at 100% it left
+          nine results 0px from a scrollbar (2026-10-05). */}
+      <div className="flex flex-row gap-3">
+        <Button className="flex-1" onClick={startOver}>{ENDING.finish}</Button>
+        <Button className="flex-1" variant="secondary" onClick={startOver}>
+          {ENDING.again}
+        </Button>
       </div>
     </div>
   );
@@ -550,42 +560,98 @@ function Completed() {
  * what was asked for, and "Your bill" is only there to say what the number
  * is. The other way round makes the reader find the answer inside a sentence.
  *
- * Every result, one per line. A search that returns three trains was asked
- * about three trains, and `value` — the one line the step screen shows — stops
- * at four and counts the rest, so reading it here would hide results on the
- * one screen that exists to show them. `values` is the whole list; a message
- * from before it existed has none, and then the line is the answer.
+ * One value keeps the full size, because one value is the billing case and it
+ * should look exactly as it did: the answer, then what supports it, each with
+ * its label underneath.
  *
- * The type shrinks as the list grows rather than the list shortening. One
- * value keeps the full size, because one value is the billing case and it
- * should look exactly as it did. Enough of them and the screen scrolls, which
- * is a smaller failure on an ending than an answer that is not all there.
+ * Several results are a list, and each result is one line with its detail
+ * beside it — "13UP, 6 h 6 min" — under one label line naming both. Until
+ * 2026-10-05 every value had a line of its own, finding after finding, so
+ * three trains and their journey times were six lines and the way onward was
+ * below the window at every scale; nine were eighteen. `value` — the one line
+ * the step screen shows — is not used for the list, because it stops at four.
+ * `values` is the whole list; a message from before it existed has none, and
+ * then the line is the answer.
+ *
+ * A finding is put beside the answer only when it has exactly as many values.
+ * Perception drops a repeated value within a column (`values_for`), so two
+ * trains with the same journey time give two trains and one time, and pairing
+ * those by position would put a time beside the wrong train. A finding that
+ * does not line up is one line under the list, in the step screen's form, and
+ * takes the place of one result.
+ *
+ * Past `LISTED` results the first ones are shown and the rest counted, and
+ * past four the type is a step smaller. Both are for the same reason: the
+ * closing screen must fit, buttons and all, at 150% with nine results, with a
+ * sentence above them or without (`test_closing.py`).
  */
 export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
+  const lists = findings.map((finding) =>
+    finding.values?.length ? finding.values : [finding.value]);
+  const count = lists[0]?.length ?? 0;
+
+  if (count <= 1) {
+    return (
+      <div className="flex flex-col gap-7 short:gap-5" data-testid="findings">
+        {findings.map((finding, index) => (
+          <Found key={finding.label} label={finding.label}
+                 // The first finding is the answer; any others support it.
+                 size={index === 0 ? size : Math.round(size * 0.55)}>
+            {/* A supporting finding with several values is the step
+                screen's one line, which counts past four. */}
+            <span>{lists[index].length === 1 ? lists[index][0] : finding.value}</span>
+          </Found>
+        ))}
+      </div>
+    );
+  }
+
+  const beside = findings.filter((_, index) => lists[index].length === count);
+  const apart = findings.filter((_, index) => lists[index].length !== count);
+  // Each detail that does not line up takes one result's place, so the screen
+  // is no taller for it: as its own block, label and all, it put both buttons
+  // below a 606px window with nine trains and eight journey times
+  // (`test_terminal_states.py`, 2026-10-05).
+  const shown = Math.max(1, Math.min(count, LISTED - apart.length));
+  const rows = Array.from({ length: shown }, (_, row) =>
+    findings.flatMap((_, index) => lists[index].length === count ? [lists[index][row]] : [])
+      .join(", "));
+  // 54px for a few; past four, the size of a step's instruction.
+  const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);
+
   return (
-    <div className="flex flex-col gap-7 short:gap-5">
-      {findings.map((finding, index) => {
-        const values = finding.values?.length ? finding.values : [finding.value];
-        // The first finding is the answer; any others support it.
-        const lead = index === 0 ? size : Math.round(size * 0.55);
-        const scale = values.length > 4 ? 0.55 : values.length > 1 ? 0.75 : 1;
-        return (
-          <div key={finding.label} className="flex flex-col gap-2">
-            <div className="flex flex-col gap-1">
-              {values.map((value) => (
-                <span
-                  key={value}
-                  className="font-semibold leading-[1.08] tracking-[-0.02em] text-ink"
-                  style={{ fontSize: Math.round(lead * scale) }}
-                >
-                  {value}
-                </span>
-              ))}
-            </div>
-            <span className="text-body text-soft">{finding.label}</span>
-          </div>
-        );
-      })}
+    <div className="flex flex-col gap-2" data-testid="findings">
+      <Found label={beside.map((finding) => finding.label).join(", ")}
+             size={rowSize}>
+        {rows.map((row, index) => <span key={index}>{row}</span>)}
+        {count > shown && (
+          <span className="text-body font-medium text-soft">{ENDING.more(count - shown)}</span>
+        )}
+      </Found>
+      {/* Not beside any one result, so under the list, in the label's type. */}
+      {apart.map((finding) => (
+        <p key={finding.label} className="text-body text-soft">
+          {finding.label}: <span className="font-medium text-ink">{finding.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** How many results the closing screen lists before it counts the rest. */
+const LISTED = 6;
+
+/** Values in large type, one per line, and the label under them, small. */
+function Found({ label, size, children }: {
+  label: string; size: number; children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1 font-semibold leading-[1.08] tracking-[-0.02em] text-ink"
+           style={{ fontSize: size }}>
+        {children}
+      </div>
+      <span className="text-body text-soft">{label}</span>
     </div>
   );
 }

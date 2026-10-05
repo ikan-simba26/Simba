@@ -1666,6 +1666,14 @@ one session and publish its conditions block.
   and is covered; the record-then-replay cycle on a real run is not.
 - **The JS-click fallback can click through a modal.** With overlay detection
   off it does so in 10/10 runs and the run still passes.
+- **The credential store works only on Windows.** A saved password is
+  encrypted with Windows' own key for the signed-in account (DPAPI,
+  `backend/orchestrator/vault.py`). On any other system the store reports
+  itself unavailable, nothing is saved, and the step offers no way to save:
+  the person is asked for their password every time, as before the store
+  existed (2026-10-03b). That path is the same branch as running with no store
+  at all, which `test_vault.py` covers; it has not been run on another system.
+  *Added 2026-10-05.*
 
 ### What is measured, and what that leaves
 
@@ -4650,3 +4658,101 @@ wholly below the window, at every scale, since before this change; the fit was
 only ever measured for the home screen and for steps (2026-09-25c, 2026-09-30d).
 The sentence makes it 51–61px worse. Both cases are pinned in
 `frontend/test_closing.py` as strict known failures. Not fixed here: flagged.
+
+## 2026-10-05 — the closing screen, made to fit
+
+Fixes what 2026-10-03c measured and flagged. Measured in Chromium at each
+scale's content size (1280x800 at 100%, 1280x734 at 125%, 1266x606 at 150%),
+the overlay built from source, trains and journey times from the live search of
+2026-09-30. "Spare" is the window's height less the bottom of the lower button;
+negative is off screen.
+
+**What it took, in the order tried.** The cascade asked for was one line per
+result, then a smaller type with a sentence, then the first six and "and N
+more". The first and third were not enough at 150%:
+
+| Stage | 9 results, sentence, 150% | 9 results, no sentence, 150% | 9 results, sentence, 100% | 1 result, sentence, 150% |
+|---|---|---|---|---|
+| Before (2026-10-03c) | "I'm done" at 1024 of 606 | 973 of 606 | 1118 of 800 | — |
+| One line per result, first six, 36–40px rows | **−123** | **−98** | **−47** | **−12** |
+| …and in a short window the two buttons side by side | −8 | −22 | −8 | +64 |
+| …and the sentence in the lead-in's place, rows past four at 30px | **+40** | **+45** | **+48** | **+110** |
+
+The budget at 150%, before: the presence bar, the card's padding, the lead-in,
+the sentence and two stacked 64px buttons left 197px for the results and their
+label line. Six rows of 30px type with "and 3 more" and the label line measure
+295px. Side by side the buttons give back 76px and the lead-in 46px, which is
+319px; there was no way to 295px through the type alone without going below
+the size of the text a person reads (23px), which is why the layout changed.
+
+**Final, every case:**
+
+| Results | Sentence | 100% spare | 125% spare | 150% spare | Page scrolls |
+|---|---|---|---|---|---|
+| 1 | yes | 110 | 238 | 110 | no |
+| 1 | no | 116 | 242 | 114 | no |
+| 3 | yes | 118 | 238 | 110 | no |
+| 3 | no | 125 | 243 | 115 | no |
+| 9 | yes | 48 | 168 | 40 | no |
+| 9 | no | 55 | 173 | 45 | no |
+
+The tightest is nine results with a sentence at 150%: 40px. One defect found
+on the way: with "and 3 more" at 26px, nine results with a sentence at 100%
+made the page 2px taller than the window (802 of 800) with both buttons still
+on screen; at 23px it is 800 of 800.
+
+The six strict known failures in `frontend/test_closing.py` now pass and are
+ordinary tests; five tests were added there (one result at three scales, the
+count past six, six with nothing counted, a detail that does not line up), and
+one in `test_copy.py`.
+
+## 2026-10-05b — every ending, fitted, in a browser and in the real window
+
+The fit had been measured for the home screen and for steps, never for an
+ending. It now is, twice over: `test_terminal_states.test_every_ending_fits_the_window`
+renders all 17 endings (four of them new: the two below, each also reached
+through a step) in Chromium at each scale's content size on every suite run, and
+`display_fit_run` plays the same 17 into the real Electron window at forced
+100%, 125% and 150% (`test_window_fit.py`, `SIMBA_HOST_TESTS=1`). Each asserts
+every button wholly inside the window and nothing to scroll.
+
+Two endings were added to the list for it, each direct and after a step: nine
+results with a sentence, and nine results with eight journey times — two
+trains sharing a time, which perception keeps once, so the times cannot be put
+beside the trains.
+
+**What the check found on its first run, both fixed here:**
+
+| Case | Scale | Before | After |
+|---|---|---|---|
+| 9 trains, 8 times, sentence | 150% | both buttons off screen, lowest at 693 of 606 (−87) | 572 of 606 |
+| 9 trains, 8 times, sentence | 100% | "Do something else" off screen, 887 of 800 | 666 of 800 |
+| 5 trains, 2 times (an existing ending) | 100% | buttons on screen, page 821 of 800: a scrollbar | 621 of 800, no scroll |
+| 9 trains, sentence (paired) | 100% | 752 of 800, page exactly 800: 0px from a scrollbar | 660 of 800 |
+
+The unpaired times were a block of their own, label and all; they are now one
+line under the list that takes one result's place. And the buttons, side by
+side only in short windows in the morning's change, are side by side at every
+height (DECISIONS.md).
+
+**In the real window**, the lowest button and the window's height, every
+ending (the 8 "after a step" variants measure the same as their direct form,
+to the pixel, and are left out):
+
+| Ending | 100% (800) | 125% (734) | 150% (606) |
+|---|---|---|---|
+| answer: bill and due date | 592 | 492 | 492 |
+| five trains, two times | 621 | 529 | 529 |
+| nine trains, sentence | 660 | 566 | 566 |
+| nine trains, eight times, sentence | 666 | 572 | **572** |
+| no answer | 404 | 352 | 352 |
+| failed | 446 | 370 | 370 |
+| stuck (both orders) | 442 | 366 | 366 |
+| stopped by the person | 347 | 295 | 295 |
+
+Nothing scrolls anywhere. The tightest is nine trains with eight times at 150%:
+34px. The headless figures are identical to the host's at every scale.
+
+Site-view captures in the same runs: 10/20, 11/20 and 10/20 at forced 100%,
+20/20 at 125% and 150% — the known 100% capture problem (2026-09-27),
+unchanged and unrelated: the captures are taken before any ending is played.
