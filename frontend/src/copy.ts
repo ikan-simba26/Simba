@@ -220,6 +220,11 @@ export const ENDING = {
   finish: "I'm done",
   /** Starts another. */
   again: ONWARD,
+  /**
+   * Under a list of results cut short. The same words `voice.found` uses on
+   * the step screen for the same thing, so one cut-short list reads one way.
+   */
+  more: (count: number) => `and ${count} more`,
 } as const;
 
 /* -------------------------------------------------------- when it stops */

@@ -45,7 +45,7 @@ START = "Start"
 #: How long a live step may take before the run is called stuck.
 STEP_TIMEOUT_MS = 90000
 #: Endings, as the overlay writes them. Any of these means the run is over.
-ENDINGS = ("Here's what I found", "That's done.", "I'm stuck", "I've stopped",
+ENDINGS = ("Here's what I found", "That's done.", "I'm stuck", "I've stopped", "I'm done",
            "That didn't work")
 
 

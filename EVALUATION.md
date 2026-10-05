@@ -4650,3 +4650,50 @@ wholly below the window, at every scale, since before this change; the fit was
 only ever measured for the home screen and for steps (2026-09-25c, 2026-09-30d).
 The sentence makes it 51–61px worse. Both cases are pinned in
 `frontend/test_closing.py` as strict known failures. Not fixed here: flagged.
+
+## 2026-10-05 — the closing screen, made to fit
+
+Fixes what 2026-10-03c measured and flagged. Measured in Chromium at each
+scale's content size (1280x800 at 100%, 1280x734 at 125%, 1266x606 at 150%),
+the overlay built from source, trains and journey times from the live search of
+2026-09-30. "Spare" is the window's height less the bottom of the lower button;
+negative is off screen.
+
+**What it took, in the order tried.** The cascade asked for was one line per
+result, then a smaller type with a sentence, then the first six and "and N
+more". The first and third were not enough at 150%:
+
+| Stage | 9 results, sentence, 150% | 9 results, no sentence, 150% | 9 results, sentence, 100% | 1 result, sentence, 150% |
+|---|---|---|---|---|
+| Before (2026-10-03c) | "I'm done" at 1024 of 606 | 973 of 606 | 1118 of 800 | — |
+| One line per result, first six, 36–40px rows | **−123** | **−98** | **−47** | **−12** |
+| …and in a short window the two buttons side by side | −8 | −22 | −8 | +64 |
+| …and the sentence in the lead-in's place, rows past four at 30px | **+40** | **+45** | **+48** | **+110** |
+
+The budget at 150%, before: the presence bar, the card's padding, the lead-in,
+the sentence and two stacked 64px buttons left 197px for the results and their
+label line. Six rows of 30px type with "and 3 more" and the label line measure
+295px. Side by side the buttons give back 76px and the lead-in 46px, which is
+319px; there was no way to 295px through the type alone without going below
+the size of the text a person reads (23px), which is why the layout changed.
+
+**Final, every case:**
+
+| Results | Sentence | 100% spare | 125% spare | 150% spare | Page scrolls |
+|---|---|---|---|---|---|
+| 1 | yes | 110 | 238 | 110 | no |
+| 1 | no | 116 | 242 | 114 | no |
+| 3 | yes | 118 | 238 | 110 | no |
+| 3 | no | 125 | 243 | 115 | no |
+| 9 | yes | 48 | 168 | 40 | no |
+| 9 | no | 55 | 173 | 45 | no |
+
+The tightest is nine results with a sentence at 150%: 40px. One defect found
+on the way: with "and 3 more" at 26px, nine results with a sentence at 100%
+made the page 2px taller than the window (802 of 800) with both buttons still
+on screen; at 23px it is 800 of 800.
+
+The six strict known failures in `frontend/test_closing.py` now pass and are
+ordinary tests; five tests were added there (one result at three scales, the
+count past six, six with nothing counted, a detail that does not line up), and
+one in `test_copy.py`.

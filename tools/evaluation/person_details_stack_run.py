@@ -56,6 +56,8 @@ ENDINGS = (
     "I couldn't finish this.",
     "I'm stuck, so I've stopped.",
     "I've stopped, as you asked.",
+    # The closing screen with a sentence has no lead-in (2026-10-05).
+    "I'm done",
 )
 STOP_ID = "cancel"
 CHOICE_PREFIX = "choice:"

@@ -98,7 +98,7 @@ def copy() -> dict:
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
         "count: [c.STEP.count(1, 3), c.STEP.count(1, 3), c.STEP.count(2, 3)],"
-        "home: c.HOME, ending: c.ENDING, stopped: c.STOPPED,"
+        "home: c.HOME, ending: c.ENDING, stopped: c.STOPPED, more: c.ENDING.more(5),"
         "notice: c.NOTICE, trust: c.TRUST, found: c.FOUND"
         "}));"
     )
@@ -227,6 +227,14 @@ def test_the_closing_screen_offers_a_way_out_and_a_way_on(copy: dict) -> None:
     assert copy["ending"]["finish"].strip()
     assert copy["ending"]["again"].strip()
     assert copy["ending"]["finish"] != copy["ending"]["again"]
+
+
+def test_a_list_cut_short_reads_the_same_on_both_screens(copy: dict) -> None:
+    """The step screen counts the rest of a list in the backend's words
+    (`voice.found`), the closing screen in the overlay's (2026-10-05). One
+    cut-short list, one way of saying so."""
+    nine = [f"{n}UP" for n in range(9)]
+    assert voice.found(nine) == ", ".join(nine[:voice.SHOWN_VALUES]) + " " + copy["more"]
 
 
 def test_one_place_onwards_has_one_name(copy: dict) -> None:
