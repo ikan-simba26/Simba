@@ -182,13 +182,17 @@ STEPS = [step for steps, _, _ in SCRIPTS.values() for step in steps]
 app = FastAPI()
 
 
-@app.get("/")
 def explain(findings: list[Finding]) -> str | None:
     """The closing screen's sentence, by the backend's own rules (`voice.py`)."""
     found = {f.label: list(f.values or [f.value]) for f in findings}
     return voice.explain_trains(found, {}) or voice.explain_bill(found, {})
 
 
+# The decorator belongs to `health`. From 2026-10-03 to 2026-10-05 `explain`
+# sat between them and took the route, so `/` answered 422 and nothing could
+# tell the mock was up: the demo recorder refused to start it, and the tests'
+# fixture waited its full 30s every run.
+@app.get("/")
 async def health() -> dict[str, str]:
     """Same shape as the real backend's, so a launcher can poll either.
 
