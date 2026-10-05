@@ -551,7 +551,7 @@ blocked on quota, days after the quota had reset.
 | **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17. Undeclared fields still false-stop, and that is where the LLM planner works |
 | **"What are you doing?" at 100%** | A fix to the site-view capture | It succeeds about half the time on a 100% screen; a page that repaints every frame captures 20/20. `feat/orchestrator-preview-capture` keeps the view repainting and is deliberately unmerged until measured (EVALUATION.md, 2026-09-27) |
 | **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
-| **The demo clips** | Re-recording, on a machine with the stack up | They show the closing screen as it was before 2026-10-05, and are not committed, so a fresh clone has none |
+| **The demo clips on a fresh clone** | Recording, on a machine with the stack up | Re-recorded 2026-10-05 on our copy and showing the current closing screen, but not committed, so a fresh clone has none. Do not minimise the SIMBA window while recording |
 
 **Uncertain: the quota itself.** The documents disagree on how many requests
 a day the free model allows and which model name the stronger one was
@@ -613,11 +613,11 @@ options and a recommendation; this is the list.
 12. *(Settled 2026-10-03: `task.completed.summary` stays the goal plus a URL,
     which tests and logs read, and the human sentence is a new optional field,
     `explanation`.)*
-12b. **Two of a result's details can stop lining up.** Perception keeps a
-    repeated value once per column, so nine trains can come with eight journey
-    times, and the closing screen then cannot say which time is whose. Rows
-    from perception, rather than columns, would fix it; that is a perception
-    and contract change.
+12b. *(Settled 2026-10-05: results travel as whole rows, `Finding.rows`, so
+    each train keeps its own time even when times repeat.)*
+12c. **A minimised SIMBA window fails the next action** — the site view paints
+    about once a second and a click never sees the page settle. Pause and tell
+    the person, keep the view painting, or leave it? STATUS.md, Interface.
 13. **The JavaScript click fallback can click through a modal** when overlay
     detection is off, and the run passes. Should the fallback refuse an
     element perception knows is covered?

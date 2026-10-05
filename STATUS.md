@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-05 · **906 passing, 12 skipped, 0 known failures** · suite wall clock 1242s, on `feat/multi-october-fifth`. 73 tests added today, and the 6 strict `xfail`s in `frontend/test_closing.py` (the closing screen did not fit) now pass as ordinary tests. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`; run separately today, 3 passed), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s and 1222s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-05 (later) · **921 passing, 12 skipped, 0 known failures** · suite wall clock 1585s, on `feat/multi-october-fifth-rows`: the full run gave 920 passed and 1 failed, the billing test that pins the exact message, which was then updated for the bill's one row and passes. 16 tests added since the morning's 906 (15 for whole rows, 1 for the mock's health check). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s, 1222s and 1242s on the same machine; the mock fixture's 30s wait is gone from the next run on. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -120,6 +120,28 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-10-05 (later): whole rows, the clips, the approval
+
+- **Merged and pushed.** `feat/multi-october-fifth` is in `main` (`45125dc`).
+  The rest below is on `feat/multi-october-fifth-rows`, **not merged**.
+- **Results travel as whole rows.** Perception reads each table row with its
+  cells together, repeats kept (`Content.rows_for`); the first finding carries
+  them as `Finding.rows`, additive and optional; the closing screen and the
+  sentence read them. On our copy, four trains whose times repeat on rows 1 and
+  3 and 2 and 4 each showed their own time; on the live site, one read-only
+  search, three trains arrived as whole rows through the div-built table
+  (EVALUATION.md, 2026-10-05c). The railways replica has one new route for it,
+  Hyderabad Jn to Sukkur.
+- **The demo clips are re-recorded** on our copy and show the closing screen as
+  it is; all three task clips end on their answers (2026-10-05d).
+- **The mock backend had no health check** since 2026-10-03: a helper sat
+  between `@app.get("/")` and `health`. Fixed, with a test; its tests' fixture
+  had waited 30s every run.
+- **Found, not fixed: a minimised SIMBA window fails the next action.** The site
+  view inside it paints about once a second, and a click waits for a page that
+  never settles. It ended two clips "I'm stuck" before they were recorded again.
+- **The side-by-side buttons are approved by Raham** (DECISIONS.md).
+
 ### Changed on 2026-10-05: the closing screen fits, and every ending is checked
 
 - **Merged and pushed.** `feat/multi-october-third` is in `main` (`9fd09bc`).
@@ -130,7 +152,8 @@ application's state (EVALUATION.md).
   past four the type is 30px; the sentence takes the lead-in's place; the two
   buttons sit side by side. The six strict known failures pass. One line per
   result and the first six were not enough at 150% (−123px), which is why the
-  layout changed too (EVALUATION.md, 2026-10-05). **For Aly to review.**
+  layout changed too (EVALUATION.md, 2026-10-05). The side-by-side buttons
+  are approved by Raham (later the same day); the rest is **for Aly to review**.
 - **A detail goes beside a result only when the lists line up.** Perception
   keeps a repeated value once, so nine trains can come with eight journey
   times, and pairing by position would put a time beside the wrong train.
@@ -579,6 +602,9 @@ application's state (EVALUATION.md).
    incidental — and the comparison is shallow, being the serializer's output
    plus the strips' cell counts rather than the DOM. A perception figure now
    says which environment produced it.
+8b. **Rows** (`Content.rows_for`, 2026-10-05): every table row with a value
+   under the first header, its cells under each header asked for, repeats
+   kept. Label/value pairs have none.
 9. ~~`value_for` returns the first matching pair, so even when pairing works
    "which trains?" shows one train.~~ **Fixed 2026-09-18** (2026-09-18b).
 10. Page-side load features for the estimator: not started.
@@ -780,8 +806,19 @@ application's state (EVALUATION.md).
   the two buttons sit side by side at every scale — the one screen whose
   buttons are not stacked. A detail that cannot be put beside its result
   (eight journey times for nine trains) is one line under the list and takes
-  a result's place. **For Aly to review**: DECISIONS.md, "The closing screen
-  fits by changing its layout".
+  a result's place. Since later the same day, results arrive as whole rows
+  (`Finding.rows`), so a detail is put beside its own result even when times
+  repeat; the line under the list is left for values not from a table. The
+  side-by-side buttons are **approved by Raham**; the sentence in the
+  lead-in's place and the rest are **for Aly to review**: DECISIONS.md, "The
+  closing screen fits by changing its layout".
+- **A minimised SIMBA window fails the next action** (2026-10-05d). The site
+  view paints about once a second and a click times out waiting for the page
+  to settle. Options: keep the site view painting while minimised (Electron's
+  `backgroundThrottling: false` on that view, which costs power while idle);
+  pause the run and tell the person when the window is minimised; or leave it.
+  Recommended: pause and tell, since nothing should act on a page the person
+  has put away. Not decided.
 - **The step screen shows one finding**, as one line that stops at four
   values. That is the design, not an oversight — but it means a run in
   progress can show "and 2 more" for a while before the ending shows them.
@@ -1001,13 +1038,14 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `9fd09bc` (`feat/multi-october-third`, merged and pushed
-  2026-10-05: the recapture, the credential store, the closing sentence).
-  **`feat/multi-october-fifth` is not merged or pushed**: the closing screen's
-  fit, the fit check over every ending, the credential-store limitation, and
-  this refresh.
-- **The demo recordings show the old closing screen**: each result's values a
-  line apiece and the buttons stacked (2026-10-01c). Re-record before a demo.
+- `main` is at `45125dc` (`feat/multi-october-fifth`, merged and pushed
+  2026-10-05: the closing screen's fit and the fit check over every ending).
+  **`feat/multi-october-fifth-rows` is not merged or pushed**: whole rows, the
+  mock's health check, the clips' records, the button approval, and this
+  update.
+- ~~**The demo recordings show the old closing screen**~~ **Re-recorded
+  2026-10-05** on our copy (EVALUATION.md, 2026-10-05d). Still not committed:
+  a fresh clone has to record them.
 - ~~**The demo recordings predate the questions**~~ **Re-recorded 2026-10-01**
   on our copy, answering the questions. They run at the copy's pace, about
   twice the live site's, and show invented trains; DEMO.md says so. `demo/` is
