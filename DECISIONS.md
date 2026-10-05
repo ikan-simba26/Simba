@@ -3657,3 +3657,34 @@ shown as the answer.
 **Cost.** Equal lengths are not proof of alignment: a repeat dropped from each
 column, in different rows, gives two lists of the same length that do not line
 up. Fixing that needs the rows themselves from perception (flagged, not done).
+
+## Results travel as whole rows, on the first finding
+
+**Date:** 2026-10-05 (rows asked for by Raham; their shape in the message was
+not specified)
+
+**Decision.** `Finding.rows: list[list[str]]`, additive and optional, set on
+the **first finding of a message only**: one list per result, in page order,
+repeats kept, with one cell per finding in that message in the findings'
+order, and `""` where the page's row had nothing. Perception reads them from
+its tables (`Content.rows_for`, keyed by the first finding's column); the run
+remembers them across pages as `findings_in` remembers values; the sentence
+(`voice.explain_*`, now given `rows`) and the closing screen read them when
+present and fall back to `values` when not.
+
+**Alternatives.** A `rows` field on `task.completed` rather than on a finding,
+which is where rows belong but not what was asked for. Every finding carrying
+its own column with repeats kept, aligned by index: the same positional
+pairing that failed, with nothing in the structure to hold it together. Every
+finding carrying the same full rows: the same data once per finding.
+
+**Why this.** A row is one result's cells, so nothing downstream pairs
+anything; putting it on the first finding — the answer the rows are rows of —
+keeps it to one copy and leaves every existing field and reader as it was.
+
+**Cost.** A convention a reader must know: only the first finding has rows,
+and their cells follow the findings' order. Values not from a table (label and
+value pairs) have no rows, and those findings are still paired by length on
+the closing screen, with its known weakness. The railways replica gained one
+route, Hyderabad Jn to Sukkur, with four trains whose journey times repeat, so
+the case can be run end to end; every other route is unchanged.

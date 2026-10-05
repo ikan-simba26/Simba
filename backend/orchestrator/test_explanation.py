@@ -121,6 +121,21 @@ def test_a_value_that_is_a_web_address_is_never_said() -> None:
         "There is 1 train.")
 
 
+def test_from_rows_each_train_is_counted_with_its_own_journey() -> None:
+    """Two trains with one journey time: `found` has one time for two trains,
+    the rows have each train's own (2026-10-05)."""
+    rows = [{"Train": "3UP", "Journey": "5 h 15 min"}, {"Train": "4DN", "Journey": "5 h 15 min"}]
+
+    assert explain_trains({"Train": ["3UP", "4DN"], "Journey": ["5 h 15 min"]}, {}, rows) == (
+        "There are 2 trains. The fastest takes 5 hours 15 minutes.")
+
+
+def test_from_rows_a_train_with_no_journey_leaves_the_fastest_unsaid() -> None:
+    rows = [{"Train": "3UP", "Journey": "5 h 15 min"}, {"Train": "4DN", "Journey": ""}]
+
+    assert explain_trains({}, {}, rows) == "There are 2 trains."
+
+
 # --- end to end, on the replicas --------------------------------------------------
 
 
@@ -135,6 +150,25 @@ def test_the_train_search_ends_with_its_sentence(railways: str) -> None:  # noqa
     assert completed["explanation"] == explain_trains(
         {"Train": trains, "Journey": journeys}, {})
     assert completed["explanation"].startswith(f"There are {len(trains)} trains.")
+
+
+def test_trains_that_share_journey_times_each_arrive_with_their_own(
+    railways: str  # noqa: F811
+) -> None:
+    """Hyderabad Jn to Sukkur on our copy: four trains, journey times repeated
+    on rows 1 and 3 and on rows 2 and 4. The column has two times for four
+    trains; the rows give every train its own, and the sentence counts four."""
+    from backend.orchestrator.test_trip import TOMORROW, search
+
+    run = search("Hyderabad", "Sukkur", TOMORROW, [], railways)
+
+    completed = run.of("task.completed")[0]
+    train, journey = completed["findings"]
+    assert journey["values"] == ["3 h 15 min", "4 h 15 min"]
+    assert train["rows"] == [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"],
+                             ["13UP", "3 h 15 min"], ["14DN", "4 h 15 min"]]
+    assert completed["explanation"] == (
+        "There are 4 trains. The fastest takes 3 hours 15 minutes.")
 
 
 def test_the_bill_ends_with_its_sentence(billing_replica: str) -> None:  # noqa: F811

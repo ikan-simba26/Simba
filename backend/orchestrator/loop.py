@@ -333,7 +333,8 @@ def unmet(
 
 
 def findings_in(
-    snapshot: Snapshot, task: "Task", known: dict[str, list[str]]
+    snapshot: Snapshot, task: "Task", known: dict[str, list[str]],
+    rows: list[dict[str, str]] | None = None,
 ) -> list[Finding]:
     """Update what has been found, and return it in the task's own order.
 
@@ -356,14 +357,30 @@ def findings_in(
     the answer and shows every result. Keeping only the line here was the
     display-side half of the same defect the content channel had
     (EVALUATION.md, 2026-09-18b).
+
+    `rows`, when given, is the run's memory of the results whole — one dict
+    per table row, by the names the task shows them under, repeats kept
+    (`Content.rows_for`) — and is mutated the same way. `values` drops a
+    repeated value, so two findings' lists cannot be paired by position: two
+    trains with one journey time give two trains and one time. The first
+    finding carries the rows (`Finding.rows`), one cell per finding returned.
     """
     for answer in task.about.finds:
         values = snapshot.content.values_for(answer.reads)
         if values:
             known[answer.name] = values
-    return [Finding(label=answer.name, value=voice.found(known[answer.name]),
-                    values=known[answer.name])
-            for answer in task.about.finds if answer.name in known]
+    if rows is not None and task.about.finds:
+        read = snapshot.content.rows_for([answer.reads for answer in task.about.finds])
+        if read:
+            rows[:] = [{answer.name: cell for answer, cell in zip(task.about.finds, row)}
+                       for row in read]
+    findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
+                        values=known[answer.name])
+                for answer in task.about.finds if answer.name in known]
+    if rows and findings and findings[0].label == task.about.finds[0].name:
+        findings[0].rows = [[row.get(finding.label, "") for finding in findings]
+                            for row in rows]
+    return findings
 
 
 def satisfies(after: Snapshot, expect: Expectation) -> bool:
@@ -453,11 +470,12 @@ class Task:
     # TypeError rather than a task that silently checks and shows nothing.
     about: About = field(kw_only=True)
     # The closing screen's one plain sentence, built from what the run found
-    # (`found`, by the names the task shows them under) and what the site said
-    # back (`seen`, by the page's own labels). None means no sentence. Only
-    # ever from those values: `voice.explain_*`.
-    explain: "Callable[[dict[str, list[str]], dict[str, list[str]]], str | None] | None" = field(
-        default=None, kw_only=True)
+    # (`found`, by the names the task shows them under), what the site said
+    # back (`seen`, by the page's own labels), and the results whole (`rows`,
+    # a dict per table row by the same names as `found`, repeats kept). None
+    # means no sentence. Only ever from those values: `voice.explain_*`.
+    explain: ("Callable[[dict[str, list[str]], dict[str, list[str]], "
+              "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -845,6 +863,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     filled: list[FilledValue] = []
     # What the task was asked to find out, as it turns up. See `findings_in`.
     found: dict[str, list[str]] = {}
+    # The same results whole, a row per result, repeats kept.
+    rows: list[dict[str, str]] = []
     # What the site has said back about the values the goal named. See
     # `said_so_far`.
     seen: dict[str, list[str]] = {}
@@ -857,7 +877,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             break
         await set_state("thinking")
         elements, before, view = await perceive(page)
-        findings = findings_in(before, task, found)
+        findings = findings_in(before, task, found, rows)
         said_so_far(before, task, seen)
 
         # Durable verification: everything typed so far has to *still* be
@@ -1001,7 +1021,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         filled += await record_fills(page, move)
 
     _, final, _ = await perceive(page)
-    findings = findings_in(final, task, found)
+    findings = findings_in(final, task, found, rows)
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
     unfinished = (
@@ -1034,7 +1054,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
-            explanation=task.explain(found, seen) if task.explain else None,
+            explanation=task.explain(found, seen, rows) if task.explain else None,
         ),
     )
 

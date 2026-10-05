@@ -4756,3 +4756,49 @@ Nothing scrolls anywhere. The tightest is nine trains with eight times at 150%:
 Site-view captures in the same runs: 10/20, 11/20 and 10/20 at forced 100%,
 20/20 at 125% and 150% — the known 100% capture problem (2026-09-27),
 unchanged and unrelated: the captures are taken before any ending is played.
+
+## 2026-10-05c — results as whole rows: each train with its own time
+
+`values` drops a repeated value per label, so the closing screen could only
+pair a train with a journey time by position, and refused when the lists'
+lengths differed (2026-10-05b). Now perception reads each table row whole
+(`Content.rows_for`, repeats kept), the first finding carries the rows
+(`Finding.rows`, additive and optional), and the closing screen and the
+sentence read from them.
+
+**On our copy** (`railways-local`, through the Electron window, hardcoded
+plan): "trains from Hyderabad to Sukkur tomorrow", a route given four trains
+whose journey times repeat on rows 1 and 3 and on rows 2 and 4. 5 steps, 0
+planner calls, 20.9s Start to ending as the backend timed it (51.3s by the
+driving script, which pauses 2.5s on each step to be readable).
+
+| | What it carried |
+|---|---|
+| `Journey.values` | `3 h 15 min, 4 h 15 min` — two times for four trains |
+| `Train.rows` | `11UP, 3 h 15 min` · `12DN, 4 h 15 min` · `13UP, 3 h 15 min` · `14DN, 4 h 15 min` |
+| The site view's own table | the same four rows, cell for cell |
+| The closing screen | "There are 4 trains. The fastest takes 3 hours 15 minutes." and the four rows above, one line each |
+
+Before this change the same message would have shown the four trains and,
+under them, "Journey: 3 h 15 min, 4 h 15 min" — not wrong, but no train's own
+time.
+
+**On the live site, one read-only search**: "trains to Rawalpindi tomorrow",
+answered Lahore, then Lahore Cantt. One request sent, `LRC` to `RWP` for
+2026-10-06. 5 steps, 0 planner calls, 50.7s Start to ending. The live results
+are built from `div`s with the heading strip as a separate group, and the rows
+came through that join (`_adopt_headers`) whole: `13UP, 6 h 6 min` ·
+`39UP, 6 h 38 min` · `1UP, 6 h 3 min`, matching the site view's table, and the
+same three lines on the closing screen under "There are 3 trains. The fastest
+takes 6 hours 3 minutes." No two trains shared a time on that route that day,
+so the live run shows the rows arriving, not the repeat being kept.
+
+Tests: 3 in `backend/perception/test_content.py`, 4 in
+`backend/orchestrator/test_success_conditions.py`, 3 in
+`backend/orchestrator/test_explanation.py` (one of them the Hyderabad search
+end to end on the replica), 5 in `frontend/test_closing.py` (two trains
+sharing a time; repeats on different rows across three columns, where each
+list alone is two values for three trains; nine trains as rows at three
+scales). The router was set to `model` on both runs; whatever calls it made
+to route and read the goal are not in `llm_calls`, which counts the planner's
+only, and were not counted separately.

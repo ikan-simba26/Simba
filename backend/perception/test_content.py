@@ -11,7 +11,7 @@ These tests are about that cell.
 
 from playwright.sync_api import Page
 
-from backend.perception.content import Content, Pair, extract
+from backend.perception.content import Content, Pair, Row, Table, extract
 from backend.perception.serializer import read
 from backend.perception.snapshot import parse
 
@@ -418,3 +418,57 @@ def test_both_trains_are_readable_from_the_live_markup(page: Page) -> None:
     assert content.values_for("Duration") == ["22 h 16 min", "24 h 16 min"]
     # Repeated once per row on the real page, and once here.
     assert content.values_for("From/To") == ["LAHORE CANTT KARACHI CANTT"]
+
+
+# --- each result's cells, kept together ---------------------------------------
+#
+# `values_for` reads a column and drops a repeat, so two columns cannot be
+# paired by position once either has repeated: two trains with one journey
+# time give two trains and one time. `rows_for` keeps each row whole
+# (2026-10-05).
+
+RESULT_HEADERS = ("Train No.", "Time", "Duration")
+
+
+def results_table(*rows: tuple[str, ...]) -> Content:
+    """A results table, with its rows also flattened to pairs as `extract`
+    does."""
+    table = Table(headers=RESULT_HEADERS,
+                  rows=tuple(Row(cells=tuple(zip(RESULT_HEADERS, row))) for row in rows))
+    return Content(tables=[table], pairs=[
+        Pair(name, value) for row in table.rows for name, value in row.cells if value])
+
+
+def test_two_trains_with_one_journey_time_each_keep_it() -> None:
+    content = results_table(("3UP", "07:10", "5 h 15 min"), ("4DN", "16:20", "5 h 15 min"))
+
+    # The column drops the repeat, which is why it cannot be paired.
+    assert content.values_for("Duration") == ["5 h 15 min"]
+    assert content.rows_for(["Train No.", "Duration"]) == [
+        ("3UP", "5 h 15 min"), ("4DN", "5 h 15 min")]
+
+
+def test_repeats_on_different_rows_stay_on_their_own_rows() -> None:
+    """The departure repeats on the first two rows and the journey on the last
+    two. Each column alone is two values for three trains; read whole, every
+    train has its own of both."""
+    content = results_table(("1UP", "07:10", "5 h 15 min"),
+                            ("2UP", "07:10", "6 h 15 min"),
+                            ("3UP", "09:00", "6 h 15 min"))
+
+    assert content.values_for("Time") == ["07:10", "09:00"]
+    assert content.values_for("Duration") == ["5 h 15 min", "6 h 15 min"]
+    assert content.rows_for(["Train No.", "Time", "Duration"]) == [
+        ("1UP", "07:10", "5 h 15 min"),
+        ("2UP", "07:10", "6 h 15 min"),
+        ("3UP", "09:00", "6 h 15 min"),
+    ]
+
+
+def test_a_row_is_read_only_when_it_has_the_first_header() -> None:
+    """The first header is the result; a header a row lacks reads as ""."""
+    content = results_table(("1UP", "07:10", "5 h 15 min"), ("", "08:00", "6 h"))
+
+    assert content.rows_for(["Train No.", "Platform"]) == [("1UP", "")]
+    assert content.rows_for([]) == []
+    assert Content(pairs=[Pair("Train No.", "1UP")]).rows_for(["Train No."]) == []

@@ -573,12 +573,18 @@ function Completed() {
  * `values` is the whole list; a message from before it existed has none, and
  * then the line is the answer.
  *
- * A finding is put beside the answer only when it has exactly as many values.
- * Perception drops a repeated value within a column (`values_for`), so two
- * trains with the same journey time give two trains and one time, and pairing
- * those by position would put a time beside the wrong train. A finding that
- * does not line up is one line under the list, in the step screen's form, and
- * takes the place of one result.
+ * The results are read whole from `rows` when the backend sends them
+ * (2026-10-05): each row is one result's cells, kept together from the page's
+ * own table row, repeats included, so each train has its own time and nothing
+ * here pairs anything. Without rows — a message from before them, or values
+ * that did not come from a table — the lists in `values` are the only source,
+ * and they drop a repeated value: two trains with one journey time give two
+ * trains and one time. Then a finding is put beside the answer only when it
+ * has exactly as many values, and even that is not proof (a repeat dropped
+ * from each list on different rows leaves two lists of one length that do not
+ * line up). Either way, a finding that cannot go on the results' lines is one
+ * line under the list, in the step screen's form, and takes one result's
+ * place.
  *
  * Past `LISTED` results the first ones are shown and the rest counted, and
  * past four the type is a step smaller. Both are for the same reason: the
@@ -588,7 +594,9 @@ function Completed() {
 export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
   const lists = findings.map((finding) =>
     finding.values?.length ? finding.values : [finding.value]);
-  const count = lists[0]?.length ?? 0;
+  const sent = findings[0]?.rows ?? [];
+  const byRows = sent.length > 1;
+  const count = byRows ? sent.length : lists[0]?.length ?? 0;
 
   if (count <= 1) {
     return (
@@ -606,15 +614,22 @@ export function Findings({ findings, size }: { findings: Finding[]; size: number
     );
   }
 
-  const beside = findings.filter((_, index) => lists[index].length === count);
-  const apart = findings.filter((_, index) => lists[index].length !== count);
+  // Whether a finding can go on each result's line: from rows, any finding
+  // with a cell in some row; from lists, only one exactly as long.
+  const onLine = (index: number) => byRows
+    ? sent.some((row) => Boolean(row[index]))
+    : lists[index].length === count;
+  const beside = findings.filter((_, index) => onLine(index));
+  const apart = findings.filter((_, index) => !onLine(index));
   // Each detail that does not line up takes one result's place, so the screen
   // is no taller for it: as its own block, label and all, it put both buttons
   // below a 606px window with nine trains and eight journey times
   // (`test_terminal_states.py`, 2026-10-05).
   const shown = Math.max(1, Math.min(count, LISTED - apart.length));
   const rows = Array.from({ length: shown }, (_, row) =>
-    findings.flatMap((_, index) => lists[index].length === count ? [lists[index][row]] : [])
+    findings.flatMap((_, index) => !onLine(index) ? []
+      : [byRows ? sent[row][index] ?? "" : lists[index][row]])
+      .filter(Boolean)
       .join(", "));
   // 54px for a few; past four, the size of a step's instruction.
   const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);

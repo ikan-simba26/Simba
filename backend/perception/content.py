@@ -34,6 +34,7 @@ separate channel precisely so a planner cannot confuse "the page says 14,382"
 with "there is a button called 14,382".
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import median
 
@@ -140,6 +141,27 @@ class Content:
             if pair.label == label and pair.value not in found:
                 found.append(pair.value)
         return found
+
+    def rows_for(self, headers: Sequence[str]) -> list[tuple[str, ...]]:
+        """Every table row that has a value under the first header, as its
+        cells under each of these headers, in order, repeats kept.
+
+        `values_for` reads one column and drops a repeated value, which is
+        right for "which trains run?" and wrong for "how long does each take?":
+        two trains with one journey time give two trains and one time, and
+        anything pairing the two lists by position puts a time beside the wrong
+        train (EVALUATION.md, 2026-10-05b). A row keeps one result's cells
+        together, so nothing has to pair them. A header the row does not have
+        reads as "".
+        """
+        if not headers:
+            return []
+        rows: list[tuple[str, ...]] = []
+        for table in self.tables:
+            for row in table.rows:
+                if row.get(headers[0]):
+                    rows.append(tuple(row.get(header) or "" for header in headers))
+        return rows
 
     def value_for(self, label: str) -> str | None:
         """The first value for this label, for a label a page uses once.

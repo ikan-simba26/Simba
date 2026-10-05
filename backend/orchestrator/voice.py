@@ -192,14 +192,26 @@ def _readable(*values: str) -> bool:
     return all(v and "://" not in v and "www." not in v.lower() for v in values)
 
 
-def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
-    """How many trains came back, and how long the fastest takes."""
-    trains = found.get("Train") or []
+def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
+                   rows: list[dict[str, str]] | None = None) -> str | None:
+    """How many trains came back, and how long the fastest takes.
+
+    From the results whole when there are rows (2026-10-05): a row is a train,
+    and its journey is its own. `found` drops a repeated value, so two trains
+    with one journey time there are two trains and one time; read from it the
+    count is right only because train numbers do not repeat.
+    """
+    if rows:
+        listed = [row for row in rows if row.get("Train")]
+        trains = [row["Train"] for row in listed]
+        journeys = [row.get("Journey", "") for row in listed]
+    else:
+        trains = found.get("Train") or []
+        journeys = found.get("Journey") or []
     if not trains:
         return None
     count = (f"There is {_plural(1, 'train')}." if len(trains) == 1
              else f"There are {len(trains)} trains.")
-    journeys = found.get("Journey") or []
     minutes = [_minutes(j) for j in journeys]
     if not journeys or None in minutes or not _readable(*journeys):
         return count
@@ -207,7 +219,8 @@ def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]]) -> s
     return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
 
 
-def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]],
+                 rows: list[dict[str, str]] | None = None) -> str | None:
     """The amount and the date it is due, in the page's own figures."""
     amount, due = found.get("Your bill") or [], found.get("Due") or []
     if len(amount) != 1 or not _readable(*amount):
@@ -219,7 +232,8 @@ def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str
 
 def explain_course(course: str):
     """For a registration: which course the confirmation named, as it named it."""
-    def explain(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+    def explain(found: dict[str, list[str]], seen: dict[str, list[str]],
+                rows: list[dict[str, str]] | None = None) -> str | None:
         named = [v for v in seen.get("Course") or [] if course.casefold() in v.casefold()]
         if not named or not _readable(named[0]):
             return None

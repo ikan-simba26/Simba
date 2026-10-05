@@ -89,6 +89,12 @@ export interface Finding {
   value: string;
   /** Every value, in page order. Optional and additive; absent means [value]. */
   values?: string[];
+  /**
+   * On the first finding of a message only: every result as a whole row, one
+   * cell per finding in that message, in their order, repeats kept, "" for
+   * none. Optional and additive; absent when the values are not from a table.
+   */
+  rows?: string[][];
 }
 
 export interface StepField {

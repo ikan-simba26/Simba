@@ -271,6 +271,68 @@ def test_one_value_reads_exactly_as_it_did_before() -> None:
     assert [(f.label, f.value) for f in findings_in(page, task, {})] == [("Your bill", "14,382")]
 
 
+# --- and the results whole, a row per result ---------------------------------
+#
+# `values` drops a repeated value, so the closing screen cannot pair two
+# findings' lists by position. The first finding carries the rows (2026-10-05).
+
+
+def results_page(*rows: tuple[str, str]) -> Snapshot:
+    """A results table, with its rows also flattened to pairs as `extract`
+    does."""
+    headers = ("Train No.", "Duration")
+    table = Table(headers=headers,
+                  rows=tuple(Row(cells=tuple(zip(headers, row))) for row in rows))
+    pairs = [Pair(name, value) for row in table.rows for name, value in row.cells]
+    return Snapshot(url="u", title="t", labels=(), values=(),
+                    content=Content(tables=[table], pairs=pairs))
+
+
+def test_two_trains_with_one_journey_time_each_carry_it() -> None:
+    page = results_page(("3UP", "5 h 15 min"), ("4DN", "5 h 15 min"))
+
+    found = findings_in(page, RAILWAYS_TASK, {}, [])
+
+    assert [f.values for f in found] == [["3UP", "4DN"], ["5 h 15 min"]]
+    assert found[0].rows == [["3UP", "5 h 15 min"], ["4DN", "5 h 15 min"]]
+    assert found[1].rows == []
+
+
+def test_repeats_on_different_rows_keep_each_train_its_own_time() -> None:
+    page = results_page(("11UP", "3 h 15 min"), ("12DN", "4 h 15 min"),
+                        ("13UP", "3 h 15 min"), ("14DN", "4 h 15 min"))
+
+    found = findings_in(page, RAILWAYS_TASK, {}, [])
+
+    assert found[1].values == ["3 h 15 min", "4 h 15 min"]
+    assert found[0].rows == [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"],
+                             ["13UP", "3 h 15 min"], ["14DN", "4 h 15 min"]]
+
+
+def test_the_rows_are_remembered_after_the_page_stops_showing_them() -> None:
+    known: dict[str, list[str]] = {}
+    rows: list[dict[str, str]] = []
+    findings_in(results_page(("3UP", "5 h 15 min"), ("4DN", "5 h 15 min")),
+                RAILWAYS_TASK, known, rows)
+
+    found = findings_in(Snapshot(url="u2", title="t", labels=(), content=Content()),
+                        RAILWAYS_TASK, known, rows)
+
+    assert found[0].rows == [["3UP", "5 h 15 min"], ["4DN", "5 h 15 min"]]
+    assert rows == [{"Train": "3UP", "Journey": "5 h 15 min"},
+                    {"Train": "4DN", "Journey": "5 h 15 min"}]
+
+
+def test_values_not_from_a_table_carry_no_rows() -> None:
+    """Label/value pairs have no rows to keep; the message is as it was."""
+    page = Snapshot(url="u", title="t", labels=(), values=(), content=Content(pairs=[
+        Pair("Train No.", "2DN"), Pair("Duration", "22 h 16 min")]))
+
+    found = findings_in(page, RAILWAYS_TASK, {}, [])
+
+    assert [f.rows for f in found] == [[], []]
+
+
 # --- and the message carries the values themselves --------------------------
 #
 # `value` is one line, and one line has to stop somewhere: past four values it
