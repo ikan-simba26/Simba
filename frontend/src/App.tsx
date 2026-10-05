@@ -503,7 +503,7 @@ function Completed() {
   // from the page's own values (`voice.explain_*`). This screen writes none of
   // its own: there is nothing in `copy.ts` for it because every word of it is
   // the page's or `voice.py`'s, and `test_copy.py` holds those to the same
-  // rules. Absent, the screen is exactly what it was.
+  // rules. Absent, the lead-in "Here's what I found" is there instead.
   const explanation = completed?.explanation ?? null;
 
   return (
