@@ -4802,3 +4802,45 @@ list alone is two values for three trains; nine trains as rows at three
 scales). The router was set to `model` on both runs; whatever calls it made
 to route and read the goal are not in `llm_calls`, which counts the planner's
 only, and were not counted separately.
+
+## 2026-10-05d — the demo clips, re-recorded to show the closing screen as it is
+
+`python -m tools.record_demo` with the stack started by `.\run.ps1
+railways-local`, the overlay built from the current source, every clip
+pressing at a 1.8s beat. The health check said `"railways_site":
+"http://127.0.0.1:5200"` before the railways clip.
+
+| Clip | What it did | Ending | Length |
+|---|---|---|---|
+| railways | typed "Lahore", chose "Lahore Cantt", five steps | **found an answer** | 61s |
+| billing | typed `04141234567890` when asked, three steps | **found an answer** | 43s |
+| hello | — | greeted, nothing started | 8s |
+| fold (mock) | four steps, the scripted fold | done | 34s |
+| adapt | folded after 7.2s of hesitation on step 1, three steps | **found an answer** | 41s |
+
+**Two failures on the way, both found and fixed before these clips.**
+
+- **The recorder could not start the mock backend.** Since `a577cef`
+  (2026-10-03) a helper had been put between `@app.get("/")` and `health()` in
+  `tools/mock_backend.py`, so `/` answered 422 and nothing could tell the mock
+  was up. `tools/test_mock_backend.py`'s fixture has the same readiness loop
+  but goes on after 30s regardless, so the suite kept passing and spent 30s
+  every run. Fixed in `2727730`, with a test.
+- **The first pass of billing and adapt ended "I'm stuck, so I've stopped."**
+  Step 3's click on the reference box timed out twice (10s each), and the run
+  stopped on the next step. The SIMBA window was **minimised** — checked with
+  Windows' own window state, not a screenshot — and the site view inside it
+  was painting about once a second (frames at 936, 1957 and 2982ms), so
+  Playwright's wait for the box to be stable never passed. The overlay's own
+  Start button failed the same way. Not caused by this change: the same flow
+  passes headless, and both clips ended on the answer in a fresh,
+  un-minimised window. What minimised it is not known.
+
+That second one is also a **product finding**: a person who minimises SIMBA
+during a task would see the next action fail. CLAUDE.md's rule keeps the site
+view visible and covered so screenshots work; it says nothing about the window
+itself being minimised. Not fixed: flagged.
+
+The clips were not watched frame by frame; what shows they hold the current
+closing screen is that they were drawn by the overlay built from this source,
+and that every task clip reported reaching its ending.
