@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-05 (later) · **921 passing, 12 skipped, 0 known failures** · suite wall clock 1585s, on `feat/multi-october-fifth-rows`: the full run gave 920 passed and 1 failed, the billing test that pins the exact message, which was then updated for the bill's one row and passes. 16 tests added since the morning's 906 (15 for whole rows, 1 for the mock's health check). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s, 1222s and 1242s on the same machine; the mock fixture's 30s wait is gone from the next run on. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-06 · **944 passing, 12 skipped, 0 failed** · suite wall clock 1499s, on `feat/multi-october-fifth-rows`, merged into `main` the same day. The first full run today gave 943 passed and 1 failed: `test_shared_recovery`'s spy on `attempt_move` had a fixed signature and the window's new `ready=` argument broke it; the spy was fixed (`062c165`) and the second full run was clean. 23 tests added since 921. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s, 1222s, 1242s, 1478s and 1585s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,25 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-06: the window waited for, the fastest named
+
+- **Merged and pushed.** `feat/multi-october-fifth-rows` is in `main`, after a
+  clean full suite (944 passed, 12 skipped).
+- **A minimised or hidden window is waited for, not failed.** The host writes
+  the window's state into the overlay page; the backend reads it before every
+  action and does nothing while the window is away. When it comes back: "I
+  waited while the window was closed. Ready to carry on?", and the run goes on
+  only after Carry on. In the real window, minimised for 10.4s mid-step: no
+  action, no failure, the bill found after (EVALUATION.md, 2026-10-06).
+- **The sentence names the fastest train** when there are rows and two or
+  more: "The fastest is 1UP, at 6 hours 3 minutes." A tie is said as a tie.
+  Any sentence that wraps gives up one result line, so nine trains fit at
+  every scale with every wording (2026-10-06b).
+- **CLAUDE.md forbids broad kill commands**: only processes you started, by
+  PID.
+- **Results not from a table still pair by list length**, recorded in
+  DECISIONS.md as a known limitation with no work planned before the freeze.
 
 ### Changed on 2026-10-05 (later): whole rows, the clips, the approval
 
@@ -812,13 +831,10 @@ application's state (EVALUATION.md).
   side-by-side buttons are **approved by Raham**; the sentence in the
   lead-in's place and the rest are **for Aly to review**: DECISIONS.md, "The
   closing screen fits by changing its layout".
-- **A minimised SIMBA window fails the next action** (2026-10-05d). The site
-  view paints about once a second and a click times out waiting for the page
-  to settle. Options: keep the site view painting while minimised (Electron's
-  `backgroundThrottling: false` on that view, which costs power while idle);
-  pause the run and tell the person when the window is minimised; or leave it.
-  Recommended: pause and tell, since nothing should act on a page the person
-  has put away. Not decided.
+- ~~**A minimised SIMBA window fails the next action** (2026-10-05d).~~
+  **Fixed 2026-10-06**: the run waits while the window is minimised or hidden
+  and asks before carrying on (EVALUATION.md, 2026-10-06). What it leaves: it
+  waits without limit, and "hidden" has been checked with a stand-in only.
 - **The step screen shows one finding**, as one line that stops at four
   values. That is the design, not an oversight — but it means a run in
   progress can show "and 2 more" for a while before the ending shows them.
@@ -1038,11 +1054,10 @@ application's state (EVALUATION.md).
   `ruff` reports 69 findings. Adopting them is for all three owners.
 - ~~The venv is Python 3.12.3; `CLAUDE.md` says 3.11.~~ **Settled 2026-09-30**:
   CLAUDE.md says 3.12.
-- `main` is at `45125dc` (`feat/multi-october-fifth`, merged and pushed
-  2026-10-05: the closing screen's fit and the fit check over every ending).
-  **`feat/multi-october-fifth-rows` is not merged or pushed**: whole rows, the
-  mock's health check, the clips' records, the button approval, and this
-  update.
+- `main` has `feat/multi-october-fifth-rows`, merged and pushed 2026-10-06
+  after a clean full suite: whole rows, the mock's health check, the clips'
+  records, the button approval, the window waited for, the fastest named, the
+  kill-command rule, and the non-table limitation.
 - ~~**The demo recordings show the old closing screen**~~ **Re-recorded
   2026-10-05** on our copy (EVALUATION.md, 2026-10-05d). Still not committed:
   a fresh clone has to record them.
