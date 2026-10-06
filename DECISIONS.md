@@ -3735,3 +3735,32 @@ websocket that the contract does not name.
 overlay's own code never reads; `browser.py` and `main.ts` each say so. The
 backend polls every 0.5s while the window is away, and it waits without limit:
 a person who minimises SIMBA and comes back an hour later finds the run waiting.
+
+## How a tie is said, and a sentence that wraps gives up a result line
+
+**Date:** 2026-10-06 (the fastest named and a tie said plainly were asked for;
+the wording of ties past two, and what happens when the sentence wraps, were
+not)
+
+**Decision.** Two or three tied trains are named ("11UP, 13UP and 15UP are the
+fastest, all at …"); four or more are counted ("4 of them are the fastest, all
+at …"); when every train ties, "They both take …" / "They all take …". A train
+number that is a web address is never named, and the sentence falls back to
+the wording that names none. On the closing screen, each line the sentence
+takes past its first gives up one result line, measured after layout.
+
+**Alternatives.** Name every tied train: a long list in the one sentence meant
+to be read at a glance. Keep ties to two names so the sentence stays short:
+two names already wrap at 150%, so it does not solve the fit. Shorten the
+wording: train names are the site's, of any length. Let the page scroll by its
+bottom padding: a scrollbar on the closing screen is what the fit checks exist
+to prevent.
+
+**Why this.** The fit has to hold for sentences we do not control, and a
+result line and a sentence line are nearly the same height (36px and 35px at
+150%), so one for one keeps the screen as tall as it was.
+
+**Cost.** A wrapped sentence shows five results, not six, so the count line
+can read "and 4 more" where six would have fitted beside a one-line sentence.
+The overlay measures the sentence once it is laid out, so the first frame can
+show one row more than the settled screen.

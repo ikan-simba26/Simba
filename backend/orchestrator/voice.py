@@ -192,14 +192,27 @@ def _readable(*values: str) -> bool:
     return all(v and "://" not in v and "www." not in v.lower() for v in values)
 
 
+def _listed(names: list[str]) -> str:
+    """"A and B", "A, B and C"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
                    rows: list[dict[str, str]] | None = None) -> str | None:
-    """How many trains came back, and how long the fastest takes.
+    """How many trains came back, and which is fastest or how long it takes.
 
     From the results whole when there are rows (2026-10-05): a row is a train,
     and its journey is its own. `found` drops a repeated value, so two trains
     with one journey time there are two trains and one time; read from it the
     count is right only because train numbers do not repeat.
+
+    With rows and two trains or more, the fastest is named, because a row says
+    which train each time belongs to (2026-10-06): "The fastest is 1UP, at 6
+    hours 3 minutes." A tie is said as a tie rather than one train picked:
+    two or three are named, more are counted, and when every train ties the
+    sentence says they all take the same. One train, or no rows, keeps the
+    wording that names no train, since without rows nothing says whose the
+    shortest time is.
     """
     if rows:
         listed = [row for row in rows if row.get("Train")]
@@ -215,7 +228,21 @@ def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
     minutes = [_minutes(j) for j in journeys]
     if not journeys or None in minutes or not _readable(*journeys):
         return count
-    fastest = duration(journeys[minutes.index(min(minutes))])
+    best = min(minutes)
+    fastest = duration(journeys[minutes.index(best)])
+    if rows and len(trains) > 1 and _readable(*trains):
+        named: list[str] = []
+        for train, taken in zip(trains, minutes):
+            if taken == best and train not in named:
+                named.append(train)
+        if len(named) == 1:
+            return f"{count} The fastest is {named[0]}, at {fastest}."
+        if len(named) == len(set(trains)):
+            return f"{count} They {'both' if len(named) == 2 else 'all'} take {fastest}."
+        if len(named) <= 3:
+            return (f"{count} {_listed(named)} are the fastest, "
+                    f"{'both' if len(named) == 2 else 'all'} at {fastest}.")
+        return f"{count} {len(named)} of them are the fastest, all at {fastest}."
     return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
 
 

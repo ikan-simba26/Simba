@@ -285,6 +285,25 @@ def test_repeats_on_different_rows_each_train_shows_its_own_time(
     assert page.get_by_text("Train, Departs, Journey", exact=True).count() == 1
 
 
+# The longest sentences the closing screen can now be given (2026-10-06): the
+# fastest named, and a tie of three named.
+NAMED = "There are 9 trains. The fastest is 107UP, at 4 hours 15 minutes."
+TIED = "There are 9 trains. 105UP, 101UP and 107UP are the fastest, all at 4 hours 15 minutes."
+
+
+@pytest.mark.parametrize("sentence", [NAMED, TIED], ids=["named", "a tie of three"])
+@pytest.mark.parametrize("size, scale", SIZES)
+def test_the_sentence_that_names_the_fastest_leaves_the_way_onward_on_screen(
+    size, scale, sentence: str, browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    page = end(browser, overlay, backend, completed(sentence, TRAINS), size, scale)
+
+    assert onward_on_screen(page, size[1]) == []
+    assert page.get_by_test_id("explanation").inner_text() == sentence
+    scrolls = page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+    assert not scrolls
+
+
 NINE_ROWS = [[train, journey] for train, journey in zip(
     NINE, JOURNEYS[:8] + [JOURNEYS[0]])]
 

@@ -123,17 +123,86 @@ def test_a_value_that_is_a_web_address_is_never_said() -> None:
 
 def test_from_rows_each_train_is_counted_with_its_own_journey() -> None:
     """Two trains with one journey time: `found` has one time for two trains,
-    the rows have each train's own (2026-10-05)."""
+    the rows have each train's own (2026-10-05), and both take it (2026-10-06)."""
     rows = [{"Train": "3UP", "Journey": "5 h 15 min"}, {"Train": "4DN", "Journey": "5 h 15 min"}]
 
     assert explain_trains({"Train": ["3UP", "4DN"], "Journey": ["5 h 15 min"]}, {}, rows) == (
-        "There are 2 trains. The fastest takes 5 hours 15 minutes.")
+        "There are 2 trains. They both take 5 hours 15 minutes.")
 
 
 def test_from_rows_a_train_with_no_journey_leaves_the_fastest_unsaid() -> None:
     rows = [{"Train": "3UP", "Journey": "5 h 15 min"}, {"Train": "4DN", "Journey": ""}]
 
     assert explain_trains({}, {}, rows) == "There are 2 trains."
+
+
+def rows_of(*pairs: tuple[str, str]) -> list[dict[str, str]]:
+    return [{"Train": train, "Journey": journey} for train, journey in pairs]
+
+
+#: The same live search, as rows.
+LIVE_ROWS = rows_of(("13UP", "6 h 6 min"), ("39UP", "6 h 38 min"), ("1UP", "6 h 3 min"))
+
+
+def test_with_rows_the_fastest_is_named() -> None:
+    """A row says whose each time is, so the fastest can be named (2026-10-06)."""
+    assert explain_trains({}, {}, LIVE_ROWS) == (
+        "There are 3 trains. The fastest is 1UP, at 6 hours 3 minutes.")
+
+
+def test_a_tie_is_said_as_a_tie_not_one_picked() -> None:
+    rows = rows_of(("11UP", "3 h 15 min"), ("12DN", "4 h 15 min"),
+                   ("13UP", "3 h 15 min"), ("14DN", "4 h 15 min"))
+
+    assert explain_trains({}, {}, rows) == (
+        "There are 4 trains. 11UP and 13UP are the fastest, both at 3 hours 15 minutes.")
+
+
+def test_three_tied_are_named_and_more_are_counted() -> None:
+    three = rows_of(("1UP", "5 h 0 min"), ("2UP", "5 h 0 min"), ("3UP", "5 h 0 min"),
+                    ("4UP", "6 h 0 min"))
+    four = three[:3] + rows_of(("5UP", "5 h 0 min"), ("4UP", "6 h 0 min"))
+
+    assert explain_trains({}, {}, three) == (
+        "There are 4 trains. 1UP, 2UP and 3UP are the fastest, all at 5 hours.")
+    assert explain_trains({}, {}, four) == (
+        "There are 5 trains. 4 of them are the fastest, all at 5 hours.")
+
+
+def test_when_every_train_ties_it_says_they_take_the_same() -> None:
+    assert explain_trains({}, {}, rows_of(("3UP", "5 h 15 min"), ("4DN", "5 h 15 min"))) == (
+        "There are 2 trains. They both take 5 hours 15 minutes.")
+    assert explain_trains({}, {}, rows_of(("1UP", "2 h 0 min"), ("2UP", "2 h 0 min"),
+                                          ("3UP", "2 h 0 min"))) == (
+        "There are 3 trains. They all take 2 hours.")
+
+
+def test_one_result_keeps_the_wording_that_names_no_train() -> None:
+    assert explain_trains({}, {}, rows_of(("9UP", "8 h 15 min"))) == (
+        "There is 1 train. It takes 8 hours 15 minutes.")
+
+
+def test_without_rows_no_train_is_named() -> None:
+    """The lists alone cannot say whose the shortest time is."""
+    assert explain_trains(LIVE, {}) == "There are 3 trains. The fastest takes 6 hours 3 minutes."
+
+
+def test_a_train_number_that_is_an_address_is_never_named() -> None:
+    rows = rows_of(("www.example.com", "5 h 0 min"), ("2UP", "6 h 0 min"))
+
+    assert explain_trains({}, {}, rows) == (
+        "There are 2 trains. The fastest takes 5 hours.")
+
+
+@pytest.mark.parametrize("rows", [
+    LIVE_ROWS,
+    rows_of(("11UP", "3 h 15 min"), ("12DN", "4 h 15 min"), ("13UP", "3 h 15 min")),
+])
+def test_every_number_said_from_rows_is_one_the_page_printed_or_a_count(rows) -> None:
+    sentence = explain_trains({}, {}, rows)
+    printed = " ".join(cell for row in rows for cell in row.values())
+    for number in numbers_in(sentence):
+        assert number in printed or number == str(len(rows)), (number, sentence)
 
 
 # --- end to end, on the replicas --------------------------------------------------
@@ -145,11 +214,13 @@ def test_the_train_search_ends_with_its_sentence(railways: str) -> None:  # noqa
     run = search("Rawalpindi", "Multan", TOMORROW, [], railways)
 
     completed = run.of("task.completed")[0]
-    trains = next(f["values"] for f in completed["findings"] if f["label"] == "Train")
-    journeys = next(f["values"] for f in completed["findings"] if f["label"] == "Journey")
-    assert completed["explanation"] == explain_trains(
-        {"Train": trains, "Journey": journeys}, {})
-    assert completed["explanation"].startswith(f"There are {len(trains)} trains.")
+    train = completed["findings"][0]
+    rows = [{"Train": t, "Journey": j} for t, j in train["rows"]]
+    assert completed["explanation"] == explain_trains({}, {}, rows)
+    assert completed["explanation"].startswith(f"There are {len(rows)} trains.")
+    # The fastest is named, and it is the train whose own row has that time.
+    assert completed["explanation"] == (
+        "There are 2 trains. The fastest is 3UP, at 5 hours 15 minutes.")
 
 
 def test_trains_that_share_journey_times_each_arrive_with_their_own(
@@ -168,7 +239,7 @@ def test_trains_that_share_journey_times_each_arrive_with_their_own(
     assert train["rows"] == [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"],
                              ["13UP", "3 h 15 min"], ["14DN", "4 h 15 min"]]
     assert completed["explanation"] == (
-        "There are 4 trains. The fastest takes 3 hours 15 minutes.")
+        "There are 4 trains. 11UP and 13UP are the fastest, both at 3 hours 15 minutes.")
 
 
 def test_the_bill_ends_with_its_sentence(billing_replica: str) -> None:  # noqa: F811

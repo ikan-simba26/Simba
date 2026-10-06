@@ -4880,3 +4880,41 @@ after, `task.failed` with the stop's reason); a window that stays shown
 changes no message; and the overlay page's value read the way the backend
 reads it, ignoring the same value on the site view. "Hidden" has been checked
 with the stand-in only, not by hiding the real window.
+
+## 2026-10-06b — the sentence names the fastest train, and a tie is said as one
+
+With rows and two trains or more, `voice.explain_trains` names the fastest:
+"There are 3 trains. The fastest is 1UP, at 6 hours 3 minutes." A tie is not
+settled by picking one: two or three tied are named ("11UP and 13UP are the
+fastest, both at 3 hours 15 minutes."), more are counted ("4 of them are the
+fastest, all at …"), and when every train ties, "They both take …" or "They
+all take …". One train, or no rows, keeps the wording that names none. On the
+replicas end to end: Rawalpindi to Multan gives "There are 2 trains. The
+fastest is 3UP, at 5 hours 15 minutes."; Hyderabad Jn to Sukkur, where two
+pairs tie, gives "There are 4 trains. 11UP and 13UP are the fastest, both at 3
+hours 15 minutes."
+
+**The fit, measured** in Chromium at each scale's content size, nine trains:
+
+| Sentence | Characters | 100%: lines, spare | 125%: lines, spare | 150%: lines, spare |
+|---|---|---|---|---|
+| the fastest named | 64 | 1, 140px | 1, 168px | 1, 40px |
+| a tie of two named | 80 | 2, 140px | 2, 170px | 2, 42px |
+| a tie of three named | 86 | 2, 140px | 2, 170px | 2, 42px |
+| a tie of four, counted | 73 | 2, 140px | 1, 168px | 1, 40px |
+
+Nothing scrolls in any of the twelve. **Found on the way**: before the line
+rule below, the tie of three wrapped to two lines at 150% (69px against 35px)
+and the page scrolled by 10px (616 of 606), buttons still on screen; the tie
+of two did the same (80 characters). Any sentence over about 70 characters
+wraps at the compact layout's 23px, and the live site's train names are not
+ours to keep short. So each line the sentence takes past its first gives up
+one result line: a wrapped sentence shows five trains and "and 4 more"
+instead of six and "and 3 more" (`App.Findings`, `less`).
+
+Tests: 9 in `backend/orchestrator/test_explanation.py` (named; tie of two;
+three named and four counted; all tied, two and three; one result; no rows; a
+train number that is an address is not named; every number said is printed
+or a count, from rows), the two end-to-end sentences updated, 3 more
+sentences under `test_copy.py`'s rules, and 6 fit cases in
+`frontend/test_closing.py`.

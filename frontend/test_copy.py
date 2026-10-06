@@ -394,6 +394,15 @@ def backend_sentences() -> dict[str, str]:
         "one train": voice.explain_trains({"Train": ["9UP"], "Journey": ["8 h 15 min"]}, {}),
         "trains, journeys unreadable": voice.explain_trains(
             {"Train": ["9UP", "10DN"], "Journey": ["overnight"]}, {}),
+        # From rows, the fastest named, and a tie said as one (2026-10-06).
+        "three trains as rows": voice.explain_trains({}, {}, [
+            {"Train": "13UP", "Journey": "6 h 6 min"}, {"Train": "39UP", "Journey": "6 h 38 min"},
+            {"Train": "1UP", "Journey": "6 h 3 min"}]),
+        "a tie of two": voice.explain_trains({}, {}, [
+            {"Train": "11UP", "Journey": "3 h 15 min"}, {"Train": "12DN", "Journey": "4 h 15 min"},
+            {"Train": "13UP", "Journey": "3 h 15 min"}]),
+        "every train tied": voice.explain_trains({}, {}, [
+            {"Train": "3UP", "Journey": "5 h 15 min"}, {"Train": "4DN", "Journey": "5 h 15 min"}]),
         "a bill": voice.explain_bill({"Your bill": ["14,382"], "Due": ["15-09-2026"]}, {}),
         "a bill with no date": voice.explain_bill({"Your bill": ["14,382"]}, {}),
         "a course": voice.explain_course("MATH-210")({}, {"Course": ["MATH-210 section 001"]}),
