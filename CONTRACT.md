@@ -175,6 +175,24 @@ its finding in large type beside the instruction; the closing screen shows
 change CLAUDE.md allows without a ratification session). A sender that omits
 it means `[value]`, and a reader that ignores it behaves exactly as before.
 
+`values` drops a repeated value, so two findings' `values` cannot be paired by
+position: two trains with one journey time give two trains and one time.
+**`rows`** carries the results whole, on the **first finding of a message
+only**: one list per result, in page order, repeats kept, with one cell per
+finding in that message, in the same order as the findings, and `""` where the
+page's row had nothing for it:
+
+```json
+[{ "label": "Train", "value": "13UP, 39UP", "values": ["13UP", "39UP"],
+   "rows": [["13UP", "6 h 6 min"], ["39UP", "6 h 6 min"]] },
+ { "label": "Journey", "value": "6 h 6 min", "values": ["6 h 6 min"] }]
+```
+
+Absent or empty when the values did not come from a table. **`rows` is
+additive and optional** (added 2026-10-05, same rule as `values`): a reader
+that ignores it behaves exactly as before, and the closing screen reads it
+when it is there.
+
 `label` is for a person to read, not the page's own column heading: the
 billing replica calls that column `P/WITHIN`. The plan supplies the readable
 name, because only the plan knows what the goal was about.

@@ -3657,3 +3657,131 @@ shown as the answer.
 **Cost.** Equal lengths are not proof of alignment: a repeat dropped from each
 column, in different rows, gives two lists of the same length that do not line
 up. Fixing that needs the rows themselves from perception (flagged, not done).
+
+## Results travel as whole rows, on the first finding
+
+**Date:** 2026-10-05 (rows asked for by Raham; their shape in the message was
+not specified)
+
+**Decision.** `Finding.rows: list[list[str]]`, additive and optional, set on
+the **first finding of a message only**: one list per result, in page order,
+repeats kept, with one cell per finding in that message in the findings'
+order, and `""` where the page's row had nothing. Perception reads them from
+its tables (`Content.rows_for`, keyed by the first finding's column); the run
+remembers them across pages as `findings_in` remembers values; the sentence
+(`voice.explain_*`, now given `rows`) and the closing screen read them when
+present and fall back to `values` when not.
+
+**Alternatives.** A `rows` field on `task.completed` rather than on a finding,
+which is where rows belong but not what was asked for. Every finding carrying
+its own column with repeats kept, aligned by index: the same positional
+pairing that failed, with nothing in the structure to hold it together. Every
+finding carrying the same full rows: the same data once per finding.
+
+**Why this.** A row is one result's cells, so nothing downstream pairs
+anything; putting it on the first finding — the answer the rows are rows of —
+keeps it to one copy and leaves every existing field and reader as it was.
+
+**Cost.** A convention a reader must know: only the first finding has rows,
+and their cells follow the findings' order. Values not from a table (label and
+value pairs) have no rows, and those findings are still paired by length on
+the closing screen, with its known weakness. The railways replica gained one
+route, Hyderabad Jn to Sukkur, with four trains whose journey times repeat, so
+the case can be run end to end; every other route is unchanged.
+
+## The closing screen's side-by-side buttons: approved
+
+**Date:** 2026-10-05
+
+**Decision.** The closing screen's two buttons sitting side by side, "I'm done"
+first, at every scale — decision 4 of "The closing screen fits by changing its
+layout, not only its type" above — is **approved by Raham**.
+
+**What this settles, and what it does not.** It settles the button layout; the
+closing screen stays the one screen whose buttons are not stacked. It does not
+record a review by Aly, who owns the interface: CLAUDE.md has the owner review
+changes to their area, and the other layout changes in that entry (the
+sentence in the lead-in's place, a detail that cannot be put beside its result
+taking one result's place) are not covered by this approval.
+
+## The backend learns the window's state from the overlay page, over CDP
+
+**Date:** 2026-10-06 (the pause was asked for; how the backend learns the
+window is away was not specified)
+
+**Decision.** `frontend/electron/main.ts` writes `window.__simbaWindow` —
+`"shown"`, `"minimised"` or `"hidden"` — into the overlay page whenever the
+window is minimised, restored, hidden or shown, and when the overlay loads.
+The backend reads it over the CDP connection it already holds to the host, in
+`browser.window_watch`, before every operation (`_Run.ready`). An absent value,
+an older host or no host at all read as `"shown"`, which is how every run
+behaved before. The line the person sees when the window comes back is an
+ordinary `step.presented`, from `voice.py`, with **Carry on** and the usual
+stop; it is shown like a step and counted on screen, but is not a step taken.
+
+**Alternatives.** A new message from the overlay to the backend over the
+websocket, which is cleaner but a new message type, and CLAUDE.md asks all
+three owners for those. Ask the pages themselves: on 2026-10-05 both views
+reported `document.visibilityState` "visible" while the window was minimised,
+so they cannot be trusted. Infer it from how often the site view paints: a busy
+page can paint slowly too, and that would tell a person "I waited while the
+window was closed" when it was not.
+
+**Why this.** Only the host's main process knows for certain, and CDP is a
+channel the backend already uses to drive the site view; nothing crosses the
+websocket that the contract does not name.
+
+**Cost.** A global on the overlay page that the backend depends on and the
+overlay's own code never reads; `browser.py` and `main.ts` each say so. The
+backend polls every 0.5s while the window is away, and it waits without limit:
+a person who minimises SIMBA and comes back an hour later finds the run waiting.
+
+## How a tie is said, and a sentence that wraps gives up a result line
+
+**Date:** 2026-10-06 (the fastest named and a tie said plainly were asked for;
+the wording of ties past two, and what happens when the sentence wraps, were
+not)
+
+**Decision.** Two or three tied trains are named ("11UP, 13UP and 15UP are the
+fastest, all at …"); four or more are counted ("4 of them are the fastest, all
+at …"); when every train ties, "They both take …" / "They all take …". A train
+number that is a web address is never named, and the sentence falls back to
+the wording that names none. On the closing screen, each line the sentence
+takes past its first gives up one result line, measured after layout.
+
+**Alternatives.** Name every tied train: a long list in the one sentence meant
+to be read at a glance. Keep ties to two names so the sentence stays short:
+two names already wrap at 150%, so it does not solve the fit. Shorten the
+wording: train names are the site's, of any length. Let the page scroll by its
+bottom padding: a scrollbar on the closing screen is what the fit checks exist
+to prevent.
+
+**Why this.** The fit has to hold for sentences we do not control, and a
+result line and a sentence line are nearly the same height (36px and 35px at
+150%), so one for one keeps the screen as tall as it was.
+
+**Cost.** A wrapped sentence shows five results, not six, so the count line
+can read "and 4 more" where six would have fitted beside a one-line sentence.
+The overlay measures the sentence once it is laid out, so the first frame can
+show one row more than the settled screen.
+
+## Results not from a table still pair by list length: a known limitation
+
+**Date:** 2026-10-06
+
+**Decision.** Results that do not come from a table — label and value pairs,
+which have no rows — are still put side by side on the closing screen only
+when their lists have the same length, and a detail with a different length is
+a line under the list. This is a **known limitation**, and **no work is
+planned on it before the feature freeze** (1 November).
+
+**What it leaves.** Equal lengths are not proof of alignment: a repeated value
+dropped from each list on different rows leaves two lists of one length that
+do not line up, and the closing screen would pair them wrongly. None of the
+three flows hits it: railways and billing read tables, and so carry rows
+(`Finding.rows`, 2026-10-05), and registration finds nothing. An LLM-planned
+task on a site that lays its results out as label and value pairs could.
+
+**What would fix it.** Perception grouping pairs into records the way it
+groups table rows, so pairs would carry rows too; a perception change, and
+Nahail's.

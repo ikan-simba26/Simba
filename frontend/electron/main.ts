@@ -180,6 +180,26 @@ app.whenReady().then(() => {
   });
   screen.on("display-metrics-changed", () => fit(screen.getDisplayMatching(win.getBounds())));
 
+  // Whether the window is there to be acted in, written into the overlay
+  // page, where the backend reads it over CDP before every action
+  // (`backend/orchestrator/browser.window_watch`). A minimised window paints
+  // the site view about once a second and a click there waits for a page that
+  // never settles; on 2026-10-05 that ended two demo clips "I'm stuck". The
+  // pages themselves cannot be asked: both reported `visibilityState`
+  // "visible" while the window was minimised. Only this process knows.
+  const windowState = (): string =>
+    win.isMinimized() ? "minimised" : win.isVisible() ? "shown" : "hidden";
+  const tellOverlay = (): void => {
+    overlay.webContents
+      .executeJavaScript(`window.__simbaWindow = ${JSON.stringify(windowState())};`)
+      .catch(() => undefined);
+  };
+  win.on("minimize", tellOverlay);
+  win.on("restore", tellOverlay);
+  win.on("hide", tellOverlay);
+  win.on("show", tellOverlay);
+  overlay.webContents.on("did-finish-load", tellOverlay);
+
   if (DEV_SERVER) {
     void overlay.webContents.loadURL(DEV_SERVER);
   } else {

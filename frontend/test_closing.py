@@ -239,3 +239,88 @@ def test_nine_trains_and_eight_journeys_leave_the_way_onward_on_screen(
     assert all(page.get_by_text(train, exact=True).count() == 1 for train in NINE[:5])
     assert page.get_by_text("and 4 more", exact=True).count() == 1
     assert "Journey: 4 h 30 min" in text
+
+
+# --- whole rows (2026-10-05) ---------------------------------------------------
+#
+# `Finding.rows` carries each result's cells together, repeats kept, on the
+# first finding. The screen reads its lines from them, so no time can sit
+# beside the wrong train.
+
+
+def test_two_trains_that_share_a_journey_time_each_show_it(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    page = end(browser, overlay, backend, completed(
+        "There are 2 trains. The fastest takes 5 hours 15 minutes.", [
+            {"label": "Train", "value": "3UP, 4DN", "values": ["3UP", "4DN"],
+             "rows": [["3UP", "5 h 15 min"], ["4DN", "5 h 15 min"]]},
+            {"label": "Journey", "value": "5 h 15 min", "values": ["5 h 15 min"]},
+        ]))
+
+    assert page.get_by_text("3UP, 5 h 15 min", exact=True).count() == 1
+    assert page.get_by_text("4DN, 5 h 15 min", exact=True).count() == 1
+    assert page.get_by_text("Train, Journey", exact=True).count() == 1
+    assert "Journey:" not in page.inner_text("body")
+
+
+def test_repeats_on_different_rows_each_train_shows_its_own_time(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The departure repeats on rows 1 and 2, the journey on rows 2 and 3.
+    Each list is two values for three trains — the case the lists alone could
+    not pair. From rows, every line is one train's own."""
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "1UP, 2UP, 3UP", "values": ["1UP", "2UP", "3UP"],
+         "rows": [["1UP", "07:10", "5 h 15 min"], ["2UP", "07:10", "6 h 15 min"],
+                  ["3UP", "09:00", "6 h 15 min"]]},
+        {"label": "Departs", "value": "07:10, 09:00", "values": ["07:10", "09:00"]},
+        {"label": "Journey", "value": "5 h 15 min, 6 h 15 min",
+         "values": ["5 h 15 min", "6 h 15 min"]},
+    ]))
+
+    for line in ("1UP, 07:10, 5 h 15 min", "2UP, 07:10, 6 h 15 min",
+                 "3UP, 09:00, 6 h 15 min"):
+        assert page.get_by_text(line, exact=True).count() == 1, line
+    assert page.get_by_text("Train, Departs, Journey", exact=True).count() == 1
+
+
+# The longest sentences the closing screen can now be given (2026-10-06): the
+# fastest named, and a tie of three named.
+NAMED = "There are 9 trains. The fastest is 107UP, at 4 hours 15 minutes."
+TIED = "There are 9 trains. 105UP, 101UP and 107UP are the fastest, all at 4 hours 15 minutes."
+
+
+@pytest.mark.parametrize("sentence", [NAMED, TIED], ids=["named", "a tie of three"])
+@pytest.mark.parametrize("size, scale", SIZES)
+def test_the_sentence_that_names_the_fastest_leaves_the_way_onward_on_screen(
+    size, scale, sentence: str, browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    page = end(browser, overlay, backend, completed(sentence, TRAINS), size, scale)
+
+    assert onward_on_screen(page, size[1]) == []
+    assert page.get_by_test_id("explanation").inner_text() == sentence
+    scrolls = page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+    assert not scrolls
+
+
+NINE_ROWS = [[train, journey] for train, journey in zip(
+    NINE, JOURNEYS[:8] + [JOURNEYS[0]])]
+
+
+@pytest.mark.parametrize("size, scale", SIZES)
+def test_nine_trains_as_rows_leave_the_way_onward_on_screen(
+    size, scale, browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Nine trains, two sharing a time: from rows, six whole lines and a
+    count, as tall as nine trains with nine times."""
+    page = end(browser, overlay, backend, completed(SENTENCE, [
+        {**TRAINS[0], "rows": NINE_ROWS},
+        {"label": "Journey", "value": "4 h 30 min, 4 h 45 min, 5 h 20 min, 5 h 45 min and 4 more",
+         "values": JOURNEYS[:8]},
+    ]), size, scale)
+
+    assert onward_on_screen(page, size[1]) == []
+    for train, journey in NINE_ROWS[:6]:
+        assert page.get_by_text(f"{train}, {journey}", exact=True).count() == 1
+    assert page.get_by_text("and 3 more", exact=True).count() == 1

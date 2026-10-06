@@ -105,11 +105,18 @@ class Finding(BaseModel):
 
     `values` is optional and additive: a sender that does not set it is read
     as `[value]`, which is what every finding was before 2026-09-19.
+
+    `values` drops a repeated value, so two findings' lists cannot be paired by
+    position. `rows`, on the first finding of a message only, is every result
+    whole: one cell per finding in that message, in their order, repeats kept,
+    "" where the page's row had nothing. Optional and additive (2026-10-05);
+    empty when the values did not come from a table.
     """
 
     label: str
     value: str
     values: List[str] = []
+    rows: List[List[str]] = []
 
 
 class StepField(BaseModel):

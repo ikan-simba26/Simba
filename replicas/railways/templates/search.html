@@ -223,8 +223,20 @@
 
   // --- the search ----------------------------------------------------------------
 
+  // One route whose trains share journey times, two by two, on rows that are
+  // not next to each other: the case that put a time beside the wrong train
+  // while results travelled as columns with repeats dropped (2026-10-05).
+  const SHARED_ROUTE = ["HYDERABAD JN", "SUKKUR"];
+  const SHARED = [
+    { number: "11UP", time: "06:40", hours: 3 },
+    { number: "12DN", time: "09:30", hours: 4 },
+    { number: "13UP", time: "13:05", hours: 3 },
+    { number: "14DN", time: "18:45", hours: 4 },
+  ];
+
   function trains(from, to) {
     if (from === NO_SERVICE || to === NO_SERVICE || from === to) return [];
+    if (from === SHARED_ROUTE[0] && to === SHARED_ROUTE[1]) return SHARED;
     // Invented, and fixed per route so a run reads the same twice.
     const seed = (from.length * 7 + to.length * 3) % 5;
     const found = [

@@ -21,6 +21,7 @@ since that is what the site view looks like before it navigates.
 """
 
 import os
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from playwright.async_api import Error as PlaywrightError
@@ -95,6 +96,54 @@ def find_site_page(pages: list[Page], start_url: str) -> Page:
             f"view: {urls}"
         )
     return candidates[0]
+
+
+#: What the host writes into the overlay page whenever its window is
+#: minimised, hidden or brought back (`frontend/electron/main.ts`). Absent —
+#: an older host, or a page not yet told — reads as "shown", which is how a run
+#: behaved before the window was watched at all.
+WINDOW_JS = "() => window.__simbaWindow || 'shown'"
+
+
+def is_overlay(url: str) -> bool:
+    """The overlay page: served from `file:` in a build, or from the dev server."""
+    overlay = overlay_url()
+    return url.startswith("file:") or bool(overlay and url.startswith(overlay))
+
+
+async def window_state(pages: list[Page]) -> str:
+    """"shown", "minimised" or "hidden", as the host last told its overlay page.
+
+    "shown" when there is no overlay page or it cannot be read: a run that
+    cannot see the window acts, as every run did before 2026-10-06.
+    """
+    for page in pages:
+        if not is_overlay(page.url):
+            continue
+        try:
+            return str(await page.evaluate(WINDOW_JS))
+        except PlaywrightError:
+            return "shown"
+    return "shown"
+
+
+def window_watch(site: Page) -> Callable[[], Awaitable[str]] | None:
+    """How a run asks whether the SIMBA window is there, before each action.
+
+    None outside the Electron host: a headless browser has no window to put
+    away. Each call looks the overlay page up afresh, since a reload replaces
+    it.
+    """
+    if browser_source() != "electron":
+        return None
+
+    async def state() -> str:
+        browser = site.context.browser
+        if browser is None:
+            return "shown"
+        return await window_state([p for c in browser.contexts for p in c.pages])
+
+    return state
 
 
 def _origin(url: str) -> str:

@@ -17,7 +17,10 @@ to 2026-09-09):
 
 It is not a copy of that site's markup or its timetable. The stations are a
 short list that includes the cases the flow has to cope with — two stations
-in one city, and a city with one — and the trains are invented.
+in one city, and a city with one — and the trains are invented. One route,
+Hyderabad Jn to Sukkur, has four trains whose journey times repeat on rows
+that are not next to each other (`search.html`, `SHARED`), for the results
+travelling as whole rows (2026-10-05).
 
 One page. Everything happens in the browser; `/` serves it.
 """

@@ -4756,3 +4756,165 @@ Nothing scrolls anywhere. The tightest is nine trains with eight times at 150%:
 Site-view captures in the same runs: 10/20, 11/20 and 10/20 at forced 100%,
 20/20 at 125% and 150% — the known 100% capture problem (2026-09-27),
 unchanged and unrelated: the captures are taken before any ending is played.
+
+## 2026-10-05c — results as whole rows: each train with its own time
+
+`values` drops a repeated value per label, so the closing screen could only
+pair a train with a journey time by position, and refused when the lists'
+lengths differed (2026-10-05b). Now perception reads each table row whole
+(`Content.rows_for`, repeats kept), the first finding carries the rows
+(`Finding.rows`, additive and optional), and the closing screen and the
+sentence read from them.
+
+**On our copy** (`railways-local`, through the Electron window, hardcoded
+plan): "trains from Hyderabad to Sukkur tomorrow", a route given four trains
+whose journey times repeat on rows 1 and 3 and on rows 2 and 4. 5 steps, 0
+planner calls, 20.9s Start to ending as the backend timed it (51.3s by the
+driving script, which pauses 2.5s on each step to be readable).
+
+| | What it carried |
+|---|---|
+| `Journey.values` | `3 h 15 min, 4 h 15 min` — two times for four trains |
+| `Train.rows` | `11UP, 3 h 15 min` · `12DN, 4 h 15 min` · `13UP, 3 h 15 min` · `14DN, 4 h 15 min` |
+| The site view's own table | the same four rows, cell for cell |
+| The closing screen | "There are 4 trains. The fastest takes 3 hours 15 minutes." and the four rows above, one line each |
+
+Before this change the same message would have shown the four trains and,
+under them, "Journey: 3 h 15 min, 4 h 15 min" — not wrong, but no train's own
+time.
+
+**On the live site, one read-only search**: "trains to Rawalpindi tomorrow",
+answered Lahore, then Lahore Cantt. One request sent, `LRC` to `RWP` for
+2026-10-06. 5 steps, 0 planner calls, 50.7s Start to ending. The live results
+are built from `div`s with the heading strip as a separate group, and the rows
+came through that join (`_adopt_headers`) whole: `13UP, 6 h 6 min` ·
+`39UP, 6 h 38 min` · `1UP, 6 h 3 min`, matching the site view's table, and the
+same three lines on the closing screen under "There are 3 trains. The fastest
+takes 6 hours 3 minutes." No two trains shared a time on that route that day,
+so the live run shows the rows arriving, not the repeat being kept.
+
+Tests: 3 in `backend/perception/test_content.py`, 4 in
+`backend/orchestrator/test_success_conditions.py`, 3 in
+`backend/orchestrator/test_explanation.py` (one of them the Hyderabad search
+end to end on the replica), 5 in `frontend/test_closing.py` (two trains
+sharing a time; repeats on different rows across three columns, where each
+list alone is two values for three trains; nine trains as rows at three
+scales). The router was set to `model` on both runs; whatever calls it made
+to route and read the goal are not in `llm_calls`, which counts the planner's
+only, and were not counted separately.
+
+## 2026-10-05d — the demo clips, re-recorded to show the closing screen as it is
+
+`python -m tools.record_demo` with the stack started by `.\run.ps1
+railways-local`, the overlay built from the current source, every clip
+pressing at a 1.8s beat. The health check said `"railways_site":
+"http://127.0.0.1:5200"` before the railways clip.
+
+| Clip | What it did | Ending | Length |
+|---|---|---|---|
+| railways | typed "Lahore", chose "Lahore Cantt", five steps | **found an answer** | 61s |
+| billing | typed `04141234567890` when asked, three steps | **found an answer** | 43s |
+| hello | — | greeted, nothing started | 8s |
+| fold (mock) | four steps, the scripted fold | done | 34s |
+| adapt | folded after 7.2s of hesitation on step 1, three steps | **found an answer** | 41s |
+
+**Two failures on the way, both found and fixed before these clips.**
+
+- **The recorder could not start the mock backend.** Since `a577cef`
+  (2026-10-03) a helper had been put between `@app.get("/")` and `health()` in
+  `tools/mock_backend.py`, so `/` answered 422 and nothing could tell the mock
+  was up. `tools/test_mock_backend.py`'s fixture has the same readiness loop
+  but goes on after 30s regardless, so the suite kept passing and spent 30s
+  every run. Fixed in `2727730`, with a test.
+- **The first pass of billing and adapt ended "I'm stuck, so I've stopped."**
+  Step 3's click on the reference box timed out twice (10s each), and the run
+  stopped on the next step. The SIMBA window was **minimised** — checked with
+  Windows' own window state, not a screenshot — and the site view inside it
+  was painting about once a second (frames at 936, 1957 and 2982ms), so
+  Playwright's wait for the box to be stable never passed. The overlay's own
+  Start button failed the same way. Not caused by this change: the same flow
+  passes headless, and both clips ended on the answer in a fresh,
+  un-minimised window. What minimised it is not known.
+
+That second one is also a **product finding**: a person who minimises SIMBA
+during a task would see the next action fail. CLAUDE.md's rule keeps the site
+view visible and covered so screenshots work; it says nothing about the window
+itself being minimised. Not fixed: flagged.
+
+The clips were not watched frame by frame; what shows they hold the current
+closing screen is that they were drawn by the overlay built from this source,
+and that every task clip reported reaching its ending.
+
+## 2026-10-06 — a minimised window is waited for, not failed
+
+Before every action the backend asks whether the SIMBA window is there
+(`browser.window_watch`, reading what `frontend/electron/main.ts` writes into
+the overlay page on minimise, restore, hide and show). While it is minimised or
+hidden, nothing is done; when it comes back, one line — "I waited while the
+window was closed. Ready to carry on?" — and the run goes on only after "Carry
+on". Stop there ends the run as a stop, not a failure.
+
+**In the real window** (`.\run.ps1 billing`, driven over the backend's
+websocket; the window minimised and restored with Windows' `ShowWindow` on the
+Electron process the stack started, found by its CDP port):
+
+| Time | What happened |
+|---|---|
+| 16.9s | step 2, "Let me look up your bill.", on screen; window minimised (`IsIconic` true; the overlay page says `minimised`); step 2 confirmed |
+| 16.9–27.3s | the backend waited: one `state.changed` to acting, no action, no `step.failed`, no `help.requested` |
+| 27.3s | window restored (the overlay page says `shown`) |
+| 28.1s | "I waited while the window was closed. Ready to carry on?" with **Carry on** and **Stop this** |
+| 30.1s | after Carry on: step 4, "Now I'll open the full bill." |
+| 31.1s | `task.completed`, 3 steps taken, 0 planner calls, the bill 14,382 found |
+
+Before this change the same minimise ended the run: on 2026-10-05 the click on
+the reference box timed out twice and the next step was given up on
+(2026-10-05d).
+
+`backend/orchestrator/test_window.py`, 7 tests, on the billing replica with a
+stand-in for the window: minimised between typing the reference and pressing
+"Check Bill" (mid-step), waited for and finished, with the window's state
+recorded at every real action — all four `shown`; away for forty looks; hidden
+rather than minimised; stop when it comes back (two actions before, none
+after, `task.failed` with the stop's reason); a window that stays shown
+changes no message; and the overlay page's value read the way the backend
+reads it, ignoring the same value on the site view. "Hidden" has been checked
+with the stand-in only, not by hiding the real window.
+
+## 2026-10-06b — the sentence names the fastest train, and a tie is said as one
+
+With rows and two trains or more, `voice.explain_trains` names the fastest:
+"There are 3 trains. The fastest is 1UP, at 6 hours 3 minutes." A tie is not
+settled by picking one: two or three tied are named ("11UP and 13UP are the
+fastest, both at 3 hours 15 minutes."), more are counted ("4 of them are the
+fastest, all at …"), and when every train ties, "They both take …" or "They
+all take …". One train, or no rows, keeps the wording that names none. On the
+replicas end to end: Rawalpindi to Multan gives "There are 2 trains. The
+fastest is 3UP, at 5 hours 15 minutes."; Hyderabad Jn to Sukkur, where two
+pairs tie, gives "There are 4 trains. 11UP and 13UP are the fastest, both at 3
+hours 15 minutes."
+
+**The fit, measured** in Chromium at each scale's content size, nine trains:
+
+| Sentence | Characters | 100%: lines, spare | 125%: lines, spare | 150%: lines, spare |
+|---|---|---|---|---|
+| the fastest named | 64 | 1, 140px | 1, 168px | 1, 40px |
+| a tie of two named | 80 | 2, 140px | 2, 170px | 2, 42px |
+| a tie of three named | 86 | 2, 140px | 2, 170px | 2, 42px |
+| a tie of four, counted | 73 | 2, 140px | 1, 168px | 1, 40px |
+
+Nothing scrolls in any of the twelve. **Found on the way**: before the line
+rule below, the tie of three wrapped to two lines at 150% (69px against 35px)
+and the page scrolled by 10px (616 of 606), buttons still on screen; the tie
+of two did the same (80 characters). Any sentence over about 70 characters
+wraps at the compact layout's 23px, and the live site's train names are not
+ours to keep short. So each line the sentence takes past its first gives up
+one result line: a wrapped sentence shows five trains and "and 4 more"
+instead of six and "and 3 more" (`App.Findings`, `less`).
+
+Tests: 9 in `backend/orchestrator/test_explanation.py` (named; tie of two;
+three named and four counted; all tied, two and three; one result; no rows; a
+train number that is an address is not named; every number said is printed
+or a count, from rows), the two end-to-end sentences updated, 3 more
+sentences under `test_copy.py`'s rules, and 6 fit cases in
+`frontend/test_closing.py`.

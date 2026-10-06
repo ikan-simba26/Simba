@@ -116,8 +116,11 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
     assert completed["findings"] == [
         # Both forms of each answer: the line the step screen shows, and the
         # list the closing screen shows. One value, so they say the same thing.
-        {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
-        {"label": "Due", "value": "15-09-2026", "values": ["15-09-2026"]},
+        # And the bill's one table row whole, on the first finding: the amount
+        # and the date due, from the same row (2026-10-05).
+        {"label": "Your bill", "value": "14,382", "values": ["14,382"],
+         "rows": [["14,382", "15-09-2026"]]},
+        {"label": "Due", "value": "15-09-2026", "values": ["15-09-2026"], "rows": []},
     ]
     # And it was shown while the run was still going, from the step it turned up on.
     assert connection.of("step.presented")[-1]["findings"] == completed["findings"]

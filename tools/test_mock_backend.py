@@ -101,6 +101,15 @@ def completed(received: list[dict]) -> dict:
     return [m for m in received if m["type"] == "task.completed"][0]["payload"]
 
 
+def test_the_mock_says_it_is_up(mock: str) -> None:
+    """The launcher, the demo recorder and this file's fixture all wait for
+    `/`. From 2026-10-03 to 2026-10-05 it answered 422, because a helper had
+    been put between the route's decorator and `health`."""
+    with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/", timeout=5) as response:
+        said = json.loads(response.read())
+    assert said["status"] == "ok" and said["flow"] == "mock"
+
+
 def test_hello_is_greeted_and_nothing_plays(mock: str) -> None:
     received = converse(mock, {"goal": "hello"})
 

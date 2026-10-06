@@ -12,7 +12,7 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
@@ -505,6 +505,8 @@ function Completed() {
   // the page's or `voice.py`'s, and `test_copy.py` holds those to the same
   // rules. Absent, the lead-in "Here's what I found" is there instead.
   const explanation = completed?.explanation ?? null;
+  const said = useRef<HTMLParagraphElement>(null);
+  const lines = useLines(said);
 
   return (
     <div className="flex flex-col gap-8 short:gap-5">
@@ -514,14 +516,15 @@ function Completed() {
               says what the lead-in says and more, and both together were the
               line that kept nine results off a 606px window (2026-10-05). */}
           {explanation ? (
-            <p className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
+            <p ref={said}
+               className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
                data-testid="explanation">
               {explanation}
             </p>
           ) : (
             <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
           )}
-          <Findings findings={findings} size={TYPE.hero} />
+          <Findings findings={findings} size={TYPE.hero} less={Math.max(0, lines - 1)} />
         </Card>
       ) : (
         <div className="flex flex-col items-start gap-5">
@@ -573,22 +576,32 @@ function Completed() {
  * `values` is the whole list; a message from before it existed has none, and
  * then the line is the answer.
  *
- * A finding is put beside the answer only when it has exactly as many values.
- * Perception drops a repeated value within a column (`values_for`), so two
- * trains with the same journey time give two trains and one time, and pairing
- * those by position would put a time beside the wrong train. A finding that
- * does not line up is one line under the list, in the step screen's form, and
- * takes the place of one result.
+ * The results are read whole from `rows` when the backend sends them
+ * (2026-10-05): each row is one result's cells, kept together from the page's
+ * own table row, repeats included, so each train has its own time and nothing
+ * here pairs anything. Without rows — a message from before them, or values
+ * that did not come from a table — the lists in `values` are the only source,
+ * and they drop a repeated value: two trains with one journey time give two
+ * trains and one time. Then a finding is put beside the answer only when it
+ * has exactly as many values, and even that is not proof (a repeat dropped
+ * from each list on different rows leaves two lists of one length that do not
+ * line up). Either way, a finding that cannot go on the results' lines is one
+ * line under the list, in the step screen's form, and takes one result's
+ * place.
  *
  * Past `LISTED` results the first ones are shown and the rest counted, and
  * past four the type is a step smaller. Both are for the same reason: the
  * closing screen must fit, buttons and all, at 150% with nine results, with a
  * sentence above them or without (`test_closing.py`).
  */
-export function Findings({ findings, size }: { findings: Finding[]; size: number }) {
+export function Findings({ findings, size, less = 0 }: {
+  findings: Finding[]; size: number; less?: number;
+}) {
   const lists = findings.map((finding) =>
     finding.values?.length ? finding.values : [finding.value]);
-  const count = lists[0]?.length ?? 0;
+  const sent = findings[0]?.rows ?? [];
+  const byRows = sent.length > 1;
+  const count = byRows ? sent.length : lists[0]?.length ?? 0;
 
   if (count <= 1) {
     return (
@@ -606,15 +619,25 @@ export function Findings({ findings, size }: { findings: Finding[]; size: number
     );
   }
 
-  const beside = findings.filter((_, index) => lists[index].length === count);
-  const apart = findings.filter((_, index) => lists[index].length !== count);
+  // Whether a finding can go on each result's line: from rows, any finding
+  // with a cell in some row; from lists, only one exactly as long.
+  const onLine = (index: number) => byRows
+    ? sent.some((row) => Boolean(row[index]))
+    : lists[index].length === count;
+  const beside = findings.filter((_, index) => onLine(index));
+  const apart = findings.filter((_, index) => !onLine(index));
   // Each detail that does not line up takes one result's place, so the screen
   // is no taller for it: as its own block, label and all, it put both buttons
   // below a 606px window with nine trains and eight journey times
   // (`test_terminal_states.py`, 2026-10-05).
-  const shown = Math.max(1, Math.min(count, LISTED - apart.length));
+  // And each line the sentence above takes past its first gives up one too
+  // (`less`): a sentence that names a tie of three trains wraps at 150%, and
+  // the page then scrolled by 10px (2026-10-06).
+  const shown = Math.max(1, Math.min(count, LISTED - apart.length - less));
   const rows = Array.from({ length: shown }, (_, row) =>
-    findings.flatMap((_, index) => lists[index].length === count ? [lists[index][row]] : [])
+    findings.flatMap((_, index) => !onLine(index) ? []
+      : [byRows ? sent[row][index] ?? "" : lists[index][row]])
+      .filter(Boolean)
       .join(", "));
   // 54px for a few; past four, the size of a step's instruction.
   const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);
@@ -636,6 +659,32 @@ export function Findings({ findings, size }: { findings: Finding[]; size: number
       ))}
     </div>
   );
+}
+
+/**
+ * How many lines a paragraph takes, measured after layout and again whenever
+ * its box changes size (the compact layout sets it smaller). 1 until measured,
+ * and 0 for a paragraph that is not there.
+ */
+function useLines(ref: React.RefObject<HTMLElement>): number {
+  const [lines, setLines] = useState(1);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) {
+      setLines(0);
+      return;
+    }
+    const measure = (): void => {
+      const height = element.getBoundingClientRect().height;
+      const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
+      setLines(lineHeight > 0 ? Math.max(1, Math.round(height / lineHeight)) : 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return lines;
 }
 
 /** How many results the closing screen lists before it counts the rest. */

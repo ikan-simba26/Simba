@@ -2,10 +2,11 @@
 
 For someone who has never seen this repository and needs to reason about it
 without reading the code. Written 2026-09-17 against commit `cc4704f`,
-updated on 2026-09-18, and **refreshed on 2026-10-05** against `main` at
+updated on 2026-09-18, **refreshed on 2026-10-05** against `main` at
 `9fd09bc` plus `feat/multi-october-fifth` — sections 1 to 4, 6 to 8 and 10
-rewritten for what has changed since; section 9 is still the 2026-09-17
-capture, and says so. About twenty minutes end to end.
+rewritten for what had changed — and brought up to date on 2026-10-06 for
+whole rows, the window waited for and the fastest train named. Section 9 is
+still the 2026-09-17 capture, and says so. About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -96,10 +97,10 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-10-05: **906 passed, 12 skipped, 0 known failures, 1242s**. The 12 skips are
+The full suite was last run on 2026-10-06: **944 passed, 12 skipped, 0 failed, 1499s**. The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
-`SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on
+`SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, last run separately on
 2026-10-05: 3 passed), and 2 that hit the live website (not run today).
 
 ### Perception — `backend/perception/` (Nahail)
@@ -143,7 +144,9 @@ interactive elements, and the readable content.
 | Plans a journey off the live station list, and a search for the wrong route or day fails | `TripPlanner`, `test_trip.py`, `test_success_conditions.py`; four rigged runs on real pages all ended in `help.requested` (2026-09-30) |
 | A step that waits on a list gets one attempt, so a mistyped place is reported in 16.7s | `test_verification.py` (EVALUATION.md, 2026-10-01) |
 | Keeps a password, encrypted, when the person asks, and types it itself after that | `vault.py`, `test_vault.py`; a whole LLM task searched for it everywhere and it is nowhere (EVALUATION.md, 2026-10-03b). **Windows only**; elsewhere the person is asked each time |
-| Says in one plain sentence what the answer means, from the page's own values | `voice.explain_*`, `test_explanation.py` (EVALUATION.md, 2026-10-03c) |
+| Says in one plain sentence what the answer means, from the page's own values — and with rows names the fastest train, or says a tie is a tie | `voice.explain_*`, `test_explanation.py` (EVALUATION.md, 2026-10-03c, 2026-10-06b) |
+| Carries results as whole rows, so each train keeps its own time even when times repeat | `Content.rows_for`, `Finding.rows`; on our copy and once on the live site (EVALUATION.md, 2026-10-05c) |
+| Waits, rather than acts, while the SIMBA window is minimised or hidden, and asks before carrying on | `browser.window_watch`, `test_window.py`; in the real window, minimised mid-step for 10.4s (EVALUATION.md, 2026-10-06) |
 
 ### Interface — `frontend/` (Aly)
 
@@ -305,7 +308,7 @@ The variables are `SIMBA_LLM_PROVIDER` (`anthropic` or `openai`),
 ### Mode 1 — the tests
 
 ```powershell
-backend\venv\Scripts\python -m pytest                     # everything; ~21 minutes
+backend\venv\Scripts\python -m pytest                     # everything; ~25 minutes
 backend\venv\Scripts\python -m pytest frontend\test_copy.py   # one file
 ```
 
@@ -551,7 +554,7 @@ blocked on quota, days after the quota had reset.
 | **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17. Undeclared fields still false-stop, and that is where the LLM planner works |
 | **"What are you doing?" at 100%** | A fix to the site-view capture | It succeeds about half the time on a 100% screen; a page that repaints every frame captures 20/20. `feat/orchestrator-preview-capture` keeps the view repainting and is deliberately unmerged until measured (EVALUATION.md, 2026-09-27) |
 | **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
-| **The demo clips** | Re-recording, on a machine with the stack up | They show the closing screen as it was before 2026-10-05, and are not committed, so a fresh clone has none |
+| **The demo clips on a fresh clone** | Recording, on a machine with the stack up | Re-recorded 2026-10-05 on our copy and showing the current closing screen, but not committed, so a fresh clone has none. Do not minimise the SIMBA window while recording |
 
 **Uncertain: the quota itself.** The documents disagree on how many requests
 a day the free model allows and which model name the stronger one was
@@ -613,11 +616,13 @@ options and a recommendation; this is the list.
 12. *(Settled 2026-10-03: `task.completed.summary` stays the goal plus a URL,
     which tests and logs read, and the human sentence is a new optional field,
     `explanation`.)*
-12b. **Two of a result's details can stop lining up.** Perception keeps a
-    repeated value once per column, so nine trains can come with eight journey
-    times, and the closing screen then cannot say which time is whose. Rows
-    from perception, rather than columns, would fix it; that is a perception
-    and contract change.
+12b. *(Settled 2026-10-05: results travel as whole rows, `Finding.rows`, so
+    each train keeps its own time even when times repeat.)*
+12c. *(Settled 2026-10-06: a run waits while the window is minimised or
+    hidden, and carries on only when the person says so.)*
+12d. **Results not from a table still pair by list length**, and can be paired
+    wrongly; no current flow hits it. A known limitation, with no work planned
+    before the freeze (DECISIONS.md).
 13. **The JavaScript click fallback can click through a modal** when overlay
     detection is off, and the run passes. Should the fallback refuse an
     element perception knows is covered?

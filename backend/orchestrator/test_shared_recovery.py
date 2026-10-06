@@ -140,9 +140,9 @@ def test_the_retry_is_the_shared_code_path(monkeypatch, replica: str) -> None:  
         ("hardcoded", hardcoded_planner_for(role, label)),
         ("llm", LLMPlanner(OneNoteProvider(role, label), TASK)),
     ):
-        async def spy(page, move, input_values, strategy, before, _name=name):
+        async def spy(page, move, input_values, strategy, before, _name=name, **kwargs):
             seen[_name].append(strategy)
-            return await real(page, move, input_values, strategy, before)
+            return await real(page, move, input_values, strategy, before, **kwargs)
 
         monkeypatch.setattr(loop_module, "attempt_move", spy)
         drive(planner, replica)

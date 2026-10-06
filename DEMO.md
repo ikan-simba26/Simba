@@ -8,8 +8,10 @@ problem SIMBA exists for, and nobody feels it from a description. Then the same
 task, in SIMBA, in one window.
 
 Everything below has been run end to end. The recordings in `demo/` were made
-on 2026-10-01 on our own copy of the train search: railways takes 45 seconds at
-a watchable pace, billing 32, a greeting 8. **The live railways run is slower**
+on 2026-10-05 on our own copy of the train search, and show the closing screen
+as it is now — one line per train with its journey time, the sentence above,
+the two buttons side by side: railways takes 61 seconds at a watchable pace,
+billing 43, a greeting 8. **The live railways run is slower**
 — about 54 seconds of task time against 25 on the copy (EVALUATION.md,
 2026-09-30c), before any pauses for narration.
 
@@ -41,7 +43,7 @@ much on the day.
 it, not by searching.
 
 **The recordings show the flow as it is**: the questions, then the steps
-(re-recorded 2026-10-01). They are made on our own copy of the train search, so
+(re-recorded 2026-10-05). They are made on our own copy of the train search, so
 **the live site is never used to make them** — `tools/record_demo.py` asks the
 backend where a train goal would run and refuses to record the railways clip
 anywhere but the copy. Re-record whenever the flow changes.
@@ -94,6 +96,13 @@ python -m tools.record_demo          # in another: all five clips
 
 It prints what each clip did. Every task clip should end on "found an answer";
 one that ends on "I'm stuck" is not a fallback for a run that worked.
+
+**Do not minimise the SIMBA window while recording.** The clips are drawn in a
+separate browser, but the backend still drives the page inside the SIMBA
+window, and a minimised window is painted about once a second: on 2026-10-05
+the billing and adapt clips ended "I'm stuck" because a click on the reference
+box never saw the page settle. Covered by other windows is fine; minimised is
+not.
 
 ---
 

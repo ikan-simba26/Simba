@@ -333,7 +333,8 @@ def unmet(
 
 
 def findings_in(
-    snapshot: Snapshot, task: "Task", known: dict[str, list[str]]
+    snapshot: Snapshot, task: "Task", known: dict[str, list[str]],
+    rows: list[dict[str, str]] | None = None,
 ) -> list[Finding]:
     """Update what has been found, and return it in the task's own order.
 
@@ -356,14 +357,30 @@ def findings_in(
     the answer and shows every result. Keeping only the line here was the
     display-side half of the same defect the content channel had
     (EVALUATION.md, 2026-09-18b).
+
+    `rows`, when given, is the run's memory of the results whole — one dict
+    per table row, by the names the task shows them under, repeats kept
+    (`Content.rows_for`) — and is mutated the same way. `values` drops a
+    repeated value, so two findings' lists cannot be paired by position: two
+    trains with one journey time give two trains and one time. The first
+    finding carries the rows (`Finding.rows`), one cell per finding returned.
     """
     for answer in task.about.finds:
         values = snapshot.content.values_for(answer.reads)
         if values:
             known[answer.name] = values
-    return [Finding(label=answer.name, value=voice.found(known[answer.name]),
-                    values=known[answer.name])
-            for answer in task.about.finds if answer.name in known]
+    if rows is not None and task.about.finds:
+        read = snapshot.content.rows_for([answer.reads for answer in task.about.finds])
+        if read:
+            rows[:] = [{answer.name: cell for answer, cell in zip(task.about.finds, row)}
+                       for row in read]
+    findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
+                        values=known[answer.name])
+                for answer in task.about.finds if answer.name in known]
+    if rows and findings and findings[0].label == task.about.finds[0].name:
+        findings[0].rows = [[row.get(finding.label, "") for finding in findings]
+                            for row in rows]
+    return findings
 
 
 def satisfies(after: Snapshot, expect: Expectation) -> bool:
@@ -453,11 +470,12 @@ class Task:
     # TypeError rather than a task that silently checks and shows nothing.
     about: About = field(kw_only=True)
     # The closing screen's one plain sentence, built from what the run found
-    # (`found`, by the names the task shows them under) and what the site said
-    # back (`seen`, by the page's own labels). None means no sentence. Only
-    # ever from those values: `voice.explain_*`.
-    explain: "Callable[[dict[str, list[str]], dict[str, list[str]]], str | None] | None" = field(
-        default=None, kw_only=True)
+    # (`found`, by the names the task shows them under), what the site said
+    # back (`seen`, by the page's own labels), and the results whole (`rows`,
+    # a dict per table row by the same names as `found`, repeats kept). None
+    # means no sentence. Only ever from those values: `voice.explain_*`.
+    explain: ("Callable[[dict[str, list[str]], dict[str, list[str]], "
+              "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -613,6 +631,14 @@ def answers_to_save(move: "Move", input_values: dict[str, str]) -> Credentials |
                        input_values[password.id])
 
 
+#: How often a run waiting on a put-away window looks again, in seconds.
+WINDOW_POLL_S = 0.5
+
+
+class StoppedWhileAway(Exception):
+    """The person pressed stop on the step that said the window was back."""
+
+
 class _Run:
     """One task's conversation with the person: what is on screen, and the
     few things every part of a run says the same way."""
@@ -624,6 +650,7 @@ class _Run:
         recorder: Recorder | None,
         rules: LevelRules | None,
         vault: Vault | None = None,
+        window: Callable[[], Awaitable[str]] | None = None,
     ) -> None:
         self.page = page
         self.connection = connection
@@ -631,6 +658,10 @@ class _Run:
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
         self.vault = vault
+        #: Whether the SIMBA window is "shown", "minimised" or "hidden"
+        #: (`browser.window_watch`), or None where there is no window — the
+        #: headless browser, and every test that does not give one.
+        self.window = window
         self._can_save: bool | None = None
         self.started = time.monotonic()
         self.state: str | None = None
@@ -667,6 +698,30 @@ class _Run:
             self.recorder.note_decision(decision)
         if decision.send:
             await self.connection.send("load.updated", decision.load())
+
+    async def ready(self, *, goal: str, findings: list[Finding], view: PageView) -> None:
+        """Wait, rather than act, while the window is put away.
+
+        A minimised window paints about once a second, and an action there
+        waits for a page that never settles: on 2026-10-05 that ended two
+        demo clips "I'm stuck" (EVALUATION.md, 2026-10-05d). So nothing is
+        done while the window is minimised or hidden — no failure, no retry,
+        no stuck screen. When it comes back the person is told, in one line,
+        that the run waited, and it goes on only when they say so. Raises
+        `StoppedWhileAway` if they press stop instead.
+        """
+        if self.window is None or await self.window() == "shown":
+            return
+        was = self.state
+        while await self.window() != "shown":
+            await asyncio.sleep(WINDOW_POLL_S)
+        back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
+                    expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
+                    question=True)
+        payload = await self.present(back, goal=goal, findings=findings, view=view)
+        if payload.get("action_id") != voice.CONFIRM_ID:
+            raise StoppedWhileAway
+        await self.set_state(was or "acting")
 
     async def give_up(self, reason: str) -> None:
         await self.set_state("stuck")
@@ -771,6 +826,7 @@ async def run_task(
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
     vault: Vault | None = None,
+    window: Callable[[], Awaitable[str]] | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -782,7 +838,7 @@ async def run_task(
     `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    run = _Run(page, connection, recorder, rules, vault)
+    run = _Run(page, connection, recorder, rules, vault, window)
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -795,6 +851,7 @@ async def run_brief(
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
     vault: Vault | None = None,
+    window: Callable[[], Awaitable[str]] | None = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -805,7 +862,7 @@ async def run_brief(
     stopped the task; a brief that cannot make sense of the answers ends the
     run the way being stuck does, and says why.
     """
-    run = _Run(page, connection, recorder, rules, vault)
+    run = _Run(page, connection, recorder, rules, vault, window)
     await run.open(brief.goal, brief.estimated_steps, start_url)
 
     view: PageView | None = None
@@ -845,6 +902,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     filled: list[FilledValue] = []
     # What the task was asked to find out, as it turns up. See `findings_in`.
     found: dict[str, list[str]] = {}
+    # The same results whole, a row per result, repeats kept.
+    rows: list[dict[str, str]] = []
     # What the site has said back about the values the goal named. See
     # `said_so_far`.
     seen: dict[str, list[str]] = {}
@@ -857,7 +916,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             break
         await set_state("thinking")
         elements, before, view = await perceive(page)
-        findings = findings_in(before, task, found)
+        findings = findings_in(before, task, found, rows)
         said_so_far(before, task, seen)
 
         # Durable verification: everything typed so far has to *still* be
@@ -956,10 +1015,18 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         # second chance. An exception to CLAUDE.md's "retry once with a
         # different strategy"; DECISIONS.md.
         strategies = 1 if move.expect.list_opens else 2
-        failure = await attempt_move(page, move, input_values, strategy=0, before=before)
-        if failure is not None and strategies > 1:
-            _, before_retry, _ = await perceive(page)
-            failure = await attempt_move(page, move, input_values, 1, before_retry)
+        # Before every action, the window has to be there (`_Run.ready`).
+        ready = (lambda: run.ready(goal=task.goal, findings=findings, view=view))
+        try:
+            failure = await attempt_move(page, move, input_values, strategy=0, before=before,
+                                         ready=ready)
+            if failure is not None and strategies > 1:
+                _, before_retry, _ = await perceive(page)
+                failure = await attempt_move(page, move, input_values, 1, before_retry,
+                                             ready=ready)
+        except StoppedWhileAway:
+            await run.stopped()
+            return
 
         if failure is not None:
             consecutive_setbacks += 1
@@ -1001,7 +1068,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         filled += await record_fills(page, move)
 
     _, final, _ = await perceive(page)
-    findings = findings_in(final, task, found)
+    findings = findings_in(final, task, found, rows)
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
     unfinished = (
@@ -1034,7 +1101,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
-            explanation=task.explain(found, seen) if task.explain else None,
+            explanation=task.explain(found, seen, rows) if task.explain else None,
         ),
     )
 
@@ -1061,10 +1128,17 @@ async def follow_override(
 
 
 async def attempt_move(
-    page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot
+    page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot,
+    ready: Callable[[], Awaitable[None]] | None = None,
 ) -> str | None:
-    """Run a Move's operations, then verify. None on success."""
+    """Run a Move's operations, then verify. None on success.
+
+    `ready` is awaited before each operation, so a window put away partway
+    through a step stops the next action rather than the step (`_Run.ready`).
+    """
     for operation in move.operations:
+        if ready is not None:
+            await ready()
         # Perceive fresh each time: the previous operation may have navigated.
         elements, _, _ = await perceive(page)
 

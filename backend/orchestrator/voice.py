@@ -192,22 +192,62 @@ def _readable(*values: str) -> bool:
     return all(v and "://" not in v and "www." not in v.lower() for v in values)
 
 
-def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
-    """How many trains came back, and how long the fastest takes."""
-    trains = found.get("Train") or []
+def _listed(names: list[str]) -> str:
+    """"A and B", "A, B and C"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
+                   rows: list[dict[str, str]] | None = None) -> str | None:
+    """How many trains came back, and which is fastest or how long it takes.
+
+    From the results whole when there are rows (2026-10-05): a row is a train,
+    and its journey is its own. `found` drops a repeated value, so two trains
+    with one journey time there are two trains and one time; read from it the
+    count is right only because train numbers do not repeat.
+
+    With rows and two trains or more, the fastest is named, because a row says
+    which train each time belongs to (2026-10-06): "The fastest is 1UP, at 6
+    hours 3 minutes." A tie is said as a tie rather than one train picked:
+    two or three are named, more are counted, and when every train ties the
+    sentence says they all take the same. One train, or no rows, keeps the
+    wording that names no train, since without rows nothing says whose the
+    shortest time is.
+    """
+    if rows:
+        listed = [row for row in rows if row.get("Train")]
+        trains = [row["Train"] for row in listed]
+        journeys = [row.get("Journey", "") for row in listed]
+    else:
+        trains = found.get("Train") or []
+        journeys = found.get("Journey") or []
     if not trains:
         return None
     count = (f"There is {_plural(1, 'train')}." if len(trains) == 1
              else f"There are {len(trains)} trains.")
-    journeys = found.get("Journey") or []
     minutes = [_minutes(j) for j in journeys]
     if not journeys or None in minutes or not _readable(*journeys):
         return count
-    fastest = duration(journeys[minutes.index(min(minutes))])
+    best = min(minutes)
+    fastest = duration(journeys[minutes.index(best)])
+    if rows and len(trains) > 1 and _readable(*trains):
+        named: list[str] = []
+        for train, taken in zip(trains, minutes):
+            if taken == best and train not in named:
+                named.append(train)
+        if len(named) == 1:
+            return f"{count} The fastest is {named[0]}, at {fastest}."
+        if len(named) == len(set(trains)):
+            return f"{count} They {'both' if len(named) == 2 else 'all'} take {fastest}."
+        if len(named) <= 3:
+            return (f"{count} {_listed(named)} are the fastest, "
+                    f"{'both' if len(named) == 2 else 'all'} at {fastest}.")
+        return f"{count} {len(named)} of them are the fastest, all at {fastest}."
     return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
 
 
-def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]],
+                 rows: list[dict[str, str]] | None = None) -> str | None:
     """The amount and the date it is due, in the page's own figures."""
     amount, due = found.get("Your bill") or [], found.get("Due") or []
     if len(amount) != 1 or not _readable(*amount):
@@ -219,7 +259,8 @@ def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str
 
 def explain_course(course: str):
     """For a registration: which course the confirmation named, as it named it."""
-    def explain(found: dict[str, list[str]], seen: dict[str, list[str]]) -> str | None:
+    def explain(found: dict[str, list[str]], seen: dict[str, list[str]],
+                rows: list[dict[str, str]] | None = None) -> str | None:
         named = [v for v in seen.get("Course") or [] if course.casefold() in v.casefold()]
         if not named or not _readable(named[0]):
             return None
@@ -270,6 +311,16 @@ HELP_SUGGESTION = "I won't do any more on this. You can ask me for something els
 #: them. Since 2026-09-17 the overlay does not show it: it knows the person
 #: pressed stop, and shows its own sentence rather than a failure screen.
 YOU_STOPPED = "You asked me to stop."
+
+# --- the window, put away during a task (2026-10-06) -----------------------
+
+#: Shown when the SIMBA window comes back after being minimised or hidden while
+#: the run had something to do. Nothing was done while it was away: a
+#: minimised window paints about once a second, and a click there waits for a
+#: page that never settles (EVALUATION.md, 2026-10-05d). The run goes on only
+#: when the person says so.
+WINDOW_BACK = "I waited while the window was closed. Ready to carry on?"
+CARRY_ON = "Carry on"
 
 # --- the trust panel --------------------------------------------------------
 
