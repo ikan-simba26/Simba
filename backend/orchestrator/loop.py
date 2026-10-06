@@ -631,6 +631,14 @@ def answers_to_save(move: "Move", input_values: dict[str, str]) -> Credentials |
                        input_values[password.id])
 
 
+#: How often a run waiting on a put-away window looks again, in seconds.
+WINDOW_POLL_S = 0.5
+
+
+class StoppedWhileAway(Exception):
+    """The person pressed stop on the step that said the window was back."""
+
+
 class _Run:
     """One task's conversation with the person: what is on screen, and the
     few things every part of a run says the same way."""
@@ -642,6 +650,7 @@ class _Run:
         recorder: Recorder | None,
         rules: LevelRules | None,
         vault: Vault | None = None,
+        window: Callable[[], Awaitable[str]] | None = None,
     ) -> None:
         self.page = page
         self.connection = connection
@@ -649,6 +658,10 @@ class _Run:
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
         self.vault = vault
+        #: Whether the SIMBA window is "shown", "minimised" or "hidden"
+        #: (`browser.window_watch`), or None where there is no window — the
+        #: headless browser, and every test that does not give one.
+        self.window = window
         self._can_save: bool | None = None
         self.started = time.monotonic()
         self.state: str | None = None
@@ -685,6 +698,30 @@ class _Run:
             self.recorder.note_decision(decision)
         if decision.send:
             await self.connection.send("load.updated", decision.load())
+
+    async def ready(self, *, goal: str, findings: list[Finding], view: PageView) -> None:
+        """Wait, rather than act, while the window is put away.
+
+        A minimised window paints about once a second, and an action there
+        waits for a page that never settles: on 2026-10-05 that ended two
+        demo clips "I'm stuck" (EVALUATION.md, 2026-10-05d). So nothing is
+        done while the window is minimised or hidden — no failure, no retry,
+        no stuck screen. When it comes back the person is told, in one line,
+        that the run waited, and it goes on only when they say so. Raises
+        `StoppedWhileAway` if they press stop instead.
+        """
+        if self.window is None or await self.window() == "shown":
+            return
+        was = self.state
+        while await self.window() != "shown":
+            await asyncio.sleep(WINDOW_POLL_S)
+        back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
+                    expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
+                    question=True)
+        payload = await self.present(back, goal=goal, findings=findings, view=view)
+        if payload.get("action_id") != voice.CONFIRM_ID:
+            raise StoppedWhileAway
+        await self.set_state(was or "acting")
 
     async def give_up(self, reason: str) -> None:
         await self.set_state("stuck")
@@ -789,6 +826,7 @@ async def run_task(
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
     vault: Vault | None = None,
+    window: Callable[[], Awaitable[str]] | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -800,7 +838,7 @@ async def run_task(
     `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    run = _Run(page, connection, recorder, rules, vault)
+    run = _Run(page, connection, recorder, rules, vault, window)
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -813,6 +851,7 @@ async def run_brief(
     recorder: Recorder | None = None,
     rules: LevelRules | None = None,
     vault: Vault | None = None,
+    window: Callable[[], Awaitable[str]] | None = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -823,7 +862,7 @@ async def run_brief(
     stopped the task; a brief that cannot make sense of the answers ends the
     run the way being stuck does, and says why.
     """
-    run = _Run(page, connection, recorder, rules, vault)
+    run = _Run(page, connection, recorder, rules, vault, window)
     await run.open(brief.goal, brief.estimated_steps, start_url)
 
     view: PageView | None = None
@@ -976,10 +1015,18 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         # second chance. An exception to CLAUDE.md's "retry once with a
         # different strategy"; DECISIONS.md.
         strategies = 1 if move.expect.list_opens else 2
-        failure = await attempt_move(page, move, input_values, strategy=0, before=before)
-        if failure is not None and strategies > 1:
-            _, before_retry, _ = await perceive(page)
-            failure = await attempt_move(page, move, input_values, 1, before_retry)
+        # Before every action, the window has to be there (`_Run.ready`).
+        ready = (lambda: run.ready(goal=task.goal, findings=findings, view=view))
+        try:
+            failure = await attempt_move(page, move, input_values, strategy=0, before=before,
+                                         ready=ready)
+            if failure is not None and strategies > 1:
+                _, before_retry, _ = await perceive(page)
+                failure = await attempt_move(page, move, input_values, 1, before_retry,
+                                             ready=ready)
+        except StoppedWhileAway:
+            await run.stopped()
+            return
 
         if failure is not None:
             consecutive_setbacks += 1
@@ -1081,10 +1128,17 @@ async def follow_override(
 
 
 async def attempt_move(
-    page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot
+    page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot,
+    ready: Callable[[], Awaitable[None]] | None = None,
 ) -> str | None:
-    """Run a Move's operations, then verify. None on success."""
+    """Run a Move's operations, then verify. None on success.
+
+    `ready` is awaited before each operation, so a window put away partway
+    through a step stops the next action rather than the step (`_Run.ready`).
+    """
     for operation in move.operations:
+        if ready is not None:
+            await ready()
         # Perceive fresh each time: the previous operation may have navigated.
         elements, _, _ = await perceive(page)
 

@@ -4844,3 +4844,39 @@ itself being minimised. Not fixed: flagged.
 The clips were not watched frame by frame; what shows they hold the current
 closing screen is that they were drawn by the overlay built from this source,
 and that every task clip reported reaching its ending.
+
+## 2026-10-06 — a minimised window is waited for, not failed
+
+Before every action the backend asks whether the SIMBA window is there
+(`browser.window_watch`, reading what `frontend/electron/main.ts` writes into
+the overlay page on minimise, restore, hide and show). While it is minimised or
+hidden, nothing is done; when it comes back, one line — "I waited while the
+window was closed. Ready to carry on?" — and the run goes on only after "Carry
+on". Stop there ends the run as a stop, not a failure.
+
+**In the real window** (`.\run.ps1 billing`, driven over the backend's
+websocket; the window minimised and restored with Windows' `ShowWindow` on the
+Electron process the stack started, found by its CDP port):
+
+| Time | What happened |
+|---|---|
+| 16.9s | step 2, "Let me look up your bill.", on screen; window minimised (`IsIconic` true; the overlay page says `minimised`); step 2 confirmed |
+| 16.9–27.3s | the backend waited: one `state.changed` to acting, no action, no `step.failed`, no `help.requested` |
+| 27.3s | window restored (the overlay page says `shown`) |
+| 28.1s | "I waited while the window was closed. Ready to carry on?" with **Carry on** and **Stop this** |
+| 30.1s | after Carry on: step 4, "Now I'll open the full bill." |
+| 31.1s | `task.completed`, 3 steps taken, 0 planner calls, the bill 14,382 found |
+
+Before this change the same minimise ended the run: on 2026-10-05 the click on
+the reference box timed out twice and the next step was given up on
+(2026-10-05d).
+
+`backend/orchestrator/test_window.py`, 7 tests, on the billing replica with a
+stand-in for the window: minimised between typing the reference and pressing
+"Check Bill" (mid-step), waited for and finished, with the window's state
+recorded at every real action — all four `shown`; away for forty looks; hidden
+rather than minimised; stop when it comes back (two actions before, none
+after, `task.failed` with the stop's reason); a window that stays shown
+changes no message; and the overlay page's value read the way the backend
+reads it, ignoring the same value on the site view. "Hidden" has been checked
+with the stand-in only, not by hiding the real window.

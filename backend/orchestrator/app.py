@@ -54,7 +54,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
-from backend.orchestrator.browser import browser_source, open_page
+from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, understand
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
@@ -255,7 +255,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
 
         async with open_page(replica_url) as page:
             await run_brief(page, connection, brief, replica_url, recorder, rules,
-                            vault=Vault())
+                            vault=Vault(), window=window_watch(page))
         await websocket.close()
         return
 
@@ -284,6 +284,6 @@ async def ws_endpoint(websocket: WebSocket) -> None:
 
     async with open_page(replica_url) as page:
         await run_task(page, connection, planner, task, replica_url, recorder, rules,
-                       vault=Vault())
+                       vault=Vault(), window=window_watch(page))
 
     await websocket.close()

@@ -3703,3 +3703,35 @@ record a review by Aly, who owns the interface: CLAUDE.md has the owner review
 changes to their area, and the other layout changes in that entry (the
 sentence in the lead-in's place, a detail that cannot be put beside its result
 taking one result's place) are not covered by this approval.
+
+## The backend learns the window's state from the overlay page, over CDP
+
+**Date:** 2026-10-06 (the pause was asked for; how the backend learns the
+window is away was not specified)
+
+**Decision.** `frontend/electron/main.ts` writes `window.__simbaWindow` —
+`"shown"`, `"minimised"` or `"hidden"` — into the overlay page whenever the
+window is minimised, restored, hidden or shown, and when the overlay loads.
+The backend reads it over the CDP connection it already holds to the host, in
+`browser.window_watch`, before every operation (`_Run.ready`). An absent value,
+an older host or no host at all read as `"shown"`, which is how every run
+behaved before. The line the person sees when the window comes back is an
+ordinary `step.presented`, from `voice.py`, with **Carry on** and the usual
+stop; it is shown like a step and counted on screen, but is not a step taken.
+
+**Alternatives.** A new message from the overlay to the backend over the
+websocket, which is cleaner but a new message type, and CLAUDE.md asks all
+three owners for those. Ask the pages themselves: on 2026-10-05 both views
+reported `document.visibilityState` "visible" while the window was minimised,
+so they cannot be trusted. Infer it from how often the site view paints: a busy
+page can paint slowly too, and that would tell a person "I waited while the
+window was closed" when it was not.
+
+**Why this.** Only the host's main process knows for certain, and CDP is a
+channel the backend already uses to drive the site view; nothing crosses the
+websocket that the contract does not name.
+
+**Cost.** A global on the overlay page that the backend depends on and the
+overlay's own code never reads; `browser.py` and `main.ts` each say so. The
+backend polls every 0.5s while the window is away, and it waits without limit:
+a person who minimises SIMBA and comes back an hour later finds the run waiting.

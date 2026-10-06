@@ -383,6 +383,8 @@ def backend_sentences() -> dict[str, str]:
     # Saved sign-in details (2026-10-03).
     sentences["voice.USING_SAVED"] = voice.USING_SAVED
     sentences["voice.FORGOTTEN"] = voice.FORGOTTEN
+    # The window put away during a task (2026-10-06).
+    sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
     # The closing screen's sentence, over the shapes of value it is built from
     # (2026-10-03). The values are the pages' own, as measured.
     for where, text in {
@@ -410,6 +412,7 @@ def backend_labels() -> dict[str, str]:
     labels["voice.FORGET"] = voice.FORGET
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
+    labels["voice.CARRY_ON"] = voice.CARRY_ON
     return labels
 
 

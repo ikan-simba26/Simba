@@ -285,6 +285,16 @@ HELP_SUGGESTION = "I won't do any more on this. You can ask me for something els
 #: pressed stop, and shows its own sentence rather than a failure screen.
 YOU_STOPPED = "You asked me to stop."
 
+# --- the window, put away during a task (2026-10-06) -----------------------
+
+#: Shown when the SIMBA window comes back after being minimised or hidden while
+#: the run had something to do. Nothing was done while it was away: a
+#: minimised window paints about once a second, and a click there waits for a
+#: page that never settles (EVALUATION.md, 2026-10-05d). The run goes on only
+#: when the person says so.
+WINDOW_BACK = "I waited while the window was closed. Ready to carry on?"
+CARRY_ON = "Carry on"
+
 # --- the trust panel --------------------------------------------------------
 
 #: The caption when there is no move to describe.
