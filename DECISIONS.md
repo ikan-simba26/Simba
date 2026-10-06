@@ -3764,3 +3764,24 @@ result line and a sentence line are nearly the same height (36px and 35px at
 can read "and 4 more" where six would have fitted beside a one-line sentence.
 The overlay measures the sentence once it is laid out, so the first frame can
 show one row more than the settled screen.
+
+## Results not from a table still pair by list length: a known limitation
+
+**Date:** 2026-10-06
+
+**Decision.** Results that do not come from a table — label and value pairs,
+which have no rows — are still put side by side on the closing screen only
+when their lists have the same length, and a detail with a different length is
+a line under the list. This is a **known limitation**, and **no work is
+planned on it before the feature freeze** (1 November).
+
+**What it leaves.** Equal lengths are not proof of alignment: a repeated value
+dropped from each list on different rows leaves two lists of one length that
+do not line up, and the closing screen would pair them wrongly. None of the
+three flows hits it: railways and billing read tables, and so carry rows
+(`Finding.rows`, 2026-10-05), and registration finds nothing. An LLM-planned
+task on a site that lays its results out as label and value pairs could.
+
+**What would fix it.** Perception grouping pairs into records the way it
+groups table rows, so pairs would carry rows too; a perception change, and
+Nahail's.
