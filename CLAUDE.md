@@ -67,6 +67,12 @@ Applies to any agent or script working in this repo, not just to people.
 - **Never read or write files outside the project directory.** Temporary files
   belong in the repo's ignored paths, not in the home directory or system
   temp.
+- **Never run a broad kill command.** No `taskkill /F` with a filter
+  (`/FI`, `/IM`), no `pkill` or `killall` by name, nothing that matches
+  processes by pattern. Stop only processes you started, by PID — the PID you
+  got when you started it, or the one listening on a port you started it on.
+  On 2026-10-05 a `taskkill /F /FI "WINDOWTITLE eq none"` was run while
+  stopping a mock backend; it matched nothing, which was luck.
 - **Ask before any action that touches the system rather than the repo** —
   installing software, changing global configuration, killing processes that
   aren't ones this work started, or anything that outlives the checkout.
