@@ -289,7 +289,11 @@ def words_in(text: str) -> list[str]:
     for match in re.finditer(
         r'\b(?:aria-label|alt|placeholder|title)=("[^"]*"|\{`[^`]*`\})', text
     ):
-        found.append(match.group(0))
+        # `alt=""` says an image is decoration, and has no words to hold to
+        # anything (2026-10-07: the real page's two layers behind a step,
+        # described once on their container).
+        if match.group(1) != '""':
+            found.append(match.group(0))
     return found
 
 
@@ -298,6 +302,8 @@ def test_the_scanner_finds_what_it_used_to_miss() -> None:
     assert words_in("<button>\n            let it choose\n          </button>")
     assert words_in("<button onClick={closeTrust}>\n  Hide the page\n</button>")
     assert words_in('<img alt="The page as it is right now" />')
+    # And an image marked as decoration has nothing in it to find.
+    assert not words_in('<img src={source} alt="" />')
     assert words_in("aria-label={`Show ${label}`}")
     # And not code.
     assert not words_in("const f = (a) => a.b < c;")
