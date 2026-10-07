@@ -385,6 +385,28 @@ def backend_sentences() -> dict[str, str]:
     sentences["voice.FORGOTTEN"] = voice.FORGOTTEN
     # The window put away during a task (2026-10-06).
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
+    # Every question a journey asks, and every way an answer is asked again
+    # (2026-10-06). The questions predate this, and nothing held them before.
+    for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_DAY_AGAIN",
+                 "ASK_FROM_AGAIN", "ASK_TO_AGAIN", "ASK_CHANGE", "READY_TO_SEARCH",
+                 "ASK_REFERENCE", "REFERENCE_DETAIL", "ASK_REFERENCE_AGAIN", "ASK_COURSE",
+                 "COURSE_DETAIL", "ASK_COURSE_AGAIN", "NOT_UNDERSTOOD", "NO_TRAINS",
+                 "WRONG_MONTH", "FORM_CHANGED"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    for where, text in {
+        "read_back": voice.read_back("Lahore Cantt", "Karachi Cantt", "tomorrow, 7 October"),
+        "day_gone": voice.day_gone("5 October"),
+        "day_too_far": voice.day_too_far("7 October 2027"),
+        "no_such_day": voice.no_such_day("31 February"),
+        "not_a_station": voice.not_a_station("Karachy"),
+        "not_a_station_at_all from": voice.not_a_station_at_all("Narnia", "origin"),
+        "not_a_station_at_all to": voice.not_a_station_at_all("Narnia", "destination"),
+        "many_stations": voice.many_stations("Kot"),
+        "same_station": voice.same_station("Lahore Cantt"),
+        "which_station": voice.which_station("Lahore"),
+        "narrow_station": voice.narrow_station("Lahore"),
+    }.items():
+        sentences[f"voice.{where}"] = text
     # The closing screen's sentence, over the shapes of value it is built from
     # (2026-10-03). The values are the pages' own, as measured.
     for where, text in {
@@ -422,6 +444,9 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    for name in ("THATS_IT", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
+                 "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
+        labels[f"voice.{name}"] = getattr(voice, name)
     return labels
 
 

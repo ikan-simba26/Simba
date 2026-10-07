@@ -81,8 +81,8 @@ def test_hello_is_greeted_with_what_i_can_do(page: Page, overlay: str, mock: str
     ask(page, overlay, mock, "hello")
 
     arrived(page, GREETING)
-    for card in ("Register for CS-401", "Check my electricity bill",
-                 "Find trains from Lahore to Karachi"):
+    for card in ("Register for a course", "Check my electricity bill",
+                 "Find train times"):
         assert page.get_by_role("button", name=card).is_visible(), card
     # And nothing is running.
     assert not page.get_by_text("Give me a moment.").is_visible()
@@ -120,7 +120,7 @@ def test_book_a_flight_says_so_and_shows_what_i_can_do(
 
     arrived(page, CANNOT)
     assert page.get_by_text("book a flight").is_visible(), "their words are echoed back"
-    assert page.get_by_role("button", name="Register for CS-401").is_visible()
+    assert page.get_by_role("button", name="Register for a course").is_visible()
 
 
 def test_something_ambiguous_asks_and_the_answer_runs(

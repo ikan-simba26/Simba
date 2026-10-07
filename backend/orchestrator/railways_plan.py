@@ -319,11 +319,18 @@ class TripPlanner:
     }
 
     def __init__(self, origin: str, destination: str, day: date,
-                 today: date | None = None) -> None:
+                 today: date | None = None, stations: dict[str, str | None] | None = None,
+                 said_back: bool = False) -> None:
         self.places = {"origin": origin, "destination": destination}
         self.day = day
         self.today = today or date.today()
-        self.stations: dict[str, str] = {}
+        # Stations the person already chose from the site's own list, before
+        # anything was done (`details.TripBrief`). Each is still typed and
+        # chosen on the page, and verified like any other move.
+        self.stations: dict[str, str] = {end: s for end, s in (stations or {}).items() if s}
+        # Whether the journey was read back and agreed before the run began.
+        # If it was, the search step does not read it back a second time.
+        self._said_back = said_back
         self.stuck_reason: str | None = None
         self._typed: dict[str, int] = {"origin": 0, "destination": 0}
         self._narrowed: dict[str, str] = {}
@@ -508,7 +515,7 @@ class TripPlanner:
 
         self._pending = "search"
         return self._move(
-            voice.confirm_search(
+            voice.READY_TO_SEARCH if self._said_back else voice.confirm_search(
                 self.stations["origin"].title(), self.stations["destination"].title(),
                 voice.day_words(self.day, self.today),
             ),

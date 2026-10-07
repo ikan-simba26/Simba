@@ -262,3 +262,137 @@ def test_the_password_typed_goes_back_with_the_save_answer(
     assert payload["action_id"] == "remember"
     assert payload["input_values"] == {"username": "raham", "password": "typed-here"}
     assert "I've stopped, as you asked." not in short_page.inner_text("body")
+
+
+# --- a question answered from the site's own list (2026-10-06) ------------------
+
+# The live site's shape: capitals, a dot after JN., two stations in one city,
+# and six names that begin with "Kot".
+STATIONS = ["LAHORE JN.", "LAHORE CANTT", "KARACHI CANTT", "KARACHI CITY", "RAWALPINDI",
+            "KOT LAKHPAT", "KOT RADHA KISHEN", "KOTRI JN.", "KOTADUJN.", "KOT NAJIBULLAH",
+            "KOTSULTAN", "SUKKUR"]
+
+A_LIST_QUESTION = {
+    "step_index": 1, "step_total": 9,
+    "instruction": "Where are you travelling to?", "detail": "",
+    "fields": [{"id": "destination", "label": "To", "type": "choice", "value": "",
+                "options": STATIONS}],
+    "requires_confirmation": True, "findings": [],
+    "actions": [
+        {"id": "confirm", "label": "That's it", "kind": "primary"},
+        {"id": "cancel", "label": "Stop this", "kind": "secondary"},
+    ],
+}
+
+MATCHES = "[role=group][aria-label='Matching names'] button"
+
+
+def matches_on(page: Page) -> list[str]:
+    return [b.inner_text().strip() for b in page.locator(MATCHES).all()]
+
+
+def test_nothing_from_the_list_shows_until_something_is_typed(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The screen does not start as a list to read."""
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+
+    assert matches_on(page) == []
+    box = page.locator("input[aria-label='To']")
+    assert box.get_attribute("placeholder") == "Type the first few letters"
+
+
+def test_typing_shows_the_names_that_match_as_buttons(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+
+    page.fill("input[aria-label='To']", "kar")
+
+    assert matches_on(page) == ["Karachi Cantt", "Karachi City"]
+
+
+def test_pressing_a_name_puts_it_in_the_box_and_that_is_what_is_sent(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+    page.fill("input[aria-label='To']", "kar")
+
+    page.locator(MATCHES, has_text="Karachi City").click()
+
+    assert page.locator("input[aria-label='To']").input_value() == "Karachi City"
+    assert matches_on(page) == ["Karachi City"]
+    assert page.locator(MATCHES).first.get_attribute("aria-pressed") == "true"
+    page.get_by_role("button", name="That's it", exact=True).click()
+    page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
+    assert answer(backend)["input_values"] == {"destination": "Karachi City"}
+
+
+def test_more_matches_than_fit_are_counted_not_listed(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+
+    page.fill("input[aria-label='To']", "kot")
+
+    assert len(matches_on(page)) == 4
+    assert page.get_by_text("2 more. Keep typing to find yours.").is_visible()
+
+
+def test_a_name_nothing_on_the_list_has_says_so(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+
+    page.fill("input[aria-label='To']", "narnia")
+
+    assert matches_on(page) == []
+    assert page.get_by_text("Nothing on the list matches that yet.").is_visible()
+
+
+def test_a_list_question_fits_at_150_percent(
+    short_page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Four matches and the count of the rest, the box, and both buttons, all
+    on screen in a 150% window."""
+    ask(short_page, overlay, backend, asked(A_LIST_QUESTION))
+    short_page.fill("input[aria-label='To']", "kot")
+    short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
+
+    height = short_page.viewport_size["height"]
+    for name in ("That's it", "Stop this"):
+        box = short_page.get_by_role("button", name=name, exact=True).bounding_box()
+        assert box is not None and box["y"] + box["height"] <= height, (name, box)
+    last = short_page.locator(MATCHES).last.bounding_box()
+    assert last is not None and last["y"] + last["height"] <= height
+
+
+# --- level 3 keeps the box a question is answered in -----------------------------
+
+
+def test_at_level_3_the_box_stays_while_the_answer_is_typed(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Level 3 keeps only the fields a step cannot go on without. Until
+    2026-10-06 it judged that by what had been typed, so the box vanished at
+    the first keystroke and took the answer with it."""
+    ask(page, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 4}),
+        ("load.updated", {"score": 0.9, "level": 3, "reason": "pause"}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_TYPED_QUESTION),
+        (AWAIT_RESPONSE, {}),
+        ("state.changed", {"state": "thinking"}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_STEP),
+    ])
+    box = page.locator("input[aria-label='From']")
+    box.wait_for(timeout=5000)
+
+    box.press_sequentially("Lahore", delay=40)
+    page.wait_for_timeout(600)
+
+    assert box.is_visible() and box.input_value() == "Lahore"
+    page.get_by_role("button", name="That's it", exact=True).click()
+    page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
+    assert answer(backend)["input_values"] == {"origin": "Lahore"}

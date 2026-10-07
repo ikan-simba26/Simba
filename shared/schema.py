@@ -124,6 +124,11 @@ class StepField(BaseModel):
     label: str
     type: str
     value: str
+    # Additive and optional (2026-10-06). The answers a field accepts, when
+    # they are a known list — the site's own stations, read before anything
+    # on it is touched. The overlay shows the ones that match what has been
+    # typed so far. Empty means any text.
+    options: List[str] = []
 
 
 class StepAction(BaseModel):

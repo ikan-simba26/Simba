@@ -89,10 +89,89 @@ ASK_TO = "Where are you travelling to?"
 ASK_DAY = "What day are you travelling?"
 DAY_TODAY = "Today"
 DAY_TOMORROW = "Tomorrow"
-DAY_PICK = "Pick a day"
+DAY_PICK = "Pick another day"
 ASK_WHICH_DAY = "Which day? You can type it like 3 October."
 ASK_DAY_AGAIN = "I didn't catch that day. Try typing it like 3 October."
-ASK_DAY_GONE = "That day has already gone. Which day would you like?"
+ASK_FROM_AGAIN = "I didn't catch that. Where are you travelling from?"
+ASK_TO_AGAIN = "I didn't catch that. Where are you travelling to?"
+
+#: Answers to a question about a station, past the stations themselves: the
+#: way back to the whole list when none of the few offered is the one.
+NONE_OF_THESE = "None of these"
+
+# --- reading the journey back, once, before anything is done (2026-10-06) --
+
+READ_BACK_YES = "Yes, that's right"
+READ_BACK_NO = "No, change something"
+ASK_CHANGE = "What would you like to change?"
+CHANGE_FROM = "Where from"
+CHANGE_TO = "Where to"
+CHANGE_DAY = "The day"
+#: The search step, once the journey has been read back and agreed. Saying
+#: the whole journey a second time is reading it back twice.
+READY_TO_SEARCH = "Everything is filled in. Shall I search for your trains?"
+
+
+def station_name(name: str) -> str:
+    """A station as a person reads it. The site writes `LAHORE CANTT`; a name
+    in capitals is harder to read, so it is shown as `Lahore Cantt`. A name
+    already in mixed case is left as the site wrote it."""
+    return name.title() if name.isupper() else name
+
+
+def when_words(day, today) -> str:
+    """The day of a journey the way a person would check it: `tomorrow,
+    7 October`, `today, 6 October`, or `Friday 16 October`."""
+    delta = (day - today).days
+    if delta == 0:
+        return f"today, {day_words(day, today)}"
+    if delta == 1:
+        return f"tomorrow, {day_words(day, today)}"
+    return f"{day.strftime('%A')} {day_words(day, today)}"
+
+
+def read_back(origin: str, destination: str, when: str) -> str:
+    """The journey, once, before anything on the site is touched."""
+    return f"{origin} to {destination}, {when}. Is that right?"
+
+
+# --- an answer that cannot be used, said kindly, and asked again ------------
+#
+# Each one says what was understood and what to do instead, and never that
+# the person was wrong. Every answer is checked before anything is done.
+
+
+def day_gone(said: str) -> str:
+    return f"{said} has already passed. Which day would you like to travel?"
+
+
+def day_too_far(last: str) -> str:
+    return f"I can only look up trains up to {last}. Which day would you like to travel?"
+
+
+def no_such_day(said: str) -> str:
+    return f"There is no {said} in the calendar. Which day would you like to travel?"
+
+
+def not_a_station(typed: str) -> str:
+    """A name the site's list does not have, with the nearest ones offered."""
+    return f"I couldn't find a station called {typed}. Did you mean one of these?"
+
+
+def not_a_station_at_all(typed: str, end: str) -> str:
+    """A name with nothing on the list anywhere near it."""
+    where = "from" if end == "origin" else "to"
+    return (f"I couldn't find a station called {typed}. "
+            f"Type the first few letters and choose where you're travelling {where}.")
+
+
+def many_stations(typed: str) -> str:
+    return f"Lots of stations have {typed} in their name. Type a little more and choose one."
+
+
+def same_station(name: str) -> str:
+    """Where to, when it is where from."""
+    return f"{name} is where you're starting from. Where are you travelling to?"
 ASK_REFERENCE = "What is the reference number on your bill?"
 REFERENCE_DETAIL = "It is the 14-digit number at the top left of your bill."
 ASK_REFERENCE_AGAIN = "That doesn't look right. The reference number has 14 digits."

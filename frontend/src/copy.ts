@@ -83,11 +83,19 @@ export const HOME = {
  * "Check my electricity bill" asks for exactly that, in exactly those words,
  * so what the person chose and what runs cannot disagree. The goal is sent
  * with the flow's name, so the backend does not have to guess from it.
+ *
+ * **A card names no detail of its own** (2026-10-06). The train card read
+ * "Find trains from Lahore to Karachi" and the course card "Register for
+ * CS-401", and because the card's words are the goal, pressing either one
+ * told the backend where the person was going or which course they wanted —
+ * so it never asked. On `railways-local` that was the whole of "SIMBA never
+ * asked where I was going". Each card now says what SIMBA can do, and the
+ * backend asks for the rest.
  */
 export const FLOWS: Record<FlowName, string> = {
-  registration: "Register for CS-401",
+  registration: "Register for a course",
   billing: "Check my electricity bill",
-  railways: "Find trains from Lahore to Karachi",
+  railways: "Find train times",
 };
 
 /**
@@ -332,6 +340,26 @@ export const TRUST = {
   close: "Close",
 } as const;
 
+/* --------------------------------------------------- a list to choose from */
+
+/**
+ * A question whose answer is one of a known list: the train search's own
+ * stations, read from the site before anything on it is touched (2026-10-06).
+ * The box narrows the list as the person types, and the few that match are
+ * buttons to press. The names themselves come from the site.
+ */
+export const CHOOSE = {
+  /** In the empty box. A placeholder, so it ends with nothing. */
+  hint: "Type the first few letters",
+  /** Under the matches, when more match than are shown. */
+  more: (count: number) =>
+    count === 1 ? "1 more. Keep typing to find yours." : `${count} more. Keep typing to find yours.`,
+  /** When nothing on the list has what has been typed. */
+  none: "Nothing on the list matches that yet.",
+  /** The matches, named for a screen reader. */
+  matches: "Matching names",
+} as const;
+
 /* ------------------------------------------------------ the whole table */
 
 /**
@@ -359,6 +387,8 @@ export const SITUATIONS: Record<string, string> = {
   "reply.greeting": REPLY.greeting,
   "reply.unsupported": REPLY.unsupported,
   "reply.clarify": REPLY.clarify,
+  "choose.more": CHOOSE.more(5),
+  "choose.none": CHOOSE.none,
 };
 
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
@@ -398,4 +428,5 @@ export const LABELS: Record<string, string> = {
   "status.waiting": STATUS.waiting,
   "status.stuck": STATUS.stuck,
   "status.done": STATUS.done,
+  "choose.matches": CHOOSE.matches,
 };

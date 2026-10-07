@@ -9,6 +9,9 @@ to 2026-09-09):
   * typing a name opens a list of bare `<li>`s with no role, and the box only
     keeps a value that was chosen from it — typed text that was never chosen
     is thrown away when the box loses focus;
+  * every station is in each list from the start, hidden until a name is
+    typed, the way the live site's lists hold all their options at load
+    (measured 2026-10-06) — so the list can be read without touching it;
   * typing a date puts it in the box and nowhere else: the application only
     believes a day picked from the calendar, whose cells are bare `<td>`s,
     and it writes the day back as `dd-mm-yyyy`;

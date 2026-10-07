@@ -123,26 +123,35 @@
       }
     }
 
+    // Every station is in the list from the start, hidden, the way the live
+    // site's Element UI select holds all of its options before anything is
+    // clicked (measured 2026-10-06: 342 in each list, at load). Typing shows
+    // the ones that match and hides the rest.
+    for (const match of STATIONS) {
+      const item = document.createElement("li");
+      item.className = "el-select-dropdown__item";
+      item.style.display = "none";
+      const text = document.createElement("span");
+      text.textContent = match;
+      item.appendChild(text);
+      // `mousedown`, so choosing does not first blur the box and lose it.
+      item.addEventListener("mousedown", (event) => event.preventDefault());
+      item.addEventListener("click", () => {
+        model[name] = match;
+        input.value = match;
+        panel.style.display = "none";
+      });
+      list.appendChild(item);
+    }
     function show() {
       const typed = input.value.trim().toUpperCase();
-      const matches = typed ? STATIONS.filter((s) => s.includes(typed)) : [];
-      list.innerHTML = "";
-      for (const match of matches) {
-        const item = document.createElement("li");
-        item.className = "el-select-dropdown__item";
-        const text = document.createElement("span");
-        text.textContent = match;
-        item.appendChild(text);
-        // `mousedown`, so choosing does not first blur the box and lose it.
-        item.addEventListener("mousedown", (event) => event.preventDefault());
-        item.addEventListener("click", () => {
-          model[name] = match;
-          input.value = match;
-          panel.style.display = "none";
-        });
-        list.appendChild(item);
+      let shown = 0;
+      for (const item of list.children) {
+        const matches = Boolean(typed) && item.textContent.includes(typed);
+        item.style.display = matches ? "" : "none";
+        if (matches) shown += 1;
       }
-      panel.style.display = matches.length ? "block" : "none";
+      panel.style.display = shown ? "block" : "none";
     }
 
     input.addEventListener("click", () => input.removeAttribute("readonly"));

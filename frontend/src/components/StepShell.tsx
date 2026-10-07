@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
 
 import type { Finding, Level, StepAction, StepField } from "@shared/schema";
 
-import { FOUND, STEP } from "../copy";
+import { CHOOSE, FOUND, STEP } from "../copy";
 import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
@@ -97,10 +97,12 @@ export function StepShell({
   const instruction =
     spec.instruction === "first-sentence" ? firstSentence(step.instruction) : step.instruction;
 
+  // "Required" is decided by what the backend sent, not by what has been
+  // typed since. Until 2026-10-06 it read the typed value too, so at level 3
+  // a box the person was answering a question in vanished at the first
+  // keystroke, and took their answer with it.
   const fields =
-    spec.fields === "required-only"
-      ? step.fields.filter((field) => !(values[field.id] ?? field.value))
-      : step.fields;
+    spec.fields === "required-only" ? step.fields.filter((field) => !field.value) : step.fields;
 
   const findings: Finding[] = step.findings ?? [];
 
@@ -296,6 +298,10 @@ function Field({
   onChange: (id: string, value: string) => void;
   spec: (typeof LEVELS)[Level];
 }) {
+  if (field.options?.length) {
+    return <ChoiceField field={field} value={value} onChange={onChange} spec={spec} />;
+  }
+
   const input = (
     <motion.input
       animate={{
@@ -327,6 +333,118 @@ function Field({
       <span className="text-small font-medium text-soft">{field.label}</span>
       {input}
     </motion.label>
+  );
+}
+
+/** How many matches are shown at once: the same few a question offers as
+ *  buttons (`voice.MAX_CHOICES`). More is a list to read. */
+const SHOWN_MATCHES = 4;
+
+/** A name with case, dots and dashes taken out, as the backend compares them. */
+function plain(text: string): string {
+  return text.toLowerCase().replace(/[.\-'’]/g, " ").split(/\s+/).filter(Boolean).join(" ");
+}
+
+/** A name in capitals, as a person reads it: `LAHORE CANTT` as `Lahore Cantt`.
+ *  The same rule as `voice.station_name`. */
+export function readable(name: string): string {
+  if (name !== name.toUpperCase() || !/[A-Z]/.test(name)) return name;
+  return name.toLowerCase().replace(/(^|[^a-z])([a-z])/g, (_, before, letter) =>
+    before + letter.toUpperCase());
+}
+
+/**
+ * The options that match what has been typed, best first: the name itself,
+ * then names that start with it, then names with a word that starts with each
+ * typed word ("cantt" finds both Cantts), then names with it anywhere. Ties
+ * keep the site's order.
+ */
+export function matching(options: string[], typed: string): string[] {
+  const want = plain(typed);
+  if (!want) return [];
+  const words = want.split(" ");
+  const rank = (option: string): number => {
+    const name = plain(option);
+    if (name === want) return 0;
+    if (name.startsWith(want)) return 1;
+    const own = name.split(" ");
+    if (words.every((word) => own.some((w) => w.startsWith(word)))) return 2;
+    return name.includes(want) ? 3 : 4;
+  };
+  return options
+    .map((option, index) => ({ option, index, rank: rank(option) }))
+    .filter((entry) => entry.rank < 4)
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => entry.option);
+}
+
+/**
+ * A question answered from a known list (2026-10-06): a box, and under it the
+ * few names that match what has been typed, each a button. Pressing one puts
+ * it in the box; the question's own button sends it. Nothing shows until
+ * something is typed, so the screen never starts as a list to read.
+ */
+function ChoiceField({
+  field,
+  value,
+  onChange,
+  spec,
+}: {
+  field: StepField;
+  value: string;
+  onChange: (id: string, value: string) => void;
+  spec: (typeof LEVELS)[Level];
+}) {
+  const options = field.options ?? [];
+  const found = matching(options, value);
+  const chosen = options.find((option) => plain(option) === plain(value));
+  const shown = chosen ? [chosen] : found.slice(0, SHOWN_MATCHES);
+  const more = chosen ? 0 : found.length - shown.length;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <motion.label transition={FOLD} className="flex flex-col gap-2">
+        <span className="text-small font-medium text-soft">{field.label}</span>
+        <motion.input
+          animate={{ height: spec.fieldHeight, fontSize: `${TYPE.body}px` }}
+          transition={FOLD}
+          className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
+                     transition-colors duration-200 placeholder:text-soft/70
+                     focus:border-accent focus:bg-surface focus-visible:outline-none"
+          type="text"
+          value={value}
+          placeholder={CHOOSE.hint}
+          autoComplete="off"
+          onChange={(event) => onChange(field.id, event.target.value)}
+          aria-label={field.label}
+        />
+      </motion.label>
+
+      {value.trim() !== "" && (
+        // Two to a row. Four stacked put "Stop this" 46px below a 150% window
+        // (`test_a_list_question_fits_at_150_percent`); typing does not
+        // re-run the overflow guard, so nothing would have folded.
+        <div role="group" aria-label={CHOOSE.matches} className="grid grid-cols-2 gap-2">
+          {shown.map((option) => (
+            <motion.button
+              key={option}
+              type="button"
+              aria-pressed={option === chosen}
+              onClick={() => onChange(field.id, readable(option))}
+              animate={{ height: Math.round(spec.fieldHeight * 0.8) }}
+              transition={FOLD}
+              className={`w-full ${buttonClass(option === chosen ? "primary" : "secondary", "fluid")}`}
+            >
+              {readable(option)}
+            </motion.button>
+          ))}
+          {more > 0 && <p className="col-span-2 text-small text-soft">{CHOOSE.more(more)}</p>}
+          {found.length === 0 && (
+            <p className="col-span-2 text-small text-soft">{CHOOSE.none}</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -4918,3 +4918,94 @@ train number that is an address is not named; every number said is printed
 or a count, from rows), the two end-to-end sentences updated, 3 more
 sentences under `test_copy.py`'s rules, and 6 fit cases in
 `frontend/test_closing.py`.
+
+## 2026-10-06c — every answer about a journey is checked before the site is touched
+
+Raham ran `railways-local`, and SIMBA never asked where the journey was to or when.
+
+**Why.** Reproduced headless with the default launch (`run.ps1`'s variables:
+hardcoded plan, model router, `.env` loaded) on the replica: a *typed* train
+goal does ask — "train" asked where from, three times with an empty answer,
+and gave up as designed. What does not ask is the **home screen's train card**.
+Its words are the goal it sends (`copy.ts` `FLOWS`), and they were "Find
+trains from Lahore to Karachi" — so pressing it told the backend both ends of a
+journey nobody had chosen, and only the day was asked. The course card did the
+same with "Register for CS-401". The model was ruled out: 11 detail readings of
+four goals by the configured model (one timed out) invented no place and no
+day. The overlay was ruled out: it is rebuilt from source on every launch. The
+person's own run is not on record — `data/steps.jsonl` has no train goal after
+5 October 20:09, and the only model call logged today is a bill — so the cause
+is established by reproducing every way into a train search, not by reading
+that run.
+
+Three more gaps were found against the task's list while looking, all fixed:
+a station was whatever was typed, held to the site only mid-run after the box
+had been typed into (a place the site lacks ended the run, 31.5s for "Narnia"
+on 2026-09-30b); a journey from a station to itself was never noticed; and a
+day not in the calendar ("31 February") was "I didn't catch that day".
+
+**What the live site allows, measured** (one read-only visit, nothing typed
+into a station box, nothing searched; `.scratch/probe_live.py`):
+
+| What | Measured |
+|---|---|
+| `li.el-select-dropdown__item` in the page before anything is clicked | **684** — the From and To lists, 342 each |
+| Distinct station names | **340** (DINA and OKARA CANTT listed twice) |
+| Visible after clicking From, nothing typed | 342 — the whole From list opens |
+| Fields the search form has | From, To, Departure Date — nothing else |
+| Calendar, days disabled in October 2026 to November 2027 (14 months) | **0** — past days this month (1–5 October) are pickable, and nothing ahead is closed |
+
+So the station list can be read without touching the page, and the site sets
+no limit on the day either way: "in the past" and "too far ahead" are SIMBA's
+checks, not the site's. SIMBA's limit stays a year (`HORIZON_DAYS = 366`).
+
+**On the live site, after the change** (one read-only run, one search,
+`.scratch/live_once.py`, headless Chromium, hardcoded plan, no model):
+"train from Lahore to Karachi tomorrow".
+
+| | |
+|---|---|
+| Station list read | **340** names in **0.56s**, page untouched |
+| Asked, in order | "Which Lahore station do you mean?" → Lahore Cantt; "Which Karachi station do you mean?" → Karachi Cantt; "Lahore Cantt to Karachi Cantt, tomorrow, 7 October. Is that right?" → Yes |
+| The three boxes when the journey was read back | all **empty** |
+| After | 5 steps taken, 0 model calls, the search step read "Everything is filled in. Shall I search for your trains?" |
+| The form at the end | From `LAHORE CANTT`, To `KARACHI CANTT`, Departure Date `07-10-2026` |
+| Result | `task.completed`, 2 trains (2DN, 14DN), "There are 2 trains. The fastest is 2DN, at 22 hours 16 minutes." |
+| Wall clock | 19.7s from start to the end, answers given instantly (±2x on this machine) |
+
+Not checked in the Electron window: everything above is headless Chromium and
+the websocket.
+
+**Tests.** `backend/orchestrator/test_trip_answers.py`, 54: each bad answer —
+a day gone (4 ways of writing one), too far ahead (3), not in the calendar
+(5, plus a bare "45"), from and to the same (typed, in the goal, without a
+list), a station not on the list (closest offered; nothing close; in the goal)
+— and the list offered, the reading back, changing an answer, the plan
+searching the chosen stations; three runs on the replica in real Chromium,
+each asserting the page untouched at the reading back and what was finally
+searched; and the real app over its websocket against a stand-in model that
+answers every call with HTTP 429 `insufficient_quota`, which asked, searched
+and completed. `backend/perception/test_options.py`, 7. Overlay:
+`frontend/test_questions.py`, 6 new.
+
+Checked that they can fail: with the same-station check disabled, 4 of the 54
+fail; with the reading back skipped, 7 fail.
+
+**Found and fixed on the way.**
+
+- The list reader dropped a `<datalist>` option that has only a value
+  (`test_a_native_select_and_a_datalist`): read by its value now, after its
+  label and text.
+- Four stacked matches put "Stop this" at 652px in a 606px window at 150%
+  (`test_a_list_question_fits_at_150_percent`). Typing does not re-run the
+  overflow guard, so nothing folded. Two to a row now; the test passes.
+- **Level 3 removed the answer box at the first keystroke.** It keeps "only
+  the fields a step cannot go on without", and judged that by the typed value,
+  so any typed question shown at level 3 lost its box and its answer. It
+  judges by what the backend sent now. Present since level 3 existed; a
+  question reaches level 3 only after a fold or a lock, which is why no run
+  on record shows it.
+
+**Full suite** on `feat/railways-ask`: **1012 passed, 12 skipped, 0 failed**,
+1181s (944 passed before; 68 added). Docstrings in `details.py` and the
+records were edited while it ran; no code was.

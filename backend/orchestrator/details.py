@@ -15,17 +15,20 @@ Three things live here.
     — so it works offline, in the tests and on demo day.
   * **Asking.** Whatever is still missing is asked for, one question at a
     time, as an ordinary step. A `Brief` holds what is known and says what to
-    ask next (`loop.run_brief` does the asking).
+    ask next (`loop.run_brief` does the asking). Since 2026-10-06 every answer
+    is also checked before anything on the site is done, and a journey is read
+    back once before it starts (`TripBrief`).
   * **The task.** Once nothing is missing, the brief builds the task from the
     person's details — including what the run must find true at the end, so a
     search for another route or another day fails rather than completes.
 
 **The model is not trusted with anything it could invent.** A reference
 number or a course code it reports is kept only if those characters are in
-what the person typed. A day has to be a real date, today or later. A place
-is kept as it came, because the page is what decides whether it is a station,
-and the person is shown the journey in one sentence before anything is
-searched.
+what the person typed. A day has to be a real date, today or later, and
+a day the words show cannot exist is not mended by it. A place is kept as it
+came, because the site's own station list is what decides whether it is a
+station, and the person is shown the journey in one sentence before anything
+is done.
 
 No words live here. Every sentence a question shows is in `voice.py`.
 """
@@ -36,6 +39,7 @@ import asyncio
 import re
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
+from difflib import SequenceMatcher
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -74,6 +78,9 @@ class Understood:
     day: date | None = None
     reference: str | None = None
     course: str | None = None
+    #: A day the goal named that cannot be travelled on, and why — so the
+    #: question that asks for the day can say what was wrong with that one.
+    day_problem: "DayReading | None" = None
 
 
 class DetailsChoice(BaseModel):
@@ -156,6 +163,7 @@ _DAY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("overmorrow", re.compile(r"\b(?:the\s+)?day\s+after\s+tomorrow\b")),
     ("tomorrow", re.compile(r"\b(?:tomorrow|tomorow|tommorow|tmrw)\b")),
     ("today", re.compile(r"\b(?:today|tonight)\b")),
+    ("yesterday", re.compile(r"\byesterday\b")),
     ("day month", re.compile(
         rf"\b(?:on\s+)?(?:the\s+)?(\d{{1,2}}){_ORDINAL}\s+(?:of\s+)?({_MONTH})\b\.?"
         r"(?:,?\s+(\d{4}))?")),
@@ -201,6 +209,8 @@ def find_day(text: str, today: date) -> tuple[date | None, tuple[int, int] | Non
             found = _dated(int(match[1]), int(match[2]), int(match[3]))
         elif kind == "today":
             found = today
+        elif kind == "yesterday":
+            found = today - timedelta(days=1)
         elif kind == "tomorrow":
             found = today + timedelta(days=1)
         elif kind == "overmorrow":
@@ -232,6 +242,95 @@ def usable_day(found: date | None, today: date) -> date | None:
     if (found - today).days > HORIZON_DAYS:
         return None
     return found
+
+
+# What can be wrong with a day someone named, beyond not naming one.
+GONE = "gone"
+TOO_FAR = "too far"
+NO_SUCH_DAY = "no such day"
+
+
+@dataclass(frozen=True)
+class DayReading:
+    """A day as read from what someone typed, and what is wrong with it if
+    anything is. `day` is set only for a day that can be travelled on;
+    `problem` only for a day that was named and cannot. Neither means no day
+    was named at all."""
+
+    day: date | None = None
+    problem: str | None = None
+    #: The day as it was understood, for saying what was wrong with it.
+    said: str = ""
+
+
+_MONTH_NAMES = {number: name for name, number in MONTHS.items() if len(name) > 3}
+_MONTH_NAMES[5] = "may"
+
+
+def no_such_day(text: str) -> tuple[str, tuple[int, int]] | None:
+    """A date that is written like one and is not in the calendar — 31
+    February, 2026-02-30, 31/4 — as words, and where it is said.
+
+    `find_day` passes over these, because there is nothing to find; this is
+    what tells "I didn't catch that" apart from "there is no such day". Only
+    a real month counts: "45/13" is not a date at all.
+    """
+    lowered = text.lower()
+    for kind, pattern in _DAY_PATTERNS:
+        match = pattern.search(lowered)
+        if match is None:
+            continue
+        if kind == "iso":
+            year, month, day = match[1], int(match[2]), int(match[3])
+        elif kind == "day month":
+            day, month, year = int(match[1]), MONTHS[match[2]], match[3]
+        elif kind == "month day":
+            month, day, year = MONTHS[match[1]], int(match[2]), match[3]
+        elif kind == "numeric":
+            day, month, year = int(match[1]), int(match[2]), match[3]
+        else:
+            continue
+        if not 1 <= month <= 12 or day < 1:
+            continue
+        words = f"{day} {_MONTH_NAMES[month].title()}"
+        return (f"{words} {year}" if year and len(year) == 4 else words), match.span()
+    return None
+
+
+def read_day(text: str, today: date) -> DayReading:
+    """The day someone typed, checked: in the calendar, not gone, not too far."""
+    found, _ = find_day(text, today)
+    if found is None:
+        impossible = no_such_day(text)
+        if impossible is not None:
+            return DayReading(problem=NO_SUCH_DAY, said=impossible[0])
+        return DayReading()
+    return judge_day(found, today)
+
+
+def judge_day(found: date, today: date) -> DayReading:
+    """A real date, checked against today and against how far ahead is allowed."""
+    if found < today:
+        return DayReading(problem=GONE, said=voice.day_words(found, today))
+    if (found - today).days > HORIZON_DAYS:
+        return DayReading(problem=TOO_FAR, said=voice.day_words(found, today))
+    return DayReading(day=found)
+
+
+def last_day(today: date) -> date:
+    """The furthest day a journey can be looked up for."""
+    return today + timedelta(days=HORIZON_DAYS)
+
+
+def day_trouble(reading: DayReading, today: date) -> str | None:
+    """The sentence that says what was wrong with a day, and asks again."""
+    if reading.problem == GONE:
+        return voice.day_gone(reading.said)
+    if reading.problem == TOO_FAR:
+        return voice.day_too_far(voice.day_words(last_day(today), today))
+    if reading.problem == NO_SUCH_DAY:
+        return voice.no_such_day(reading.said)
+    return None
 
 
 #: Words that are never a place. Whatever is left around "from" and "to" is.
@@ -326,10 +425,15 @@ def by_keywords(flow: str, goal: str, today: date) -> Understood:
     so a number in a train request is never mistaken for a course."""
     if flow == "railways":
         found, span = find_day(goal, today)
+        impossible = no_such_day(goal) if found is None else None
+        if impossible is not None:
+            span = impossible[1]
         rest = goal if span is None else goal[:span[0]] + " " + goal[span[1]:]
         origin, destination = find_places(rest)
+        reading = (DayReading(problem=NO_SUCH_DAY, said=impossible[0]) if impossible
+                   else judge_day(found, today) if found else DayReading())
         return Understood(origin=clean_place(origin), destination=clean_place(destination),
-                          day=usable_day(found, today))
+                          day=reading.day, day_problem=reading if reading.problem else None)
     if flow == "billing":
         return Understood(reference=clean_reference(goal))
     if flow == "registration":
@@ -382,9 +486,12 @@ async def understand(
     return Understood(
         origin=read.origin or known.origin,
         destination=read.destination or known.destination,
-        day=read.day or known.day,
+        # A day the words show cannot be travelled on stays that way: asked
+        # "31 February", a model will happily answer 3 March.
+        day=None if known.day_problem else (read.day or known.day),
         reference=read.reference or known.reference,
         course=read.course or known.course,
+        day_problem=known.day_problem,
     )
 
 
@@ -493,60 +600,345 @@ class _Asking:
         return planner, task
 
 
+# --- the site's own stations ------------------------------------------------------
+
+#: Seconds to wait for the station list to be on the page before asking. The
+#: live site builds it when its script runs, after the page itself has loaded.
+STATION_LIST_WAIT_S = 10.0
+#: How often it is read while waiting. It is ready when two reads agree.
+STATION_LIST_POLL_S = 0.5
+
+#: How close a name has to be to a station's to be offered as "did you mean".
+CLOSE_ENOUGH = 0.75
+
+
+def _plain(text: str) -> str:
+    """A name with case, dots, dashes and spacing taken out: `LAHORE JN.` and
+    `lahore jn` are the same station."""
+    return " ".join(re.sub(r"[.\-'’]", " ", text.casefold()).split())
+
+
+@dataclass(frozen=True)
+class StationMatch:
+    """What one typed name is, on the site's list. At most one field is set."""
+
+    #: Exactly one station.
+    station: str | None = None
+    #: A few, each a fair reading: "Lahore" is Lahore Jn. and Lahore Cantt.
+    several: tuple[str, ...] = ()
+    #: More than can be offered as buttons.
+    many: bool = False
+    #: Nothing has the name in it; these are the nearest by spelling.
+    close: tuple[str, ...] = ()
+
+
+def match_station(typed: str, stations: list[str]) -> StationMatch:
+    """A name against the site's list.
+
+    Exactly the name is that station. Otherwise every station whose words
+    begin with the typed words (so "Lahore" is both Lahore stations, and
+    "Hyd" is Hyderabad Jn.), or failing that, every station with the name
+    anywhere in it ("pindi"). One is that station; a few are asked about;
+    more than that is too many to offer. None at all is a name the site does
+    not have, and the nearest by spelling are offered instead.
+    """
+    want = _plain(typed)
+    if not want:
+        return StationMatch()
+    plain = {station: _plain(station) for station in stations}
+    exact = [s for s, p in plain.items() if p == want]
+    if exact:
+        return StationMatch(station=exact[0])
+    words = want.split()
+    pool = [s for s, p in plain.items()
+            if all(any(w.startswith(typed_word) for w in p.split()) for typed_word in words)]
+    pool = pool or [s for s, p in plain.items() if want in p]
+    if len(pool) == 1:
+        return StationMatch(station=pool[0])
+    if 1 < len(pool) <= voice.MAX_CHOICES:
+        return StationMatch(several=tuple(pool))
+    if pool:
+        return StationMatch(many=True)
+
+    def nearness(station: str) -> float:
+        p = plain[station]
+        return max(SequenceMatcher(None, want, p).ratio(),
+                   SequenceMatcher(None, want, p.split()[0]).ratio() if p else 0.0)
+
+    scored = sorted(((nearness(s), i, s) for i, s in enumerate(stations)), reverse=True)
+    close = [s for score, _, s in sorted(
+        [t for t in scored if t[0] >= CLOSE_ENOUGH], key=lambda t: (-t[0], t[1]))]
+    return StationMatch(close=tuple(close[:voice.MAX_CHOICES]))
+
+
+async def read_stations(page) -> list[str]:
+    """The site's own list of stations, read without opening it, or an empty
+    list if the page has none (`backend/perception/options.py`).
+
+    Read until it stops changing: a list still being built is not the list.
+    """
+    from backend.perception.options import longest_list
+
+    deadline = asyncio.get_running_loop().time() + STATION_LIST_WAIT_S
+    last: list[str] | None = None
+    while True:
+        names = await longest_list(page)
+        if names and names == last:
+            return names
+        if asyncio.get_running_loop().time() >= deadline:
+            return names
+        last = names
+        await asyncio.sleep(STATION_LIST_POLL_S)
+
+
 class TripBrief(_Asking):
-    """A train journey: where from, where to, and which day."""
+    """A train journey: where from, where to, and which day.
+
+    **Every answer is checked before anything on the site is done**
+    (2026-10-06). Until then the stations were whatever the person typed, and
+    the site was asked about them one at a time, mid-run: a place it did not
+    have was found out after the box had been typed into, and the run ended.
+    Now the site's own station list is read first, without touching it
+    (`prepare`), and the questions are answered from it: the station boxes
+    offer the site's names to choose from, a name it does not have is met
+    with the nearest ones it does, a city with two stations is asked about,
+    and a journey that starts where it ends is asked about again. A day that
+    has gone, that is further ahead than can be looked up, or that is not in
+    the calendar at all, is said to be so. Then the journey is read back once,
+    and nothing on the site is touched until the person says it is right.
+
+    A page that offers no list leaves the stations to be settled on the page,
+    as before (`TripPlanner`), and the same checks of the day still hold.
+    """
 
     plan_steps = 5
+    _ENDS = ("origin", "destination")
 
     def __init__(self, goal: str, known: Understood, today: date | None = None,
                  hardcoded: bool = True, provider=None) -> None:
         super().__init__(goal)
         self.today = today or date.today()
-        self.origin = known.origin
-        self.destination = known.destination
+        #: Each end as the person said it.
+        self.places: dict[str, str | None] = {"origin": known.origin,
+                                              "destination": known.destination}
+        #: Each end as the site names it, once one of its stations is settled on.
+        self.chosen: dict[str, str | None] = {"origin": None, "destination": None}
         self.day = known.day
+        #: The site's own list of stations, once read. None until then, and
+        #: stays None for a page that has no list.
+        self.stations: list[str] | None = None
+        #: Whether the person has heard the journey read back and agreed to it.
+        self.confirmed = False
         self._hardcoded = hardcoded
         self._provider = provider
         self._waiting: str | None = None
         self._typing_day = False
-        self._day_gone = False
+        self._changing = False
+        #: Why something is being asked again: the sentence its question leads with.
+        self._why: dict[str, str] = {}
+        #: A few stations offered for one end, as buttons.
+        self._offered: dict[str, tuple[str, ...]] = {}
+        if known.day_problem is not None:
+            self._why["day"] = day_trouble(known.day_problem, self.today) or voice.ASK_DAY
+        self._check_same(counted=False)
+
+    # --- what is known ---------------------------------------------------------
+
+    @property
+    def origin(self) -> str | None:
+        return self.chosen["origin"] or self.places["origin"]
+
+    @property
+    def destination(self) -> str | None:
+        return self.chosen["destination"] or self.places["destination"]
+
+    def _known(self, end: str) -> bool:
+        if self.stations is None:
+            return self.places[end] is not None
+        return self.chosen[end] is not None
 
     def _missing(self) -> list[str]:
-        return [name for name, value in (("origin", self.origin),
-                                         ("destination", self.destination),
-                                         ("day", self.day)) if value is None]
+        missing = [end for end in self._ENDS if not self._known(end)]
+        if self.day is None:
+            missing.append("day")
+        if not self.confirmed:
+            missing.append("read back")
+        return missing
+
+    def _shown(self, end: str) -> str:
+        """An end the way the person reads it."""
+        chosen = self.chosen[end]
+        return voice.station_name(chosen) if chosen else (self.places[end] or "")
+
+    # --- reading the site before asking --------------------------------------------
+
+    async def prepare(self, page) -> None:
+        """Read the site's station list, and hold the goal's places to it.
+
+        Nothing on the page is touched. A place the goal named is settled
+        here if the list has exactly one station for it, and asked about
+        otherwise, before anything else is.
+        """
+        names = await read_stations(page)
+        if len(names) < 2:
+            return
+        self.stations = names
+        for end in self._ENDS:
+            place = self.places[end]
+            if place is not None and self.chosen[end] is None:
+                self._take(end, place, counted=False)
+
+    # --- asking ----------------------------------------------------------------------
 
     def question(self) -> Move | None:
         if self.gave_up is not None:
             return None
-        missing = self._missing()
-        if not missing:
-            return None
-        self._waiting = missing[0]
-        if self._waiting == "origin":
-            return self._ask(_typed(voice.ASK_FROM, "", "origin", voice.FIELD_FROM))
-        if self._waiting == "destination":
-            return self._ask(_typed(voice.ASK_TO, "", "destination", voice.FIELD_TO))
+        for end in self._ENDS:
+            if not self._known(end):
+                return self._ask_station(end)
+        if self.day is None:
+            return self._ask_day()
+        if not self.confirmed:
+            if self._changing:
+                self._waiting = "change"
+                return self._ask(_picked(voice.ASK_CHANGE, [
+                    voice.CHANGE_FROM, voice.CHANGE_TO, voice.CHANGE_DAY]))
+            self._waiting = "read back"
+            return self._ask(_picked(
+                voice.read_back(self._shown("origin"), self._shown("destination"),
+                                voice.when_words(self.day, self.today)),
+                [voice.READ_BACK_YES, voice.READ_BACK_NO]))
+        return None
+
+    def _ask_station(self, end: str) -> Move:
+        self._waiting = end
+        asking = voice.ASK_FROM if end == "origin" else voice.ASK_TO
+        instruction = self._why.get(end, asking)
+        offered = self._offered.get(end)
+        if offered:
+            return self._ask(_picked(
+                instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE]))
+        label = voice.FIELD_FROM if end == "origin" else voice.FIELD_TO
+        return self._ask(Move(
+            instruction=instruction,
+            detail="",
+            operations=[],
+            expect=Expectation(),
+            fields=[StepField(id=end, label=label,
+                              type="choice" if self.stations else "text", value="",
+                              options=self.stations or [])],
+            actions=voice.actions(voice.THATS_IT),
+            question=True,
+        ))
+
+    def _ask_day(self) -> Move:
+        self._waiting = "day"
         if not self._typing_day:
             return self._ask(_picked(
-                voice.ASK_DAY, [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK]))
-        instruction = (voice.ASK_DAY_GONE if self._day_gone
-                       else voice.ASK_DAY_AGAIN if self._tried("day")
-                       else voice.ASK_WHICH_DAY)
-        return self._ask(_typed(instruction, "", "day", voice.FIELD_DAY))
+                self._why.get("day", voice.ASK_DAY),
+                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK]))
+        return self._ask(_typed(self._why.get("day", voice.ASK_WHICH_DAY), "", "day",
+                                voice.FIELD_DAY))
+
+    # --- answers -----------------------------------------------------------------------
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
         waiting = self._waiting
-        if waiting in ("origin", "destination"):
-            place = clean_place(input_values.get(waiting))
-            if place is None:
-                self._again(waiting)
-            elif waiting == "origin":
-                self.origin = place
+        if waiting in self._ENDS:
+            self._answer_station(waiting, action_id, input_values)
+        elif waiting == "day":
+            self._answer_day(action_id, input_values)
+        elif waiting == "read back":
+            if choice_index(action_id) == 0:
+                self.confirmed = True
             else:
-                self.destination = place
+                self._changing = True
+        elif waiting == "change":
+            self._changing = False
+            picked = choice_index(action_id)
+            if picked in (0, 1):
+                self._forget(self._ENDS[picked])
+            else:
+                self.day = None
+                self._typing_day = False
+                self._why.pop("day", None)
+
+    def _answer_station(self, end: str, action_id: str, input_values: dict[str, str]) -> None:
+        offered = self._offered.pop(end, None)
+        if offered:
+            picked = choice_index(action_id)
+            if picked is not None and picked < len(offered):
+                self._choose(end, offered[picked])
+            else:
+                # None of these: back to the whole list, which is not a wrong answer.
+                self._forget(end)
+            return
+        self._take(end, " ".join((input_values.get(end) or "").split()), counted=True)
+
+    def _take(self, end: str, typed: str, *, counted: bool) -> None:
+        """A name for one end, held to the site's list if there is one."""
+        self._why.pop(end, None)
+        place = clean_place(typed)
+        if place is None:
+            self.places[end] = None
+            if counted:
+                self._again(end)
+            self._why[end] = voice.ASK_FROM_AGAIN if end == "origin" else voice.ASK_TO_AGAIN
+            return
+        if self.stations is None:
+            self.places[end] = place
+            self._check_same(counted=counted)
             return
 
+        self.places[end] = place
+        found = match_station(typed, self.stations)
+        if found.station is not None:
+            self._choose(end, found.station, counted=counted)
+            return
+        if found.several:
+            # Not a wrong answer: a city with more than one station. Named by
+            # the site's word for it when they share one, so "Lahor" is asked
+            # about as Lahore.
+            self._offered[end] = found.several
+            firsts = {_plain(s).split()[0] for s in found.several}
+            city = found.several[0].split()[0] if len(firsts) == 1 else place
+            self._why[end] = voice.which_station(voice.station_name(city))
+            return
+        if counted:
+            self._again(end)
+        if found.many:
+            self._why[end] = voice.many_stations(place)
+        elif found.close:
+            self._offered[end] = found.close
+            self._why[end] = voice.not_a_station(place)
+        else:
+            self._why[end] = voice.not_a_station_at_all(place, end)
+        self.places[end] = None
+
+    def _choose(self, end: str, station: str, *, counted: bool = True) -> None:
+        self.chosen[end] = station
+        self._why.pop(end, None)
+        self._check_same(counted=counted)
+
+    def _forget(self, end: str) -> None:
+        self.places[end] = None
+        self.chosen[end] = None
+        self._offered.pop(end, None)
+        self._why.pop(end, None)
+
+    def _check_same(self, *, counted: bool) -> None:
+        """A journey that starts where it ends is asked about again: where to."""
+        ends = [self.chosen[end] if self.stations is not None else self.places[end]
+                for end in self._ENDS]
+        if None in ends or _plain(ends[0]) != _plain(ends[1]):
+            return
+        same = self._shown("origin")
+        self._forget("destination")
+        if counted:
+            self._again("destination")
+        self._why["destination"] = voice.same_station(same)
+
+    def _answer_day(self, action_id: str, input_values: dict[str, str]) -> None:
         if not self._typing_day:
             picked = choice_index(action_id)
             if picked == 0:
@@ -555,17 +947,24 @@ class TripBrief(_Asking):
                 self.day = self.today + timedelta(days=1)
             else:
                 self._typing_day = True
+            self._why.pop("day", None)
             return
 
         typed = input_values.get("day") or ""
-        found, _ = find_day(typed, self.today)
-        if found is None and typed.strip().isdigit():
+        reading = read_day(typed, self.today)
+        if reading.day is None and reading.problem is None and typed.strip().isdigit():
             # A bare number is a day of this month, or of the next if it has gone.
             found = _coming_day_of_month(int(typed.strip()), self.today)
-        self._day_gone = found is not None and found < self.today
-        self.day = usable_day(found, self.today)
+            reading = (judge_day(found, self.today) if found
+                       else DayReading(problem=NO_SUCH_DAY, said=f"day {typed.strip()}"))
+        self.day = reading.day
         if self.day is None:
+            self._why["day"] = day_trouble(reading, self.today) or voice.ASK_DAY_AGAIN
             self._again("day")
+        else:
+            self._why.pop("day", None)
+
+    # --- the task ----------------------------------------------------------------------
 
     def sentence(self) -> str:
         """The journey as one plain sentence, with the date written out."""
@@ -583,7 +982,15 @@ class TripBrief(_Asking):
 
         task = self.task()
         if self._hardcoded:
-            return TripPlanner(self.origin, self.destination, self.day, self.today), task
+            settled = self.stations is not None
+            return TripPlanner(
+                self.origin, self.destination, self.day, self.today,
+                # Stations already chosen from the site's list are searched as
+                # they are, and the journey has been read back: the search
+                # step need not say it all again.
+                stations={end: self.chosen[end] for end in self._ENDS} if settled else None,
+                said_back=settled,
+            ), task
         from backend.orchestrator.llm_loop import LLMPlanner
 
         # The model plans from the journey spelled out, not from "tomorrow".
