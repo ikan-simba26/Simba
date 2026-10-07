@@ -372,8 +372,8 @@ export const REVEAL = {
  * buttons to press. The names themselves come from the site.
  */
 export const CHOOSE = {
-  /** In the empty box. A placeholder, so it ends with nothing. */
-  hint: "Type the first few letters",
+  /** Where the names will be, before anything is typed. */
+  hint: "Type the first few letters to see the names.",
   /** Under the matches, when more match than are shown. */
   more: (count: number) =>
     count === 1 ? "1 more. Keep typing to find yours." : `${count} more. Keep typing to find yours.`,
@@ -412,6 +412,7 @@ export const SITUATIONS: Record<string, string> = {
   "reply.clarify": REPLY.clarify,
   "choose.more": CHOOSE.more(5),
   "choose.none": CHOOSE.none,
+  "choose.hint": CHOOSE.hint,
 };
 
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */

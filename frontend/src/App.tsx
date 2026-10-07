@@ -105,8 +105,11 @@ export default function App() {
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
-    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12
-                    short:pt-3 short:pb-4">
+    // The bottom padding is the one space on every screen nothing reads:
+    // 32px, and 4px in a short window, since the step row and the real page's
+    // button (2026-10-07) took the last few pixels at 100% and 150%.
+    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
+                    short:pt-3 short:pb-1">
       {/* The real page, softened, behind everything else (`Backdrop`). */}
       <Backdrop />
       <PresenceBar />

@@ -354,9 +354,17 @@ function Field({
   );
 }
 
-/** How many matches are shown at once: the same few a question offers as
- *  buttons (`voice.MAX_CHOICES`). More is a list to read. */
-const SHOWN_MATCHES = 4;
+/**
+ * How many matches are shown at once: one row of two.
+ *
+ * Four, two to a row, until 2026-10-07: the row under the step card then fell
+ * 52px below a 150% window as soon as anything matched, because the matches
+ * arrive after the overflow guard has measured the step. Now the list has one
+ * row of its own from the start — the hint before anything is typed, the
+ * matches after — so the step is as tall when it arrives as it will ever be,
+ * and the guard measures the real thing.
+ */
+const SHOWN_MATCHES = 2;
 
 /** A name with case, dots and dashes taken out, as the backend compares them. */
 function plain(text: string): string {
@@ -416,8 +424,12 @@ function ChoiceField({
   const options = field.options ?? [];
   const found = matching(options, value);
   const chosen = options.find((option) => plain(option) === plain(value));
-  const shown = chosen ? [chosen] : found.slice(0, SHOWN_MATCHES);
+  // More than fit: the first, and how many more in the second place.
+  const crowded = !chosen && found.length > SHOWN_MATCHES;
+  const shown = chosen ? [chosen] : found.slice(0, crowded ? SHOWN_MATCHES - 1 : SHOWN_MATCHES);
   const more = chosen ? 0 : found.length - shown.length;
+  const typed = value.trim() !== "";
+  const rowHeight = Math.round(spec.fieldHeight * 0.8);
 
   return (
     <div className="flex flex-col gap-3">
@@ -431,37 +443,35 @@ function ChoiceField({
                      focus:border-accent focus:bg-surface focus-visible:outline-none"
           type="text"
           value={value}
-          placeholder={CHOOSE.hint}
           autoComplete="off"
           onChange={(event) => onChange(field.id, event.target.value)}
           aria-label={field.label}
         />
       </motion.label>
 
-      {value.trim() !== "" && (
-        // Two to a row. Four stacked put "Stop this" 46px below a 150% window
-        // (`test_a_list_question_fits_at_150_percent`); typing does not
-        // re-run the overflow guard, so nothing would have folded.
-        <div role="group" aria-label={CHOOSE.matches} className="grid grid-cols-2 gap-2">
-          {shown.map((option) => (
-            <motion.button
-              key={option}
-              type="button"
-              aria-pressed={option === chosen}
-              onClick={() => onChange(field.id, readable(option))}
-              animate={{ height: Math.round(spec.fieldHeight * 0.8) }}
-              transition={FOLD}
-              className={`w-full ${buttonClass(option === chosen ? "primary" : "secondary", "fluid")}`}
-            >
-              {readable(option)}
-            </motion.button>
-          ))}
-          {more > 0 && <p className="col-span-2 text-small text-soft">{CHOOSE.more(more)}</p>}
-          {found.length === 0 && (
-            <p className="col-span-2 text-small text-soft">{CHOOSE.none}</p>
-          )}
-        </div>
-      )}
+      {/* One row, always there: the hint, then the matches. */}
+      <motion.div role="group" aria-label={CHOOSE.matches}
+                  className="grid grid-cols-2 items-center gap-2"
+                  animate={{ minHeight: rowHeight }} transition={FOLD}>
+        {!typed && <p className="col-span-2 text-small text-soft">{CHOOSE.hint}</p>}
+        {shown.map((option) => (
+          <motion.button
+            key={option}
+            type="button"
+            aria-pressed={option === chosen}
+            onClick={() => onChange(field.id, readable(option))}
+            animate={{ height: rowHeight }}
+            transition={FOLD}
+            className={`w-full ${buttonClass(option === chosen ? "primary" : "secondary", "fluid")}`}
+          >
+            {readable(option)}
+          </motion.button>
+        ))}
+        {more > 0 && <p className="text-small text-soft">{CHOOSE.more(more)}</p>}
+        {typed && found.length === 0 && (
+          <p className="col-span-2 text-small text-soft">{CHOOSE.none}</p>
+        )}
+      </motion.div>
     </div>
   );
 }

@@ -300,8 +300,8 @@ def test_nothing_from_the_list_shows_until_something_is_typed(
     ask(page, overlay, backend, asked(A_LIST_QUESTION))
 
     assert matches_on(page) == []
-    box = page.locator("input[aria-label='To']")
-    assert box.get_attribute("placeholder") == "Type the first few letters"
+    # The row the names will be in holds the hint until then (2026-10-07).
+    assert page.get_by_text("Type the first few letters to see the names.").is_visible()
 
 
 def test_typing_shows_the_names_that_match_as_buttons(
@@ -337,8 +337,9 @@ def test_more_matches_than_fit_are_counted_not_listed(
 
     page.fill("input[aria-label='To']", "kot")
 
-    assert len(matches_on(page)) == 4
-    assert page.get_by_text("2 more. Keep typing to find yours.").is_visible()
+    # One row: the best match, and how many more in the second place.
+    assert matches_on(page) == ["Kot Lakhpat"]
+    assert page.get_by_text("5 more. Keep typing to find yours.").is_visible()
 
 
 def test_a_name_nothing_on_the_list_has_says_so(
@@ -355,8 +356,10 @@ def test_a_name_nothing_on_the_list_has_says_so(
 def test_a_list_question_fits_at_150_percent(
     short_page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """Four matches and the count of the rest, the box, and both buttons, all
-    on screen in a 150% window."""
+    """A match and the count of the rest, the box, both buttons and the row
+    under the card, all on screen in a 150% window: nothing scrolls. Until
+    2026-10-07 this checked the buttons only, and the row under the card was
+    52px below the window."""
     ask(short_page, overlay, backend, asked(A_LIST_QUESTION))
     short_page.fill("input[aria-label='To']", "kot")
     short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
@@ -367,6 +370,7 @@ def test_a_list_question_fits_at_150_percent(
         assert box is not None and box["y"] + box["height"] <= height, (name, box)
     last = short_page.locator(MATCHES).last.bounding_box()
     assert last is not None and last["y"] + last["height"] <= height
+    assert not short_page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
 
 
 # --- level 3 keeps the box a question is answered in -----------------------------
