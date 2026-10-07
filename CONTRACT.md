@@ -252,6 +252,9 @@ Sent only in response to `trust.requested`.
   "caption": "I'm typing your consumer number here."
 }
 ```
+Every password box on the page is painted over in `screenshot` before it is
+sent (2026-10-07): boxes of type `password`, and boxes that autocomplete a
+current or new password, so a "show password" switch does not uncover one.
 
 ### `help.requested`
 ```json
@@ -350,6 +353,10 @@ and the next step is shown at the person's own level again. Omitted means
 ```json
 {}
 ```
+Since 2026-10-07 the overlay also sends it, quietly, when each step arrives,
+and shows the picture softened behind the step. No message changed: the
+backend answers it the same way whoever asked. Only the person pressing
+"What are you doing?" counts as asking for help in `telemetry`.
 
 ### `task.cancel`
 ```json

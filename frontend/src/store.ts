@@ -48,6 +48,14 @@ interface Store {
   step: StepPresented | null;
   load: LoadUpdated | null;
   preview: PagePreview | null;
+  /**
+   * The real page, for behind the step (2026-10-07). Asked for quietly when
+   * each step arrives, and kept until the task ends — `preview` is the trust
+   * panel's and is cleared when it closes.
+   */
+  backdrop: PagePreview | null;
+  /** Showing the real page clearly, with the step put aside. */
+  peeking: boolean;
   help: HelpRequested | null;
   completed: TaskCompleted | null;
   failed: TaskFailed | null;
@@ -127,6 +135,8 @@ interface Store {
   /** Send trust.requested and open the panel when the preview lands. */
   askWhat: () => void;
   closeTrust: () => void;
+  /** Show the real page clearly, or stop. Not counted as asking for help. */
+  peek: (on: boolean) => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -175,6 +185,8 @@ const EMPTY = {
   answered: false,
   load: null,
   preview: null,
+  backdrop: null,
+  peeking: false,
   help: null,
   completed: null,
   failed: null,
@@ -200,6 +212,8 @@ export const useStore = create<Store>((set, get) => {
 
     onMessage: (message: AnyEnvelope) => {
       apply(message, set);
+      // Each new step gets a fresh picture of the real page to sit on.
+      if (message.type === "step.presented") connection.askForPicture();
       append({
         seq: message.seq,
         type: message.type,
@@ -235,6 +249,8 @@ export const useStore = create<Store>((set, get) => {
     },
 
     closeTrust: () => set({ trustOpen: false, preview: null }),
+
+    peek: (on) => set({ peeking: on }),
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
@@ -354,6 +370,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         completed: null,
         failed: null,
         asking: null,
+        backdrop: null,
+        peeking: false,
       });
       return;
     case "state.changed":
@@ -405,22 +423,22 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     }
     case "page.preview":
-      set({ preview: message.payload as PagePreview });
+      set({ preview: message.payload as PagePreview, backdrop: message.payload as PagePreview });
       return;
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
       tracker.stop();
-      set({ help: message.payload as HelpRequested, step: null });
+      set({ help: message.payload as HelpRequested, step: null, peeking: false });
       return;
     case "task.completed":
       tracker.stop();
-      set({ completed: message.payload as TaskCompleted, step: null });
+      set({ completed: message.payload as TaskCompleted, step: null, peeking: false });
       return;
     case "task.failed":
       tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
-      set({ failed: message.payload as TaskFailed, step: null });
+      set({ failed: message.payload as TaskFailed, step: null, peeking: false });
       return;
     case "error":
       set({ error: message.payload as ErrorPayload });

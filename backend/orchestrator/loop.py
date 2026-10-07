@@ -525,6 +525,13 @@ def caption_for(move: "Move") -> str:
     )
 
 
+#: What counts as a password box in a picture of the page.
+PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
+                  "input[autocomplete=new-password]")
+#: What a password box is painted over with. Solid, and the same in both themes.
+MASK_COLOUR = "#8c7a66"
+
+
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
     """Answer trust.requested: a picture of the real page, and what is next.
 
@@ -556,7 +563,14 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
                 )
 
     try:
-        shot = await page.screenshot()
+        # Every password box is painted over before the picture leaves the
+        # backend (2026-10-07). The overlay shows this picture behind every
+        # step and in "Show the real page", and a password is never on it —
+        # not as dots, whose count says its length, and not as text if a site
+        # has a "show password" switch that turns the box into an ordinary
+        # one: those are matched by what they autocomplete.
+        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
+                                     mask_color=MASK_COLOUR)
     except PlaywrightError as error:
         await connection.send(
             "error",

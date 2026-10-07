@@ -80,7 +80,18 @@ export const MOTION = {
   breath: 3.2,
   /** One slow orbit of the presence mark while acting. */
   orbit: 2.8,
+  /** How long the real page shows clearly when a task starts, in seconds. */
+  reveal: 1.6,
+  /** The real page softening behind the card, or clearing for a peek. */
+  veil: 0.9,
 } as const;
+
+/**
+ * How far the real page is softened behind a step: how strongly it is
+ * blurred, in pixels, and how much of the canvas colour lies over it. Enough
+ * that nothing on it can be read and the card is the only thing to look at.
+ */
+export const VEIL = { blur: 18, cover: 0.82 } as const;
 
 /** A screen arriving or leaving: a fade and a short, slow rise. */
 export const ARRIVE = { duration: MOTION.base, ease: EASE };

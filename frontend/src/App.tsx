@@ -14,6 +14,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
@@ -105,17 +106,20 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12
                     short:pt-3 short:pb-4">
+      {/* The real page, softened, behind everything else (`Backdrop`). */}
+      <Backdrop />
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
           a narrow strip down the middle of an empty screen. */}
       {/* `relative`: the level notice floats over the card's top edge,
           positioned against this column (`FLOATING_NOTICE_CLASS`). */}
-      <div className="relative mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
+      <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
         <LevelNotice />
         <StepFailureNotice />
         <Column />
       </div>
+      <PeekBack />
       <TrustPanel />
       <DebugPanel />
     </div>
@@ -135,18 +139,24 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen } = useStore();
+  const { trustOpen, peeking } = useStore();
   const mode = usePresenceMode();
   return (
-    <motion.div animate={{ opacity: trustOpen ? 0 : 1 }} transition={ARRIVE}>
+    // Above the real page behind it (`Backdrop`), and out of the way while
+    // that page is being shown.
+    <motion.div className="relative z-[1]" animate={{ opacity: trustOpen || peeking ? 0 : 1 }}
+                transition={ARRIVE}>
       <Presence mode={mode} />
     </motion.div>
   );
 }
 
 function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state, asking } =
-    useStore();
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, peeking, reply, state,
+          asking } = useStore();
+  // Put aside while the real page is shown: the trust panel's picture, or
+  // the page itself behind the step (`Backdrop`).
+  const aside = trustOpen || peeking;
 
   const stuck = state === "stuck" || Boolean(help);
 
@@ -174,9 +184,9 @@ function Column() {
   return (
     <motion.div
       // Out of the way while the real page is being shown.
-      animate={{ y: trustOpen ? -28 : 0, opacity: trustOpen ? 0 : 1 }}
+      animate={{ y: aside ? -28 : 0, opacity: aside ? 0 : 1 }}
       transition={{ duration: 0.42, ease: [0.4, 0, 0.2, 1] }}
-      style={{ pointerEvents: trustOpen ? "none" : "auto" }}
+      style={{ pointerEvents: aside ? "none" : "auto" }}
     >
       {/* Both screens share one grid cell, so the outgoing and incoming ones
           overlap during the crossfade instead of stacking and shoving the
@@ -470,7 +480,10 @@ function Step() {
           card: at this type size, stacked, they pushed a step with a field
           past the bottom of the window. */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
-        <TrustControl />
+        <div className="flex flex-wrap items-center gap-3">
+          <TrustControl />
+          <PeekButton />
+        </div>
         <LevelControl />
       </div>
     </div>

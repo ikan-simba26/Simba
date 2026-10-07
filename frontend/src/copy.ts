@@ -340,6 +340,23 @@ export const TRUST = {
   close: "Close",
 } as const;
 
+/* --------------------------------------------------------- the real page */
+
+/**
+ * The real page, behind every step (2026-10-07). It shows clearly for a
+ * moment when a task starts, so the person sees where SIMBA is working, and
+ * then softens behind the card. Pressing and holding the button shows it
+ * clearly again for as long as it is held; a quick press keeps it showing
+ * until the other button is pressed. Password boxes are painted over before
+ * the picture ever leaves the backend.
+ */
+export const REVEAL = {
+  show: "Show the real page",
+  hide: "Hide the real page",
+  /** The picture behind the step, for a screen reader. */
+  picture: "The real page, softened behind your task",
+} as const;
+
 /* --------------------------------------------------- a list to choose from */
 
 /**
@@ -414,6 +431,8 @@ export const LABELS: Record<string, string> = {
   "trust.close": TRUST.close,
   "trust.whole": TRUST.whole,
   "trust.closeUp": TRUST.closeUp,
+  "reveal.show": REVEAL.show,
+  "reveal.hide": REVEAL.hide,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,
   "flow.railways": FLOWS.railways,
