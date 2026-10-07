@@ -23,7 +23,7 @@ import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
-import { buttonClass } from "./ui";
+import { StepKindIcon, buttonClass } from "./ui";
 
 /**
  * The one curve and duration the level change uses.
@@ -160,20 +160,38 @@ export function StepShell({
             recede is kept and softened: at 0.55 the instruction measured
             3.8:1 on the light card, which fails for the one sentence the
             person most needs to read. At 0.8 it is 8.7:1. */}
-        <motion.h1
-          animate={{
-            // Units are required: Framer silently ignores a bare number
-            // for fontSize, where it appends px for height and padding.
-            fontSize: `${typeSize(level, instruction)}px`,
-            opacity: waiting ? 0.8 : 1,
-            paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
-            // Grow after the collapse, for the same reason as UNFOLD.
-            transition: { ...FOLD, delay: 0.1 },
-          }}
-          className="font-semibold leading-[1.25] tracking-[-0.015em] text-ink"
-        >
-          {instruction}
-        </motion.h1>
+        {/* What the step is about, as one plain shape beside its sentence
+            (2026-10-07). Beside, not above: it costs width, not height, and
+            height is what a 150% window runs out of. */}
+        <div className="flex items-start gap-5 short:gap-4">
+          {step.step_kind && (
+            <motion.span
+              aria-hidden
+              data-testid="step-kind"
+              data-kind={step.step_kind}
+              animate={{ marginTop: spec.progress === "none" ? 0 : spec.gap * 0.35 }}
+              transition={FOLD}
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-tint
+                         text-accent short:h-13 short:w-13"
+            >
+              <StepKindIcon kind={step.step_kind} />
+            </motion.span>
+          )}
+          <motion.h1
+            animate={{
+              // Units are required: Framer silently ignores a bare number
+              // for fontSize, where it appends px for height and padding.
+              fontSize: `${typeSize(level, instruction)}px`,
+              opacity: waiting ? 0.8 : 1,
+              paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
+              // Grow after the collapse, for the same reason as UNFOLD.
+              transition: { ...FOLD, delay: 0.1 },
+            }}
+            className="min-w-0 flex-1 font-semibold leading-[1.25] tracking-[-0.015em] text-ink"
+          >
+            {instruction}
+          </motion.h1>
+        </div>
 
         {/* What has been found so far, when the task was looking for
             something. Under the instruction and larger than it: the

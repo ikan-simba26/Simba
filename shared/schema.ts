@@ -12,6 +12,8 @@ export type State = "thinking" | "acting" | "waiting" | "stuck";
 export type Level = 1 | 2 | 3;
 export type ActionKind = "primary" | "secondary" | "destructive";
 export type InputMode = "text" | "voice";
+/** What a step is about, for the icon beside it (2026-10-07). */
+export type StepKind = "date" | "place" | "choose" | "type" | "read" | "confirm";
 
 export type MessageType =
   // backend -> frontend
@@ -126,6 +128,11 @@ export interface StepPresented {
   requires_confirmation: boolean;
   /** What has been found so far, if the task was looking for anything. */
   findings?: Finding[];
+  /**
+   * Additive and optional (2026-10-07). What kind of thing the step is about,
+   * so one plain icon can go beside it. Absent means no icon.
+   */
+  step_kind?: StepKind;
 }
 
 /**

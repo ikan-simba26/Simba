@@ -159,6 +159,11 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+**`step_kind` is additive and optional** (added 2026-10-07). What the step is
+about — `date`, `place`, `choose`, `type`, `read` or `confirm` — so the overlay
+can put one plain icon beside it. The backend sends it on every step; a sender
+that omits it gets no icon, and nothing else changes.
+
 **A field's `options` is additive and optional** (added 2026-10-06, the kind
 of change CLAUDE.md allows without a ratification session). When a field's
 answer is one of a known list — the train search's own stations, read from the

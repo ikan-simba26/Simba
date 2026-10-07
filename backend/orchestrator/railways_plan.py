@@ -426,6 +426,7 @@ class TripPlanner:
                 # given the longer window a fetched list needs.
                 expect=Expectation(label_like=place, list_opens=True),
                 quiet=self._typed[end] > 1,
+                kind="place",
             )
 
         station = self.stations.get(end)
@@ -455,6 +456,7 @@ class TripPlanner:
             # Committing the choice closes the list, which changes the page.
             expect=Expectation(label_gone=station),
             quiet=True,
+            kind="place",
         )
 
     def _day(self, elements):
@@ -479,6 +481,7 @@ class TripPlanner:
                 "Now the day you're travelling.", f"{words}.", "Set the date",
                 operations=[Operation("click", Target("option", day, qualifier=cell.qualifier))],
                 expect=Expectation(label_gone=day),
+                kind="date",
             )
 
         self._done.discard("open month")
@@ -492,6 +495,7 @@ class TripPlanner:
                   for _ in range(months_between(self.today, self.day))],
             ],
             expect=Expectation(label_present=day),
+            kind="date",
         )
 
     def _search(self, elements):
@@ -523,19 +527,22 @@ class TripPlanner:
             # The search control is a button with no accessible name at all.
             operations=[Operation("click", Target("button", ""))],
             expect=Expectation(rows_at_least=1),
+            kind="confirm",
         )
 
     # --- shaping -----------------------------------------------------------------
 
-    def _move(self, instruction, detail, button, *, operations, expect, quiet=False):
+    def _move(self, instruction, detail, button, *, operations, expect, quiet=False,
+              kind=None):
         from backend.orchestrator.loop import Move
 
         return Move(instruction=instruction, detail=detail, operations=operations,
-                    expect=expect, fields=[], actions=actions(button), quiet=quiet)
+                    expect=expect, fields=[], actions=actions(button), quiet=quiet, kind=kind)
 
     def _question(self, instruction, *, answers, fields=()):
         from backend.orchestrator.loop import Move
 
+        # Every question this planner asks is which station.
         return Move(instruction=instruction, detail="", operations=[],
                     expect=Expectation(), fields=list(fields), actions=answers,
-                    question=True)
+                    question=True, kind="place")

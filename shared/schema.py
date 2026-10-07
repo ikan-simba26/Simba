@@ -17,6 +17,8 @@ State = Literal["thinking", "acting", "waiting", "stuck"]
 Level = Literal[1, 2, 3]
 ActionKind = Literal["primary", "secondary", "destructive"]
 InputMode = Literal["text", "voice"]
+# What a step is about, for the icon beside it (2026-10-07).
+StepKind = Literal["date", "place", "choose", "type", "read", "confirm"]
 
 MessageType = Literal[
     # backend -> frontend
@@ -148,6 +150,9 @@ class StepPresented(BaseModel):
     # What has been found so far, if the task was looking for anything.
     # Additive and optional: a task that reads nothing sends an empty list.
     findings: List[Finding] = []
+    # Additive and optional (2026-10-07). What kind of thing the step is
+    # about, so the overlay can put one plain icon beside it. Absent: no icon.
+    step_kind: Optional[StepKind] = None
 
 
 class StepFailed(BaseModel):

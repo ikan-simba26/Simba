@@ -10,7 +10,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
-import type { FlowName } from "@shared/schema";
+import type { FlowName, StepKind } from "@shared/schema";
 
 import { NOTICE, STATUS } from "../copy";
 import { EASE, MOTION } from "../design";
@@ -293,6 +293,61 @@ export function SpeechIcon() {
       <path d="M4 5h16v11H9l-5 4V5Z" />
     </Svg>
   );
+}
+
+/**
+ * What a step is about, as one shape beside it (2026-10-07): a calendar for a
+ * day, a pin for a place, a list for choosing one of several, keys for
+ * typing, a page for something to read, and a tick for agreeing to go ahead.
+ * The step's sentence always says it too; the shape is for finding your place
+ * at a glance, never the only way it is said.
+ */
+export function StepKindIcon({ kind, size = 36 }: { kind: StepKind; size?: number }) {
+  switch (kind) {
+    case "date":
+      return (
+        <Svg size={size}>
+          <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+          <path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01" />
+        </Svg>
+      );
+    case "place":
+      return (
+        <Svg size={size}>
+          <path d="M12 21s-6.5-6-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 15 12 21 12 21Z" />
+          <circle cx="12" cy="9.8" r="2.4" />
+        </Svg>
+      );
+    case "choose":
+      return (
+        <Svg size={size}>
+          <path d="M3.8 6.5 5.4 8l2.8-3M11 6.5h9.5M11 12h9.5M11 17.5h9.5" />
+          <circle cx="6" cy="12" r="1.6" />
+          <circle cx="6" cy="17.5" r="1.6" />
+        </Svg>
+      );
+    case "type":
+      return (
+        <Svg size={size}>
+          <rect x="2.5" y="6" width="19" height="12" rx="3" />
+          <path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8" />
+        </Svg>
+      );
+    case "read":
+      return (
+        <Svg size={size}>
+          <path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+          <path d="M14 3v5h5M9 13h7M9 17h5" />
+        </Svg>
+      );
+    case "confirm":
+      return (
+        <Svg size={size}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M8 12.4 10.8 15 16 9.5" />
+        </Svg>
+      );
+  }
 }
 
 /* -------------------------------------------------------------- presence */

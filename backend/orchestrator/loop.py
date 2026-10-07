@@ -442,6 +442,10 @@ class Move:
     # the page offers, and then choosing — and what to choose cannot be known
     # until the page has been looked at.
     quiet: bool = False
+    # What the step is about, for the icon beside it: date, place, choose,
+    # type, read or confirm (`shared/schema.py`, `StepKind`). None means work
+    # it out from the operations (`kind_of`).
+    kind: str | None = None
 
 
 class Planner(Protocol):
@@ -513,6 +517,33 @@ MAX_STEPS = 12
 def is_answer(move: "Move", action_id: object) -> bool:
     """Whether a response to a question answers it, rather than stopping."""
     return action_id != voice.CANCEL_ID and any(a.id == action_id for a in move.actions)
+
+
+def kind_of(move: "Move") -> str:
+    """What a step is about, for the icon beside it (2026-10-07).
+
+    A planner that knows says so (`Move.kind`): the trip planner knows a
+    station from a date. Otherwise it is read off what the step does, which
+    every planner's moves have — the hardcoded plans, the LLM's and replay's:
+    typing is "type", picking from a list is "choose", following a link is
+    "read" (it opens something to look at), and pressing anything else is
+    "confirm". A question is "type" when it has a box and "choose" when it
+    has only buttons.
+    """
+    if move.kind is not None:
+        return move.kind
+    if move.question:
+        return "type" if any(not f.value for f in move.fields) else "choose"
+    operation = move.operations[0] if move.operations else None
+    if operation is None:
+        return "confirm"
+    if operation.kind in ("fill", "type"):
+        return "type"
+    if operation.kind == "select" or operation.target.role == "option":
+        return "choose"
+    if operation.target.role == "link":
+        return "read"
+    return "confirm"
 
 
 def caption_for(move: "Move") -> str:
@@ -809,6 +840,7 @@ class _Run:
                 actions=move.actions,
                 requires_confirmation=True,
                 findings=findings,
+                step_kind=kind_of(move),
             ),
         )
 
