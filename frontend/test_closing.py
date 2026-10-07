@@ -243,6 +243,17 @@ def test_nine_trains_and_eight_journeys_leave_the_way_onward_on_screen(
 
 # --- whole rows (2026-10-05) ---------------------------------------------------
 #
+# Since 2026-10-07 each row is a ticket: the result, then its other cells after
+# a torn-paper rule, and "Fastest" on the one that takes least time.
+
+#: Each ticket's parts, " | " between them.
+TICKETS = """[...document.querySelectorAll('[data-testid=ticket]')]
+  .map(t => [...t.children].map(c => c.textContent.trim()).join(' | '))"""
+
+
+def tickets(page: Page) -> list[str]:
+    return page.evaluate(TICKETS)
+#
 # `Finding.rows` carries each result's cells together, repeats kept, on the
 # first finding. The screen reads its lines from them, so no time can sit
 # beside the wrong train.
@@ -258,8 +269,8 @@ def test_two_trains_that_share_a_journey_time_each_show_it(
             {"label": "Journey", "value": "5 h 15 min", "values": ["5 h 15 min"]},
         ]))
 
-    assert page.get_by_text("3UP, 5 h 15 min", exact=True).count() == 1
-    assert page.get_by_text("4DN, 5 h 15 min", exact=True).count() == 1
+    # Both take the same, so neither is the fastest.
+    assert tickets(page) == ["3UP | 5 h 15 min", "4DN | 5 h 15 min"]
     assert page.get_by_text("Train, Journey", exact=True).count() == 1
     assert "Journey:" not in page.inner_text("body")
 
@@ -279,9 +290,8 @@ def test_repeats_on_different_rows_each_train_shows_its_own_time(
          "values": ["5 h 15 min", "6 h 15 min"]},
     ]))
 
-    for line in ("1UP, 07:10, 5 h 15 min", "2UP, 07:10, 6 h 15 min",
-                 "3UP, 09:00, 6 h 15 min"):
-        assert page.get_by_text(line, exact=True).count() == 1, line
+    assert tickets(page) == ["1UP | 07:10, 5 h 15 min | Fastest", "2UP | 07:10, 6 h 15 min",
+                             "3UP | 09:00, 6 h 15 min"]
     assert page.get_by_text("Train, Departs, Journey", exact=True).count() == 1
 
 
@@ -321,6 +331,48 @@ def test_nine_trains_as_rows_leave_the_way_onward_on_screen(
     ]), size, scale)
 
     assert onward_on_screen(page, size[1]) == []
-    for train, journey in NINE_ROWS[:6]:
-        assert page.get_by_text(f"{train}, {journey}", exact=True).count() == 1
+    # Five in the page's order, then the fastest, which is eighth: the one
+    # marked is never among those counted.
+    assert tickets(page) == [f"{train} | {journey}" for train, journey in NINE_ROWS[:5]] + [
+        "107UP | 4 h 15 min | Fastest"]
     assert page.get_by_text("and 3 more", exact=True).count() == 1
+
+
+def test_a_tie_marks_every_train_in_it(browser, overlay: str, backend: Backend) -> None:  # noqa: F811
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "11UP, 12DN, 13UP", "values": ["11UP", "12DN", "13UP"],
+         "rows": [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"], ["13UP", "3 h 15 min"]]},
+        {"label": "Journey", "value": "3 h 15 min, 4 h 15 min",
+         "values": ["3 h 15 min", "4 h 15 min"]},
+    ]))
+
+    assert tickets(page) == ["11UP | 3 h 15 min | Fastest", "12DN | 4 h 15 min",
+                             "13UP | 3 h 15 min | Fastest"]
+
+
+def test_times_that_cannot_be_read_mark_nothing(browser, overlay: str,  # noqa: F811
+                                               backend: Backend) -> None:
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "9UP, 10DN", "values": ["9UP", "10DN"],
+         "rows": [["9UP", "overnight"], ["10DN", "6 h 0 min"]]},
+        {"label": "Journey", "value": "overnight, 6 h 0 min",
+         "values": ["overnight", "6 h 0 min"]},
+    ]))
+
+    assert tickets(page) == ["9UP | overnight", "10DN | 6 h 0 min"]
+
+
+def test_a_bill_is_a_slip_with_its_amount_and_what_supports_it(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    page = end(browser, overlay, backend, completed(
+        "Your bill is 14,382, and it is due on 15-10-2026.", [
+            {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
+            {"label": "Due", "value": "15-10-2026", "values": ["15-10-2026"]},
+        ]))
+
+    found = page.get_by_test_id("findings")
+    assert found.get_attribute("data-shape") == "slip"
+    assert page.locator("[data-testid=findings] p").inner_text().split() == ["Due",
+                                                                            "15-10-2026"]
+    assert page.get_by_text("14,382", exact=True).count() == 1

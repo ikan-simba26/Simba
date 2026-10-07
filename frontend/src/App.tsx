@@ -617,17 +617,30 @@ export function Findings({ findings, size, less = 0 }: {
   const count = byRows ? sent.length : lists[0]?.length ?? 0;
 
   if (count <= 1) {
+    const [answer, ...support] = findings;
+    // A slip, like the bill it usually is (2026-10-07): the answer large with
+    // what it is under it, a torn-paper rule, then what supports it, each
+    // value beside its label. Nothing is added that the page did not say.
     return (
-      <div className="flex flex-col gap-7 short:gap-5" data-testid="findings">
-        {findings.map((finding, index) => (
-          <Found key={finding.label} label={finding.label}
-                 // The first finding is the answer; any others support it.
-                 size={index === 0 ? size : Math.round(size * 0.55)}>
-            {/* A supporting finding with several values is the step
-                screen's one line, which counts past four. */}
-            <span>{lists[index].length === 1 ? lists[index][0] : finding.value}</span>
-          </Found>
-        ))}
+      <div className="flex flex-col gap-6 short:gap-4" data-testid="findings" data-shape="slip">
+        <Found label={answer.label} size={size}>
+          <span>{lists[0].length === 1 ? lists[0][0] : answer.value}</span>
+        </Found>
+        {support.length > 0 && (
+          <div className="flex flex-col gap-2 border-t-2 border-dashed border-line pt-5 short:pt-3">
+            {support.map((finding, index) => (
+              <p key={finding.label}
+                 className="flex items-baseline justify-between gap-6 text-lead short:text-body">
+                <span className="text-soft">{finding.label}</span>
+                {/* A supporting finding with several values is the step
+                    screen's one line, which counts past four. */}
+                <span className="font-semibold text-ink">
+                  {lists[index + 1].length === 1 ? lists[index + 1][0] : finding.value}
+                </span>
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -655,6 +668,12 @@ export function Findings({ findings, size, less = 0 }: {
   // 54px for a few; past four, the size of a step's instruction.
   const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);
 
+  if (byRows) {
+    return (
+      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart} less={less} />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2" data-testid="findings">
       <Found label={beside.map((finding) => finding.label).join(", ")}
@@ -665,6 +684,113 @@ export function Findings({ findings, size, less = 0 }: {
         )}
       </Found>
       {/* Not beside any one result, so under the list, in the label's type. */}
+      {apart.map((finding) => (
+        <p key={finding.label} className="text-body text-soft">
+          {finding.label}: <span className="font-medium text-ink">{finding.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** `6 h 3 min` as 363, or null for anything else (`voice._minutes`). */
+function minutes(text: string): number | null {
+  const match = /^\s*(\d+)\s*h\s*(\d+)\s*min\s*$/.exec(text);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+/**
+ * Which results take least time, by row: the column whose every cell is a
+ * journey time, its smallest value, and every row that has it. Empty when no
+ * column is all times, or when every result takes the same — then none is
+ * faster, and the sentence above already says they all take that long.
+ */
+export function fastestRows(rows: string[][]): Set<number> {
+  const width = Math.max(0, ...rows.map((row) => row.length));
+  for (let column = 0; column < width; column++) {
+    const times = rows.map((row) => minutes(row[column] ?? ""));
+    if (times.some((time) => time === null)) continue;
+    const best = Math.min(...(times as number[]));
+    const at = new Set(times.flatMap((time, row) => (time === best ? [row] : [])));
+    return at.size === rows.length ? new Set() : at;
+  }
+  return new Set();
+}
+
+/** Results in a grid, two to a row. */
+const TICKETS_PER_ROW = 2;
+/** At most this many rows of them; the rest are counted. */
+const TICKET_ROWS = 3;
+
+/**
+ * Results that came as whole rows, one ticket each (2026-10-07).
+ *
+ * The first cell is the result — a train's number — and the rest sit after a
+ * torn-paper rule, in the page's own words; under the grid, one line names
+ * what the cells are, as it did when results were lines. The fastest is
+ * marked where the times can be read. Two to a row and three rows at most:
+ * one line per ticket, so six of them are no taller than the six lines they
+ * replace, and the closing screen still fits nine trains at 150%
+ * (`test_closing.py`). Each extra line the sentence above takes, and each
+ * detail that is not on the tickets, gives up a whole row of them.
+ */
+function Tickets({ findings, rows, onLine, apart, less }: {
+  findings: Finding[]; rows: string[][]; onLine: (index: number) => boolean;
+  apart: Finding[]; less: number;
+}) {
+  const count = rows.length;
+  const columns = findings.flatMap((_, index) => (onLine(index) ? [index] : []));
+  const shown = Math.min(count,
+    Math.max(1, TICKET_ROWS - apart.length - less) * TICKETS_PER_ROW);
+  const fastest = fastestRows(rows);
+  const few = count <= 4;
+  // The rows shown, in the page's order — and when the fastest is not among
+  // them, it takes the last place, so the one marked is never in "and N more".
+  const picked = Array.from({ length: shown }, (_, index) => index);
+  const best = [...fastest][0];
+  if (best !== undefined && !picked.some((index) => fastest.has(index))) {
+    picked[picked.length - 1] = best;
+  }
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="findings" data-shape="tickets">
+      <ul className="grid grid-cols-2 gap-3 short:gap-2">
+        {picked.map((index) => {
+          const row = rows[index];
+          const [first, ...rest] = columns.map((column) => row[column] ?? "");
+          const quickest = fastest.has(index);
+          return (
+            <li key={index}
+                data-testid="ticket"
+                data-fastest={quickest ? "true" : undefined}
+                className={`flex items-center gap-4 rounded-lg border-2 bg-canvas px-5
+                            ${few ? "py-4 short:py-3" : "py-2.5 short:py-1.5"}
+                            ${quickest ? "border-accent" : "border-line"}`}>
+              <span className="font-semibold leading-[1.1] tracking-[-0.02em] text-ink"
+                    style={{ fontSize: few ? TYPE.heading : TYPE.title }}>
+                {first}
+              </span>
+              {rest.some(Boolean) && (
+                <span className="min-w-0 flex-1 truncate border-l-2 border-dashed border-line
+                                 pl-4 text-body font-medium text-ink">
+                  {rest.filter(Boolean).join(", ")}
+                </span>
+              )}
+              {quickest && (
+                <span className="shrink-0 rounded-full bg-accent px-3 py-0.5 text-caption
+                                 font-semibold text-accent-ink">
+                  {ENDING.fastest}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="flex flex-wrap items-baseline gap-x-4 text-body text-soft">
+        <span>{columns.map((index) => findings[index].label).join(", ")}</span>
+        {count > shown && <span className="font-medium">{ENDING.more(count - shown)}</span>}
+      </p>
+      {/* Not on any one ticket, so under them, in the label's type. */}
       {apart.map((finding) => (
         <p key={finding.label} className="text-body text-soft">
           {finding.label}: <span className="font-medium text-ink">{finding.value}</span>

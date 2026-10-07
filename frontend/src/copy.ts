@@ -233,6 +233,12 @@ export const ENDING = {
    * the step screen for the same thing, so one cut-short list reads one way.
    */
   more: (count: number) => `and ${count} more`,
+  /**
+   * On the result that takes least time, when every result's time can be
+   * read (2026-10-07). The sentence above says which one it is; this marks it
+   * where it is in the list. A tag, so it ends with nothing.
+   */
+  fastest: "Fastest",
 } as const;
 
 /* -------------------------------------------------------- when it stops */
@@ -411,6 +417,7 @@ export const SITUATIONS: Record<string, string> = {
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
 export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
+  "ending.fastest": ENDING.fastest,
   "home.canHelp": HOME.canHelp,
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
