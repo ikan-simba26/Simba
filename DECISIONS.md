@@ -3937,3 +3937,107 @@ question offers as buttons anywhere else. Stacked, four did not fit at 150%.
 
 **Alternatives.** Send on pressing a name: one press fewer, and no chance to
 see the choice before it goes.
+
+## Read aloud is not built: CLAUDE.md rules text-to-speech out
+
+**Date:** 2026-10-07 (asked for as item 5 of `feat/interface-reveal`)
+
+**Decision.** Not built. CLAUDE.md: "Do not use OpenCV, local LLMs, or
+text-to-speech. Out of scope." A speaker button on the system voice is
+text-to-speech.
+
+**What it would take.** All three owners changing that line. The build itself
+is small: the browser's `speechSynthesis`, no dependency, an English voice,
+off by default, cancelled on every new step.
+
+## The home cards were already the thing asked for
+
+**Date:** 2026-10-07
+
+**Decision.** Item 3 skipped. The home screen already has the three things
+SIMBA can do as large cards with an icon each, above the text box; pressing
+one starts that goal and typing still works. Two differences from the request,
+left as they are: remembered goals take a card's place, up to three in all
+(2026-09-30, for fit at 150%); and the cards are an icon and a line, not
+pictures.
+
+## SIMBA's shape is CSS 3D, stepped twenty times a second
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** Three rings round a round core, CSS `preserve-3d`, one turn in
+36s, on the home screen and "Give me a moment." only; held still under reduced
+motion. No three.js: CLAUDE.md asks before any new dependency, and the request
+allowed "or lighter". The turn steps twenty times a second, because measured
+headless it is not composited (EVALUATION.md, 2026-10-07).
+
+**Cost.** About 70ms of main-thread work in every 5s while it turns, with
+every frame on time.
+
+## The real page is a picture of it, asked for with every step
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** The backdrop is the backend's capture (`page.preview`), at the
+site view's size and place, not the live view made visible: the site view
+stays covered (CLAUDE.md, architecture constraints). The overlay asks for one
+with each step by the existing `trust.requested`; only "What are you doing?"
+counts as a help press. Shown clearly for 1.6s once per task, then blurred
+18px under 82% canvas. A press over 400ms is a hold.
+
+**Cost.** One capture per step in the backend — a screenshot and a page read,
+about 0.2s on the live site — done while the step waits. The reveal shows
+the cluttered page this product hides, briefly and softened; whether that
+helps or unsettles this audience is a question for the sessions with people,
+not for the code.
+
+## Password boxes are painted over in every capture
+
+**Date:** 2026-10-07
+
+**Decision.** `type=password`, and any box autocompleting a current or new
+password (a "show password" switch makes it ordinary text), painted
+`#8c7a66` by Playwright's own mask. In every picture, including the trust
+panel's.
+
+## What a step is about comes from the backend
+
+**Date:** 2026-10-07
+
+**Decision.** `StepPresented.step_kind`, additive and optional. The trip
+planner and the briefs name it; otherwise it is read off the move: typing is
+"type", an option is "choose", a link is "read", any other press is "confirm";
+a question with a box is "type", with buttons only "choose".
+
+**Alternatives.** Work it out in the overlay from the step's words: words are
+not a contract.
+
+## Results as tickets; the fastest is always shown
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** Rows are tickets, two to a row, three rows at most; "Fastest" on
+the least time when every time in a column reads as `N h M min`, every tied
+train marked, none when all tie. When the fastest is past those shown it takes
+the last place. A single answer is a slip.
+
+## The station list has one row from the start
+
+**Date:** 2026-10-07
+
+**Decision.** At most two names (or one and "N more") in a row that is there
+before anything is typed, holding the hint until then. The window's bottom
+padding is 32px (was 48), and 4px in a short window (was 16).
+
+**Why.** A step that grows while it is answered is never caught by the overflow
+guard; one that is its full height on arrival is.
+
+**Cost.** Fewer names at once: typing more narrows them.
+
+## Yesterday's branch was committed so this one could start from it
+
+**Date:** 2026-10-07
+
+**Decision.** `feat/railways-ask` had no commits; its work was committed on it
+(`98cf77a`, not merged, not pushed) before `feat/interface-reveal` was made
+from it.

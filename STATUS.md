@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-06 (later) · **1012 passing, 12 skipped, 0 failed** · suite wall clock 1181s, on `feat/railways-ask`, **not merged**. 68 tests added since 944; the 12 skips are the same 12 as below. Earlier today on `feat/multi-october-fifth-rows`: 944 passed, 12 skipped, 1499s. The 12 skips: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-07 · **1054 passing, 12 skipped, 0 failed** · suite wall clock 1173s, on `feat/interface-reveal`, **not merged**. 42 tests added since 1012 (`feat/railways-ask`, 2026-10-06, 1181s). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,31 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-07: the interface, less plain
+
+On `feat/interface-reveal`, from `feat/railways-ask`, **not merged**. One
+commit per item. Screenshots of every screen, both themes, three sizes, in
+`.scratch/interface-reveal/` (not committed). Most of it is **for Aly to
+review**.
+
+- **The real page behind the step.** Shown clearly for a moment when a task
+  starts, then blurred and dimmed behind the card; "Show the real page" while
+  held, or until hidden. A picture, asked for with each step; the site view
+  is still covered. Password boxes are painted over in every capture.
+- **A shape beside each step** for what it is about — date, place, choose,
+  type, read, confirm — named by the backend (`step_kind`, additive).
+- **Results as tickets**, the fastest marked and always on screen; a bill as
+  a slip. Nine trains still fit at 150%.
+- **SIMBA's shape**, CSS 3D, on the home screen and while thinking; still
+  under reduced motion; about 70ms of main-thread work in 5s while turning.
+- **The question screens** have their shapes too.
+- **Skipped:** the home cards already existed. **Not built:** read aloud —
+  CLAUDE.md rules text-to-speech out; it needs all three owners.
+- **Found and fixed:** reduced motion never reached the Framer animations;
+  the station question from `feat/railways-ask` scrolled by 52px at 100% and
+  150% once names appeared. **Found, not fixed:** the reply to "book a flight"
+  scrolls by 24px at 100% and 45px at 150%, as it did before this branch.
 
 ### Changed on 2026-10-06 (later): every journey answer checked before the site is touched
 

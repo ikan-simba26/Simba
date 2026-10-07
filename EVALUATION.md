@@ -5009,3 +5009,77 @@ fail; with the reading back skipped, 7 fail.
 **Full suite** on `feat/railways-ask`: **1012 passed, 12 skipped, 0 failed**,
 1181s (944 passed before; 68 added). Docstrings in `details.py` and the
 records were edited while it ran; no code was.
+
+## 2026-10-07 — the interface, less plain: the real page behind, shapes, tickets
+
+On `feat/interface-reveal`, from `feat/railways-ask`. Five of the seven
+things asked for are built; one already existed and one is not allowed.
+Every measurement here is headless Chromium against the built overlay, never
+the Electron window, and no desktop was captured. 168 screenshots — 28
+screens, both themes, 100%, 125% and 150% — are in `.scratch/interface-reveal/`
+(not committed), with the script that takes them.
+
+**Reduced motion did not reach most of the motion.** `index.css` stops CSS
+animation under `prefers-reduced-motion`, and the presence mark is Framer
+Motion, which animates from JavaScript. With reduced motion emulated, the mark
+while thinking had **12 different looks in 12 samples over 3s**; after
+`MotionConfig reducedMotion="user"` and a still mark, **1**
+(`frontend/test_calm.py`). Present since the mark existed.
+
+**The real page behind the step.** The backend's picture of the site, asked
+for with each step, blurred 18px under 82% of the canvas colour, after 1.6s
+shown clearly when a task starts; "Show the real page" clears it while held
+(over 400ms) or until "Hide the real page" after a tap. Password boxes are
+painted over in every capture: on the registration replica with a password
+typed, every pixel inside the box is the mask colour, where the same box
+unmasked has the dots in it (`test_preview_mask.py`, 4). Neither the picture
+nor a peek counted as a help press in any telemetry sample
+(`test_reveal.py`, 8).
+
+**SIMBA's shape costs the main thread, and it was measured.** CSS 3D, no
+dependency. Main-thread task time over 5s on the home screen, three runs each:
+
+| Condition | Main-thread task time in 5s | 95th-percentile frame |
+|---|---|---|
+| No shape on the page | 113–174ms | 16.7–16.8ms |
+| Shape held still (reduced motion) | 122–162ms | 16.7ms |
+| Turning, sixty updates a second | 244–320ms (style recalc 47–61ms) | 16.7–16.8ms |
+| Turning, `will-change: transform` | 249–288ms | 16.7–16.8ms |
+| **Turning, twenty updates a second (kept)** | **181–206ms** | 16.7–16.8ms |
+
+So the 3D turn is not composited here: it costs style work as it changes, and
+layer promotion does not help. Stepping it to twenty updates a second halves
+the extra work, to about 70ms in 5s (1.4% of one core), and no frame is late
+in any condition. Not measured in the Electron window, where a GPU may
+composite it.
+
+**Fit, measured against the base.** The screenshot script flags any page that
+scrolls. Built from `98cf77a` (this branch's base) and from this branch, the
+same screens, overflow in px at 100 / 125 / 150%:
+
+| Screen | Base | This branch, first | After the fix |
+|---|---|---|---|
+| Reply to "book a flight" | 40 / 0 / 57 | 40 / 0 / 57 | 24 / 0 / 45 |
+| Sign-in step | 0 / 0 / 0 | 1 / 0 / 6 | 0 / 0 / 0 |
+| Station question | 0 / 0 / 0 | 1 / 0 / 0 | 0 / 0 / 0 |
+| Station question, "kar" typed | **52** / 0 / **52** | 69 / 0 / 57 | 0 / 0 / 0 |
+
+The station question overflowed on `feat/railways-ask` already: its names
+arrive after the overflow guard has measured the step, and its fit test
+checked the two buttons only. It now keeps one row for the list from the
+start and shows at most two names; its test now requires that nothing
+scrolls. The reply screen is not part of this work and still scrolls (flagged).
+
+**Closing screen.** Nine trains as tickets still leave both buttons on screen
+at all three sizes, with a one-line and a two-line sentence
+(`test_closing.py`, 32, three new). The fastest, eighth of nine, is moved into
+the last place shown so the one marked is never counted away.
+
+**Shapes beside steps.** All three hardcoded plans, the trip planner and every
+question are given the kind they mean (`test_step_kind.py`, 9); a long
+sentence with its shape fits at 150% at levels 1, 2 and 3
+(`test_step_icons.py`, 11).
+
+**Full suite** on `feat/interface-reveal`: **1054 passed, 12 skipped, 0
+failed**, 1173s (1012 before; 42 added). The records were written while it
+ran; no code was changed after it started.
