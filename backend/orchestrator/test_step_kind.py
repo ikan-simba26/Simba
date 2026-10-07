@@ -85,3 +85,34 @@ def test_it_goes_out_with_the_step_and_an_old_step_has_none() -> None:
                                         "detail": "", "fields": [], "actions": [],
                                         "requires_confirmation": True})
     assert old.step_kind is None
+
+
+# --- the questions a journey asks (2026-10-07) ---------------------------------
+
+
+def test_every_question_a_journey_asks_has_the_shape_of_what_it_asks() -> None:
+    """Where from and where to are places, the day is a date — as buttons and
+    typed — and the journey read back is the go-ahead. Asked of a brief that
+    has read a station list, as the app's has."""
+    from backend.orchestrator.test_trip_answers import STATIONS, brief, choice
+
+    made = brief(origin="Lahore")
+    asked = []
+    for answer in (choice(1),                                 # which Lahore
+                   ("confirm", {"destination": "Rawalpindi"}),
+                   choice(2),                                 # pick another day
+                   ("confirm", {"day": "tomorrow"}),
+                   choice(1)):                                # no, change something
+        asked.append(kind_of(made.question()))
+        made.answered(*answer)
+    asked.append(kind_of(made.question()))                    # what to change
+
+    assert STATIONS
+    assert asked == ["place", "place", "date", "date", "confirm", "choose"]
+
+
+def test_the_bill_and_the_course_questions_are_typed() -> None:
+    from backend.orchestrator.details import BillBrief, CourseBrief, Understood
+
+    assert kind_of(BillBrief("g", Understood()).question()) == "type"
+    assert kind_of(CourseBrief("g", Understood()).question()) == "type"

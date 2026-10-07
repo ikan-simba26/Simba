@@ -38,7 +38,7 @@ GOAL = "trains to Rawalpindi tomorrow"
 A_QUESTION = {
     "step_index": 1, "step_total": 4,
     "instruction": "What day are you travelling?", "detail": "",
-    "fields": [], "requires_confirmation": True, "findings": [],
+    "fields": [], "requires_confirmation": True, "findings": [], "step_kind": "date",
     "actions": [
         {"id": "choice:0", "label": "Today", "kind": "primary"},
         {"id": "choice:1", "label": "Tomorrow", "kind": "primary"},
@@ -278,6 +278,8 @@ A_LIST_QUESTION = {
     "fields": [{"id": "destination", "label": "To", "type": "choice", "value": "",
                 "options": STATIONS}],
     "requires_confirmation": True, "findings": [],
+    # With its shape since 2026-10-07, so the fit below includes it.
+    "step_kind": "place",
     "actions": [
         {"id": "confirm", "label": "That's it", "kind": "primary"},
         {"id": "cancel", "label": "Stop this", "kind": "secondary"},
@@ -396,3 +398,13 @@ def test_at_level_3_the_box_stays_while_the_answer_is_typed(
     page.get_by_role("button", name="That's it", exact=True).click()
     page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
     assert answer(backend)["input_values"] == {"origin": "Lahore"}
+
+
+def test_a_question_has_the_shape_of_what_it_asks(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The question screens look like every other step (2026-10-07)."""
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+    assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "place"
+    ask(page, overlay, backend, asked(A_QUESTION))
+    assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "date"

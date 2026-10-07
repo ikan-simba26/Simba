@@ -498,8 +498,12 @@ async def understand(
 # --- asking for what is missing ---------------------------------------------------
 
 
-def _typed(instruction: str, detail: str, field_id: str, label: str) -> Move:
-    """A question answered by typing: one box, one button, and the way to stop."""
+def _typed(instruction: str, detail: str, field_id: str, label: str,
+           kind: str | None = None) -> Move:
+    """A question answered by typing: one box, one button, and the way to stop.
+
+    `kind` is what the question is about, for the shape beside it
+    (`loop.kind_of`); without one it is "type"."""
     return Move(
         instruction=instruction,
         detail=detail,
@@ -508,11 +512,13 @@ def _typed(instruction: str, detail: str, field_id: str, label: str) -> Move:
         fields=[StepField(id=field_id, label=label, type="text", value="")],
         actions=voice.actions(voice.THATS_IT),
         question=True,
+        kind=kind,
     )
 
 
-def _picked(instruction: str, labels: list[str]) -> Move:
-    """A question answered by pressing one of a few buttons."""
+def _picked(instruction: str, labels: list[str], kind: str | None = None) -> Move:
+    """A question answered by pressing one of a few buttons. Without a `kind`
+    its shape is "choose"."""
     return Move(
         instruction=instruction,
         detail="",
@@ -521,6 +527,7 @@ def _picked(instruction: str, labels: list[str]) -> Move:
         fields=[],
         actions=voice.choices(labels),
         question=True,
+        kind=kind,
     )
 
 
@@ -807,7 +814,7 @@ class TripBrief(_Asking):
             return self._ask(_picked(
                 voice.read_back(self._shown("origin"), self._shown("destination"),
                                 voice.when_words(self.day, self.today)),
-                [voice.READ_BACK_YES, voice.READ_BACK_NO]))
+                [voice.READ_BACK_YES, voice.READ_BACK_NO], kind="confirm"))
         return None
 
     def _ask_station(self, end: str) -> Move:
@@ -817,7 +824,8 @@ class TripBrief(_Asking):
         offered = self._offered.get(end)
         if offered:
             return self._ask(_picked(
-                instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE]))
+                instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE],
+                kind="place"))
         label = voice.FIELD_FROM if end == "origin" else voice.FIELD_TO
         return self._ask(Move(
             instruction=instruction,
@@ -829,6 +837,7 @@ class TripBrief(_Asking):
                               options=self.stations or [])],
             actions=voice.actions(voice.THATS_IT),
             question=True,
+            kind="place",
         ))
 
     def _ask_day(self) -> Move:
@@ -836,9 +845,9 @@ class TripBrief(_Asking):
         if not self._typing_day:
             return self._ask(_picked(
                 self._why.get("day", voice.ASK_DAY),
-                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK]))
+                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK], kind="date"))
         return self._ask(_typed(self._why.get("day", voice.ASK_WHICH_DAY), "", "day",
-                                voice.FIELD_DAY))
+                                voice.FIELD_DAY, kind="date"))
 
     # --- answers -----------------------------------------------------------------------
 

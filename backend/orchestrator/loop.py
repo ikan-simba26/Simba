@@ -766,7 +766,7 @@ class _Run:
             await asyncio.sleep(WINDOW_POLL_S)
         back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
                     expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
-                    question=True)
+                    question=True, kind="confirm")
         payload = await self.present(back, goal=goal, findings=findings, view=view)
         if payload.get("action_id") != voice.CONFIRM_ID:
             raise StoppedWhileAway
