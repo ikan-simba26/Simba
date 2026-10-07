@@ -7,7 +7,7 @@
  * meet a different one on the next.
  */
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 import type { FlowName } from "@shared/schema";
@@ -323,6 +323,11 @@ export type PresenceMode = "ready" | "thinking" | "acting" | "waiting" | "stuck"
  */
 export function Presence({ mode }: { mode: PresenceMode }) {
   const colour = mode === "stuck" ? "bg-stuck" : "bg-accent";
+  // Asked for less motion, it does not breathe or circle: `MotionConfig`
+  // stops movement but not a looping fade, and a fade forever is motion too.
+  const still = useReducedMotion() ?? false;
+  const breathing = mode === "thinking" && !still;
+  const circling = mode === "acting" && !still;
   return (
     <div
       role="status"
@@ -341,9 +346,9 @@ export function Presence({ mode }: { mode: PresenceMode }) {
       <motion.svg
         className="absolute inset-0 text-accent"
         viewBox="0 0 40 40"
-        animate={{ opacity: mode === "acting" ? 1 : 0, rotate: mode === "acting" ? 360 : 0 }}
+        animate={{ opacity: mode === "acting" ? 1 : 0, rotate: circling ? 360 : 0 }}
         transition={
-          mode === "acting"
+          circling
             ? { opacity: { duration: MOTION.base, ease: EASE },
                 rotate: { duration: MOTION.orbit, ease: "linear", repeat: Infinity } }
             : { duration: MOTION.base, ease: EASE }
@@ -358,7 +363,7 @@ export function Presence({ mode }: { mode: PresenceMode }) {
       <motion.span
         className={`relative flex h-5 w-5 items-center justify-center rounded-full ${colour}`}
         animate={
-          mode === "thinking"
+          breathing
             ? { scale: [1, 0.72, 1], opacity: [1, 0.6, 1] }
             : {
                 scale: mode === "done" ? 1.75 : mode === "waiting" ? 1.15 : 1,
@@ -366,7 +371,7 @@ export function Presence({ mode }: { mode: PresenceMode }) {
               }
         }
         transition={
-          mode === "thinking"
+          breathing
             ? { duration: MOTION.breath, ease: "easeInOut", repeat: Infinity }
             : { duration: MOTION.base, ease: EASE }
         }
