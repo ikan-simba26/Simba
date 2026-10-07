@@ -183,3 +183,61 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* SIMBA's shape (`components/Shape.tsx`, 2026-10-07). Three rings round a
+   core, turning once every 36s: a transform only, and no layout. Soft: thin,
+   translucent, in the one accent. */
+.simba-stage {
+  position: relative;
+  perspective: 420px;
+}
+
+.simba-shape {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(16deg) rotateY(28deg);
+  /* Twenty updates a second, not sixty. Measured headless on 2026-10-07, the
+     3D turn is not composited: it costs main-thread work every frame it
+     changes, about 130ms in five seconds at sixty a second and about 70ms at
+     twenty, against none for the page without it. A turn of 10 degrees a
+     second moves half a degree a step, which still reads as smooth. */
+  animation: simba-turn 36s steps(720) infinite;
+}
+
+.simba-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.simba-ring--level {
+  inset: 12%;
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.simba-core {
+  position: absolute;
+  inset: 36%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 38% 34%,
+    color-mix(in srgb, var(--accent) 55%, var(--surface)), var(--accent));
+}
+
+@keyframes simba-turn {
+  from { transform: rotateX(16deg) rotateY(28deg); }
+  to { transform: rotateX(16deg) rotateY(388deg); }
+}
+
+/* Asked for less motion: one still, tilted pose. Stated here as well as by
+   the rule above, which would otherwise run the turn for 0.01ms and stop it
+   wherever it landed. */
+@media (prefers-reduced-motion: reduce) {
+  .simba-shape {
+    animation: none !important;
+    transform: rotateX(16deg) rotateY(28deg);
+  }
+}
