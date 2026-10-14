@@ -346,6 +346,22 @@ export const TRUST = {
   close: "Close",
 } as const;
 
+/* ------------------------------------------------------------ read aloud */
+
+/**
+ * Reading a step aloud in the system's own English voice, when asked
+ * (2026-10-14). Nothing is read unless the button is pressed.
+ */
+export const SPEAK = {
+  read: "Read this aloud",
+  stop: "Stop reading",
+  /** After the step's sentence: the answers it offers, in the buttons' words. */
+  answers: (labels: string[]) =>
+    labels.length === 1
+      ? `You can press ${labels[0]}.`
+      : `You can press ${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}.`,
+} as const;
+
 /* --------------------------------------------------------- the real page */
 
 /**
@@ -413,6 +429,7 @@ export const SITUATIONS: Record<string, string> = {
   "choose.more": CHOOSE.more(5),
   "choose.none": CHOOSE.none,
   "choose.hint": CHOOSE.hint,
+  "speak.answers": SPEAK.answers(["Today", "Tomorrow", "Pick another day"]),
 };
 
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
@@ -441,6 +458,8 @@ export const LABELS: Record<string, string> = {
   "trust.closeUp": TRUST.closeUp,
   "reveal.show": REVEAL.show,
   "reveal.hide": REVEAL.hide,
+  "speak.read": SPEAK.read,
+  "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,
   "flow.railways": FLOWS.railways,

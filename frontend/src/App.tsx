@@ -16,6 +16,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { Shape } from "./components/Shape";
+import { SpeakButton } from "./components/Speak";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
@@ -143,14 +144,20 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen, peeking } = useStore();
+  const { trustOpen, peeking, step, answered } = useStore();
   const mode = usePresenceMode();
+  const aside = trustOpen || peeking;
   return (
     // Above the real page behind it (`Backdrop`), and out of the way while
-    // that page is being shown.
-    <motion.div className="relative z-[1]" animate={{ opacity: trustOpen || peeking ? 0 : 1 }}
-                transition={ARRIVE}>
+    // that page is being shown. The column's width, so "Read this aloud"
+    // (2026-10-14) can sit at its right edge without the row growing.
+    <motion.div className="relative z-[1] flex w-full justify-center"
+                style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
+                animate={{ opacity: aside ? 0 : 1 }} transition={ARRIVE}>
       <Presence mode={mode} />
+      <div className="absolute top-0.5 right-0">
+        <SpeakButton step={step && !answered ? step : null} />
+      </div>
     </motion.div>
   );
 }

@@ -54,7 +54,12 @@ The one exception: a step that waits for a list to open gets one attempt, not tw
 - Do not change `CONTRACT.md` or the schema files without all three owners
   agreeing. Additive optional fields are fine; renames and removals are not.
 - Do not add dependencies without asking.
-- Do not use OpenCV, local LLMs, or text-to-speech. Out of scope.
+- Do not use OpenCV or local LLMs. Out of scope.
+- Text-to-speech is in scope only as reading a step aloud in the system's own
+  speech voice, in English, when the person presses the button for it — off
+  by default, stopped when the step changes, and never a bundled or cloud
+  voice. Approved by Raham on 2026-10-14; Nahail and Aly still to be told
+  (DECISIONS.md).
 - `.env` is never committed.
 
 ## Tooling boundaries

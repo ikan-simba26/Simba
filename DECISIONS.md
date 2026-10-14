@@ -4041,3 +4041,28 @@ guard; one that is its full height on arrival is.
 **Decision.** `feat/railways-ask` had no commits; its work was committed on it
 (`98cf77a`, not merged, not pushed) before `feat/interface-reveal` was made
 from it.
+
+## Text-to-speech is in scope, for reading a step aloud when asked
+
+**Date:** 2026-10-14
+
+**Decision.** CLAUDE.md's rule "Do not use OpenCV, local LLMs, or
+text-to-speech" is changed to allow one use of text-to-speech: reading a step
+aloud in the system's own speech voice, in English, when the person presses
+the button for it — off by default, stopped when the step changes, never a
+bundled or cloud voice. **Approved by Raham on 2026-10-14. Nahail and Aly have
+not yet been told and still need to be.** OpenCV and local LLMs stay out of
+scope.
+
+**What was built.** "Read this aloud" in the row above each step and question,
+at its right edge: the step's sentence, then "You can press …" with the
+answers' own words, through the browser's `speechSynthesis` at 0.9 of the
+voice's rate. No English voice on the system, no button. Pressing it again,
+a new step, or leaving the step stops it. No dependency.
+
+**Decided without being asked.** Where it sits (the row above the card, which
+has room for it on every screen, so no step grows); a 44px pill rather than a
+full-size button (it is not an answer to the step); the rate; reading the
+answers but not "Stop this"; and that pressing it is **not** counted as a
+help press in telemetry — a person who needs a step read may be finding it
+hard, so that is flagged for Nahail as the estimator's owner.
