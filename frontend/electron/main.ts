@@ -84,6 +84,11 @@ app.whenReady().then(() => {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
+    // Electron's own File / Edit / View / Window / Help bar is not for the
+    // person using SIMBA: it is clutter above the one thing on screen, and a
+    // way into reloading the window and its developer tools. Hidden, not
+    // removed, so Alt still shows it to a developer (2026-10-14).
+    autoHideMenuBar: true,
     show: false,
     title: "SIMBA",
   });
