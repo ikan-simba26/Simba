@@ -281,6 +281,8 @@ def trip_task(origin: str, destination: str, day: date) -> Task:
                 Answer("Arrives", reads="Time", part=1),
                 Answer("Journey", reads="Duration"),
             ),
+            # "00:50, next day": a train that arrives after midnight says so.
+            per_row=voice.arrival,
         ),
         explain=voice.explain_trains,
     )

@@ -389,6 +389,8 @@ def findings_in(
             rows[:] = [{answer.name: part_of(cell, answer.part)
                         for answer, cell in zip(task.about.finds, row)}
                        for row in read]
+            if task.about.per_row is not None:
+                rows[:] = [task.about.per_row(row) for row in rows]
     findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
                         values=known[answer.name])
                 for answer in task.about.finds if answer.name in known]

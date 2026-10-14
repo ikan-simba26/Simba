@@ -287,6 +287,56 @@ def _minutes(journey: str) -> int | None:
     return int(match[1]) * 60 + int(match[2]) if match else None
 
 
+_CLOCK = re.compile(r"\s*(\d{1,2}):(\d{2})\s*")
+
+
+def _clock(time: str) -> int | None:
+    """`06:20` as minutes past midnight, or None for anything else."""
+    match = _CLOCK.fullmatch(time)
+    return int(match[1]) * 60 + int(match[2]) if match else None
+
+
+#: How far a journey's end may be from leaving time plus journey time and
+#: still be that journey's end: the site rounds neither, but says so nowhere.
+_CLOCK_SLACK = 5
+
+
+def days_later(leaves: str, arrives: str, journey: str = "") -> int:
+    """How many days after it leaves a train arrives (2026-10-15).
+
+    From the journey time when the page gives one that agrees with the two
+    clock times: the live site's 14DN leaves 19:09, takes 24 h 16 min and
+    arrives at 19:25 — a later clock time, and still the next day. Without a
+    journey time that agrees, only what the clocks say: arriving at an
+    earlier time than it left is the next day. Never a guess past that.
+    """
+    left, came = _clock(leaves), _clock(arrives)
+    if left is None or came is None:
+        return 0
+    taken = _minutes(journey)
+    if taken is not None:
+        total = left + taken
+        gap = abs(total % 1440 - came)
+        if min(gap, 1440 - gap) <= _CLOCK_SLACK:
+            return round((total - came) / 1440)
+    return 1 if came < left else 0
+
+
+def arrival(row: dict[str, str]) -> dict[str, str]:
+    """A results row with its arrival said as the day it is: "00:50, next
+    day", "19:25, 2 days later". A row that arrives the day it leaves, or
+    has no arrival, is as it was."""
+    arrives = row.get("Arrives", "")
+    days = days_later(row.get("Leaves", ""), arrives, row.get("Journey", ""))
+    if not arrives or days == 0:
+        return row
+    return {**row, "Arrives": f"{arrives}, {NEXT_DAY if days == 1 else f'{days} days later'}"}
+
+
+#: After an arrival time on the day after the train leaves.
+NEXT_DAY = "next day"
+
+
 def _plural(count: int, word: str) -> str:
     return f"{count} {word}" if count == 1 else f"{count} {word}s"
 

@@ -7,6 +7,7 @@ replaces `Target` matching with a model call — everything downstream, the
 integer ids and the verification, stays the same.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -173,6 +174,10 @@ class About:
     holds: tuple[FieldValue, ...] = ()
     finds: tuple[Answer, ...] = ()
     shows: tuple[Shown, ...] = ()
+    # What a whole row of `finds` says that no one cell does, said in it:
+    # a train arriving the day after it leaves (`voice.arrival`, 2026-10-15).
+    # Applied to the rows only, after they are read; never to what is checked.
+    per_row: Callable[[dict[str, str]], dict[str, str]] | None = None
 
 
 @dataclass(frozen=True)
