@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-14 · **1078 passing, 12 skipped, 0 failed** · suite wall clock 1206s, on `feat/interface-reveal`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 24 tests added since 1054 (2026-10-07, 1173s). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately above), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-14 (later) · **1174 passing, 12 skipped, 0 failed** · suite wall clock 1975s (backend 1194s, frontend 779s, run as two halves), on `feat/interface-reveal`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 96 tests added since 1078 (earlier on 2026-10-14). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,44 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-14 (later): the person decides, SIMBA clicks; the opening; colour
+
+On `feat/interface-reveal`, **not merged**. One commit per item.
+
+- **Safe moves run as a checklist** once the person has decided: filling in,
+  the calendar, searching, opening a page to read. Questions, cookies,
+  signing in, registering, model-planned moves and the move after a failure
+  still ask. "Ask me before each thing I do" keeps the old way. Trains: 9
+  presses to 4. Nothing about the person is recorded on a checklist line
+  (DECISIONS.md: **fewer training rows per task; Nahail to note**).
+- **Named stages** replace "Step X of Y" (trains: From, To, Day, Search,
+  Trains), fixed for the task.
+- **Fixed from the last report:** the first question fits at level 2 at every
+  size, and no notice shows on a task's first screen; a wrong answer's
+  sentence goes once a good one is chosen; no automatic reveal; one thing at a
+  time at the top of a step; results headed with the journey, each ticket
+  with leaves, arrives and how long.
+- **Read aloud is its own telemetry signal** (`read_aloud`); **Nahail to
+  confirm** how the estimator uses it.
+- **One presence mark**, the shape: still unless SIMBA is working, nothing
+  moving when the window is away. Home screen at rest: 0.2% of one core in
+  the real window (was 7.5%).
+- **The home screen**: greeting by the time of day, three tiles with
+  pictures, the whole window's height, an entrance once.
+- **Two colour directions**, A (default) and B (`?palette=b`), both passing a
+  contrast test, light and dark; controls now have a 3:1 edge. **Raham to
+  choose**; captures in `.scratch/directions/` and `.scratch/for-review-2/`.
+- **Fixed from walking the real window and the suite:** a checklist line
+  asked for a picture of the page, which held the course's "Register" for
+  31s; the home tiles' entrance never played; level 3 was taller than level 2
+  on choice questions (up to 107px); three backend tests still expected the
+  old findings and the old number of weighed steps.
+- **Open, flagged:** the course's sign-in screen runs 96px past the window at
+  100% and 91px at 150% even at level 1 (56 and 60 on `main`); the stage row
+  is 16px at level 2, as "Step X of Y" was; a preview that times out blocks
+  the person's answer for 30s; the two remembered bill goals read the same
+  once clamped to one line.
 
 ### Changed on 2026-10-14: the new look in the real window, and fixes
 

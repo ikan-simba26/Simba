@@ -4162,3 +4162,147 @@ level. **Nahail, as the estimator's owner, should confirm** whether and how
 the trained estimator uses it: a person who wants a step read may be finding
 it hard, or may simply prefer to listen, and the signal is kept apart so that
 the two can be told apart rather than merged.
+
+## The bill's and the course's stages, and where the stages show
+
+**Date:** 2026-10-14 (the trains' names were asked for; these were not)
+
+**Decision.** A bill's stages are Reference, Look up, Your bill; a course's
+are Course, Sign in, Register, Done. Every step of a flow says which stage it
+is in (`StepPresented.stage`), and a step asked again stays in its stage, so
+the row never grows. The row is the card's first line: replaced while a
+notice is up (one thing at a time), small at level 2, and not shown at level
+3, where the old "Step X of Y" was not shown either. A stage passed is ticked;
+the one the person is in is marked; those to come are plain soft text (they
+were 70% soft until the contrast check below found them under 4.5:1). The
+mock backend sends stages too, so `run.ps1 mock` shows the row.
+
+**Alternatives.** A bar or dots: says how far, not what is left. Stage names
+from the LLM: a model-planned run has no fixed stages, so it shows none.
+
+## A task's first question fits by laying its answers out, not by shrinking
+
+**Date:** 2026-10-14 (the fit was asked for; how was not)
+
+**Decision.** A question whose one answer is "That's it" puts it beside "Stop
+this"; two or three short answers (22 characters or fewer) share a row with
+"Stop this" under them. Ordinary steps keep the column. Level 3 keeps the
+layout, with "Stop this" as its line of text beside a lone answer or under a
+row: it first fell back to the column, which made level 3 up to 107px taller
+than level 2. At level 3 "Pick another day" wraps to two lines inside its
+button; the row is still shorter than level 2's. No notice
+is shown on a task's first screen for any reason, including a level the
+rules chose before it arrived (`store.firstScreen`, cleared on the first
+answer).
+
+**Alternatives.** Smaller type at level 2: the type sizes are the
+accessibility floor. Folding the first screen silently: it would still be
+level 1 on the first screen, which is the thing that was asked against.
+
+## A wrong answer's sentence is a note beside the question
+
+**Date:** 2026-10-14 (the clearing was asked for; the shape was not)
+
+**Decision.** "I couldn't find a station called Narnia." travels as
+`StepPresented.note` (additive, optional) beside the plain question, rather
+than inside the question's own words. It goes the moment a name from the
+site's list is chosen. **A typed answer's note stays until the answer is
+sent and checked**: until then nothing says the new words are any better.
+"Read this aloud" reads the note first.
+
+**Alternatives.** Clearing on every keystroke: says "fine" before anything
+has been checked.
+
+## Leaves and arrives are two parts of one cell
+
+**Date:** 2026-10-14
+
+**Decision.** The site prints a train's departure and arrival in one Time cell
+("08:04 06:20"). A finding may now name a part of a cell (`Answer.part`,
+`plan.part_of`): Leaves is part 0, Arrives part 1, never calculated. A page
+that prints one time gives no arrival, and the ticket shows none. The
+railways replica now prints both times, as the live site does. The fixed plan
+the recorded benchmark numbers came from (`RAILWAYS_TASK`) is unchanged, so
+its numbers stay comparable. Tickets are one per row, each value on one line;
+five fit at 100% and three in a short window ("and N more" says the rest).
+
+**Alternatives.** Six per row as before: the third value wrapped at 150%.
+
+## The presence mark: what moves, and when
+
+**Date:** 2026-10-14 (one mark was asked for; the details were not)
+
+**Decision.** The shape turns only while SIMBA is thinking or acting; it is
+still while it waits for the person, on the home screen, and under reduced
+motion (one tilted pose). Stopped, it takes the warm "stuck" colour, as the
+dot did; done, it carries a tick. On the home screen it settles in once (a
+fade and a slight scale) when SIMBA opens. "Paused when the window isn't
+focused" is `document.hasFocus()` or `document.hidden`, read on focus, blur
+and visibility change.
+
+## The home screen: the greeting's hours, remembered goals, the entrance
+
+**Date:** 2026-10-14 (the redesign was asked for; these were not)
+
+**Decision.** Morning is 05:00 to 11:59, afternoon 12:00 to 16:59, evening
+otherwise, including the small hours ("Good evening" at 02:00 is what people
+say). Goals asked for before are one row under the tiles, two at most, one
+line each, never one a tile offers; stacked, they put the box 100px under the
+window at 100%. The entrance plays once per launch: the shape settles, then
+the tiles rise 18px in turn, 0.7s each; never under reduced motion, never on
+the way back from a task. The pictures are drawn here, inline, in the accent
+and its tint: no image files, nothing to license.
+
+**Alternatives.** Remembered goals first and the tiles fewer (the old one
+list): the three things SIMBA can do would come and go with history.
+
+## Two colour directions, chosen by an attribute; edges for controls
+
+**Date:** 2026-10-14 (two directions were asked for; these were not)
+
+**Decision.** B is `data-palette="b"` on `<html>`, set by `?palette=b` in
+the overlay's address. A stays the default until Raham chooses. A's "more
+depth" is a soft warm light from the top of the window (`--glow`) and shadows
+in layers with a faint top highlight; B has the same, in its own colours. The
+stuck colour is the same warm red-brown in both, so "stopped" looks the same
+whichever is chosen.
+
+Contrast is a test (`frontend/test_contrast.py`), read from `index.css`:
+ink at 7:1 on every ground; every other text pairing at 4.5:1; and a new
+token, `--edge`, for the boundary of anything to press or type in, at 3:1
+against every ground (WCAG 1.4.11). Until now every control's border was the
+divider colour, at 1.3:1 to 1.6:1 in both the old palette and the new ones.
+Text is never drawn translucent outside decoration (the test scans for it).
+
+**Alternatives.** Darken `--line` itself: every divider and ticket outline
+would turn heavy. A theme switch in the interface: not asked for, and one
+more control on screen.
+
+## The scripted real-window runs keep drawing when covered
+
+**Date:** 2026-10-14
+
+**Decision.** The scripted host runs (the walks, the captures, the CPU
+figure) start Electron with `--disable-features=CalculateNativeWinOcclusion`
+and `--disable-backgrounding-occluded-windows`, as well as the forced scale.
+Without them, with other windows over it, Windows marked the host hidden: no
+frames, every capture timed out, and the overlay (correctly) paused its
+motion. These are launch flags for the scripted runs only; `run.ps1` and the
+app are unchanged, and a person's window is drawn because it is in front.
+
+## Fixes found by walking the real window
+
+**Date:** 2026-10-14
+
+- A checklist line no longer asks the backend for a picture of the page. Each
+  request had been answered, a screenshot each, before the next question's
+  answer was read; the course flow's "Register for CS-401" waited 31s.
+- The home tiles' entrance did not play at all: the screens'
+  `AnimatePresence initial={false}` held back every entrance below it. The
+  tiles have their own.
+- The test of "nothing moves while the window is not focused" sampled in the
+  frame the pause was applied and failed 2 runs in 5; it waits one frame.
+- Three backend tests still expected what this branch had changed: a train
+  search's two findings (now four, read by label) and a bill's three weighed
+  steps (now asked before each move, `confirm_each`, the mode in which every
+  step is still a decision).

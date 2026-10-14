@@ -5161,3 +5161,112 @@ frame; the menu bar; the two eyes; the notice over "Read this aloud".
 failed**, 1206s (1054 before; 24 added). **The host fit test**
 (`SIMBA_HOST_TESTS=1 frontend/test_window_fit.py`), with the menu bar hidden:
 3 passed, at 100%, 125% and 150%.
+
+## 2026-10-14b — the person decides, SIMBA clicks; the opening; two colour directions
+
+On `feat/interface-reveal`, not merged. Headless figures are from the built
+overlay in Chromium at each size's CSS viewport and scale; real-window figures
+from the Electron host driven over CDP, forced to 100% with
+`--force-device-scale-factor=1` (this machine is at 150%), against the three
+local replicas, `SIMBA_USE_HARDCODED_PLAN=1`, `SIMBA_RECORD_STEPS=0`.
+
+**Presses to search for trains, a goal naming nothing.** Before: 9 (four
+questions, then five moves pressed one by one). After: 4 (the four
+questions); the five moves run as a checklist. In the real window the
+checklist took 6.5 to 9.8s over six runs (median 7.7s) from "Yes, that's right" to the results,
+five lines. A bill with its number: 3 presses to 1 (the number) plus the
+cookie question when the site shows it. A course: 4 to 3 (course, sign-in,
+Register); the portal's notice is a checklist line.
+
+**A task's first question at level 2** (scroll overflow, px, at 100% /
+125% / 150% at 632 / 150% at 606):
+
+| | 100% | 125% | 150%, 632 | 150%, 606 |
+|---|---|---|---|---|
+| "Where are you travelling from?", before | +73 | 0 | +39 | +65 |
+| every flow's first question, after (6 questions) | 0 | 0 | 0 | 0 |
+
+**Level 3 against level 2, each flow's first question** (the step card's
+height, px, at 100%). With level 3 falling back to the column, as first
+committed: the read-back 376 / 416, "What day are you travelling?" 345 /
+452, and `test_levels.py`'s medium step 440 / 458 — the simplest level the
+tallest, which that test exists to prevent. Keeping the row at level 3:
+
+| | where from | which station | read back | which day | reference | course |
+|---|---|---|---|---|---|---|
+| level 2 | 477 | 345 | 376 | 345 | 440 | 440 |
+| level 3 | 417 | 324 | 324 | 268 | 408 | 408 |
+
+**The home screen with two remembered goals** (overflow, px): stacked under
+the tiles, +100 at 100% and +51 at 150% (606 and 632); in one row, 0 at all
+four sizes. With no history, 0 at all four. The box's bottom edge sits at
+89% of the window's height at 100% (714 of 800); the old screen's was not
+measured.
+
+**The home screen's entrance.** The tiles' opacity, sampled every frame from
+load: before the fix, 1 from the first frame (the screens'
+`AnimatePresence initial={false}` held it back, so it never played); after,
+0 at 103-274ms, 1 by 1.6s. Under reduced motion: 1 from the first frame.
+
+**The home screen's CPU, real window** (the host's process tree, five
+processes, 10s): 2.0% of one core in the first seconds after opening, **0.2%
+at rest**, 0.0% with the shape removed. Before (2026-10-14a), with the shape
+turning on the home screen: 7.5%. Main-thread work per 5s on the overlay:
+208ms then 213ms with the shape, 161ms without; frames on time throughout
+(p95 16.9-17.0ms).
+
+**A question after a checklist, real window.** The overlay asked for a
+picture of the page on every checklist line; each was answered, a screenshot
+each, before the next answer was read. The course flow's "Register for
+CS-401": 31.0s from the press to the task completing, one screenshot timing
+out at 30s. After: 1.6 to 2.5s in each of the four walks below.
+
+**The course's sign-in screen does not fit** (overflow, px, level 1 — the
+guard's one hop — at 100% / 125% / 150% at 632 / 150% at 606): `main` 56 / 0
+/ 34 / 60; this branch 96 / 0 / 65 / 91. The card's first line (notice and
+"Read this aloud") adds 31-40px. Not fixed; flagged.
+
+**Contrast, both directions** (`frontend/test_contrast.py`, WCAG 2.2 ratios,
+the lowest pairing of each kind):
+
+| | ink | soft text | accent as text | label on accent | stuck | control edge |
+|---|---|---|---|---|---|---|
+| A light | 13.6 | 6.8 | 5.5 | 6.8 | 5.6 | 3.2 |
+| A dark | 12.2 | 6.9 | 7.3 | 9.9 | 7.1 | 3.4 |
+| B light | 13.2 | 6.5 | 6.4 | 8.1 | 5.6 | 3.1 |
+| B dark | 11.6 | 7.3 | 7.3 | 9.2 | 7.1 | 3.7 |
+
+Before, every control's border was the divider colour: 1.3:1 to 1.6:1 against
+its ground, in the old palette and both new ones. Two words were drawn
+translucent and under 4.5:1: the stages still to come (about 3.9:1) and the
+station box's example (about 3.6:1).
+
+**The real window, all three flows** (100%, A and B, light and dark):
+every flow reached its ending in all four (A and B, light and dark), from
+its home-screen tile, with the person's answers typed and chosen through
+real input events.
+
+| | trains: readback to results | tickets | bill: cookie answer to the bill | course: Register to done | screens that scroll |
+|---|---|---|---|---|---|
+| A light | 7.4s | 2 | 4.9s | 2.5s | sign-in, +96px |
+| A dark | 9.2s | 2 | 5.4s | 1.8s | sign-in, +96px |
+| B light | 9.8s | 2 | 5.5s | 1.7s | sign-in, +96px |
+| B dark | 7.7s | 2 | 5.4s | 1.6s | sign-in, +96px |
+
+The results' heading read "Lahore Cantt to Karachi Cantt, Thursday 15
+October" in all four; the first ticket "7UP, Leaves 07:25, Arrives 14:40,
+Journey 7 h 15 min, Fastest". A bill: the reference question, then the
+site's cookie question (it still asks), then "Looking up your bill" and
+"Opening the full bill" as checklist lines. A course: the course, signing in,
+"Closing the portal's notice" as a checklist line, then "Ready to book your
+place on CS-401." asked. One earlier attempt at A dark lost the window after
+the trains (every capture timed out, as a minimised window does); it was run
+again whole. The walk script's own first versions pressed "Read this aloud"
+and then "Stop this" where it meant the cookie answer; those runs are not
+counted.
+
+**The suite.** 1174 passed, 12 skipped, 0 failed (backend 816 in 1194s,
+frontend 358 in 779s, as two halves), and the host window-fit test 3 of 3
+with `SIMBA_HOST_TESTS=1`. The first full run of this branch found 4
+failures: the three stale backend tests and level 3 taller than level 2 on
+`test_levels.py`'s medium step; all four are above.
