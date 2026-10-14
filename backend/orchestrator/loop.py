@@ -498,6 +498,10 @@ class Brief(Protocol):
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None: ...
 
+    # Optional: `async def prepare(self, page) -> None`, called once the site
+    # is open and before the first question, for a brief that checks answers
+    # against what the site offers. It reads; it never acts.
+
     def settle(self) -> "tuple[Planner, Task]":
         """The planner and the task, now that every detail is known."""
         ...
@@ -864,6 +868,13 @@ async def run_brief(
     """
     run = _Run(page, connection, recorder, rules, vault, window)
     await run.open(brief.goal, brief.estimated_steps, start_url)
+
+    # A brief that holds its answers to what the site offers reads that first,
+    # without touching anything: the train search's own station list
+    # (`details.TripBrief.prepare`, 2026-10-06).
+    prepare = getattr(brief, "prepare", None)
+    if prepare is not None:
+        await prepare(page)
 
     view: PageView | None = None
     while (question := brief.question()) is not None:

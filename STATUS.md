@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-06 · **944 passing, 12 skipped, 0 failed** · suite wall clock 1499s, on `feat/multi-october-fifth-rows`, merged into `main` the same day. The first full run today gave 943 passed and 1 failed: `test_shared_recovery`'s spy on `attempt_move` had a fixed signature and the window's new `ready=` argument broke it; the spy was fixed (`062c165`) and the second full run was clean. 23 tests added since 921. The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Earlier runs of smaller suites took 329s, 367s, 438s, 459s, 656s, 711s, 729s, 762s, 827s, 1001s, 1066s, 1081s, 1222s, 1242s, 1478s and 1585s on the same machine. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-06 (later) · **1012 passing, 12 skipped, 0 failed** · suite wall clock 1181s, on `feat/railways-ask`, **not merged**. 68 tests added since 944; the 12 skips are the same 12 as below. Earlier today on `feat/multi-october-fifth-rows`: 944 passed, 12 skipped, 1499s. The 12 skips: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,43 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-06 (later): every journey answer checked before the site is touched
+
+On `feat/railways-ask`, **not merged**.
+
+- **Why SIMBA never asked where or when on `railways-local`.** The home
+  screen's train card sends its own words as the goal, and they were "Find
+  trains from Lahore to Karachi", so both ends were named before anything was
+  asked. The course card did the same with CS-401. Typed goals did ask. The
+  cards now read "Find train times" and "Register for a course" (for Aly to
+  review). The person's own run is not on record; established by reproducing
+  every way in (EVALUATION.md, 2026-10-06c).
+- **Stations come from the site.** Its own list, 340 names on the live site,
+  is read from the closed dropdowns before anything is touched
+  (`backend/perception/options.py`, for Nahail to review). The station
+  question is a box that offers the matching names as buttons; the replica
+  now holds its list the same way.
+- **Every answer is checked first**, each said kindly and asked again: a day
+  gone, too far ahead, or not in the calendar; from and to the same; a
+  station not on the list (the closest offered); a city with two stations.
+- **Read back once** before starting — "Lahore Cantt to Karachi Cantt,
+  tomorrow, 7 October. Is that right?" — and the search step no longer says
+  it again. The plan searches the chosen stations.
+- **Checked live once** (read-only, one search): asked and read back with the
+  page untouched, searched Lahore Cantt to Karachi Cantt for 7 October,
+  2 trains, 5 steps, 0 model calls. With a model that has no quota, the app
+  asks and completes on keywords.
+- **Found and fixed:** level 3 removed a typed answer's box at the first
+  keystroke (for Aly to review); four matches did not fit at 150%; the list
+  reader dropped a value-only `datalist` option.
+- **Billing and registration.** Billing asks for the one thing its site
+  needs, the reference, and the plan runs on it. Registration ran a fixed
+  course from its card; fixed with the card. **Open:** a course code is not
+  checked against what the portal offers, because the list is only visible
+  after signing in. Read from the code, not run: a course that is not offered
+  is only found out at the register step, after signing in, when its button
+  cannot be found.
 
 ### Changed on 2026-10-06: the window waited for, the fastest named
 

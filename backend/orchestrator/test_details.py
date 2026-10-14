@@ -58,13 +58,20 @@ def read(flow: str, goal: str, model=None) -> Understood:
 # --- a goal that says everything -------------------------------------------
 
 
-def test_a_goal_with_every_detail_needs_nothing_asked() -> None:
+def test_a_goal_with_every_detail_is_only_read_back() -> None:
+    """Nothing to ask for, so the one thing asked is whether it is right
+    (2026-10-06): the journey is read back before anything is done."""
     known = read("railways", "trains from Lahore to Rawalpindi on 3 October")
 
     assert known.origin == "Lahore"
     assert known.destination == "Rawalpindi"
     assert known.day == date(2026, 10, 3)
-    assert brief_for("railways", "g", known, today=TODAY).question() is None
+    brief = brief_for("railways", "g", known, today=TODAY)
+    question = brief.question()
+    assert question is not None
+    assert question.instruction == "Lahore to Rawalpindi, Saturday 3 October. Is that right?"
+    brief.answered(f"{voice.CHOICE_PREFIX}0", {})
+    assert brief.question() is None
 
 
 def test_a_goal_with_some_details_asks_only_for_the_rest() -> None:
@@ -95,6 +102,8 @@ def test_a_goal_with_no_details_asks_for_all_three_in_turn() -> None:
         brief.answered(*answer)
 
     assert asked == [voice.ASK_FROM, voice.ASK_TO, voice.ASK_DAY]
+    assert brief.question() is not None  # the journey, read back
+    brief.answered(f"{voice.CHOICE_PREFIX}0", {})
     assert brief.question() is None
     assert (brief.origin, brief.destination, brief.day) == ("Lahore", "Rawalpindi", TOMORROW)
 
@@ -416,7 +425,9 @@ def test_today_and_tomorrow_need_nothing_typed(pressed: int, expected: date) -> 
     brief.answered(f"{voice.CHOICE_PREFIX}{pressed}", {})
 
     assert brief.day == expected
-    assert brief.question() is None
+    # Nothing typed, and nothing more asked but whether the journey is right.
+    read_back = brief.question()
+    assert read_back is not None and read_back.instruction.endswith("Is that right?")
 
 
 def test_pick_a_day_asks_for_one_and_takes_it_in_plain_words() -> None:
@@ -454,7 +465,7 @@ def test_a_day_that_has_gone_is_asked_about_again_in_different_words() -> None:
 
     assert brief.day is None
     again = brief.question()
-    assert again is not None and again.instruction == voice.ASK_DAY_GONE
+    assert again is not None and again.instruction == voice.day_gone("29 September")
 
 
 def test_a_day_nobody_could_read_is_asked_about_again() -> None:
@@ -515,10 +526,11 @@ def test_a_question_asks_for_one_thing_and_offers_a_way_to_stop() -> None:
 
 
 def test_what_is_still_to_come_is_counted_before_the_first_question() -> None:
-    """So the number on screen does not grow as the person answers."""
-    assert trip().estimated_steps == 3 + TripBrief.plan_steps
+    """So the number on screen does not grow as the person answers. A journey
+    counts its reading back as one more thing on screen (2026-10-06)."""
+    assert trip().estimated_steps == 3 + 1 + TripBrief.plan_steps
     assert trip(origin="Lahore", destination="Rawalpindi").estimated_steps == (
-        1 + TripBrief.plan_steps)
+        1 + 1 + TripBrief.plan_steps)
     assert BillBrief("g", Understood()).estimated_steps == 1 + BillBrief.plan_steps
     assert BillBrief("g", Understood(reference="04141234567890")).estimated_steps == (
         BillBrief.plan_steps)
@@ -538,5 +550,5 @@ def test_a_count_read_twice_is_the_same_count() -> None:
     brief.question()
     brief.answered("confirm", {"destination": ""})
 
-    assert first == 3 + TripBrief.plan_steps
+    assert first == 3 + 1 + TripBrief.plan_steps
     assert brief.estimated_steps == first

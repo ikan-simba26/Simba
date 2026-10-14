@@ -3785,3 +3785,155 @@ task on a site that lays its results out as label and value pairs could.
 **What would fix it.** Perception grouping pairs into records the way it
 groups table rows, so pairs would carry rows too; a perception change, and
 Nahail's.
+
+## A home card names no detail of a task
+
+**Date:** 2026-10-06 (`feat/railways-ask`, for Aly to review: `copy.ts`)
+
+**Decision.** The train card reads "Find train times" and the course card
+"Register for a course". The bill card is unchanged.
+
+**Why.** A card's words are the goal it sends. "Find trains from Lahore to
+Karachi" and "Register for CS-401" named a journey and a course nobody had
+chosen, so the backend asked for neither — the cause of "SIMBA never asked
+where I was going" on `railways-local` (EVALUATION.md, 2026-10-06c).
+
+**Alternatives.** Keep the words and send the card without a goal: the card
+would say one thing and run another. Keep the course card: it is the same
+defect, and one line.
+
+**Cost.** A remembered "Register for CS-401" from the trace store is no longer
+the course card, so it shows as a remembered goal of its own.
+
+## The station list is read from the page, closed, before anything is asked
+
+**Date:** 2026-10-06
+
+**Decision.** `backend/perception/options.py` reads every list of choices the
+page holds — `select`, `datalist`, ARIA `listbox`, and a `ul` in a
+dropdown/select/autocomplete panel whose items hold no link, button or input
+— from the DOM, without opening any. The trip brief takes the **longest** list
+as the station list, waiting up to 10s for it to stop changing. A page with no
+list leaves the stations to be settled on the page, as before.
+
+**Why.** The live site holds all 340 stations in each closed list from load
+(measured). Reading them is what lets every station answer be checked before
+the site is touched.
+
+**Alternatives.** Open the list and read it: touches the page before the
+questions are done. Keep a copy of the station list in the repo: goes stale
+silently. Type each answer into the box to see what the site offers (what
+happened before): touches the page, and finds a wrong name only mid-run.
+
+**Cost.** "The longest list" is right for a page with one kind of list and
+not in general; it is used by the trip brief only. A perception change, so
+**Nahail reviews it**.
+
+## The railways replica holds every station from the start
+
+**Date:** 2026-10-06
+
+**Decision.** Each station list on our copy is built at load with every
+station, hidden, and typing shows the matches — where it used to build the
+matches on each keystroke.
+
+**Why.** That is what the live site does (measured), and the list has to be
+readable before anything is typed for the replica to exercise this at all.
+
+**Cost.** None found: `test_trip.py`'s 37 tests, including the late-list ones,
+pass unchanged.
+
+## The journey is read back once, always, and the search does not repeat it
+
+**Date:** 2026-10-06
+
+**Decision.** Once every answer is in and checked, one question reads the
+journey back — "Lahore Cantt to Karachi Cantt, tomorrow, 7 October. Is that
+right?" — even when the goal said everything. **No, change something** asks
+which of the three, asks that again, and reads back again. When the stations
+were chosen from the site's list, the search step then says "Everything is
+filled in. Shall I search for your trains?" rather than the journey a second
+time. Without a list, the stations are still chosen mid-run, so the search step
+names them as before.
+
+**Why.** The task asked for one reading back before starting. Two would be
+the same sentence twice to someone this is meant to spare reading.
+
+**Cost.** One more screen on every train run, including one whose goal named
+everything (5 shown steps become 6). The count on screen includes it.
+
+## What counts as a match for a station
+
+**Date:** 2026-10-06
+
+**Decision.** Case, dots and dashes are ignored. Exactly the name is that
+station. Otherwise the stations whose words begin with the typed words, or
+failing that, those with it anywhere: **one is taken without asking**
+("Hyderabad" is Hyderabad Jn.), two to four are asked about as buttons, more
+asks for more of the name. Nothing at all offers up to four nearest by
+spelling, at a similarity of **0.75** or more (`difflib`, standard library),
+with **None of these** going back to the whole list without counting a try.
+A city is named in the question by the site's word for it ("Lahor" is asked
+about as Lahore).
+
+**Why.** Taking a single match silently is safe because the reading back shows
+the station. 0.75 takes "Karachy" and "Lahorr" and leaves "Lahroe" (0.67).
+
+**Cost.** A typo that is not close enough is "I couldn't find a station
+called …" with the list, not suggestions.
+
+## From and to the same: where to is asked again
+
+**Date:** 2026-10-06
+
+**Decision.** The destination is cleared and asked again, saying "Lahore
+Cantt is where you're starting from. Where are you travelling to?" It counts
+as one of the three tries. Two stations in one city (Lahore Jn. to Lahore
+Cantt) are not the same.
+
+**Alternatives.** Ask which of the two to change: one more screen for a slip
+that is almost always in the second answer.
+
+## A day the site would take, SIMBA may not
+
+**Date:** 2026-10-06
+
+**Decision.** "Further ahead than the site allows" is SIMBA's year
+(`HORIZON_DAYS = 366`) — the live site closes no day in the 14 months
+measured, past or future. The sentence says "I can only look up trains up to
+7 October 2027", which is true of SIMBA. A day the words show cannot exist is
+said so ("There is no 31 February in the calendar.") and the model's reading
+of the same goal is not allowed to mend it. "Yesterday" is now read, as a day
+that has passed. A day and month with no year still mean the next time that
+day comes (2026-09-30), so "3 October" typed on the 6th is next year's — the
+reading back says "2027".
+
+**Cost.** A site with a shorter booking window would not be caught before the
+calendar; none of the three is one.
+
+## Level 3 keeps a field by what was sent, not what was typed
+
+**Date:** 2026-10-06 (for Aly to review: `StepShell.tsx`)
+
+**Decision.** At level 3 a field is shown if the backend sent it empty, and
+stays shown while the person types into it.
+
+**Why.** It read the typed value too, so a typed answer's box vanished at
+the first keystroke (EVALUATION.md, 2026-10-06c).
+
+## A list to choose from, on screen
+
+**Date:** 2026-10-06 (for Aly to review: `StepShell.tsx`, `copy.ts`)
+
+**Decision.** A field with `options` (CONTRACT.md, `StepField.options`,
+additive and optional) is a box with nothing under it until something is
+typed; then up to four matching names as buttons, two to a row, and "N more.
+Keep typing to find yours." Pressing a name puts it in the box; **That's it**
+sends it. Names in capitals are shown in title case and sent that way; the
+backend matches them back to the site's own.
+
+**Why.** A list of 340 is the clutter this exists to remove; four is what a
+question offers as buttons anywhere else. Stacked, four did not fit at 150%.
+
+**Alternatives.** Send on pressing a name: one press fewer, and no chance to
+see the choice before it goes.

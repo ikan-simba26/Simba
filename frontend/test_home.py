@@ -38,8 +38,8 @@ SIZES = {
 }
 
 BOX = "What would you like me to do?"
-CARDS = {"registration": "Register for CS-401", "billing": "Check my electricity bill",
-         "railways": "Find trains from Lahore to Karachi"}
+CARDS = {"registration": "Register for a course", "billing": "Check my electricity bill",
+         "railways": "Find train times"}
 
 # What the trace store offers since goals are spelled out (details.py): whole
 # sentences, and long enough to wrap onto a second line on a card.
@@ -116,11 +116,11 @@ def home(browser, overlay: str, history: History, goals: list[str], size: str,  
     page.get_by_role("textbox", name=BOX).wait_for(timeout=15000)
     # History arrives after the socket opens, and the first card then stops
     # being the first thing SIMBA can do — however the remembered goal is shown.
-    # (No test here remembers "Register for CS-401" first.)
+    # (No test here remembers "Register for a course" first.)
     if goals:
         page.wait_for_function(
             """() => { const b = document.querySelector('section button');
-                       return b && !b.innerText.startsWith('Register for CS-401'); }""",
+                       return b && !b.innerText.startsWith('Register for a course'); }""",
             timeout=10000)
     page.wait_for_timeout(1200)
     return page

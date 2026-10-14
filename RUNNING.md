@@ -94,9 +94,14 @@ key or no quota (`SIMBA_ROUTER=keywords` skips the model entirely).
 Rawalpindi tomorrow" does not say where from, so it asks — one question at a
 time, with buttons where the answers are few. "Check my electricity bill" asks
 for the reference number, and the home screen's card sends exactly those
-words, so pressing the card asks too. A goal that names everything is asked
-nothing: type "trains from Rawalpindi to Multan tomorrow", or put the
-fourteen-digit number in the sentence, and it goes straight to the steps.
+words, so pressing the card asks too. Since 2026-10-06 the train card ("Find
+train times") and the course card ("Register for a course") name nothing
+either, so they ask for everything. A goal that names everything is asked
+nothing but whether the journey is right: type "trains from Rawalpindi to
+Multan tomorrow" and the first screen reads it back. Station questions offer
+the site's own stations — type a few letters and press one — and every answer
+is checked before the site is touched: a day gone, too far ahead or not in the
+calendar, the same station both ways, or a name the site does not have.
 
 ### The local train search
 

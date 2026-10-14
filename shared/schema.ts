@@ -102,6 +102,12 @@ export interface StepField {
   label: string;
   type: string;
   value: string;
+  /**
+   * Additive and optional (2026-10-06). The answers a field accepts, when they
+   * are a known list — the site's own stations. The overlay shows the ones
+   * that match what has been typed so far. Absent or empty means any text.
+   */
+  options?: string[];
 }
 
 export interface StepAction {

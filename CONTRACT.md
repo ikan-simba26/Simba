@@ -159,6 +159,16 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+**A field's `options` is additive and optional** (added 2026-10-06, the kind
+of change CLAUDE.md allows without a ratification session). When a field's
+answer is one of a known list — the train search's own stations, read from the
+site before anything on it is touched — the backend sends the list, and
+`type` is `choice`:
+`{ "id": "origin", "label": "From", "type": "choice", "value": "", "options": ["LAHORE JN.", "LAHORE CANTT", …] }`.
+The overlay shows nothing from it until something is typed, then the few that
+match as buttons; the answer still comes back as text in `input_values`, and
+the backend matches it to the list. Absent or empty means any text, as before.
+
 `findings` is what the task has been asked to find out, as far as it has got —
 `[{ "label": "Your bill", "value": "14,382", "values": ["14,382"] }]`. Empty
 for a task that changes something rather than finding something out, which is
