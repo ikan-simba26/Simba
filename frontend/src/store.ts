@@ -65,6 +65,12 @@ interface Store {
   checklist: { index: number; label: string }[];
   /** Pause has been pressed and SIMBA has not stopped yet. */
   pausing: boolean;
+  /**
+   * The task's first screen is up and has not been answered (2026-10-14).
+   * No notice is shown on it, ever: a level change there is the screen
+   * arriving as it is, not a change the person saw happen.
+   */
+  firstScreen: boolean;
   /** The person's setting: ask before every move. Kept on this computer. */
   askEachTime: boolean;
   help: HelpRequested | null;
@@ -215,6 +221,7 @@ const EMPTY = {
   stageNow: null,
   checklist: [],
   pausing: false,
+  firstScreen: false,
   help: null,
   completed: null,
   failed: null,
@@ -318,7 +325,9 @@ export const useStore = create<Store>((set, get) => {
       set({
         level: to,
         overflowHopped: true,
-        levelNotice: { from, to, because: "this step was too long to fit", fitted: true },
+        // Never on the task's first screen.
+        levelNotice: get().firstScreen ? null
+          : { from, to, because: "this step was too long to fit", fitted: true },
       });
       // Said to the backend, so its level rules know what is on screen — and
       // marked as the guard's, so it is never taken for the person's choice.
@@ -371,6 +380,8 @@ export const useStore = create<Store>((set, get) => {
     respond: (actionId, values) => {
       const step = get().step;
       if (!step) return;
+      // Answered: what follows is no longer the task's first screen.
+      set({ firstScreen: false });
       const response: StepResponse = {
         step_index: step.step_index,
         action_id: actionId,
@@ -418,6 +429,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         backdrop: null,
         peeking: false,
         stageNow: null,
+        firstScreen: true,
       });
       return;
     case "state.changed":
@@ -480,7 +492,9 @@ function apply(message: AnyEnvelope, set: SetStore): void {
           load,
           level: load.level,
           // The estimator's own reason. Not shown to the user (CONTRACT.md).
-          levelNotice: { from: current.level, to: load.level, because: load.reason },
+          // Never on the task's first screen, nor before it.
+          levelNotice: current.firstScreen ? null
+            : { from: current.level, to: load.level, because: load.reason },
         };
       });
       return;

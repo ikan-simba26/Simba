@@ -203,13 +203,19 @@ def test_a_notice_never_covers_the_button(browser, overlay: str,  # noqa: F811
     notice up, and the button is still the thing under its own centre."""
     page = open_with(browser, ENGLISH, (1266, 632), 1.5)
     try:
+        # The tall step second: no notice is ever shown on a task's first
+        # screen (2026-10-14).
         backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 6}),
                           ("state.changed", {"state": "waiting"}),
-                          ("step.presented", TALL), (AWAIT_RESPONSE, {})]
+                          ("step.presented", DAY), (AWAIT_RESPONSE, {}),
+                          ("state.changed", {"state": "waiting"}),
+                          ("step.presented", {**TALL, "step_index": 2}),
+                          (AWAIT_RESPONSE, {})]
         page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
         page.fill("input[aria-label='What would you like me to do?']", GOAL)
         page.get_by_role("button", name="Start").click()
-        page.get_by_text("I've made this smaller so it fits.").wait_for(timeout=15000)
+        page.get_by_role("button", name="Tomorrow", exact=True).click()
+        page.get_by_text("I've made this smaller so it fits.").first.wait_for(timeout=15000)
         page.wait_for_timeout(800)
 
         box = page.get_by_test_id("speak").bounding_box()

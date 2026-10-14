@@ -224,9 +224,12 @@ def test_a_lock_carried_into_a_new_task_is_the_persons_level(
 def test_a_step_packed_to_fit_says_it_was_made_smaller(page: Page, overlay: str) -> None:
     """Not "I'm showing a bit more again." (until 2026-10-14), which is what
     the level rules say when they give detail back — and which greeted the
-    first question of every task in the real window at 150%."""
-    backend = Backend([step(1, tall=True)])
+    first question of every task in the real window at 150%. Not on a task's
+    first screen, where no notice is ever shown (`test_first_screen.py`): on
+    the step after it."""
+    backend = Backend([step(1, tall=False), step(2, tall=True)])
     start(page, overlay, backend)
+    answer(page, 1)
     page.wait_for_timeout(1500)
 
     assert level_on_screen(page) == 1

@@ -125,6 +125,7 @@ export function StepShell({
   // day" never appeared, and neither did the way to stop.
   const [lead, ...alternatives] = orderActions(step.actions);
   const stop = step.actions.find((action) => action.kind === "secondary");
+  const layout = answersLayout(step, spec.secondary === "button");
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -244,49 +245,46 @@ export function StepShell({
         </Fold>
 
         <Fold show gap={spec.gap}>
-          <motion.div
-            transition={FOLD}
-            className={spec.actionLayout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}
-          >
-            <ActionButton
-              action={lead}
-              height={spec.actionHeight}
-              answered={answered}
-              waiting={waiting}
-              onAction={onAction}
-              grow={spec.actionLayout === "row"}
-            />
-
-            {/* The other answers to a question. Buttons at every level,
-                including level 3: an answer that has been demoted to a line
-                of text is one the person cannot give. */}
-            {alternatives.map((action) => (
-              <ActionButton
-                key={action.id}
-                action={action}
-                height={spec.actionHeight}
-                answered={answered}
-                waiting={waiting}
-                onAction={onAction}
-                grow={spec.actionLayout === "row"}
-                quiet
-              />
-            ))}
-
-            {/* Level 3 demotes the way to stop to plain text. The button
-                collapsing into a line of text is the clearest single moment
-                in the 2 -> 3 fold, so the two forms are separate presences
-                rather than one element restyled. */}
-            {stop && spec.secondary === "button" && (
-              <ActionButton
-                action={stop}
-                height={spec.actionHeight}
-                answered={answered}
-                waiting={waiting}
-                onAction={onAction}
-                grow={spec.actionLayout === "row"}
-                quiet
-              />
+          {/* A question's answers, laid out to fit (2026-10-14): a task's
+              first question has to fit at level 2 without folding, and at
+              150% the station question was 65px too tall. One answer and the
+              way to stop sit side by side; two or three short answers share
+              a row, with the way to stop under them. Ordinary steps, and
+              level 3, keep the column. */}
+          <motion.div transition={FOLD} className="flex flex-col gap-3">
+            {layout === "pair" ? (
+              <div className="flex flex-row gap-3">
+                <ActionButton action={lead} height={spec.actionHeight} answered={answered}
+                              waiting={waiting} onAction={onAction} grow />
+                {stop && (
+                  <ActionButton action={stop} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={onAction} grow quiet />
+                )}
+              </div>
+            ) : (
+              <>
+                <div className={layout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}>
+                  <ActionButton action={lead} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={onAction}
+                                grow={layout === "row"} />
+                  {/* The other answers to a question. Buttons at every level,
+                      including level 3: an answer that has been demoted to a
+                      line of text is one the person cannot give. */}
+                  {alternatives.map((action) => (
+                    <ActionButton key={action.id} action={action} height={spec.actionHeight}
+                                  answered={answered} waiting={waiting} onAction={onAction}
+                                  grow={layout === "row"} quiet />
+                  ))}
+                </div>
+                {/* Level 3 demotes the way to stop to plain text. The button
+                    collapsing into a line of text is the clearest single moment
+                    in the 2 -> 3 fold, so the two forms are separate presences
+                    rather than one element restyled. */}
+                {stop && spec.secondary === "button" && (
+                  <ActionButton action={stop} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={onAction} quiet />
+                )}
+              </>
             )}
           </motion.div>
         </Fold>
@@ -311,10 +309,14 @@ export function TopLine({ step, stages, full, answered }: {
   step: StepPresented | null; stages: boolean; full: boolean; answered: boolean;
 }) {
   const notice = useNotice();
+  // One thing on the left: a notice if one is up, else the stages.
+  let left: React.ReactNode = null;
+  if (notice) left = <NoticeLine />;
+  else if (stages) left = <StageRow current={step?.stage} full={full} />;
   return (
     <div className="flex min-h-10 items-center justify-between gap-4" data-testid="top-line">
       <div className="min-w-0 flex-1">
-        {notice ? <NoticeLine /> : stages ? <StageRow current={step?.stage} full={full} /> : null}
+        {left}
       </div>
       <SpeakButton step={step && !answered ? step : null} />
     </div>
@@ -578,6 +580,27 @@ function ActionButton({
       {action.label}
     </motion.button>
   );
+}
+
+/** Answers this long or shorter share a row; longer ones keep the column. */
+const SHORT_ANSWER = 22;
+
+/**
+ * How a step's answers are laid out. A question — its answers carry ids of
+ * their own, or it has a box to type in — whose one answer is "That's it"
+ * puts it beside the way to stop ("pair"); one with two or three short
+ * answers puts them in a row ("row"). Everything else, and every level where
+ * the way to stop is text rather than a button, keeps the column.
+ */
+function answersLayout(step: StepPresented, stopIsButton: boolean): "pair" | "row" | "column" {
+  if (!stopIsButton) return "column";
+  const answers = step.actions.filter((action) => action.kind !== "secondary");
+  const choices = answers.filter((action) => action.id.startsWith("choice:"));
+  const typed = step.fields.some((field) => !field.value);
+  if (typed && answers.length === 1) return "pair";
+  if (choices.length >= 2 && choices.length === answers.length && answers.length <= 3 &&
+      answers.every((action) => action.label.length <= SHORT_ANSWER)) return "row";
+  return "column";
 }
 
 /**
