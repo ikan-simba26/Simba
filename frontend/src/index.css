@@ -26,7 +26,8 @@
  * components only ever name the role:
  *
  *   B  a calm deep teal with warm cream, the default (Raham's choice,
- *      2026-10-15): a soft light from the top of the window (`--glow`), and
+ *      2026-10-15): a soft light from the top of the window (`--glow`, white
+ *      in the light themes), and
  *      shadows in layers, so cards sit on the canvas rather than on it.
  *   A  warm paper and ink, the first palette refined, kept available with
  *      `data-palette="a"` on <html> (`?palette=a` in the overlay's address).
@@ -56,7 +57,7 @@
   --stuck: #9a3820;
   --stuck-tint: #f8e0d6;
 
-  --glow: radial-gradient(120% 60% at 50% -12%, rgb(13 90 83 / 0.1), transparent 70%);
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 255 255 / 0.6), transparent 70%);
   --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.06),
     0 3px 8px -3px rgb(12 40 37 / 0.08), 0 18px 40px -14px rgb(12 40 37 / 0.18);
   --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.08),
@@ -110,7 +111,7 @@
   --stuck: #9a3820;
   --stuck-tint: #f8e0d6;
 
-  --glow: radial-gradient(120% 60% at 50% -12%, rgb(232 176 97 / 0.2), transparent 70%);
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 253 247 / 0.6), transparent 70%);
   --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.06),
     0 3px 8px -3px rgb(60 38 16 / 0.08), 0 18px 40px -14px rgb(60 38 16 / 0.2);
   --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.08),
@@ -268,7 +269,10 @@ body {
   transition: border-color 0.2s, outline-color 0.2s;
 }
 
-/* The window's ground: the canvas, and the light from the top of it. */
+/* The window's ground: the canvas, and the light from the top of it. In the
+   light themes the light is white (2026-10-15): it was the accent at 10-20%,
+   which shaded the top of every screen ten levels darker than the canvas and
+   read, under the step card, as a smudge. */
 .simba-canvas {
   background-image: var(--glow);
   background-repeat: no-repeat;
