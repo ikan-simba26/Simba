@@ -16,7 +16,12 @@ import type { Level } from "@shared/schema";
 import { LEVEL, levelNotice as noticeFor } from "../copy";
 import { ARRIVE, EASE, MOTION } from "../design";
 import { useStore } from "../store";
-import { DismissButton, FLOATING_NOTICE_CLASS, InfoIcon } from "./ui";
+import {
+  DismissButton,
+  FLOATING_NOTICE_BESIDE_SPEAK_CLASS,
+  FLOATING_NOTICE_CLASS,
+  InfoIcon,
+} from "./ui";
 
 const LEVELS: Level[] = [1, 2, 3];
 const NOTICE_MS = 8000;
@@ -75,7 +80,7 @@ export function LevelControl() {
 }
 
 export function LevelNotice() {
-  const { levelNotice, dismissLevelNotice } = useStore();
+  const { levelNotice, dismissLevelNotice, step } = useStore();
 
   // Say it, then get out of the way. It can also be dismissed by hand.
   useEffect(() => {
@@ -94,7 +99,8 @@ export function LevelNotice() {
           transition={ARRIVE}
           // Floating, so it takes no room and needs no `data-transient`: the
           // overflow guard measures a page this notice cannot lengthen.
-          className={FLOATING_NOTICE_CLASS}
+          // Beside "Read this aloud", not over it, while a step is up.
+          className={step ? FLOATING_NOTICE_BESIDE_SPEAK_CLASS : FLOATING_NOTICE_CLASS}
         >
           {/* The sentence comes from the direction alone. `because` says what
               moved the level and stays in the store: it used to be

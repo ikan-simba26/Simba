@@ -231,5 +231,5 @@ def test_a_step_packed_to_fit_says_it_was_made_smaller(page: Page, overlay: str)
 
     assert level_on_screen(page) == 1
     body = page.inner_text("body")
-    assert "I've made this a little smaller so it all fits on the screen." in body
+    assert "I've made this smaller so it fits." in body
     assert "again" not in body

@@ -306,7 +306,7 @@ export const NOTICE = {
    * window it greeted the very first question of a task, where nothing had
    * been shown before to show "again" (EVALUATION.md, 2026-10-14).
    */
-  fitted: "I've made this a little smaller so it all fits on the screen.",
+  fitted: "I've made this smaller so it fits.",
   /**
    * A step did not work and the run carried on.
    *

@@ -185,3 +185,34 @@ def test_it_sits_above_the_card_and_adds_no_height(browser, overlay: str,  # noq
         assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
     finally:
         page.close()
+
+
+TALL = {**DAY, "instruction": " ".join(["What day are you travelling?"] * 6)}
+
+
+def test_a_notice_never_covers_the_button(browser, overlay: str,  # noqa: F811
+                                          backend: Backend) -> None:
+    """In the real window at 150% the overflow guard's notice lay over
+    "Read this aloud" for its eight seconds, and a press meant for the button
+    landed on the notice (2026-10-14). Here a step too tall to fit brings the
+    notice up, and the button is still the thing under its own centre."""
+    page = open_with(browser, ENGLISH, (1266, 632), 1.5)
+    try:
+        backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 6}),
+                          ("state.changed", {"state": "waiting"}),
+                          ("step.presented", TALL), (AWAIT_RESPONSE, {})]
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", GOAL)
+        page.get_by_role("button", name="Start").click()
+        page.get_by_text("I've made this smaller so it fits.").wait_for(timeout=15000)
+        page.wait_for_timeout(800)
+
+        box = page.get_by_test_id("speak").bounding_box()
+        on_top = page.evaluate(
+            "([x, y]) => document.elementFromPoint(x, y)?.closest('[data-testid=speak]') !== null",
+            [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2])
+        assert on_top
+        page.get_by_role("button", name="Read this aloud").click()
+        assert len(spoken(page)) == 1
+    finally:
+        page.close()

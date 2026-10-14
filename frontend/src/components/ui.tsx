@@ -169,6 +169,16 @@ export const NOTICE_CLASS = `mb-6 ${NOTICE_BODY}`;
  */
 export const FLOATING_NOTICE_CLASS = `absolute inset-x-6 -top-14 z-20 ${NOTICE_BODY}`;
 
+/**
+ * The same, stopping short of "Read this aloud" at the row's right edge
+ * (2026-10-14). Full width, it lay over the button for its eight seconds, and
+ * in the real window a press meant for the button landed on the notice: at
+ * 150% and at 100% the overflow guard's notice comes up on the first question
+ * of a task, which is when someone is most likely to want it read.
+ */
+export const FLOATING_NOTICE_BESIDE_SPEAK_CLASS =
+  `absolute left-6 right-[250px] -top-14 z-20 ${NOTICE_BODY}`;
+
 export function DismissButton({ onClick }: { onClick: () => void }) {
   return (
     <button
