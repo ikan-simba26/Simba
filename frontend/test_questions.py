@@ -479,3 +479,42 @@ def test_the_stages_show_where_the_person_is(
         ("Trains", "to come")]
     body = page.inner_text("body")
     assert "Step" not in body and " of 9" not in body
+
+
+
+# --- what was wrong, cleared once it is put right (2026-10-14) ----------------------
+
+NOTED = {**A_LIST_QUESTION, "instruction": "Where are you travelling to?",
+         "note": "I couldn't find a station called Narnia."}
+
+
+def test_the_note_goes_as_soon_as_a_name_from_the_list_is_chosen(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(NOTED))
+    note = page.get_by_test_id("note")
+    assert note.inner_text().strip() == "I couldn't find a station called Narnia."
+
+    page.fill("input[aria-label='To']", "kar")
+    page.wait_for_timeout(500)
+    assert page.get_by_test_id("note").count() == 1, "typing is not choosing"
+
+    page.locator(MATCHES, has_text="Karachi City").click()
+    page.wait_for_timeout(900)
+    assert page.get_by_test_id("note").count() == 0
+    assert page.get_by_role("heading").first.inner_text().strip() == "Where are you travelling to?"
+
+
+def test_a_typed_answers_note_stays_until_it_is_sent(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """A day cannot be checked here; the backend says whether it was right."""
+    typed = {**A_TYPED_QUESTION, "instruction": "Which day would you like to travel?",
+             "fields": [{"id": "day", "label": "Day", "type": "text", "value": ""}],
+             "note": "1 October has already passed."}
+    ask(page, overlay, backend, asked(typed))
+
+    page.fill("input[aria-label='Day']", "tomorrow")
+    page.wait_for_timeout(600)
+
+    assert page.get_by_test_id("note").inner_text().strip() == "1 October has already passed."

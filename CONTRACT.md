@@ -167,6 +167,12 @@ line's `step_index`, after which the backend does nothing more until the
 person says to carry on. `task.start.confirm_each: true` (additive and
 optional) asks for every move to be confirmed instead.
 
+**`note` is additive and optional** (added 2026-10-14). What was wrong with
+the last answer, in one sentence — "I couldn't find a station called
+Narnia." — beside the question asked again, which reads on its own. The
+overlay clears it once a valid answer is chosen from a list; a typed answer's
+note stays until it is sent and checked.
+
 **`stage` is additive and optional, and so is `task.started.stages`**
 (added 2026-10-14). `task.started` names the task's stages once — trains:
 `["From", "To", "Day", "Search", "Trains"]` — and each step says which it is

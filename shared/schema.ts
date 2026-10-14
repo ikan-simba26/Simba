@@ -141,6 +141,11 @@ export interface StepPresented {
   /** Additive and optional (2026-10-14). Which of the task's stages this step
    *  is in, by position. Absent: the stage before it. */
   stage?: number;
+  /**
+   * Additive and optional (2026-10-14). What was wrong with the last answer,
+   * beside the question asked again. Cleared once a valid answer is chosen.
+   */
+  note?: string;
 }
 
 /**

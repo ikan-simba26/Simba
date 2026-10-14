@@ -465,6 +465,8 @@ class Move:
     # (`PlanStep.safe`, 2026-10-14). Only a planner that knows sets it.
     safe: bool = False
     doing: str | None = None
+    # What was wrong with the last answer, beside a question asked again.
+    note: str | None = None
 
 
 class Planner(Protocol):
@@ -907,6 +909,7 @@ class _Run:
                 findings=findings,
                 step_kind=kind_of(move),
                 stage=move.stage,
+                note=move.note,
             ),
         )
 

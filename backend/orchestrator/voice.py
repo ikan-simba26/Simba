@@ -123,9 +123,17 @@ DAY_TODAY = "Today"
 DAY_TOMORROW = "Tomorrow"
 DAY_PICK = "Pick another day"
 ASK_WHICH_DAY = "Which day? You can type it like 3 October."
-ASK_DAY_AGAIN = "I didn't catch that day. Try typing it like 3 October."
-ASK_FROM_AGAIN = "I didn't catch that. Where are you travelling from?"
-ASK_TO_AGAIN = "I didn't catch that. Where are you travelling to?"
+#: The question for a day after one could not be used.
+ASK_TRAVEL_DAY = "Which day would you like to travel?"
+#: The question when a few stations are offered for a name the list lacks.
+ASK_CLOSEST = "Did you mean one of these?"
+
+# What was wrong with an answer: one kind sentence, sent as the step's `note`
+# beside the question asked again, never inside it (2026-10-14). The overlay
+# clears it once a valid answer is chosen; until then the question still
+# reads on its own.
+NOT_CAUGHT = "I didn't catch that."
+DAY_NOT_CAUGHT = "I didn't catch that day."
 
 #: Answers to a question about a station, past the stations themselves: the
 #: way back to the whole list when none of the few offered is the one.
@@ -174,42 +182,35 @@ def read_back(origin: str, destination: str, when: str) -> str:
 
 
 def day_gone(said: str) -> str:
-    return f"{said} has already passed. Which day would you like to travel?"
+    return f"{said} has already passed."
 
 
 def day_too_far(last: str) -> str:
-    return f"I can only look up trains up to {last}. Which day would you like to travel?"
+    return f"I can only look up trains up to {last}."
 
 
 def no_such_day(said: str) -> str:
-    return f"There is no {said} in the calendar. Which day would you like to travel?"
+    return f"There is no {said} in the calendar."
 
 
 def not_a_station(typed: str) -> str:
-    """A name the site's list does not have, with the nearest ones offered."""
-    return f"I couldn't find a station called {typed}. Did you mean one of these?"
-
-
-def not_a_station_at_all(typed: str, end: str) -> str:
-    """A name with nothing on the list anywhere near it."""
-    where = "from" if end == "origin" else "to"
-    return (f"I couldn't find a station called {typed}. "
-            f"Type the first few letters and choose where you're travelling {where}.")
+    """A name the site's list does not have."""
+    return f"I couldn't find a station called {typed}."
 
 
 def many_stations(typed: str) -> str:
-    return f"Lots of stations have {typed} in their name. Type a little more and choose one."
+    return f"Lots of stations have {typed} in their name."
 
 
 def same_station(name: str) -> str:
     """Where to, when it is where from."""
-    return f"{name} is where you're starting from. Where are you travelling to?"
+    return f"{name} is where you're starting from."
 ASK_REFERENCE = "What is the reference number on your bill?"
 REFERENCE_DETAIL = "It is the 14-digit number at the top left of your bill."
-ASK_REFERENCE_AGAIN = "That doesn't look right. The reference number has 14 digits."
+REFERENCE_NOT_RIGHT = "That doesn't look like a 14-digit reference number."
 ASK_COURSE = "Which course would you like to register for?"
 COURSE_DETAIL = "A course code looks like CS-401."
-ASK_COURSE_AGAIN = "I didn't catch that course. A course code looks like CS-401."
+COURSE_NOT_CAUGHT = "I didn't catch that course."
 
 #: The label beside the box a typed answer goes in.
 FIELD_FROM = "From"

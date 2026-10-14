@@ -108,9 +108,11 @@ def brief(goal: str = "I need a train", stations: list[str] | None = STATIONS,
 
 
 def asked(made: TripBrief) -> str:
+    """What the question leads with: what was wrong with the last answer, if
+    anything was (`note`, since 2026-10-14), or else the question itself."""
     question = made.question()
     assert question is not None
-    return question.instruction
+    return question.note or question.instruction
 
 
 def labels(made: TripBrief) -> list[str]:
@@ -227,7 +229,8 @@ def test_a_name_nothing_on_the_list_is_close_to_says_so_and_asks_again() -> None
 
     question = made.question()
     assert question is not None
-    assert question.instruction == voice.not_a_station_at_all("Zzyzx", "origin")
+    assert question.note == voice.not_a_station("Zzyzx")
+    assert question.instruction == voice.ASK_FROM
     assert question.fields[0].options == STATIONS
     assert made.chosen["origin"] is None
 
@@ -328,7 +331,7 @@ def test_a_day_in_the_past_is_said_to_have_passed(typed: str) -> None:
     assert made.day is None
     reading = read_day(typed, TODAY)
     assert asked(made) == voice.day_gone(reading.said)
-    assert asked(made).endswith("has already passed. Which day would you like to travel?")
+    assert asked(made).endswith("has already passed.")
 
 
 @pytest.mark.parametrize("typed", ["3 November 2027", "2028-01-03", "3/1/2028"])
@@ -383,7 +386,7 @@ def test_something_that_is_not_a_day_at_all_is_not_caught() -> None:
 
     made.answered("confirm", {"day": "45/13"})
 
-    assert asked(made) == voice.ASK_DAY_AGAIN
+    assert asked(made) == voice.DAY_NOT_CAUGHT
 
 
 @pytest.mark.parametrize("goal, why", [
@@ -396,7 +399,8 @@ def test_a_bad_day_in_the_goal_is_said_when_the_day_is_asked(goal: str, why: str
     made = TripBrief(goal, replace_origin(known, "Rawalpindi"), today=TODAY)
 
     assert known.day is None
-    assert made.question().instruction == why
+    assert made.question().note == why
+    assert made.question().instruction == voice.ASK_DAY
     assert labels(made)[:3] == [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK]
 
 
@@ -607,7 +611,8 @@ def test_a_goal_that_names_nothing_asks_from_the_sites_list(railways: str) -> No
     first = run.of("step.presented")[0]
     assert first["fields"][0]["options"] == REPLICA_STATIONS
     yesterday = date.today() - timedelta(days=1)
-    assert run.instructions()[:7] == [
+    led = [p.get("note") or p["instruction"] for p in run.of("step.presented")]
+    assert led[:7] == [
         voice.ASK_FROM, voice.ASK_TO, voice.same_station("Lahore Cantt"), voice.ASK_DAY,
         voice.ASK_WHICH_DAY, voice.no_such_day("31 February"),
         voice.day_gone(voice.day_words(yesterday, date.today())),
@@ -628,7 +633,9 @@ def test_a_station_the_site_does_not_have_is_caught_before_the_site_is_touched(
         None,  # stop at the reading back
     ], railways)
 
-    assert run.instructions()[0] == voice.not_a_station_at_all("Narnia", "origin")
+    first = run.of("step.presented")[0]
+    assert (first["note"], first["instruction"]) == (voice.not_a_station("Narnia"),
+                                                     voice.ASK_FROM)
     assert run.instructions()[1].startswith("Sukkur to Multan Cantt, tomorrow")
     assert run.searched is None
     assert run.at_read_back["from"] == "" and run.at_read_back["model"]["from"] == ""
@@ -759,3 +766,35 @@ def test_the_train_card_asks_where_and_when(app_without_quota: str) -> None:
     # Where the person is, by name, from the start (2026-10-14).
     assert started["stages"] == ["From", "To", "Day", "Search", "Trains"]
     assert first["stage"] == 0
+
+
+
+def test_every_wrong_answer_is_a_note_beside_the_plain_question() -> None:
+    """What was wrong is said in one sentence beside the question, never in
+    it (2026-10-14), so the overlay can clear it once it is put right and the
+    question still reads on its own."""
+    made = brief()
+    seen = []
+    for answer in (("confirm", {"origin": "Narnia"}),              # nothing near it
+                   ("confirm", {"origin": "Karachy"}),             # the nearest offered
+                   choice(0),                                      # Karachi Cantt
+                   ("confirm", {"destination": "Karachi Cantt"}),  # the same station
+                   ("confirm", {"destination": "Sukkur"}),
+                   choice(2),
+                   ("confirm", {"day": "yesterday"})):
+        question = made.question()
+        seen.append((question.note, question.instruction))
+        made.answered(*answer)
+    question = made.question()
+    seen.append((question.note, question.instruction))
+
+    assert seen[0] == (None, voice.ASK_FROM)
+    assert (voice.not_a_station("Narnia"), voice.ASK_FROM) in seen
+    assert (voice.not_a_station("Karachy"), voice.ASK_CLOSEST) in seen
+    assert (voice.same_station("Karachi Cantt"), voice.ASK_TO) in seen
+    assert (voice.day_gone(voice.day_words(TODAY - timedelta(days=1), TODAY)),
+            voice.ASK_TRAVEL_DAY) in seen
+    # Which of a city's stations is not a wrong answer: no note.
+    lahore = brief(origin="Lahore")
+    assert (lahore.question().note, lahore.question().instruction) == (
+        None, voice.which_station("Lahore"))

@@ -24,7 +24,7 @@ import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
-import { CheckIcon, StepKindIcon, buttonClass } from "./ui";
+import { CheckIcon, InfoIcon, StepKindIcon, buttonClass } from "./ui";
 
 /**
  * The one curve and duration the level change uses.
@@ -107,6 +107,15 @@ export function StepShell({
 
   const findings: Finding[] = step.findings ?? [];
 
+  // What was wrong with the last answer (`note`, 2026-10-14) stays beside the
+  // question until a valid answer is chosen — a name from the site's own list
+  // — and then goes: the person has put it right, and a sentence still saying
+  // they had not would be wrong. A typed answer cannot be checked here, so its
+  // note stays until it is sent and the backend has checked it.
+  const chosenFromList = step.fields.some((field) =>
+    (field.options ?? []).some((option) => plain(option) === plain(values[field.id] ?? "")));
+  const note = step.note && !chosenFromList ? step.note : null;
+
   // Everything but the one way to stop is an answer, and every answer is a
   // button. Until 2026-09-30 exactly two were rendered — the first and one
   // more — which was enough while every step offered go-ahead and stop, and
@@ -150,6 +159,15 @@ export function StepShell({
             recede is kept and softened: at 0.55 the instruction measured
             3.8:1 on the light card, which fails for the one sentence the
             person most needs to read. At 0.8 it is 8.7:1. */}
+        {/* What was wrong with the last answer, kindly, above the question. */}
+        <Fold show={note !== null} gap={spec.progress === "none" ? 0 : spec.gap * 0.35}>
+          <p className="flex items-start gap-3 rounded-lg bg-tint px-5 py-3 text-body text-ink
+                        short:py-2" data-testid="note" role="status">
+            <span className="mt-1 shrink-0 text-accent" aria-hidden><InfoIcon /></span>
+            <span>{note ?? step.note}</span>
+          </p>
+        </Fold>
+
         {/* What the step is about, as one plain shape beside its sentence
             (2026-10-07). Beside, not above: it costs width, not height, and
             height is what a 150% window runs out of. */}

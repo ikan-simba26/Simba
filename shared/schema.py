@@ -160,6 +160,11 @@ class StepPresented(BaseModel):
     # Additive and optional (2026-10-14). Which of `task.started.stages` this
     # step is in, by position. Absent: the stage before it.
     stage: Optional[int] = None
+    # Additive and optional (2026-10-14). What was wrong with the last answer,
+    # in one kind sentence, beside the question asked again — "I couldn't find
+    # a station called Narnia." The overlay clears it once a valid answer is
+    # chosen. Absent: nothing was wrong.
+    note: Optional[str] = None
 
 
 class StepFailed(BaseModel):

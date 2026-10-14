@@ -417,10 +417,10 @@ def backend_sentences() -> dict[str, str]:
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
-    for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_DAY_AGAIN",
-                 "ASK_FROM_AGAIN", "ASK_TO_AGAIN", "ASK_CHANGE", "READY_TO_SEARCH",
-                 "ASK_REFERENCE", "REFERENCE_DETAIL", "ASK_REFERENCE_AGAIN", "ASK_COURSE",
-                 "COURSE_DETAIL", "ASK_COURSE_AGAIN", "NOT_UNDERSTOOD", "NO_TRAINS",
+    for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
+                 "ASK_CLOSEST", "NOT_CAUGHT", "DAY_NOT_CAUGHT", "ASK_CHANGE", "READY_TO_SEARCH",
+                 "ASK_REFERENCE", "REFERENCE_DETAIL", "REFERENCE_NOT_RIGHT", "ASK_COURSE",
+                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "NOT_UNDERSTOOD", "NO_TRAINS",
                  "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     for where, text in {
@@ -429,8 +429,6 @@ def backend_sentences() -> dict[str, str]:
         "day_too_far": voice.day_too_far("7 October 2027"),
         "no_such_day": voice.no_such_day("31 February"),
         "not_a_station": voice.not_a_station("Karachy"),
-        "not_a_station_at_all from": voice.not_a_station_at_all("Narnia", "origin"),
-        "not_a_station_at_all to": voice.not_a_station_at_all("Narnia", "destination"),
         "many_stations": voice.many_stations("Kot"),
         "same_station": voice.same_station("Lahore Cantt"),
         "which_station": voice.which_station("Lahore"),

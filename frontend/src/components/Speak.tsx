@@ -47,7 +47,7 @@ export function spokenFor(step: StepPresented): string {
   const answers = step.actions
     .filter((action) => action.kind !== "secondary")
     .map((action) => action.label);
-  return [step.instruction, answers.length ? SPEAK.answers(answers) : ""]
+  return [step.note ?? "", step.instruction, answers.length ? SPEAK.answers(answers) : ""]
     .filter(Boolean)
     .join(" ");
 }
