@@ -80,8 +80,6 @@ export const MOTION = {
   breath: 3.2,
   /** One slow orbit of the presence mark while acting. */
   orbit: 2.8,
-  /** How long the real page shows clearly when a task starts, in seconds. */
-  reveal: 1.6,
   /** The real page softening behind the card, or clearing for a peek. */
   veil: 0.9,
 } as const;

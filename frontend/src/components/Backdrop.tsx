@@ -4,10 +4,12 @@
  * Until now the overlay covered the site completely, and the only way to see
  * it was the trust panel. That kept the screen calm, and it also made SIMBA a
  * box with words in it: nothing said there was a real website underneath,
- * being worked on. Now, when a task starts, the page shows clearly for a
- * moment (`MOTION.reveal`), then softens — blurred and covered by the canvas
- * colour — behind the step card, where nothing on it can be read and the
- * card is still the only thing to look at.
+ * being worked on. Now the page lies softened — blurred and covered by the
+ * canvas colour — behind the step card, where nothing on it can be read and
+ * the card is still the only thing to look at. It is only ever clear when the
+ * person asks: until 2026-10-14 it also showed clearly for 1.6s when a task
+ * started, and in the real window that was a busy site behind a card still
+ * arriving — removed, at Raham's request.
  *
  * It is a picture, not the page. The site view is still covered by the
  * overlay exactly as before (CLAUDE.md, architecture constraints); this is the
@@ -27,7 +29,7 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 import { REVEAL } from "../copy";
 import { EASE, MOTION, VEIL } from "../design";
@@ -49,30 +51,10 @@ function useRunning(): boolean {
 }
 
 export function Backdrop() {
-  const { backdrop, task, peeking } = useStore();
+  const { backdrop, peeking } = useStore();
   const running = useRunning();
-  const [revealing, setRevealing] = useState(false);
-  const revealedFor = useRef<unknown>(null);
-
-  // The first picture of each task is shown clearly, once.
-  useEffect(() => {
-    if (running && backdrop && revealedFor.current !== task) {
-      revealedFor.current = task;
-      setRevealing(true);
-    }
-  }, [running, backdrop, task]);
-
-  useEffect(() => {
-    if (!revealing) return;
-    const timer = window.setTimeout(() => setRevealing(false), MOTION.reveal * 1000);
-    return () => window.clearTimeout(timer);
-  }, [revealing]);
-
-  // A task's first picture is clear from its very first frame. Waiting for the
-  // effect above to say so drew one frame softened first: 17ms, measured in
-  // the real window on 2026-10-14.
-  const unrevealed = running && Boolean(backdrop) && revealedFor.current !== task;
-  const clear = revealing || peeking || unrevealed;
+  // Clear only while the person is looking at it ("Show the real page").
+  const clear = peeking;
   const source = backdrop ? `data:image/png;base64,${backdrop.screenshot}` : "";
 
   return (

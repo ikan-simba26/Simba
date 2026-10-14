@@ -135,16 +135,14 @@ def card_opacity(page: Page) -> float:
         ".closest('[style*=pointer-events]')).opacity"))
 
 
-def test_the_page_shows_clearly_then_softens_behind_the_step(
+def test_the_page_lies_softened_behind_the_step_from_the_start(
     page: Page, overlay: str, picture: str  # noqa: F811
 ) -> None:
+    """No clear moment when a task starts (removed 2026-10-14)."""
     start(page, overlay, picture)
 
-    assert clear(page) == "true"
-    page.wait_for_function(
-        "document.querySelector('[data-testid=backdrop]').dataset.clear === 'false'",
-        timeout=4000)
-    page.wait_for_timeout(1200)  # the fade
+    assert clear(page) == "false"
+    page.wait_for_timeout(1200)  # the fade in
     blurred = page.evaluate(
         "[...document.querySelectorAll('[data-testid=backdrop] img')]"
         ".map(i => getComputedStyle(i).filter + '|' + getComputedStyle(i).opacity)")
@@ -179,7 +177,7 @@ def test_a_tap_keeps_the_page_until_hide_is_pressed(
     start(page, overlay, picture)
 
     page.get_by_test_id("peek").click()
-    page.wait_for_timeout(2500)  # past the first clear moment
+    page.wait_for_timeout(1500)
     assert clear(page) == "true"
 
     page.get_by_role("button", name="Hide the real page").click()
@@ -247,11 +245,12 @@ def test_the_row_under_the_step_fits(browser, overlay: str, picture: str,  # noq
         page.close()
 
 
-def test_the_first_frame_of_the_page_is_clear_not_softened(
+def test_the_page_is_never_clear_unless_asked(
     page: Page, overlay: str, picture: str  # noqa: F811
 ) -> None:
-    """In the real window on 2026-10-14 the page appeared softened for one
-    17ms frame, then cleared, then softened again after the reveal."""
+    """Every state the page is drawn in, from its first frame, until the
+    person presses "Show the real page": softened, and only that. The
+    automatic 1.6s reveal is gone (2026-10-14)."""
     page.add_init_script("""
       window.__clear = [];
       new MutationObserver(() => {
@@ -263,7 +262,7 @@ def test_the_first_frame_of_the_page_is_clear_not_softened(
     start(page, overlay, picture)
     page.wait_for_timeout(3500)
 
-    assert page.evaluate("window.__clear") == ["true", "false"]
+    assert page.evaluate("window.__clear") == ["false"]
 
 
 def test_the_two_buttons_under_the_step_do_not_share_an_icon(
