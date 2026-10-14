@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-07 · **1054 passing, 12 skipped, 0 failed** · suite wall clock 1173s, on `feat/interface-reveal`, **not merged**. 42 tests added since 1012 (`feat/railways-ask`, 2026-10-06, 1181s). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-14 · **1078 passing, 12 skipped, 0 failed** · suite wall clock 1206s, on `feat/interface-reveal`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 24 tests added since 1054 (2026-10-07, 1173s). The 12 skips are unchanged: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately above), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,32 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-14: the new look in the real window, and fixes
+
+On `feat/interface-reveal`, **not merged**. One commit per item.
+
+- **Checked in the real Electron window for the first time** (EVALUATION.md,
+  2026-10-14): the whole train flow on `railways-local`, every bad answer, at
+  this machine's own 150% and at a forced 100%. It found seven things headless
+  had not, listed there; the small ones are fixed.
+- **Read aloud is built.** Raham approved changing CLAUDE.md's rule; **Nahail
+  and Aly still need to be told** (DECISIONS.md). "Read this aloud" above each
+  step: the system's English voice, off until pressed, stopped when the step
+  changes. Checked with the real Windows voices.
+- **The "book a flight" reply fits** at all three sizes.
+- **The level notice says what happened**: "I've made this smaller so it
+  fits." for the overflow guard; "I'm showing a bit more now." for the rules.
+- **Fixed from the real window:** Electron's menu bar hidden; the 9px
+  scrollbar at 150% on two-line station questions; a chosen station no longer
+  a second filled button; stations written to be read in step details; the
+  reveal's one softened frame; two buttons with the same eye; the notice over
+  "Read this aloud".
+- **Left for Raham, not fixed:** see the report's list — chiefly the step
+  count running past itself ("Step 13 of 13"), the guard folding and
+  announcing on the first question of every task, a wrong answer's sentence
+  staying after a good one is chosen, the softened page all but invisible in
+  the light theme, and the shape's 7% of one core while the home screen is up.
 
 ### Changed on 2026-10-07: the interface, less plain
 

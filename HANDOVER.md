@@ -587,8 +587,8 @@ options and a recommendation; this is the list.
    screen at all?
 6. **Found values are shown exactly as the page wrote them** — `15-09-2026`.
    Reformatting means inventing; not reformatting is hard for this audience.
-7. **"I'm showing a bit more again."** is also what an overflow adjustment
-   says, where "again" may be untrue.
+7. *(Settled 2026-10-14: an overflow adjustment says "I've made this smaller
+   so it fits."; the level rules' return says "I'm showing a bit more now.")*
 7b. **The closing screen's layout, for Aly to review** (2026-10-05). To fit
    nine results at 150% the sentence replaced the "Here's what I found"
    lead-in, and the two buttons sit side by side — the one screen whose

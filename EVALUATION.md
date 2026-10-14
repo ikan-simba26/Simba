@@ -5083,3 +5083,81 @@ sentence with its shape fits at 150% at levels 1, 2 and 3
 **Full suite** on `feat/interface-reveal`: **1054 passed, 12 skipped, 0
 failed**, 1173s (1012 before; 42 added). The records were written while it
 ran; no code was changed after it started.
+
+## 2026-10-14 — the new look, in the real window
+
+The first time the interface from `feat/interface-reveal` was seen in the
+Electron host rather than a headless browser. `.\run.ps1 railways-local`, with
+`SIMBA_RECORD_STEPS=0` so scripted presses never reached the estimator's
+training rows. Driven over the host's CDP port with real input events
+(`Input.dispatchMouseEvent`, `Input.insertText`) sent to the overlay's own
+target only; every capture is the overlay's content (`Page.captureScreenshot`)
+or the SIMBA window alone (`PrintWindow` on the window of the process holding
+the CDP port), never the desktop. Scripts and captures in
+`.scratch/window-review/` (not committed).
+
+**This machine's display is at 150%:** the real window is 1266x606 CSS pixels
+at a device pixel ratio of 1.5 — the tightest of the three sizes. The 100%
+captures come from a second real host started with
+`--force-device-scale-factor=1`, as `display_fit_run.py` does; Windows' own
+setting was not touched.
+
+**The whole train flow, walked** (22 screens): home, "train", a station the
+site lacks ("Narnia"), a misspelling ("Lahor", then Lahore Cantt), the same
+station both ways, a day that has passed ("1 October 2026"), the readback,
+five steps, the peek, the results. It completed, and searched Lahore Cantt to
+Karachi Cantt for the 15th.
+
+**What the real window showed that headless did not:**
+
+| Found | Detail |
+|---|---|
+| Electron's own menu bar | File / Edit / View / Window / Help above the overlay, 26px of it at 150% |
+| A scrollbar at 150% | Five question screens 9px too tall — the ones whose sentence explains a wrong answer and runs to two lines — with a classic scrollbar down the side. Already at level 1, the guard's floor |
+| "I'm showing a bit more again." on every first question | The overflow guard's fold, at 100% and at 150% |
+| One softened frame before the reveal | The backdrop drew `data-clear=false` for 17ms, then cleared |
+| "Read this aloud" could not be pressed | For the eight seconds the guard's notice was up it lay over the button; the press landed on the notice. Found when checking item 5, after it was built |
+| The count runs past itself | Re-asked questions push the count past its promise: "Step 10 of 10", "11 of 11", "12 of 12", "13 of 13" — every later screen claims to be the last |
+
+**The shape, the reveal and the blur, measured in the real window** (5s of
+frames and main-thread time from inside the overlay, then 10s of CPU over the
+host's 5 processes):
+
+| Condition | Main-thread work in 5s | 95th-pct frame | Host CPU, % of one core |
+|---|---|---|---|
+| Home, shape turning | 122ms (style 30ms) | 16.8ms | 7.5 |
+| Home, reduced motion (shape still) | 99ms | 17.0ms | 2.7 |
+| Home, shape removed | 92ms | 16.9ms | 0.2 |
+| Question, real page softened behind | 88ms | 16.8ms (one 433ms frame) | 8.4 |
+| Question, backdrop removed | 108ms | 16.8ms | 5.6 |
+
+So in the real window the turn costs less of the main thread than headless
+(+30ms in 5s against +70ms) but about 7% of one core across the host's
+processes, the GPU process included, for as long as the home screen is open.
+Every frame is on time in every condition. The one 433ms frame, with the
+softened page behind a question, happened once and is not explained.
+
+**The reveal's timing** (from a watcher in the page): the first question at
+4891ms, its picture 262ms later, clear for 1602ms (1.6s asked), then softened.
+The peek cleared and hid as pressed. In the light theme the softened page is
+nearly invisible once the reveal is over — a green tint along the top from the
+site's own bar.
+
+**After the fixes, the same walk in the real window at 150%:** content 1266x632
+(the menu bar's 26px given back), **0px of scroll on all 22 screens**, the
+notice reading "I've made this smaller so it fits." beside "Read this aloud"
+rather than over it, the button under its own centre, and pressing it made the
+system speak with the default voice (Microsoft David, en-US; Mark and Zira also
+offered) until "Stop reading". At 100%, before the fixes too, nothing scrolled.
+
+**Fixed in Part B**, each with a test that fails on the old code where the
+old code could be run: the reply to "book a flight" (24px at 100%, 45px at
+150%, before; 0 at all three, after, for every kind of reply); the notice's
+wording; the station box at level 1 (9px); the chosen station as a second
+filled button; the station in capitals in a step's detail; the one softened
+frame; the menu bar; the two eyes; the notice over "Read this aloud".
+
+**Full suite** on `feat/interface-reveal`: **1078 passed, 12 skipped, 0
+failed**, 1206s (1054 before; 24 added). **The host fit test**
+(`SIMBA_HOST_TESTS=1 frontend/test_window_fit.py`), with the menu bar hidden:
+3 passed, at 100%, 125% and 150%.

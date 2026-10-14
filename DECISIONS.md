@@ -4066,3 +4066,51 @@ full-size button (it is not an answer to the step); the rate; reading the
 answers but not "Stop this"; and that pressing it is **not** counted as a
 help press in telemetry — a person who needs a step read may be finding it
 hard, so that is flagged for Nahail as the estimator's owner.
+
+## Three level notices, each true wherever it appears
+
+**Date:** 2026-10-14 (HANDOVER.md, open question 7; for Aly to review)
+
+**Decision.** A step packed closer by the overflow guard says "I've made this
+smaller so it fits."; the level rules simplifying say "I'm showing less for a
+moment." as before; the rules giving detail back say "I'm showing a bit more
+now." — not "again", which was false for a task that started simpler. While a
+step is on screen the notice stops 250px short of the right edge, so "Read this
+aloud" is never under it.
+
+**Alternatives.** No notice for the guard's fold: it is the screen changing
+under the person, and saying so was the 2026-09-25 decision. A longer fitted
+sentence ("…so it all fits on the screen."): it wrapped beside the button.
+
+## Electron's menu bar is hidden, not removed
+
+**Date:** 2026-10-14
+
+**Decision.** `autoHideMenuBar: true` on the window. Alt shows it.
+
+**Alternatives.** Remove the menu: also removes the accelerators a developer
+uses (reload, developer tools). **Cost:** someone who presses Alt sees it.
+
+## Smaller fixes from the real window
+
+**Date:** 2026-10-14 (for Aly to review)
+
+- A chosen station is marked — a tick and the accent's edge — not filled like
+  "That's it" beside it.
+- At level 1 the station box's label sits beside it, as every other field's
+  does; above it, a two-line question scrolled at 150%.
+- "Show the real page" has a browser-window icon; the eye is "What are you
+  doing?"'s.
+- The reply's echo is one line ("You asked" beside the words), and the box
+  drops its lead-in in a short window, as on the home screen.
+
+## How the real window was checked
+
+**Date:** 2026-10-14
+
+**Decision.** Driven over the host's CDP port with real input events to the
+overlay's target only; captured as the overlay's content, or the SIMBA window
+alone with `PrintWindow`. `SIMBA_RECORD_STEPS=0`, so scripted presses never
+became training rows. The 100% captures came from a second real host at
+`--force-device-scale-factor=1`; the machine is at 150% and its setting was
+not changed. Light theme for the review copies was the system's own.
