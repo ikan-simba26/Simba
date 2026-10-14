@@ -4149,3 +4149,16 @@ pairing should not mix them without saying so.
 **Alternatives.** Run everything after the first press: would run cookies and
 registration, which are choices. Mark safety by the kind of operation (type,
 click an option): a click is a click whether it searches or pays.
+
+## Read aloud is its own telemetry signal; Nahail to confirm
+
+**Date:** 2026-10-14 (asked for by Raham)
+
+**Decision.** Each press of "Read this aloud" is counted on the step's
+telemetry as `read_aloud` (additive, optional), and never as `help_presses`.
+`data/steps.jsonl` keeps it beside the other signals, as it keeps every field
+a sample sends. The provisional level rules do not read it, so it moves no
+level. **Nahail, as the estimator's owner, should confirm** whether and how
+the trained estimator uses it: a person who wants a step read may be finding
+it hard, or may simply prefer to listen, and the signal is kept apart so that
+the two can be told apart rather than merged.

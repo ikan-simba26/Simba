@@ -12,9 +12,10 @@
  * the words on the buttons (`SPEAK.answers` in `copy.ts`). The way to stop
  * the task is not read out: it is on every step and is not an answer.
  *
- * Pressing it is not counted as asking for help. That may be wrong — a person
- * who needs a step read to them may be finding it hard — and it is flagged
- * for the estimator's owner rather than decided here.
+ * Pressing it is recorded as its own telemetry signal, `read_aloud`, and not
+ * as asking for help (2026-10-14): a person who wants a step read may be
+ * finding it hard, or may simply prefer to listen. Nahail, as the estimator's
+ * owner, is to confirm how it is used.
  */
 
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ import { useEffect, useState } from "react";
 import type { StepPresented } from "@shared/schema";
 
 import { SPEAK } from "../copy";
+import { tracker } from "../telemetry";
 
 /** An English voice the system offers, or null. Voices load late on some
  *  systems, so this is re-read when the list changes. */
@@ -83,6 +85,7 @@ export function SpeakButton({ step }: { step: StepPresented | null }) {
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
     setSpeaking(true);
+    tracker.readAloud();
     synth.speak(utterance);
   };
 

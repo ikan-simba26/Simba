@@ -216,3 +216,24 @@ def test_a_notice_never_covers_the_button(browser, overlay: str,  # noqa: F811
         assert len(spoken(page)) == 1
     finally:
         page.close()
+
+
+
+def test_reading_aloud_is_its_own_signal_not_a_help_press(page: Page, overlay: str,  # noqa: F811
+                                                          backend: Backend) -> None:
+    """Recorded as `read_aloud` with the step's telemetry (2026-10-14), so the
+    estimator can tell wanting to listen from asking for help."""
+    backend.responses.clear()
+    to_the_step(page, overlay, backend)
+    page.get_by_role("button", name="Read this aloud").click()
+    page.get_by_role("button", name="Stop reading").click()
+    page.get_by_role("button", name="Read this aloud").click()
+
+    page.get_by_role("button", name="Tomorrow", exact=True).click()
+    page.wait_for_timeout(800)
+
+    answered = [m["payload"] for m in backend.responses
+                if m.get("type") == "telemetry" and m["payload"].get("answered")]
+    assert answered and answered[0]["step_index"] == 1
+    assert answered[0]["read_aloud"] == 2
+    assert answered[0]["help_presses"] == 0

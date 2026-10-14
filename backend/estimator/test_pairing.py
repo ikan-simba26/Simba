@@ -239,3 +239,18 @@ def test_a_run_without_a_recorder_writes_nothing(replica: str, tmp_path) -> None
         pool.submit(lambda: asyncio.run(go())).result()
 
     assert not out.exists()
+
+
+
+def test_reading_aloud_is_kept_as_its_own_signal(tmp_path) -> None:
+    """`read_aloud` (2026-10-14) is written beside the other signals as sent,
+    and the level rules do not read it as asking for help."""
+    from backend.estimator.rules import LevelRules
+
+    plain = {"step_index": 1, "hesitation_ms": 4000, "cursor_path_ratio": 1.0,
+             "backtracks": 0, "rereads": 0, "help_presses": 0}
+    rules_a, rules_b = LevelRules(), LevelRules()
+    rules_a.start_step(1, None)
+    rules_b.start_step(1, None)
+    assert rules_a.telemetry({**plain, "read_aloud": 5}).level == \
+        rules_b.telemetry(plain).level

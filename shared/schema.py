@@ -295,6 +295,9 @@ class Telemetry(BaseModel):
     rereads: int
     help_presses: int
     answered: bool = False
+    # Additive and optional (2026-10-14). Presses of "Read this aloud" on this
+    # step: its own signal, not `help_presses`. Absent: none.
+    read_aloud: int = 0
 
 
 # --- Envelope ----------------------------------------------------------------

@@ -268,6 +268,9 @@ export interface Telemetry {
   backtracks: number;
   rereads: number;
   help_presses: number;
+  /** Additive and optional (2026-10-14). Presses of "Read this aloud" on this
+   *  step: its own signal, not `help_presses`. */
+  read_aloud?: number;
   /** True on the sample that goes with the answer. Absent means a timer tick. */
   answered?: boolean;
 }
