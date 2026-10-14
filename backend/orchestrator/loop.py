@@ -591,6 +591,11 @@ PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
 MASK_COLOUR = "#8c7a66"
 
 
+#: The longest a picture of the page may take before it is dropped
+#: (2026-10-15). The picture is optional; the person's answer is not.
+PREVIEW_DEADLINE_S = 5.0
+
+
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
     """Answer trust.requested: a picture of the real page, and what is next.
 
@@ -738,6 +743,9 @@ class _Run:
         self.auto = auto
         #: Messages `poll` read that were not a pause: kept for the next wait.
         self.held: list[dict] = []
+        #: Pictures of the page being taken, each in its own task, so that
+        #: none stands between the person and their answer (2026-10-15).
+        self.previews: set[asyncio.Task] = set()
         self.recorder = recorder
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
@@ -924,7 +932,10 @@ class _Run:
 
         async def answer_questions(message: dict) -> None:
             if message.get("type") == "trust.requested":
-                await send_preview(self.page, self.connection, move)
+                # Taken beside the wait, never in it (2026-10-15). It was
+                # awaited here: on 2026-10-14 one screenshot took 30s to fail,
+                # and "Register for CS-401", pressed meanwhile, waited 31s.
+                self.picture(move)
                 return
             # Channel B, arriving while the step is on screen: one sample on
             # a timer, and one more with the response itself. Paired with the
@@ -944,10 +955,38 @@ class _Run:
         held, self.held = self.held, []
         for message in held:
             await answer_questions(message)
-        response = await self.connection.receive(
-            "step.response", step_index=index, on_other=answer_questions
-        )
+        try:
+            response = await self.connection.receive(
+                "step.response", step_index=index, on_other=answer_questions
+            )
+        finally:
+            # Answered: a picture still being taken is of a step that has
+            # gone, and must not race the next move on the page.
+            self.drop_pictures()
         return response.get("payload", {})
+
+    def picture(self, move: "Move") -> None:
+        """Take a picture of the page for the overlay, in a task of its own,
+        and drop it if it is late (`PREVIEW_DEADLINE_S`) or fails: the
+        picture is optional."""
+
+        async def take() -> None:
+            try:
+                await asyncio.wait_for(send_preview(self.page, self.connection, move),
+                                       PREVIEW_DEADLINE_S)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - late, failed or closed: dropped
+                return
+
+        task = asyncio.create_task(take())
+        self.previews.add(task)
+        task.add_done_callback(self.previews.discard)
+
+    def drop_pictures(self) -> None:
+        """Every picture still being taken, dropped."""
+        for task in list(self.previews):
+            task.cancel()
 
 
 async def run_task(
