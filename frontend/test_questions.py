@@ -412,3 +412,30 @@ def test_a_question_has_the_shape_of_what_it_asks(
     assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "place"
     ask(page, overlay, backend, asked(A_QUESTION))
     assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "date"
+
+
+# The sentence that explains a station the site does not have runs to two
+# lines, and in the real window at 150% that question scrolled by 9px with a
+# scrollbar down the side (EVALUATION.md, 2026-10-14): already at level 1, the
+# guard's floor, the box's label still sat above it.
+NARNIA = {**A_LIST_QUESTION,
+          "instruction": "I couldn't find a station called Narnia. Type the first few letters "
+                         "and choose where you're travelling from.",
+          "fields": [{**A_LIST_QUESTION["fields"][0], "id": "origin", "label": "From"}]}
+
+
+def test_a_two_line_station_question_fits_at_150_percent_at_level_1(
+    short_page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(short_page, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9}),
+        ("load.updated", {"score": 0.2, "level": 1, "reason": "shown"}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", NARNIA),
+        (AWAIT_RESPONSE, {}),
+    ])
+    short_page.fill("input[aria-label='From']", "lahor")
+    short_page.wait_for_timeout(1500)
+
+    over = short_page.evaluate("document.scrollingElement.scrollHeight - innerHeight")
+    assert over <= 0, f"scrolls by {over}px"

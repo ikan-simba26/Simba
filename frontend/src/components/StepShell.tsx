@@ -433,8 +433,17 @@ function ChoiceField({
 
   return (
     <div className="flex flex-col gap-3">
-      <motion.label transition={FOLD} className="flex flex-col gap-2">
-        <span className="text-small font-medium text-soft">{field.label}</span>
+      {/* Beside its box at level 1, as every other field is there: above it,
+          the label cost the one line that made a two-line station question
+          scroll by 9px at 150% in the real window (2026-10-14). */}
+      <motion.label transition={FOLD}
+                    className={spec.fieldLayout === "inline"
+                      ? "grid grid-cols-[210px_1fr] items-center gap-4"
+                      : "flex flex-col gap-2"}>
+        <span className={spec.fieldLayout === "inline"
+          ? "text-caption font-medium text-soft" : "text-small font-medium text-soft"}>
+          {field.label}
+        </span>
         <motion.input
           animate={{ height: spec.fieldHeight, fontSize: `${TYPE.body}px` }}
           transition={FOLD}
