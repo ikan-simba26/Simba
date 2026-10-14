@@ -23,7 +23,7 @@ import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
-import { StepKindIcon, buttonClass } from "./ui";
+import { CheckIcon, StepKindIcon, buttonClass } from "./ui";
 
 /**
  * The one curve and duration the level change uses.
@@ -471,8 +471,14 @@ function ChoiceField({
             onClick={() => onChange(field.id, readable(option))}
             animate={{ height: rowHeight }}
             transition={FOLD}
-            className={`w-full ${buttonClass(option === chosen ? "primary" : "secondary", "fluid")}`}
+            // Chosen, it is marked — a tick and the accent's edge — and not
+            // filled: filled, it was a second solid button beside "That's
+            // it", and two of those on one screen do not say which to press
+            // (2026-10-14).
+            className={`w-full ${buttonClass("secondary", "fluid")} ${
+              option === chosen ? "border-2 border-accent bg-tint" : ""}`}
           >
+            {option === chosen && <CheckIcon size={24} />}
             {readable(option)}
           </motion.button>
         ))}

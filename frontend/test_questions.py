@@ -325,6 +325,12 @@ def test_pressing_a_name_puts_it_in_the_box_and_that_is_what_is_sent(
     assert page.locator("input[aria-label='To']").input_value() == "Karachi City"
     assert matches_on(page) == ["Karachi City"]
     assert page.locator(MATCHES).first.get_attribute("aria-pressed") == "true"
+    # Marked, not filled: "That's it" stays the one solid button on screen.
+    fills = page.evaluate("""() => [
+      getComputedStyle(document.querySelector('[aria-pressed=true]')).backgroundColor,
+      getComputedStyle([...document.querySelectorAll('button')]
+        .find(b => b.innerText.trim() === "That's it")).backgroundColor]""")
+    assert fills[0] != fills[1], fills
     page.get_by_role("button", name="That's it", exact=True).click()
     page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
     assert answer(backend)["input_values"] == {"destination": "Karachi City"}
