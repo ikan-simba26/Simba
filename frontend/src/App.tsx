@@ -209,10 +209,12 @@ function Column() {
 /**
  * The first screen (redesigned 2026-10-14): a greeting for the time of day,
  * the three things SIMBA can do as three large tiles side by side, each with
- * a simple picture, and the box to ask in your own words — over the whole
- * height of the window, the box at the bottom, rather than all of it in the
- * top half. Goals asked for before, when there are any, are a short list
- * under the tiles; a tile is never repeated there.
+ * a simple picture, and the box to ask in your own words, close under them:
+ * one group, centred in the height of the window. From 2026-10-14 to
+ * 2026-10-15 the box sat at the bottom of the window and the tiles at the
+ * top, which left a large empty gap between the two things to choose from.
+ * Goals asked for before, when there are any, are a short list under the
+ * tiles; a tile is never repeated there.
  *
  * Once, when SIMBA opens, the tiles rise in gently after the shape has
  * settled (`entrance.ts`); never under reduced motion, and never again on the
@@ -226,7 +228,7 @@ function Home() {
   const remembered = rememberedGoals(history);
 
   return (
-    <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-between gap-8
+    <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
                     short:min-h-[calc(100dvh-92px)] short:gap-5">
       <div className="flex flex-col gap-8 short:gap-5">
         <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink

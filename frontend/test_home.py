@@ -11,8 +11,8 @@ history — so what it measured was always the three-card screen.
 Since 2026-10-14 the three things SIMBA can do are three large tiles side by
 side, always, and goals asked for before are a short list under them: two at
 most, one line each, never one a tile already offers (`App.rememberedGoals`).
-The greeting says the time of day; the screen uses the whole height of the
-window, the box at the bottom. This builds the overlay from source and renders
+The greeting says the time of day; the box sits close under the tiles, the
+whole group centred in the window's height (2026-10-15). This builds the overlay from source and renders
 it at the sizes the window actually gets — measured in EVALUATION.md,
 2026-09-25c, and the 632px window without Electron's menu bar — against a
 scripted backend that offers the history, and checks it from outside.
@@ -188,17 +188,36 @@ def test_the_box_is_on_screen_without_scrolling(
     assert fits, (size, measured)
 
 
+GROUP = """() => {
+  const top = (sel) => document.querySelector(sel).getBoundingClientRect();
+  const tiles = top('[data-testid=tiles]'), greeting = top('[data-testid=greeting]');
+  const last = [...document.querySelectorAll('[data-testid=remembered]')].pop();
+  const above = last ? last.getBoundingClientRect() : tiles;
+  const box = document.querySelector("input[aria-label='What would you like me to do?']")
+    .closest('.simba-field-frame').getBoundingClientRect();
+  const setting = [...document.querySelectorAll('label')].pop().getBoundingClientRect();
+  return {gap: Math.round(box.top - above.bottom), height: innerHeight,
+          above_greeting: Math.round(greeting.top), below_setting: Math.round(innerHeight - setting.bottom)};
+}"""
+
+
+@pytest.mark.parametrize("goals", [[], BILLS], ids=["no history", "two remembered"])
 @pytest.mark.parametrize("size", list(SIZES))
-def test_the_screen_uses_the_whole_height(
-    size: str, browser, overlay: str, history: History, at: dict,  # noqa: F811
+def test_the_box_sits_with_the_tiles(
+    size: str, goals: list[str], browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    """The box sits near the bottom of the window, not under the tiles in the
-    top half (2026-10-14)."""
-    page = home(browser, overlay, history, [], size, at)
+    """One group, no large empty gap between the tiles and the box
+    (2026-10-15): from 2026-10-14 the box sat at the bottom of the window and
+    the tiles at the top, with everything spare between them. What is spare
+    is now above and below the group."""
+    page = home(browser, overlay, history, goals, size, at)
 
-    _, measured = box_fits(page)
+    measured = page.evaluate(GROUP)
 
-    assert measured["start_bottom"] >= 0.8 * measured["height"], measured
+    # Between them only the box's lead-in and the usual gaps.
+    assert measured["gap"] <= 90, measured
+    # The group is centred: what is spare is not all left below it.
+    assert measured["below_setting"] <= measured["above_greeting"] + 60, measured
 
 
 # --- the tiles ----------------------------------------------------------------
