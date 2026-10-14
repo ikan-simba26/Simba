@@ -15,7 +15,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
-import { Shape } from "./components/Shape";
 import { SpeakButton } from "./components/Speak";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl, LevelNotice } from "./components/LevelControl";
@@ -146,8 +145,11 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen, peeking, step, answered } = useStore();
+  const { trustOpen, peeking, step, answered, task, asking, reply, completed, failed, help,
+          stoppedByPerson } = useStore();
   const mode = usePresenceMode();
+  // Large on the home screen, the first thing seen; small everywhere else.
+  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson;
   const aside = trustOpen || peeking;
   return (
     // Above the real page behind it (`Backdrop`), and out of the way while
@@ -156,7 +158,7 @@ function PresenceBar() {
     <motion.div className="relative z-[1] flex w-full justify-center"
                 style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
                 animate={{ opacity: aside ? 0 : 1 }} transition={ARRIVE}>
-      <Presence mode={mode} />
+      <Presence mode={mode} large={home} />
       <div className="absolute top-0.5 right-0">
         <SpeakButton step={step && !answered ? step : null} />
       </div>
@@ -262,7 +264,7 @@ function Home() {
   return (
     // 32px between the greeting, the cards and the box, not 40: three
     // remembered goals of two lines each need the room at 100%.
-    <div className="flex flex-col gap-8 short:gap-6">
+    <div className="flex flex-col gap-6 short:gap-4">
       {/* A step down in a short window: 48px to 38px. The greeting is the
           one line on this screen nobody needs to read twice. */}
       {/* The shape beside the greeting, no taller than its line, so the
@@ -272,7 +274,6 @@ function Home() {
                        short:text-heading">
           {HOME.greeting}
         </h1>
-        <Shape className="h-14 w-14 short:h-11 short:w-11" />
       </div>
 
       {/* The setting shares the cards' lead-in line, so the home screen is
@@ -463,9 +464,7 @@ function Working() {
   const situation = task ? "working" : asking ? "reading" : "opening";
   const goal = task?.goal ?? asking;
   return (
-    <div className="flex flex-col items-center gap-5 pt-6 text-center">
-      {/* In the room the screen kept empty above the sentence. */}
-      <Shape className="mb-4 h-22 w-22" />
+    <div className="flex flex-col items-center gap-5 pt-20 text-center">
       <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
         {presence(situation)}
       </h1>

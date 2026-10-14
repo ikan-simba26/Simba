@@ -1,10 +1,9 @@
 /**
- * SIMBA's shape: three soft rings round a small core, turning slowly in 3D
- * (2026-10-07).
+ * SIMBA's shape: three soft rings round a small core, in 3D (2026-10-07).
  *
- * Only where nothing is being asked of the person — the home screen, and the
- * screen that says "Give me a moment." — and never on a step, where the step
- * is the only thing to look at.
+ * Since 2026-10-14 it is the presence mark, the one sign of SIMBA on every
+ * screen (`ui.Presence`): large on the home screen, small on every other, and
+ * turning slowly only while SIMBA is working. Still, it costs nothing.
  *
  * CSS 3D rather than a 3D library: no dependency, no canvas, and the turn is
  * one transform with no layout (`simba-turn` in `index.css`). It is not free:
@@ -17,11 +16,14 @@
  * flat circle.
  */
 
-export function Shape({ className }: { className: string }) {
+export function Shape({ className, turning = false, stuck = false }: {
+  className: string; turning?: boolean; stuck?: boolean;
+}) {
   return (
-    <span aria-hidden className={`simba-stage inline-block shrink-0 ${className}`}
-          data-testid="shape">
-      <span className="simba-shape">
+    <span aria-hidden data-testid="shape"
+          className={`simba-stage inline-block shrink-0 ${stuck ? "simba-stage--stuck" : ""}
+                      ${className}`}>
+      <span className={`simba-shape ${turning ? "simba-shape--turning" : ""}`}>
         {/* A ring round each of three axes, a little apart, so the turn shows
             them pass in front of and behind each other. */}
         <span className="simba-ring" style={{ transform: "rotateY(0deg)" }} />

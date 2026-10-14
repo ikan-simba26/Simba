@@ -199,12 +199,24 @@ body {
   height: 100%;
   transform-style: preserve-3d;
   transform: rotateX(16deg) rotateY(28deg);
-  /* Twenty updates a second, not sixty. Measured headless on 2026-10-07, the
-     3D turn is not composited: it costs main-thread work every frame it
-     changes, about 130ms in five seconds at sixty a second and about 70ms at
-     twenty, against none for the page without it. A turn of 10 degrees a
-     second moves half a degree a step, which still reads as smooth. */
+}
+
+/* Turning only while SIMBA is working (2026-10-14): the presence mark is
+   still while it waits for the person, and on the home screen. Twenty
+   updates a second, not sixty: measured headless on 2026-10-07, the 3D turn
+   is not composited and costs main-thread work every frame it changes. */
+.simba-shape--turning {
   animation: simba-turn 36s steps(720) infinite;
+}
+
+/* The window is not focused, or not shown: nothing moves (2026-10-14). */
+[data-motion="paused"] .simba-shape {
+  animation-play-state: paused !important;
+}
+
+/* Stopped: the mark in the warm colour, as the old dot was. */
+.simba-stage--stuck {
+  --accent: var(--stuck);
 }
 
 .simba-ring {
@@ -236,7 +248,8 @@ body {
    the rule above, which would otherwise run the turn for 0.01ms and stop it
    wherever it landed. */
 @media (prefers-reduced-motion: reduce) {
-  .simba-shape {
+  .simba-shape,
+  .simba-shape--turning {
     animation: none !important;
     transform: rotateX(16deg) rotateY(28deg);
   }

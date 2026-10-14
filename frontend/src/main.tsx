@@ -7,6 +7,19 @@ import App from "./App";
 import "@fontsource-variable/atkinson-hyperlegible-next";
 import "./index.css";
 
+// Nothing moves while the window is not focused or not shown (2026-10-14):
+// motion nobody is watching is work for nothing, and a window put aside
+// should be still when it comes back. The shape's turn reads this
+// (`index.css`, `[data-motion="paused"]`).
+const stillWhenAway = (): void => {
+  const away = document.hidden || !document.hasFocus();
+  document.documentElement.dataset.motion = away ? "paused" : "on";
+};
+window.addEventListener("focus", stillWhenAway);
+window.addEventListener("blur", stillWhenAway);
+document.addEventListener("visibilitychange", stillWhenAway);
+stillWhenAway();
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {/* Framer Motion animates from JavaScript, so the reduced-motion rule in

@@ -7,13 +7,13 @@
  * meet a different one on the next.
  */
 
-import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 import type { FlowName, StepKind } from "@shared/schema";
 
+import { Shape } from "./Shape";
+
 import { NOTICE, STATUS } from "../copy";
-import { EASE, MOTION } from "../design";
 
 /* --------------------------------------------------------------- buttons */
 
@@ -377,87 +377,45 @@ export type PresenceMode = "ready" | "thinking" | "acting" | "waiting" | "stuck"
 
 /**
  * The assistant, present on every screen, in one place, saying without words
- * what it is doing.
+ * what it is doing — and, since 2026-10-14, the one sign of SIMBA there is:
+ * the 3D shape (`Shape`), where there used to be a dot and, beside it on the
+ * home screen, the shape as well.
  *
- *   ready     a still dot                       — here, nothing happening
- *   thinking  the dot breathes, slowly          — working it out; nothing wanted
- *   acting    a thin arc circles it, slowly     — doing the thing now
- *   waiting   the dot is full, with a halo      — your turn
- *   stuck     the dot turns the warm colour     — it has stopped
- *   done      a still dot with a small tick     — finished
+ *   ready     still                             — here, nothing happening
+ *   thinking  turning, slowly                   — working it out
+ *   acting    turning, slowly                   — doing the thing now
+ *   waiting   still                             — your turn
+ *   stuck     still, in the warm colour         — it has stopped
+ *   done      still, with a tick on its core    — finished
+ *
+ * Large on the home screen, where it is the first thing seen; small
+ * everywhere else, where the step is the thing to look at. It moves only
+ * while SIMBA is working, never under reduced motion, and never while the
+ * window is not focused (`data-motion`, `main.tsx`).
  *
  * Wordless on screen on purpose: `copy.ts` gives `waiting` no sentence
- * because the step is the sentence, and a second thing to read beside it is
- * the clutter this project removes. The state is named for a screen reader,
+ * because the step is the sentence. The state is named for a screen reader,
  * from `STATUS`, and announced when it changes.
- *
- * It replaces two earlier signals: a line crossing the top of the column
- * while acting, and a pulse that dimmed the whole column while thinking. The
- * pulse also dimmed the answer on the closing screen, because the backend
- * never leaves `thinking` after finishing — the one screen that exists to be
- * read was the one that faded in and out (EVALUATION.md, 2026-09-21).
  */
-export function Presence({ mode }: { mode: PresenceMode }) {
-  const colour = mode === "stuck" ? "bg-stuck" : "bg-accent";
-  // Asked for less motion, it does not breathe or circle: `MotionConfig`
-  // stops movement but not a looping fade, and a fade forever is motion too.
-  const still = useReducedMotion() ?? false;
-  const breathing = mode === "thinking" && !still;
-  const circling = mode === "acting" && !still;
+export function Presence({ mode, large = false }: { mode: PresenceMode; large?: boolean }) {
+  const working = mode === "thinking" || mode === "acting";
   return (
     <div
       role="status"
       aria-live="polite"
       aria-label={STATUS[mode]}
-      className="relative flex h-12 w-12 items-center justify-center"
+      className={`relative flex items-center justify-center ${
+        large ? "h-24 w-24 short:h-16 short:w-16" : "h-12 w-12"}`}
       data-presence={mode}
+      data-size={large ? "large" : "small"}
     >
-      {/* The halo: only when it is the person's turn. */}
-      <motion.span
-        className={`absolute inset-0 rounded-full ${colour}`}
-        animate={{ opacity: mode === "waiting" ? 0.16 : 0, scale: mode === "waiting" ? 1 : 0.6 }}
-        transition={{ duration: MOTION.base, ease: EASE }}
-      />
-      {/* The orbit: only while acting. */}
-      <motion.svg
-        className="absolute inset-0 text-accent"
-        viewBox="0 0 40 40"
-        animate={{ opacity: mode === "acting" ? 1 : 0, rotate: circling ? 360 : 0 }}
-        transition={
-          circling
-            ? { opacity: { duration: MOTION.base, ease: EASE },
-                rotate: { duration: MOTION.orbit, ease: "linear", repeat: Infinity } }
-            : { duration: MOTION.base, ease: EASE }
-        }
-        aria-hidden
-      >
-        <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeDasharray="22 85" />
-      </motion.svg>
-      {/* The dot itself. Finished, it grows into a disc with a tick in it —
-          the same mark, completed, rather than a second thing beside it. */}
-      <motion.span
-        className={`relative flex h-5 w-5 items-center justify-center rounded-full ${colour}`}
-        animate={
-          breathing
-            ? { scale: [1, 0.72, 1], opacity: [1, 0.6, 1] }
-            : {
-                scale: mode === "done" ? 1.75 : mode === "waiting" ? 1.15 : 1,
-                opacity: mode === "ready" ? 0.7 : 1,
-              }
-        }
-        transition={
-          breathing
-            ? { duration: MOTION.breath, ease: "easeInOut", repeat: Infinity }
-            : { duration: MOTION.base, ease: EASE }
-        }
-      >
-        {mode === "done" && (
-          <span className="text-accent-ink">
-            <CheckIcon size={13} />
-          </span>
-        )}
-      </motion.span>
+      <Shape className={large ? "h-24 w-24 short:h-16 short:w-16" : "h-10 w-10"}
+             turning={working} stuck={mode === "stuck"} />
+      {mode === "done" && (
+        <span className="absolute inset-0 flex items-center justify-center text-accent-ink">
+          <CheckIcon size={large ? 30 : 14} />
+        </span>
+      )}
     </div>
   );
 }

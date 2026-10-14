@@ -408,9 +408,9 @@ export const SPEAK = {
 /* --------------------------------------------------------- the real page */
 
 /**
- * The real page, behind every step (2026-10-07). It shows clearly for a
- * moment when a task starts, so the person sees where SIMBA is working, and
- * then softens behind the card. Pressing and holding the button shows it
+ * The real page, behind every step (2026-10-07), softened behind the card;
+ * clear only while the person asks (the 1.6s reveal when a task started was
+ * removed on 2026-10-14). Pressing and holding the button shows it
  * clearly again for as long as it is held; a quick press keeps it showing
  * until the other button is pressed. Password boxes are painted over before
  * the picture ever leaves the backend.
