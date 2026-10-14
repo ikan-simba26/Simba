@@ -291,6 +291,44 @@ def test_the_same_goal_remembered_twice_is_shown_once(
     assert remembered_on(page) == [LONG, LONGER]
 
 
+def test_two_bills_say_which_reference_each_is(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
+) -> None:
+    """Both read "Find the amount due for..." on their one line (2026-10-14).
+    Each now ends with its reference's last four digits."""
+    page = home(browser, overlay, history, BILLS, "150%", at)
+
+    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
+
+    assert tags == ["ending 7890", "ending 9999"]
+    # Never cut off, and inside its own goal's button.
+    for button in page.get_by_test_id("remembered").all():
+        tag = button.get_by_test_id("apart")
+        box, inside = tag.bounding_box(), button.bounding_box()
+        assert box["x"] + box["width"] <= inside["x"] + inside["width"]
+        assert tag.evaluate("t => t.scrollWidth <= t.clientWidth")
+
+
+def test_two_journeys_say_where_they_part(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
+) -> None:
+    page = home(browser, overlay, history, [
+        "Find trains from Lahore Cantt to Rawalpindi on 2026-10-01.",
+        "Find trains from Lahore Cantt to Multan on 2026-10-01."], "150%", at)
+
+    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
+
+    assert tags == ["Rawalpindi", "Multan"]
+
+
+def test_goals_that_look_different_get_no_tag(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
+) -> None:
+    page = home(browser, overlay, history, [LONG, LONGER], "150%", at)
+
+    assert page.get_by_test_id("apart").count() == 0
+
+
 def test_a_remembered_goal_is_one_line(
     browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:

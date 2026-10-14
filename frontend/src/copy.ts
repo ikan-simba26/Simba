@@ -71,6 +71,9 @@ export const HOME = {
   evening: "Good evening. What can I do for you?",
   /** Above the goals asked for before, under the tiles. A lead-in. */
   again: "You asked before",
+  /** Beside a remembered bill, when two would otherwise look the same: the
+   *  reference number's last four digits (2026-10-15). */
+  ending: (digits: string) => `ending ${digits}`,
   /** The name of the row of tiles, for a screen reader: the three things
    *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
    *  themselves. */
@@ -542,6 +545,7 @@ export const LABELS: Record<string, string> = {
   "checklist.now": CHECKLIST.now,
   "checklist.next": CHECKLIST.next,
   "signIn.save": SIGN_IN.save,
+  "home.ending": HOME.ending("7890"),
   "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,

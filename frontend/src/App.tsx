@@ -226,6 +226,7 @@ function Home() {
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
   const remembered = rememberedGoals(history);
+  const apart = tellApart(remembered);
 
   return (
     <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
@@ -273,7 +274,7 @@ function Home() {
         {remembered.length > 0 && (
           <section className="flex items-center gap-3" aria-label={HOME.again}>
             <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
-            {remembered.map((goal) => (
+            {remembered.map((goal, index) => (
               <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
                       data-testid="remembered"
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
@@ -281,6 +282,14 @@ function Home() {
                                  shadow-press hover:border-accent/50">
                 <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
                 <span className="line-clamp-1 flex-1">{goal}</span>
+                {/* What tells it from the other, never cut off (2026-10-15).
+                    Hidden from a screen reader: the goal is read whole. */}
+                {apart[index] && (
+                  <span className="shrink-0 font-semibold tabular-nums" aria-hidden
+                        data-testid="apart">
+                    {apart[index]}
+                  </span>
+                )}
               </button>
             ))}
           </section>
@@ -312,6 +321,47 @@ export function rememberedGoals(history: PastGoal[]): string[] {
     if (out.length < REMEMBERED) out.push(past.goal);
   }
   return out;
+}
+
+/** Two goals that start with this many characters in common look the same
+ *  on a remembered goal's one line, which shows about the first twenty. */
+const LOOKS_SAME = 16;
+
+/** A reference number, as the bill flow's goals spell it. */
+const REFERENCE = /\d{10,}/;
+
+/**
+ * What tells each remembered goal from the others, when they would look the
+ * same on one line (2026-10-15): two bills both read "Find the amount due
+ * for…". For a bill, its reference's last four digits ("ending 7890");
+ * otherwise the first word where the two part ("Multan"). Null for a goal
+ * that already looks like itself.
+ */
+export function tellApart(goals: string[]): (string | null)[] {
+  return goals.map((goal, index) => {
+    const twin = goals.find((other, at) =>
+      at !== index && commonStart(goal, other).length >= LOOKS_SAME);
+    if (twin === undefined) return null;
+    const reference = goal.match(REFERENCE);
+    if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
+      return HOME.ending(reference[0].slice(-4));
+    }
+    const words = goal.split(/\s+/);
+    const others = twin.split(/\s+/);
+    const differs = words.findIndex((word, at) => word !== others[at]);
+    return differs >= 0 ? words[differs].replace(/[.,!?]+$/, "") : null;
+  });
+}
+
+/** The words two goals start with, whole words only. */
+function commonStart(a: string, b: string): string {
+  const one = a.split(/\s+/);
+  const two = b.split(/\s+/);
+  const same: string[] = [];
+  for (let at = 0; at < Math.min(one.length, two.length) && one[at] === two[at]; at += 1) {
+    same.push(one[at]);
+  }
+  return same.join(" ");
 }
 
 /** The person's own setting: be asked before every move (2026-10-14). */
