@@ -395,8 +395,8 @@ def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
     for, and with no line naming the columns (2026-10-14)."""
     script = completed("There are 2 trains. The fastest is 2DN, at 22 hours 16 minutes.", [
         {"label": "Train", "value": "2DN, 14DN", "values": ["2DN", "14DN"],
-         "rows": [["2DN", "08:04", "06:20", "22 h 16 min"],
-                  ["14DN", "19:09", "19:25", "24 h 16 min"]]},
+         "rows": [["2DN", "08:04", "06:20, next day", "22 h 16 min"],
+                  ["14DN", "19:09", "19:25, next day", "24 h 16 min"]]},
         {"label": "Leaves", "value": "08:04, 19:09", "values": ["08:04", "19:09"]},
         {"label": "Arrives", "value": "06:20, 19:25", "values": ["06:20", "19:25"]},
         {"label": "Journey", "value": "22 h 16 min, 24 h 16 min",
@@ -407,11 +407,24 @@ def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
 
     assert page.get_by_test_id("heading").inner_text() == (
         "Lahore Cantt to Karachi Cantt, Thursday 15 October")
+    # A next-day arrival says so (the backend's `voice.arrival`, 2026-10-15).
     assert tickets(page) == [
-        "2DN | Leaves 08:04 | Arrives 06:20 | Journey 22 h 16 min | Fastest",
-        "14DN | Leaves 19:09 | Arrives 19:25 | Journey 24 h 16 min"]
+        "2DN | Leaves 08:04 | Arrives 06:20, next day | Journey 22 h 16 min | Fastest",
+        "14DN | Leaves 19:09 | Arrives 19:25, next day | Journey 24 h 16 min"]
     assert "Train, Journey" not in page.inner_text("body")
     assert "Train, Leaves" not in page.inner_text("body")
+    # Each ticket still one line, nothing to scroll.
+    heights = page.eval_on_selector_all("[data-testid=ticket]",
+                                        "ts => ts.map(t => t.getBoundingClientRect().height)")
+    assert max(heights) < 80, heights
+    assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
+    # Times in the interface's own face, every figure one width (2026-10-15).
+    styles = page.eval_on_selector_all(
+        "[data-testid=ticket-cell] > span:last-child",
+        "cells => cells.map(c => [getComputedStyle(c).fontFamily, "
+        "getComputedStyle(c).fontVariantNumeric])")
+    body = page.evaluate("getComputedStyle(document.body).fontFamily")
+    assert all(family == body and "tabular-nums" in numeric for family, numeric in styles), styles
 
 
 def test_a_page_that_prints_one_time_shows_no_arrival(

@@ -891,7 +891,13 @@ function Tickets({ findings, rows, onLine, apart, less }: {
                 <span key={cell.name} className="flex items-baseline gap-2 whitespace-nowrap"
                       data-testid="ticket-cell">
                   <span className="text-caption text-soft">{cell.name}</span>
-                  <span className="text-body font-semibold text-ink">{cell.value}</span>
+                  {/* The interface's own face, with figures of one width so
+                      times line up from ticket to ticket (2026-10-15). Its
+                      zero is slashed in every setting: that is the face's
+                      way of never being read as O. */}
+                  <span className="text-body font-semibold text-ink tabular-nums">
+                    {cell.value}
+                  </span>
                 </span>
               ))}
               {quickest && (
