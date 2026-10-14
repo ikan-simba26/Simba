@@ -372,11 +372,14 @@ function Reply() {
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
           {heading}
         </h1>
+        {/* Their words on one line with the lead-in, not two: the reply to
+            "book a flight" scrolled by 24px at 100% and 45px at 150% until
+            2026-10-14. */}
         {reply.kind !== "greeting" && reply.goal && (
-          <div className="flex flex-col gap-1 border-l-4 border-tint pl-4">
-            <p className="text-small font-medium text-soft">{REPLY.youAsked}</p>
-            <p className="text-lead text-ink">{reply.goal}</p>
-          </div>
+          <p className="flex flex-wrap items-baseline gap-x-3 border-l-4 border-tint pl-4">
+            <span className="text-small font-medium text-soft">{REPLY.youAsked}</span>
+            <span className="text-lead text-ink">{reply.goal}</span>
+          </p>
         )}
       </div>
 
@@ -411,7 +414,9 @@ function Reply() {
         </div>
       )}
 
-      <AskBox lead={HOME.askHeading} />
+      {/* In a short window the box's lead-in goes, as on the home screen:
+          the heading above has just asked, and it keeps it as its name. */}
+      <AskBox lead={HOME.askHeading} leadWhenShort={false} />
     </div>
   );
 }

@@ -134,3 +134,30 @@ def test_something_ambiguous_asks_and_the_answer_runs(
 
     page.wait_for_selector("[data-testid=step-shell]", timeout=10000)
     assert page.get_by_role("button", name="Accept cookies").is_visible()
+
+
+# --- every reply fits (2026-10-14) ----------------------------------------------
+#
+# The reply to "book a flight" scrolled by 24px at 100% and 45px at 150%, and
+# had since before 2026-10-07 (EVALUATION.md, 2026-10-07): its heading, the
+# person's words on two lines, three cards and a box with its own lead-in.
+
+
+@pytest.mark.parametrize("goal", ["book a flight", "hello", "I need to pay for my course"])
+@pytest.mark.parametrize("size", [(1280, 800, 1.0), (1280, 734, 1.25), (1266, 606, 1.5)],
+                         ids=["100%", "125%", "150%"])
+def test_every_reply_fits_without_scrolling(playwright_instance, overlay: str, mock: str,  # noqa: F811
+                                            goal: str, size) -> None:
+    width, height, scale = size
+    browser = playwright_instance.chromium.launch()
+    try:
+        page = browser.new_page(viewport={"width": width, "height": height},
+                                device_scale_factor=scale)
+        ask(page, overlay, mock, goal)
+        page.wait_for_timeout(1500)
+        assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight"), (
+            goal, size, page.evaluate("document.scrollingElement.scrollHeight - innerHeight"))
+        box = page.get_by_role("button", name="Start").bounding_box()
+        assert box and box["y"] + box["height"] <= height
+    finally:
+        browser.close()
