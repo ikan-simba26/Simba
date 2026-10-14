@@ -197,7 +197,8 @@ export function StepShell({
               // Units are required: Framer silently ignores a bare number
               // for fontSize, where it appends px for height and padding.
               fontSize: `${typeSize(level, instruction)}px`,
-              opacity: waiting ? 0.8 : 1,
+              // Always at full strength (2026-10-15). It was 0.8 while SIMBA
+              // waited for the person — exactly when they have to read it.
               paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
               // Grow after the collapse, for the same reason as UNFOLD.
               transition: { ...FOLD, delay: 0.1 },

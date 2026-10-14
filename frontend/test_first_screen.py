@@ -243,3 +243,24 @@ def test_the_main_button_waits_for_an_answer(
         assert use.is_disabled()
     finally:
         page.close()
+
+
+def test_the_question_is_at_full_strength(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """It was dimmed to 0.8 while SIMBA waited for the person (until
+    2026-10-15) — the moment they have to read it."""
+    stages, step = FIRST["where from"]
+    page = show(browser, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": stages}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", step),
+        (AWAIT_RESPONSE, {}),
+    ], SIZES["100%"])
+    try:
+        heading = page.locator("[data-testid=step-shell] h1")
+        assert heading.evaluate("h => getComputedStyle(h).opacity") == "1"
+        colour = heading.evaluate("h => getComputedStyle(h).color")
+        assert colour == page.evaluate("getComputedStyle(document.body).color"), colour
+    finally:
+        page.close()
