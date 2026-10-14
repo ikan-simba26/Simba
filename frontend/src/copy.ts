@@ -396,6 +396,8 @@ export const CHECKLIST = {
   done: "Done",
   /** The line being done, for a screen reader. */
   now: "Doing this now",
+  /** A line still to come, for a screen reader (2026-10-15). */
+  next: "Still to do",
 } as const;
 
 /**
@@ -528,6 +530,7 @@ export const LABELS: Record<string, string> = {
   "checklist.pausing": CHECKLIST.pausing,
   "checklist.done": CHECKLIST.done,
   "checklist.now": CHECKLIST.now,
+  "checklist.next": CHECKLIST.next,
   "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,

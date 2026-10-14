@@ -63,6 +63,8 @@ interface Store {
    * false`, 2026-10-14), in order. The last is the one being done.
    */
   checklist: { index: number; label: string }[];
+  /** The checklist lines still to come, as the last line said (2026-10-15). */
+  coming: string[];
   /** Pause has been pressed and SIMBA has not stopped yet. */
   pausing: boolean;
   /**
@@ -220,6 +222,7 @@ const EMPTY = {
   peeking: false,
   stageNow: null,
   checklist: [],
+  coming: [],
   pausing: false,
   firstScreen: false,
   help: null,
@@ -450,6 +453,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         const row = message.payload as StepPresented;
         set((current) => ({
           checklist: [...current.checklist, { index: row.step_index, label: row.instruction }],
+          coming: row.coming ?? [],
           step: null,
           stageNow: row.stage ?? current.stageNow,
           trustOpen: false,
@@ -467,6 +471,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         stageNow: (message.payload as StepPresented).stage ?? current.stageNow,
         // A step that asks ends the checklist before it.
         checklist: [],
+        coming: [],
         pausing: false,
         answered: false,
         overflowHopped: false,

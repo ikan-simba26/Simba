@@ -308,6 +308,16 @@ class HardcodedPlanner:
         self._steps = list(steps)
         self._index = 0
 
+    def coming(self) -> list[str]:
+        """The checklist lines after the move just given: the safe steps that
+        follow it, up to the first that will ask (2026-10-15)."""
+        lines: list[str] = []
+        for step in self._steps[self._index:]:
+            if not step.safe:
+                break
+            lines.append(step.doing or step.instruction)
+        return lines
+
     async def next_move(self, elements, history, setback):
         from backend.orchestrator.loop import Move
 

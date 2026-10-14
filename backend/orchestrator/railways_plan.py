@@ -360,6 +360,23 @@ class TripPlanner:
             return self._search(elements)
         return None
 
+    def coming(self) -> list[str]:
+        """The checklist lines after the move just given (2026-10-15): what is
+        left of from, to, the calendar, the day and the search, in that order.
+        """
+        current = self._pending or ""
+        parts = [
+            ("choose origin", ("type origin", "choose origin"), voice.DOING_FROM),
+            ("choose destination", ("type destination", "choose destination"),
+             voice.DOING_TO),
+            ("open month", ("open month",), voice.DOING_CALENDAR),
+            ("pick day", ("pick day",),
+             voice.doing_day(voice.day_words(self.day, self.today))),
+            ("search", ("search",), voice.DOING_SEARCH),
+        ]
+        return [line for done, now, line in parts
+                if done not in self._done and current not in now]
+
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
         """The person's answer to the station question just asked."""
         if self._asking is None:

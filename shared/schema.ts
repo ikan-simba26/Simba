@@ -146,6 +146,12 @@ export interface StepPresented {
    * beside the question asked again. Cleared once a valid answer is chosen.
    */
   note?: string;
+  /**
+   * Additive and optional (2026-10-15). On a checklist line: the lines SIMBA
+   * expects to do by itself after this one, in order. Absent or empty:
+   * nothing more it knows of.
+   */
+  coming?: string[];
 }
 
 /**

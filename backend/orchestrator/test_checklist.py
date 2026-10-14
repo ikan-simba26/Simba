@@ -132,6 +132,10 @@ def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> Non
     # Every line was in the Search stage.
     assert {p["stage"] for p in done.of("step.presented")
             if not p["requires_confirmation"]} == {3}
+    # Each line says what is still to come, so the list shrinks to nothing
+    # (`coming`, 2026-10-15).
+    lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]
+    assert [p["coming"] for p in lines] == [done.rows()[i + 1:] for i in range(5)]
 
 
 def test_asked_every_time_it_asks_every_time(railways: str) -> None:  # noqa: F811
@@ -186,6 +190,8 @@ def test_the_bill_asks_about_cookies_then_looks_itself_up(
     assert done.asked() == ["The site is asking about cookies. I'll say yes."]
     assert done.rows() == [voice.DOING_LOOKUP, voice.DOING_FULL_BILL]
     assert "task.completed" in done.types()
+    lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]
+    assert [p["coming"] for p in lines] == [[voice.DOING_FULL_BILL], []]
 
 
 def test_registering_always_asks(replica: str) -> None:  # noqa: F811

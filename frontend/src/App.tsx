@@ -559,7 +559,7 @@ function Step() {
  * wrong, or that would pay, book, register or change a record still asks.
  */
 function Checklist() {
-  const { checklist, pausing, pause } = useStore();
+  const { checklist, coming, pausing, pause } = useStore();
   return (
     <Card className="px-12 py-10 short:py-7">
       <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
@@ -583,6 +583,18 @@ function Checklist() {
               </li>
             );
           })}
+          {/* What is next, so nothing comes as a surprise (2026-10-15): an
+              empty dashed ring and the softer text. Softer, never fainter
+              than 4.5:1 (`test_contrast.py`). */}
+          {coming.map((label) => (
+            <li key={`coming-${label}`} className="flex items-center gap-4 text-lead"
+                data-state="to come">
+              <span className="h-9 w-9 shrink-0 rounded-full border-2 border-dashed border-edge"
+                    aria-hidden />
+              <span className="sr-only">{CHECKLIST.next}</span>
+              <span className="text-soft">{label}</span>
+            </li>
+          ))}
         </ol>
         <div>
           <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>

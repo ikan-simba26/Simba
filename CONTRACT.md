@@ -167,6 +167,14 @@ line's `step_index`, after which the backend does nothing more until the
 person says to carry on. `task.start.confirm_each: true` (additive and
 optional) asks for every move to be confirmed instead.
 
+**`coming` is additive and optional** (added 2026-10-15). On a checklist
+line, the lines the backend expects to run by itself after it, in order —
+after "Filling in where you're starting from": `["Filling in where you're
+going", "Opening the calendar", "Choosing 15 October", "Searching"]` — so
+the overlay can show what is next. It is what the plan expects, not a
+promise: a line that does not work turns into a question, and the list ends
+at anything that will ask.
+
 **`note` is additive and optional** (added 2026-10-14). What was wrong with
 the last answer, in one sentence — "I couldn't find a station called
 Narnia." — beside the question asked again, which reads on its own. The

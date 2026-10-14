@@ -165,6 +165,11 @@ class StepPresented(BaseModel):
     # a station called Narnia." The overlay clears it once a valid answer is
     # chosen. Absent: nothing was wrong.
     note: Optional[str] = None
+    # Additive and optional (2026-10-15). On a checklist line
+    # (`requires_confirmation: false`): the lines SIMBA expects to do by itself
+    # after this one, in order, so the person can see what is next. Empty:
+    # nothing more it knows of, or not a checklist line.
+    coming: List[str] = []
 
 
 class StepFailed(BaseModel):

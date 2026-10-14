@@ -807,7 +807,8 @@ class _Run:
             raise StoppedWhileAway
         await self.set_state(was or "acting")
 
-    async def tick(self, move: "Move", *, findings: list[Finding]) -> int:
+    async def tick(self, move: "Move", *, findings: list[Finding],
+                   coming: list[str] | None = None) -> int:
         """One line of the checklist: a move SIMBA does by itself. Shown, not
         asked; nothing waits for an answer, and nothing about the person is
         measured on it — no row for the estimator, nothing for the level
@@ -826,6 +827,7 @@ class _Run:
                 findings=findings,
                 step_kind=kind_of(move),
                 stage=move.stage,
+                coming=coming or [],
             ),
         )
         return self.shown
@@ -1136,7 +1138,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                 return
         if by_itself:
             steps_taken += 1
-            await run.tick(move, findings=findings)
+            # What the planner expects to do by itself next, if it knows.
+            ahead = getattr(planner, "coming", None)
+            await run.tick(move, findings=findings, coming=ahead() if ahead else [])
         elif not move.quiet:
             steps_taken += 1
             # A step that asks for a password uses the saved one if there is

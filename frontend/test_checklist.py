@@ -17,10 +17,15 @@ GOAL = "trains from Rawalpindi to Sukkur tomorrow"
 TRIP = ["From", "To", "Day", "Search", "Trains"]
 
 
+LINES = ["Filling in where you're starting from", "Filling in where you're going",
+         "Opening the calendar", "Choosing 15 October", "Searching"]
+
+
 def line(index: int, label: str) -> dict:
+    """A checklist line, saying what is still to come after it (2026-10-15)."""
     return {"step_index": index, "step_total": 9, "instruction": label, "detail": "",
             "fields": [], "actions": [], "requires_confirmation": False, "findings": [],
-            "stage": 3}
+            "stage": 3, "coming": LINES[LINES.index(label) + 1:]}
 
 
 PAUSED = {"step_index": 4, "step_total": 9,
@@ -85,7 +90,19 @@ def test_the_lines_tick_off_and_the_last_is_being_done(page: Page, overlay: str,
 
     assert lines(page) == [("Filling in where you're starting from", "done"),
                            ("Filling in where you're going", "done"),
-                           ("Opening the calendar", "now")]
+                           ("Opening the calendar", "now"),
+                           # What is next, so nothing comes as a surprise.
+                           ("Choosing 15 October", "to come"),
+                           ("Searching", "to come")]
+    # Softer, never fainter: the soft colour at full strength, as text that
+    # is done is (`test_contrast.py`).
+    colours = page.eval_on_selector_all(
+        "[data-testid=checklist-lines] li",
+        "items => items.map(i => [i.dataset.state, "
+        "getComputedStyle(i.lastElementChild).color, getComputedStyle(i).opacity])")
+    soft = {colour for state, colour, _ in colours if state == "done"}
+    assert {colour for state, colour, _ in colours if state == "to come"} == soft
+    assert {opacity for _, _, opacity in colours} == {"1"}
     assert page.get_by_text("I'm doing what you asked.").is_visible()
     # One thing to press, and it is Pause.
     buttons = page.eval_on_selector_all(
