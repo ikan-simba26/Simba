@@ -134,11 +134,14 @@ def test_reaches_confirmation(messages: list[dict]) -> None:
     assert completed[0]["payload"]["steps_taken"] == 3
 
 
-def test_every_step_was_presented_and_confirmed(messages: list[dict]) -> None:
+def test_every_step_was_shown_and_the_ones_that_ask_were_asked(messages: list[dict]) -> None:
+    """Since 2026-10-14 SIMBA runs a safe move itself, as a line of the
+    checklist: closing the portal's notice. Signing in needs the person, and
+    registering registers, so both still ask."""
     presented = of_type(messages, "step.presented")
     assert [m["payload"]["step_index"] for m in presented] == [1, 2, 3]
     assert all(m["payload"]["step_total"] == 3 for m in presented)
-    assert all(m["payload"]["requires_confirmation"] for m in presented)
+    assert [m["payload"]["requires_confirmation"] for m in presented] == [True, False, True]
 
 
 def test_login_step_asks_for_a_password_field(messages: list[dict]) -> None:

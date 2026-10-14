@@ -66,6 +66,7 @@ export class StepTracker {
   private backtracks = 0;
   private rereads = 0;
   private helpPresses = 0;
+  private readAloudPresses = 0;
   private insideText = false;
 
   /** A step is on screen. Everything starts again: it is a new decision. */
@@ -77,6 +78,7 @@ export class StepTracker {
     this.backtracks = 0;
     this.rereads = 0;
     this.helpPresses = 0;
+    this.readAloudPresses = 0;
     this.insideText = false;
   }
 
@@ -91,6 +93,16 @@ export class StepTracker {
 
   helpPressed(): void {
     if (this.stepIndex !== null) this.helpPresses += 1;
+  }
+
+  /**
+   * "Read this aloud" was pressed (2026-10-14). Its own signal, not a help
+   * press: a person who wants a step read may be finding it hard, or may
+   * simply prefer to listen, and the estimator should be able to tell the
+   * two apart rather than have them merged here. Nahail to confirm.
+   */
+  readAloud(): void {
+    if (this.stepIndex !== null) this.readAloudPresses += 1;
   }
 
   moved(point: Point, overText: boolean): void {
@@ -144,6 +156,7 @@ export class StepTracker {
       backtracks: this.backtracks,
       rereads: this.rereads,
       help_presses: this.helpPresses,
+      read_aloud: this.readAloudPresses,
     };
   }
 }

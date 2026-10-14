@@ -7,9 +7,11 @@ replaces `Target` matching with a model call — everything downstream, the
 integer ids and the verification, stays the same.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
+from backend.orchestrator import voice
 from backend.orchestrator.voice import actions
 from shared.schema import StepAction, StepField
 
@@ -116,6 +118,20 @@ class Answer:
 
     name: str
     reads: str
+    # Which value of the cell, when the page prints two in one: the live
+    # train table's `Time` is `08:04 06:20` — leaves, then arrives
+    # (EVALUATION.md, 2026-09-07). None: the whole cell. A cell without that
+    # many values gives nothing, never a value worked out from the others.
+    part: int | None = None
+
+
+def part_of(cell: str, part: int | None) -> str:
+    """One value of a cell that holds several, or the cell; "" if it has not
+    got that many."""
+    if part is None:
+        return cell
+    values = cell.split()
+    return values[part] if part < len(values) else ""
 
 
 @dataclass(frozen=True)
@@ -158,6 +174,10 @@ class About:
     holds: tuple[FieldValue, ...] = ()
     finds: tuple[Answer, ...] = ()
     shows: tuple[Shown, ...] = ()
+    # What a whole row of `finds` says that no one cell does, said in it:
+    # a train arriving the day after it leaves (`voice.arrival`, 2026-10-15).
+    # Applied to the rows only, after they are read; never to what is checked.
+    per_row: Callable[[dict[str, str]], dict[str, str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -207,6 +227,14 @@ class PlanStep:
     expect: Expectation
     fields: list[StepField] = field(default_factory=list)
     actions: list[StepAction] = field(default_factory=list)
+    # Which of the task's stages this step is in (`voice.*_STAGES`).
+    stage: int | None = None
+    # Safe to do without a press: it only fills in or looks something up, and
+    # the person has already decided what (2026-10-14). Never a step that
+    # pays, books, registers or changes a record, and never one that needs
+    # the person to type or choose. `doing` is its line on the checklist.
+    safe: bool = False
+    doing: str | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:
@@ -221,6 +249,7 @@ def registration_plan(course: str) -> list[PlanStep]:
             operations=[Operation("click", Target("button", f"Register for {course}"))],
             expect=Expectation(url_contains="/register",
                                title_contains="Registration Confirmed"),
+            stage=2,
         ),
     ]
 
@@ -240,6 +269,7 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
             Operation("click", Target("button", "Sign In")),
         ],
         expect=Expectation(url_contains="/courses"),
+        stage=1,
     ),
     PlanStep(
         instruction="The portal opened a notice. I'll close it.",
@@ -247,6 +277,9 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
         actions=actions("Close it"),
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
+        stage=1,
+        safe=True,
+        doing=voice.DOING_NOTICE,
     ),
 ]
 
@@ -275,6 +308,16 @@ class HardcodedPlanner:
         self._steps = list(steps)
         self._index = 0
 
+    def coming(self) -> list[str]:
+        """The checklist lines after the move just given: the safe steps that
+        follow it, up to the first that will ask (2026-10-15)."""
+        lines: list[str] = []
+        for step in self._steps[self._index:]:
+            if not step.safe:
+                break
+            lines.append(step.doing or step.instruction)
+        return lines
+
     async def next_move(self, elements, history, setback):
         from backend.orchestrator.loop import Move
 
@@ -290,4 +333,7 @@ class HardcodedPlanner:
             expect=step.expect,
             fields=step.fields,
             actions=step.actions,
+            stage=step.stage,
+            safe=step.safe,
+            doing=step.doing,
         )

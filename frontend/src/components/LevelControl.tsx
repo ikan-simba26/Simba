@@ -9,17 +9,14 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect } from "react";
 
 import type { Level } from "@shared/schema";
 
-import { LEVEL, levelNotice as noticeFor } from "../copy";
-import { ARRIVE, EASE, MOTION } from "../design";
+import { LEVEL } from "../copy";
+import { EASE, MOTION } from "../design";
 import { useStore } from "../store";
-import { DismissButton, FLOATING_NOTICE_CLASS, InfoIcon } from "./ui";
 
 const LEVELS: Level[] = [1, 2, 3];
-const NOTICE_MS = 8000;
 
 export function LevelControl() {
   const { level, levelLocked, chooseLevel, unlockLevel } = useStore();
@@ -71,43 +68,5 @@ export function LevelControl() {
         )}
       </AnimatePresence>
     </motion.div>
-  );
-}
-
-export function LevelNotice() {
-  const { levelNotice, dismissLevelNotice } = useStore();
-
-  // Say it, then get out of the way. It can also be dismissed by hand.
-  useEffect(() => {
-    if (!levelNotice) return;
-    const timer = window.setTimeout(dismissLevelNotice, NOTICE_MS);
-    return () => window.clearTimeout(timer);
-  }, [levelNotice, dismissLevelNotice]);
-
-  return (
-    <AnimatePresence initial={false}>
-      {levelNotice && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={ARRIVE}
-          // Floating, so it takes no room and needs no `data-transient`: the
-          // overflow guard measures a page this notice cannot lengthen.
-          className={FLOATING_NOTICE_CLASS}
-        >
-          {/* The sentence comes from the direction alone. `because` says what
-              moved the level and stays in the store: it used to be
-              rendered here, which put "this step was too long to fit." —
-              lower case, and with a word the reader has to be taught — on
-              screen whenever the overflow guard fired. */}
-          <span className="shrink-0 text-soft" aria-hidden>
-            <InfoIcon />
-          </span>
-          <span className="flex-1">{noticeFor(levelNotice.from, levelNotice.to)}</span>
-          <DismissButton onClick={dismissLevelNotice} />
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }

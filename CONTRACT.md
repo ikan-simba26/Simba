@@ -159,6 +159,48 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+**`requires_confirmation: false` is a checklist line** (since 2026-10-14). The
+backend is doing the move by itself: nothing waits for a `step.response`, and
+the overlay shows `instruction` as one line of a checklist that ticks off.
+Its one answer is Pause: a `step.response` with `"action_id": "pause"` and that
+line's `step_index`, after which the backend does nothing more until the
+person says to carry on. `task.start.confirm_each: true` (additive and
+optional) asks for every move to be confirmed instead.
+
+**Keeping a password** (2026-10-15; no change to the messages). A sign-in
+step whose password can be kept offers a second answer, `"id": "remember"`,
+beside its own. The overlay draws that offer as a box to tick ("Save my
+password for next time") rather than as a button, and its one sign-in button
+sends `remember` when the box is ticked and its own id when it is not. A
+backend that offers nothing to keep gets no box.
+
+**`coming` is additive and optional** (added 2026-10-15). On a checklist
+line, the lines the backend expects to run by itself after it, in order —
+after "Filling in where you're starting from": `["Filling in where you're
+going", "Opening the calendar", "Choosing 15 October", "Searching"]` — so
+the overlay can show what is next. It is what the plan expects, not a
+promise: a line that does not work turns into a question, and the list ends
+at anything that will ask.
+
+**`note` is additive and optional** (added 2026-10-14). What was wrong with
+the last answer, in one sentence — "I couldn't find a station called
+Narnia." — beside the question asked again, which reads on its own. The
+overlay clears it once a valid answer is chosen from a list; a typed answer's
+note stays until it is sent and checked.
+
+**`stage` is additive and optional, and so is `task.started.stages`**
+(added 2026-10-14). `task.started` names the task's stages once — trains:
+`["From", "To", "Day", "Search", "Trains"]` — and each step says which it is
+in, by position. The overlay shows the names in place of a count, which grew
+every time a question was asked again. A question asked again stays in its
+stage. A step without `stage` is in the stage before it; a task without
+`stages` shows none.
+
+**`step_kind` is additive and optional** (added 2026-10-07). What the step is
+about — `date`, `place`, `choose`, `type`, `read` or `confirm` — so the overlay
+can put one plain icon beside it. The backend sends it on every step; a sender
+that omits it gets no icon, and nothing else changes.
+
 **A field's `options` is additive and optional** (added 2026-10-06, the kind
 of change CLAUDE.md allows without a ratification session). When a field's
 answer is one of a known list — the train search's own stations, read from the
@@ -252,6 +294,9 @@ Sent only in response to `trust.requested`.
   "caption": "I'm typing your consumer number here."
 }
 ```
+Every password box on the page is painted over in `screenshot` before it is
+sent (2026-10-07): boxes of type `password`, and boxes that autocomplete a
+current or new password, so a "show password" switch does not uncover one.
 
 ### `help.requested`
 ```json
@@ -279,6 +324,10 @@ found has not finished from the user's side of the screen.
 Accumulated across the run rather than read from the last page: the answer is
 often not on the page the task ends on. The billing amount is on the results
 page, and the run then opens the detail page where that column does not exist.
+
+`heading` is additive and optional (added 2026-10-14): what the results are
+for, from what the person asked and agreed — "Lahore Cantt to Karachi Cantt,
+Thursday 15 October" — never from the page. Absent: no heading.
 
 ### `task.failed`
 ```json
@@ -350,6 +399,10 @@ and the next step is shown at the person's own level again. Omitted means
 ```json
 {}
 ```
+Since 2026-10-07 the overlay also sends it, quietly, when each step arrives,
+and shows the picture softened behind the step. No message changed: the
+backend answers it the same way whoever asked. Only the person pressing
+"What are you doing?" counts as asking for help in `telemetry`.
 
 ### `task.cancel`
 ```json

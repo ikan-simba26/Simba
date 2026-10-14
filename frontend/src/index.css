@@ -9,56 +9,138 @@
  *
  *   - One accent. It marks the thing to press and the thing that was found,
  *     and nothing else. Stuck is the one other colour, and only when stuck.
- *   - Text is high contrast everywhere. Measured, not eyeballed: ink on the
- *     canvas is 15:1 light and 16:1 dark, the softer secondary text 6.8:1 and
- *     9:1, the label on the accent 6.5:1 and 9.5:1 — every pairing passes
- *     WCAG AA and most pass AAA (DECISIONS.md, 2026-09-21).
+ *   - Text is high contrast everywhere. Measured, not eyeballed, in both
+ *     directions and both themes (`frontend/test_contrast.py`): ink is
+ *     13:1 or more on every ground, every pairing passes WCAG AA, and most
+ *     pass AAA (DECISIONS.md, 2026-09-21 and 2026-10-14).
  *   - Warm neutrals rather than grey: paper and ink, not a dashboard.
+ *   - Two kinds of border. `--line` divides quietly (a rule, a ticket, a
+ *     picture's frame). `--edge` is the boundary of something to press or
+ *     type in, and is 3:1 against every ground it sits on (WCAG 1.4.11),
+ *     because for a low-vision reader that edge is what says "this is a
+ *     button" or "type here" (2026-10-14: every control used `--line`, at
+ *     1.3:1 to 1.6:1 in both directions).
  *
- * Two themes, chosen by the operating system. Everything that differs lives
- * in the two blocks of raw values below; components only ever name the role.
+ * Two colour directions (2026-10-14), each with a light and a dark theme
+ * chosen by the operating system — four blocks of raw values below, and
+ * components only ever name the role:
+ *
+ *   B  a calm deep teal with warm cream, the default (Raham's choice,
+ *      2026-10-15): a soft light from the top of the window (`--glow`, white
+ *      in the light themes), and
+ *      shadows in layers, so cards sit on the canvas rather than on it.
+ *   A  warm paper and ink, the first palette refined, kept available with
+ *      `data-palette="a"` on <html> (`?palette=a` in the overlay's address).
+ *
+ * Both are measured in `frontend/test_contrast.py`, light and dark: ink at
+ * AAA (7:1) on every ground it sits on, every other text pairing at least
+ * 4.5:1, and the accent at least 3:1 against the canvas as a boundary.
  */
+
+/* --- B: deep teal with warm cream (the default since 2026-10-15) ------ */
 
 :root {
   color-scheme: light;
 
-  --canvas: #f7f2ea;
-  --surface: #fffcf7;
-  --sunk: #f1eadf;
-  --line: #e3d8c8;
-  --ink: #231c15;
-  --soft: #5e5246;
-  --accent: #8c4f12;
-  --accent-hover: #7a430c;
+  --canvas: #f5efe3;
+  --surface: #fffcf5;
+  --sunk: #ede5d6;
+  --line: #d9d0be;
+  --edge: #76857f;
+  --field: #ffffff;
+  --ink: #10211f;
+  --soft: #45524f;
+  --accent: #0d5a53;
+  --accent-hover: #094842;
   --accent-ink: #ffffff;
-  --tint: #f5e7d3;
-  --stuck: #9e3b22;
-  --stuck-tint: #f7e2da;
+  --tint: #dbeae4;
+  --stuck: #9a3820;
+  --stuck-tint: #f8e0d6;
 
-  --shadow-card: 0 1px 2px rgb(60 38 16 / 0.05), 0 10px 30px -8px rgb(60 38 16 / 0.14);
-  --shadow-lift: 0 1px 2px rgb(60 38 16 / 0.08), 0 6px 16px -6px rgb(60 38 16 / 0.2);
-  --shadow-press: 0 1px 1px rgb(60 38 16 / 0.1);
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 255 255 / 0.6), transparent 70%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.06),
+    0 3px 8px -3px rgb(12 40 37 / 0.08), 0 18px 40px -14px rgb(12 40 37 / 0.18);
+  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.08),
+    0 6px 14px -6px rgb(12 40 37 / 0.14), 0 22px 44px -16px rgb(12 40 37 / 0.24);
+  --shadow-press: 0 1px 1px rgb(12 40 37 / 0.1), 0 2px 6px -3px rgb(12 40 37 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --canvas: #15110d;
-    --surface: #1f1913;
-    --sunk: #191410;
-    --line: #382d22;
-    --ink: #f6efe6;
-    --soft: #bfb1a1;
-    --accent: #e8b061;
-    --accent-hover: #f0be77;
-    --accent-ink: #1c1206;
-    --tint: #3a2a16;
-    --stuck: #ee9a7e;
-    --stuck-tint: #3a1f16;
+    --canvas: #0b1817;
+    --surface: #122321;
+    --sunk: #0f1d1c;
+    --line: #24403c;
+    --edge: #5f7f78;
+    --field: #17302d;
+    --ink: #f4eee2;
+    --soft: #b5c3be;
+    --accent: #7fcdbf;
+    --accent-hover: #98d9cd;
+    --accent-ink: #06201d;
+    --tint: #163430;
+    --stuck: #f0a083;
+    --stuck-tint: #3c2017;
 
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 36px -10px rgb(0 0 0 / 0.55);
-    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 8px 20px -8px rgb(0 0 0 / 0.6);
+    --glow: radial-gradient(120% 60% at 50% -12%, rgb(127 205 191 / 0.08), transparent 70%);
+    --shadow-card: inset 0 1px 0 rgb(230 255 248 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 38px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: inset 0 1px 0 rgb(230 255 248 / 0.06), 0 1px 2px rgb(0 0 0 / 0.45),
+      0 20px 44px -14px rgb(0 0 0 / 0.7);
+    --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* --- A: warm paper and ink (`?palette=a`) ----------------------------- */
+
+:root[data-palette="a"] {
+  --canvas: #f4ede2;
+  --surface: #fffdf9;
+  --sunk: #efe6d8;
+  --line: #dccfbb;
+  --edge: #8f7d69;
+  --field: #ffffff;
+  --ink: #211a13;
+  --soft: #574b3f;
+  --accent: #8a4b10;
+  --accent-hover: #733e0b;
+  --accent-ink: #ffffff;
+  --tint: #f6e6cf;
+  --stuck: #9a3820;
+  --stuck-tint: #f8e0d6;
+
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 253 247 / 0.6), transparent 70%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.06),
+    0 3px 8px -3px rgb(60 38 16 / 0.08), 0 18px 40px -14px rgb(60 38 16 / 0.2);
+  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.08),
+    0 6px 14px -6px rgb(60 38 16 / 0.16), 0 22px 44px -16px rgb(60 38 16 / 0.26);
+  --shadow-press: 0 1px 1px rgb(60 38 16 / 0.1), 0 2px 6px -3px rgb(60 38 16 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="a"] {
+    --canvas: #14100c;
+    --surface: #211a14;
+    --sunk: #1a1510;
+    --line: #3b2f23;
+    --edge: #7d6b58;
+    --field: #2a221a;
+    --ink: #f7f0e7;
+    --soft: #c4b6a6;
+    --accent: #eab466;
+    --accent-hover: #f2c27e;
+    --accent-ink: #1c1206;
+    --tint: #3b2a15;
+    --stuck: #f0a083;
+    --stuck-tint: #3c2017;
+
+    --glow: radial-gradient(120% 60% at 50% -12%, rgb(232 176 97 / 0.09), transparent 70%);
+    --shadow-card: inset 0 1px 0 rgb(255 240 220 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 38px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: inset 0 1px 0 rgb(255 240 220 / 0.06), 0 1px 2px rgb(0 0 0 / 0.45),
+      0 20px 44px -14px rgb(0 0 0 / 0.7);
     --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
   }
 }
@@ -72,6 +154,8 @@
   --color-raised: var(--surface);
   --color-sunk: var(--sunk);
   --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-field: var(--field);
   --color-ink: var(--ink);
   --color-soft: var(--soft);
   --color-muted: var(--soft);
@@ -154,6 +238,46 @@ body {
   overflow-x: hidden;
 }
 
+/* A box to type in (2026-10-15). On the sunk colour, darker than the card,
+   an empty box read as switched off. Now: its own light fill, a 2px edge at
+   3:1, and when it has the cursor, the accent's edge and a 3px ring outside
+   it. The ring is drawn on :focus, not :focus-visible, because a box being
+   typed into should say so however it was reached. */
+.simba-field {
+  background-color: var(--field);
+  border: 2px solid var(--edge);
+  color: var(--ink);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.06);
+  outline: none;
+  transition: border-color 0.2s, outline-color 0.2s;
+}
+
+.simba-field::placeholder {
+  color: var(--soft);
+}
+
+.simba-field:focus,
+.simba-field-frame:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.simba-field-frame {
+  background-color: var(--field);
+  border: 2px solid var(--edge);
+  transition: border-color 0.2s, outline-color 0.2s;
+}
+
+/* The window's ground: the canvas, and the light from the top of it. In the
+   light themes the light is white (2026-10-15): it was the accent at 10-20%,
+   which shaded the top of every screen ten levels darker than the canvas and
+   read, under the step card, as a smudge. */
+.simba-canvas {
+  background-image: var(--glow);
+  background-repeat: no-repeat;
+}
+
 ::selection {
   background: var(--tint);
   color: var(--ink);
@@ -181,5 +305,76 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* SIMBA's shape (`components/Shape.tsx`, 2026-10-07). Three rings round a
+   core, turning once every 36s: a transform only, and no layout. Soft: thin,
+   translucent, in the one accent. */
+.simba-stage {
+  position: relative;
+  perspective: 420px;
+}
+
+.simba-shape {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(16deg) rotateY(28deg);
+}
+
+/* Turning only while SIMBA is working (2026-10-14): the presence mark is
+   still while it waits for the person, and on the home screen. Twenty
+   updates a second, not sixty: measured headless on 2026-10-07, the 3D turn
+   is not composited and costs main-thread work every frame it changes. */
+.simba-shape--turning {
+  animation: simba-turn 36s steps(720) infinite;
+}
+
+/* The window is not focused, or not shown: nothing moves (2026-10-14). */
+[data-motion="paused"] .simba-shape {
+  animation-play-state: paused !important;
+}
+
+/* Stopped: the mark in the warm colour, as the old dot was. */
+.simba-stage--stuck {
+  --accent: var(--stuck);
+}
+
+.simba-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.simba-ring--level {
+  inset: 12%;
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.simba-core {
+  position: absolute;
+  inset: 36%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 38% 34%,
+    color-mix(in srgb, var(--accent) 55%, var(--surface)), var(--accent));
+}
+
+@keyframes simba-turn {
+  from { transform: rotateX(16deg) rotateY(28deg); }
+  to { transform: rotateX(16deg) rotateY(388deg); }
+}
+
+/* Asked for less motion: one still, tilted pose. Stated here as well as by
+   the rule above, which would otherwise run the turn for 0.01ms and stop it
+   wherever it landed. */
+@media (prefers-reduced-motion: reduce) {
+  .simba-shape,
+  .simba-shape--turning {
+    animation: none !important;
+    transform: rotateX(16deg) rotateY(28deg);
   }
 }

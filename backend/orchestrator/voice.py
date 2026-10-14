@@ -67,8 +67,15 @@ def actions(label: str) -> list[StepAction]:
 #: answer, and the overlay carries on rather than showing its stop screen.
 CHOICE_PREFIX = "choice:"
 
-#: Finishes a typed answer.
-THATS_IT = "That's it"
+#: Each finishes a typed answer, and says what it does with it (2026-10-15).
+#: Until then all four were "That's it", which says nothing about what
+#: happens next.
+USE_STATION = "Use this station"
+USE_DAY = "Use this day"
+USE_NUMBER = "Use this number"
+USE_COURSE = "Use this course"
+#: All four: what tells a typed question's answer from a go-ahead.
+TYPED_ANSWERS = (USE_STATION, USE_DAY, USE_NUMBER, USE_COURSE)
 
 #: The most answers a question shows as buttons. More than this is a list to
 #: read, which is the thing this interface exists to spare someone.
@@ -84,6 +91,38 @@ def choices(labels: list[str]) -> list[StepAction]:
     ]
 
 
+# --- the checklist: what SIMBA is doing by itself (2026-10-14) -------------
+#
+# Once the person has decided, the safe mechanical moves run without a press
+# each, and each is one line of a checklist that ticks off. Labels: no full
+# stop, said as what is happening.
+
+DOING_FROM = "Filling in where you're starting from"
+DOING_TO = "Filling in where you're going"
+DOING_CALENDAR = "Opening the calendar"
+DOING_SEARCH = "Searching"
+DOING_LOOKUP = "Looking up your bill"
+DOING_FULL_BILL = "Opening the full bill"
+DOING_NOTICE = "Closing the portal's notice"
+
+
+def doing_day(words: str) -> str:
+    """`Choosing 15 October`."""
+    return f"Choosing {words}"
+
+
+#: When the person pressed Pause on the checklist. Nothing more is done until
+#: they say so.
+PAUSED = "I've paused. Carry on when you're ready."
+#: The `step.response` action id the checklist's Pause sends.
+PAUSE_ID = "pause"
+
+# The stages of each task, by name, shown in place of a count (2026-10-14).
+# Labels: no full stop, and never the word the rules forbid.
+TRIP_STAGES = ["From", "To", "Day", "Search", "Trains"]
+BILL_STAGES = ["Reference", "Look up", "Your bill"]
+COURSE_STAGES = ["Course", "Sign in", "Register", "Done"]
+
 ASK_FROM = "Where are you travelling from?"
 ASK_TO = "Where are you travelling to?"
 ASK_DAY = "What day are you travelling?"
@@ -91,9 +130,17 @@ DAY_TODAY = "Today"
 DAY_TOMORROW = "Tomorrow"
 DAY_PICK = "Pick another day"
 ASK_WHICH_DAY = "Which day? You can type it like 3 October."
-ASK_DAY_AGAIN = "I didn't catch that day. Try typing it like 3 October."
-ASK_FROM_AGAIN = "I didn't catch that. Where are you travelling from?"
-ASK_TO_AGAIN = "I didn't catch that. Where are you travelling to?"
+#: The question for a day after one could not be used.
+ASK_TRAVEL_DAY = "Which day would you like to travel?"
+#: The question when a few stations are offered for a name the list lacks.
+ASK_CLOSEST = "Did you mean one of these?"
+
+# What was wrong with an answer: one kind sentence, sent as the step's `note`
+# beside the question asked again, never inside it (2026-10-14). The overlay
+# clears it once a valid answer is chosen; until then the question still
+# reads on its own.
+NOT_CAUGHT = "I didn't catch that."
+DAY_NOT_CAUGHT = "I didn't catch that day."
 
 #: Answers to a question about a station, past the stations themselves: the
 #: way back to the whole list when none of the few offered is the one.
@@ -130,6 +177,12 @@ def when_words(day, today) -> str:
     return f"{day.strftime('%A')} {day_words(day, today)}"
 
 
+def route_heading(origin: str, destination: str, day, today) -> str:
+    """Above the trains found: `Lahore Cantt to Karachi Cantt, Thursday 15
+    October` — the journey the person agreed, not anything the page said."""
+    return f"{origin} to {destination}, {day.strftime('%A')} {day_words(day, today)}"
+
+
 def read_back(origin: str, destination: str, when: str) -> str:
     """The journey, once, before anything on the site is touched."""
     return f"{origin} to {destination}, {when}. Is that right?"
@@ -142,42 +195,35 @@ def read_back(origin: str, destination: str, when: str) -> str:
 
 
 def day_gone(said: str) -> str:
-    return f"{said} has already passed. Which day would you like to travel?"
+    return f"{said} has already passed."
 
 
 def day_too_far(last: str) -> str:
-    return f"I can only look up trains up to {last}. Which day would you like to travel?"
+    return f"I can only look up trains up to {last}."
 
 
 def no_such_day(said: str) -> str:
-    return f"There is no {said} in the calendar. Which day would you like to travel?"
+    return f"There is no {said} in the calendar."
 
 
 def not_a_station(typed: str) -> str:
-    """A name the site's list does not have, with the nearest ones offered."""
-    return f"I couldn't find a station called {typed}. Did you mean one of these?"
-
-
-def not_a_station_at_all(typed: str, end: str) -> str:
-    """A name with nothing on the list anywhere near it."""
-    where = "from" if end == "origin" else "to"
-    return (f"I couldn't find a station called {typed}. "
-            f"Type the first few letters and choose where you're travelling {where}.")
+    """A name the site's list does not have."""
+    return f"I couldn't find a station called {typed}."
 
 
 def many_stations(typed: str) -> str:
-    return f"Lots of stations have {typed} in their name. Type a little more and choose one."
+    return f"Lots of stations have {typed} in their name."
 
 
 def same_station(name: str) -> str:
     """Where to, when it is where from."""
-    return f"{name} is where you're starting from. Where are you travelling to?"
+    return f"{name} is where you're starting from."
 ASK_REFERENCE = "What is the reference number on your bill?"
 REFERENCE_DETAIL = "It is the 14-digit number at the top left of your bill."
-ASK_REFERENCE_AGAIN = "That doesn't look right. The reference number has 14 digits."
+REFERENCE_NOT_RIGHT = "That doesn't look like a 14-digit reference number."
 ASK_COURSE = "Which course would you like to register for?"
 COURSE_DETAIL = "A course code looks like CS-401."
-ASK_COURSE_AGAIN = "I didn't catch that course. A course code looks like CS-401."
+COURSE_NOT_CAUGHT = "I didn't catch that course."
 
 #: The label beside the box a typed answer goes in.
 FIELD_FROM = "From"
@@ -246,6 +292,56 @@ def _minutes(journey: str) -> int | None:
     """`6 h 3 min` as 363, or None for anything else."""
     match = _JOURNEY.fullmatch(journey)
     return int(match[1]) * 60 + int(match[2]) if match else None
+
+
+_CLOCK = re.compile(r"\s*(\d{1,2}):(\d{2})\s*")
+
+
+def _clock(time: str) -> int | None:
+    """`06:20` as minutes past midnight, or None for anything else."""
+    match = _CLOCK.fullmatch(time)
+    return int(match[1]) * 60 + int(match[2]) if match else None
+
+
+#: How far a journey's end may be from leaving time plus journey time and
+#: still be that journey's end: the site rounds neither, but says so nowhere.
+_CLOCK_SLACK = 5
+
+
+def days_later(leaves: str, arrives: str, journey: str = "") -> int:
+    """How many days after it leaves a train arrives (2026-10-15).
+
+    From the journey time when the page gives one that agrees with the two
+    clock times: the live site's 14DN leaves 19:09, takes 24 h 16 min and
+    arrives at 19:25 — a later clock time, and still the next day. Without a
+    journey time that agrees, only what the clocks say: arriving at an
+    earlier time than it left is the next day. Never a guess past that.
+    """
+    left, came = _clock(leaves), _clock(arrives)
+    if left is None or came is None:
+        return 0
+    taken = _minutes(journey)
+    if taken is not None:
+        total = left + taken
+        gap = abs(total % 1440 - came)
+        if min(gap, 1440 - gap) <= _CLOCK_SLACK:
+            return round((total - came) / 1440)
+    return 1 if came < left else 0
+
+
+def arrival(row: dict[str, str]) -> dict[str, str]:
+    """A results row with its arrival said as the day it is: "00:50, next
+    day", "19:25, 2 days later". A row that arrives the day it leaves, or
+    has no arrival, is as it was."""
+    arrives = row.get("Arrives", "")
+    days = days_later(row.get("Leaves", ""), arrives, row.get("Journey", ""))
+    if not arrives or days == 0:
+        return row
+    return {**row, "Arrives": f"{arrives}, {NEXT_DAY if days == 1 else f'{days} days later'}"}
+
+
+#: After an arrival time on the day after the train leaves.
+NEXT_DAY = "next day"
 
 
 def _plural(count: int, word: str) -> str:

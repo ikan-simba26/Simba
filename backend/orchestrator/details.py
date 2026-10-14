@@ -498,21 +498,28 @@ async def understand(
 # --- asking for what is missing ---------------------------------------------------
 
 
-def _typed(instruction: str, detail: str, field_id: str, label: str) -> Move:
-    """A question answered by typing: one box, one button, and the way to stop."""
+def _typed(instruction: str, detail: str, field_id: str, label: str, button: str,
+           kind: str | None = None) -> Move:
+    """A question answered by typing: one box, one button that says what it
+    does with the answer (`voice.USE_DAY`), and the way to stop.
+
+    `kind` is what the question is about, for the shape beside it
+    (`loop.kind_of`); without one it is "type"."""
     return Move(
         instruction=instruction,
         detail=detail,
         operations=[],
         expect=Expectation(),
         fields=[StepField(id=field_id, label=label, type="text", value="")],
-        actions=voice.actions(voice.THATS_IT),
+        actions=voice.actions(button),
         question=True,
+        kind=kind,
     )
 
 
-def _picked(instruction: str, labels: list[str]) -> Move:
-    """A question answered by pressing one of a few buttons."""
+def _picked(instruction: str, labels: list[str], kind: str | None = None) -> Move:
+    """A question answered by pressing one of a few buttons. Without a `kind`
+    its shape is "choose"."""
     return Move(
         instruction=instruction,
         detail="",
@@ -521,6 +528,7 @@ def _picked(instruction: str, labels: list[str]) -> Move:
         fields=[],
         actions=voice.choices(labels),
         question=True,
+        kind=kind,
     )
 
 
@@ -580,11 +588,15 @@ class _Asking:
     def _tried(self, what: str) -> bool:
         return self._tries.get(what, 0) > 0
 
-    def _ask(self, move: Move) -> Move:
+    #: The task's stages by name (`voice.*_STAGES`), and the one each kind of
+    #: question is in. Set by each brief.
+    stages: list[str] = []
+
+    def _ask(self, move: Move, stage: int | None = 0, note: str | None = None) -> Move:
         # The count is read before the first question goes out; asking does
         # not change it.
         self.estimated_steps  # noqa: B018 - freeze it before anything is asked
-        return move
+        return replace(move, stage=stage, note=note)
 
     def sentence(self) -> str:
         raise NotImplementedError
@@ -712,6 +724,7 @@ class TripBrief(_Asking):
     """
 
     plan_steps = 5
+    stages = voice.TRIP_STAGES
     _ENDS = ("origin", "destination")
 
     def __init__(self, goal: str, known: Understood, today: date | None = None,
@@ -734,12 +747,15 @@ class TripBrief(_Asking):
         self._waiting: str | None = None
         self._typing_day = False
         self._changing = False
-        #: Why something is being asked again: the sentence its question leads with.
+        #: Why something is being asked again: the note beside its question.
         self._why: dict[str, str] = {}
+        #: A question asked in other words than the usual one, though nothing
+        #: was wrong: which of a city's stations.
+        self._asking: dict[str, str] = {}
         #: A few stations offered for one end, as buttons.
         self._offered: dict[str, tuple[str, ...]] = {}
         if known.day_problem is not None:
-            self._why["day"] = day_trouble(known.day_problem, self.today) or voice.ASK_DAY
+            self._why["day"] = day_trouble(known.day_problem, self.today) or voice.DAY_NOT_CAUGHT
         self._check_same(counted=False)
 
     # --- what is known ---------------------------------------------------------
@@ -802,22 +818,27 @@ class TripBrief(_Asking):
             if self._changing:
                 self._waiting = "change"
                 return self._ask(_picked(voice.ASK_CHANGE, [
-                    voice.CHANGE_FROM, voice.CHANGE_TO, voice.CHANGE_DAY]))
+                    voice.CHANGE_FROM, voice.CHANGE_TO, voice.CHANGE_DAY]), stage=3)
             self._waiting = "read back"
             return self._ask(_picked(
                 voice.read_back(self._shown("origin"), self._shown("destination"),
                                 voice.when_words(self.day, self.today)),
-                [voice.READ_BACK_YES, voice.READ_BACK_NO]))
+                [voice.READ_BACK_YES, voice.READ_BACK_NO], kind="confirm"), stage=3)
         return None
 
     def _ask_station(self, end: str) -> Move:
         self._waiting = end
         asking = voice.ASK_FROM if end == "origin" else voice.ASK_TO
-        instruction = self._why.get(end, asking)
+        note = self._why.get(end)
         offered = self._offered.get(end)
         if offered:
+            # A few to choose from: which of a city's stations, or the
+            # nearest names to one the list does not have.
+            instruction = self._asking.get(end) or voice.ASK_CLOSEST
             return self._ask(_picked(
-                instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE]))
+                instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE],
+                kind="place"), stage=self._ENDS.index(end), note=note)
+        instruction = asking
         label = voice.FIELD_FROM if end == "origin" else voice.FIELD_TO
         return self._ask(Move(
             instruction=instruction,
@@ -827,18 +848,23 @@ class TripBrief(_Asking):
             fields=[StepField(id=end, label=label,
                               type="choice" if self.stations else "text", value="",
                               options=self.stations or [])],
-            actions=voice.actions(voice.THATS_IT),
+            actions=voice.actions(voice.USE_STATION),
             question=True,
-        ))
+            kind="place",
+        ), stage=self._ENDS.index(end), note=note)
 
     def _ask_day(self) -> Move:
         self._waiting = "day"
         if not self._typing_day:
             return self._ask(_picked(
-                self._why.get("day", voice.ASK_DAY),
-                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK]))
-        return self._ask(_typed(self._why.get("day", voice.ASK_WHICH_DAY), "", "day",
-                                voice.FIELD_DAY))
+                voice.ASK_DAY,
+                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK], kind="date"), stage=2,
+                note=self._why.get("day"))
+        # Asked again after a day that could not be used: plainly, beside why.
+        note = self._why.get("day")
+        return self._ask(_typed(voice.ASK_TRAVEL_DAY if note else voice.ASK_WHICH_DAY, "",
+                                "day", voice.FIELD_DAY, voice.USE_DAY, kind="date"),
+                         stage=2, note=note)
 
     # --- answers -----------------------------------------------------------------------
 
@@ -878,12 +904,13 @@ class TripBrief(_Asking):
     def _take(self, end: str, typed: str, *, counted: bool) -> None:
         """A name for one end, held to the site's list if there is one."""
         self._why.pop(end, None)
+        self._asking.pop(end, None)
         place = clean_place(typed)
         if place is None:
             self.places[end] = None
             if counted:
                 self._again(end)
-            self._why[end] = voice.ASK_FROM_AGAIN if end == "origin" else voice.ASK_TO_AGAIN
+            self._why[end] = voice.NOT_CAUGHT
             return
         if self.stations is None:
             self.places[end] = place
@@ -902,7 +929,7 @@ class TripBrief(_Asking):
             self._offered[end] = found.several
             firsts = {_plain(s).split()[0] for s in found.several}
             city = found.several[0].split()[0] if len(firsts) == 1 else place
-            self._why[end] = voice.which_station(voice.station_name(city))
+            self._asking[end] = voice.which_station(voice.station_name(city))
             return
         if counted:
             self._again(end)
@@ -912,7 +939,7 @@ class TripBrief(_Asking):
             self._offered[end] = found.close
             self._why[end] = voice.not_a_station(place)
         else:
-            self._why[end] = voice.not_a_station_at_all(place, end)
+            self._why[end] = voice.not_a_station(place)
         self.places[end] = None
 
     def _choose(self, end: str, station: str, *, counted: bool = True) -> None:
@@ -925,6 +952,7 @@ class TripBrief(_Asking):
         self.chosen[end] = None
         self._offered.pop(end, None)
         self._why.pop(end, None)
+        self._asking.pop(end, None)
 
     def _check_same(self, *, counted: bool) -> None:
         """A journey that starts where it ends is asked about again: where to."""
@@ -959,7 +987,7 @@ class TripBrief(_Asking):
                        else DayReading(problem=NO_SUCH_DAY, said=f"day {typed.strip()}"))
         self.day = reading.day
         if self.day is None:
-            self._why["day"] = day_trouble(reading, self.today) or voice.ASK_DAY_AGAIN
+            self._why["day"] = day_trouble(reading, self.today) or voice.DAY_NOT_CAUGHT
             self._again("day")
         else:
             self._why.pop("day", None)
@@ -975,7 +1003,10 @@ class TripBrief(_Asking):
         from backend.orchestrator.railways_plan import trip_task
 
         return replace(trip_task(self.origin, self.destination, self.day),
-                       goal=self.goal)
+                       goal=self.goal,
+                       heading=voice.route_heading(self._shown("origin"),
+                                                   self._shown("destination"),
+                                                   self.day, self.today))
 
     def _plan(self) -> tuple[Planner, Task]:
         from backend.orchestrator.railways_plan import TripPlanner
@@ -1009,6 +1040,7 @@ class BillBrief(_Asking):
     """A bill to look up: the reference number printed on it."""
 
     plan_steps = 3
+    stages = voice.BILL_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:
@@ -1023,10 +1055,9 @@ class BillBrief(_Asking):
     def question(self) -> Move | None:
         if self.gave_up is not None or self.reference:
             return None
-        instruction = (voice.ASK_REFERENCE_AGAIN if self._tried("reference")
-                       else voice.ASK_REFERENCE)
-        return self._ask(_typed(instruction, voice.REFERENCE_DETAIL, "reference",
-                                voice.FIELD_REFERENCE))
+        return self._ask(_typed(voice.ASK_REFERENCE, voice.REFERENCE_DETAIL, "reference",
+                                voice.FIELD_REFERENCE, voice.USE_NUMBER),
+                         note=voice.REFERENCE_NOT_RIGHT if self._tried("reference") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
         self.reference = clean_reference(input_values.get("reference"))
@@ -1056,6 +1087,7 @@ class CourseBrief(_Asking):
     """A course to register for: its code."""
 
     plan_steps = 3
+    stages = voice.COURSE_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:
@@ -1070,9 +1102,9 @@ class CourseBrief(_Asking):
     def question(self) -> Move | None:
         if self.gave_up is not None or self.course:
             return None
-        instruction = voice.ASK_COURSE_AGAIN if self._tried("course") else voice.ASK_COURSE
-        return self._ask(_typed(instruction, voice.COURSE_DETAIL, "course",
-                                voice.FIELD_COURSE))
+        return self._ask(_typed(voice.ASK_COURSE, voice.COURSE_DETAIL, "course",
+                                voice.FIELD_COURSE, voice.USE_COURSE),
+                         note=voice.COURSE_NOT_CAUGHT if self._tried("course") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
         self.course = clean_course(input_values.get("course"))

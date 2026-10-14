@@ -149,7 +149,9 @@ def test_what_the_closing_screen_says_is_the_trains_that_came_back(
     found = search("Rawalpindi", "Multan", TOMORROW, [], railways).of("task.completed")[0]
 
     labels = {finding["label"] for finding in found["findings"]}
-    assert labels == {"Train", "Journey"}
+    # Since 2026-10-14 both times too: the page's `Time` reads leaves, then
+    # arrives.
+    assert labels == {"Train", "Leaves", "Arrives", "Journey"}
     assert all(finding["value"] for finding in found["findings"])
 
 
@@ -332,7 +334,8 @@ def test_the_task_holds_all_three_things_the_person_said() -> None:
         "From": ("Lahore", True),
         "To": ("Rawalpindi", True),
     }
-    assert [answer.reads for answer in task.about.finds] == ["Train No.", "Duration"]
+    assert [(answer.reads, answer.part) for answer in task.about.finds] == [
+        ("Train No.", None), ("Time", 0), ("Time", 1), ("Duration", None)]
 
 
 def test_the_fixed_plans_task_is_not_a_persons_task() -> None:

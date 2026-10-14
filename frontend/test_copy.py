@@ -97,7 +97,8 @@ def copy() -> dict:
         "presence: {opening: c.presence('opening'), working: c.presence('working')},"
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
-        "count: [c.STEP.count(1, 3), c.STEP.count(1, 3), c.STEP.count(2, 3)],"
+        "fitted: [c.levelNotice(2, 1, true), c.levelNotice(3, 2, true)],"
+        "stages: c.STAGES,"
         "home: c.HOME, ending: c.ENDING, stopped: c.STOPPED, more: c.ENDING.more(5),"
         "notice: c.NOTICE, trust: c.TRUST, found: c.FOUND"
         "}));"
@@ -129,7 +130,6 @@ def test_asking_twice_gives_the_same_sentence(copy: dict) -> None:
     A situation is a lookup, not a construction, so this can only fail if
     someone makes it one — which is the change worth catching.
     """
-    assert copy["count"][0] == copy["count"][1]
     assert copy["presence"]["working"] == copy["situations"]["presence.working"]
     assert copy["presence"]["opening"] == copy["situations"]["presence.opening"]
 
@@ -156,6 +156,20 @@ def test_a_level_change_reads_the_same_whichever_levels_it_is_between(copy: dict
 def test_simpler_and_fuller_are_not_the_same_sentence(copy: dict) -> None:
     """Announced changes have to be distinguishable, or announcing is noise."""
     assert copy["notice"]["simpler"] != copy["notice"]["fuller"]
+
+
+def test_a_step_packed_to_fit_says_so_whichever_levels_it_moved_between(copy: dict) -> None:
+    """The overflow guard packs a step closer so it fits; it does not give
+    back detail the level rules took away. Until 2026-10-14 it said the
+    level rules' "I'm showing a bit more again.", and in the real window that
+    greeted the first question of a task, where nothing had been shown before
+    (EVALUATION.md, 2026-10-14)."""
+    assert copy["fitted"] == [copy["notice"]["fitted"]] * 2
+    assert len({copy["notice"]["fitted"], copy["notice"]["simpler"],
+                copy["notice"]["fuller"]}) == 3
+    # Nothing in any of them claims something happened before.
+    for sentence in copy["notice"].values():
+        assert " again" not in sentence, sentence
 
 
 def test_every_situation_has_a_sentence(copy: dict) -> None:
@@ -185,8 +199,18 @@ def test_no_two_buttons_share_a_label(copy: dict) -> None:
 # --- the words themselves ---------------------------------------------------
 
 
-def test_the_step_count_is_the_only_place_a_number_is_explained(copy: dict) -> None:
-    assert copy["count"][2] == "Step 2 of 3"
+def test_there_is_no_count_and_no_step_on_screen(copy: dict) -> None:
+    """"Step 2 of 6" is gone (2026-10-14): it grew each time a question was
+    asked again, and it used a word the rules forbid. Where the person is is
+    the stages by name, which are the backend's (`voice.*_STAGES`)."""
+    assert "STEP" not in copy and "count" not in copy
+    assert copy["stages"]["label"] == "Where you are"
+    for stages in (voice.TRIP_STAGES, voice.BILL_STAGES, voice.COURSE_STAGES):
+        assert len(stages) == len(set(stages))
+        for name in stages:
+            assert not taught_words_in(name), name
+            assert name[-1].isalnum(), f"a stage is a label: {name!r}"
+    assert voice.TRIP_STAGES == ["From", "To", "Day", "Search", "Trains"]
 
 
 def test_sentences_end(copy: dict) -> None:
@@ -209,8 +233,8 @@ def test_sentences_end(copy: dict) -> None:
 
 
 def test_no_word_the_reader_would_have_to_be_taught(copy: dict) -> None:
-    """The rule in copy.ts, checked. `STEP.count` is not in these tables, and
-    is the one known exception — flagged in STATUS.md, not settled here."""
+    """The rule in copy.ts, checked. Its one known exception, the step count,
+    was removed on 2026-10-14."""
     for name, text in everything_in(copy).items():
         assert not taught_words_in(text), f"{name} uses {taught_words_in(text)}: {text!r}"
 
@@ -289,7 +313,11 @@ def words_in(text: str) -> list[str]:
     for match in re.finditer(
         r'\b(?:aria-label|alt|placeholder|title)=("[^"]*"|\{`[^`]*`\})', text
     ):
-        found.append(match.group(0))
+        # `alt=""` says an image is decoration, and has no words to hold to
+        # anything (2026-10-07: the real page's two layers behind a step,
+        # described once on their container).
+        if match.group(1) != '""':
+            found.append(match.group(0))
     return found
 
 
@@ -298,6 +326,8 @@ def test_the_scanner_finds_what_it_used_to_miss() -> None:
     assert words_in("<button>\n            let it choose\n          </button>")
     assert words_in("<button onClick={closeTrust}>\n  Hide the page\n</button>")
     assert words_in('<img alt="The page as it is right now" />')
+    # And an image marked as decoration has nothing in it to find.
+    assert not words_in('<img src={source} alt="" />')
     assert words_in("aria-label={`Show ${label}`}")
     # And not code.
     assert not words_in("const f = (a) => a.b < c;")
@@ -387,11 +417,11 @@ def backend_sentences() -> dict[str, str]:
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
-    for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_DAY_AGAIN",
-                 "ASK_FROM_AGAIN", "ASK_TO_AGAIN", "ASK_CHANGE", "READY_TO_SEARCH",
-                 "ASK_REFERENCE", "REFERENCE_DETAIL", "ASK_REFERENCE_AGAIN", "ASK_COURSE",
-                 "COURSE_DETAIL", "ASK_COURSE_AGAIN", "NOT_UNDERSTOOD", "NO_TRAINS",
-                 "WRONG_MONTH", "FORM_CHANGED"):
+    for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
+                 "ASK_CLOSEST", "NOT_CAUGHT", "DAY_NOT_CAUGHT", "ASK_CHANGE", "READY_TO_SEARCH",
+                 "ASK_REFERENCE", "REFERENCE_DETAIL", "REFERENCE_NOT_RIGHT", "ASK_COURSE",
+                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "NOT_UNDERSTOOD", "NO_TRAINS",
+                 "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     for where, text in {
         "read_back": voice.read_back("Lahore Cantt", "Karachi Cantt", "tomorrow, 7 October"),
@@ -399,8 +429,6 @@ def backend_sentences() -> dict[str, str]:
         "day_too_far": voice.day_too_far("7 October 2027"),
         "no_such_day": voice.no_such_day("31 February"),
         "not_a_station": voice.not_a_station("Karachy"),
-        "not_a_station_at_all from": voice.not_a_station_at_all("Narnia", "origin"),
-        "not_a_station_at_all to": voice.not_a_station_at_all("Narnia", "destination"),
         "many_stations": voice.many_stations("Kot"),
         "same_station": voice.same_station("Lahore Cantt"),
         "which_station": voice.which_station("Lahore"),
@@ -444,9 +472,18 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
-    for name in ("THATS_IT", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
+    for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
                  "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
+    # The checklist's lines (2026-10-14): said as what is happening, no full stop.
+    for name in ("DOING_FROM", "DOING_TO", "DOING_CALENDAR", "DOING_SEARCH", "DOING_LOOKUP",
+                 "DOING_FULL_BILL", "DOING_NOTICE"):
+        labels[f"voice.{name}"] = getattr(voice, name)
+    labels["voice.doing_day"] = voice.doing_day("15 October")
+    # Above the trains found: a heading, so no full stop (2026-10-14).
+    from datetime import date as _date
+    labels["voice.route_heading"] = voice.route_heading(
+        "Lahore Cantt", "Karachi Cantt", _date(2026, 10, 15), _date(2026, 10, 14))
     return labels
 
 
@@ -540,3 +577,10 @@ def test_nothing_in_the_backend_writes_its_own_way_to_stop() -> None:
         if re.search(r'TaskFailed\(\s*reason\s*=\s*[f]?"', text):
             offenders.append(f"{path.name}: a failure reason")
     assert not offenders, offenders
+
+
+def test_the_overlay_knows_which_answer_keeps_the_password() -> None:
+    """The overlay draws the backend's offer to keep a password as a box to
+    tick, found by its id (2026-10-15). The two must agree on it."""
+    shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
+    assert f'export const SAVE_ID = "{voice.REMEMBER_ID}";' in shell

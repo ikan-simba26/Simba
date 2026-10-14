@@ -36,6 +36,14 @@ Anyone may work anywhere. The owner reviews changes to their area.
     goal -> perceive -> score load -> decide action -> render step
          -> user confirms -> act -> verify -> loop
 
+The person decides; SIMBA clicks (2026-10-14). Once the person has made their
+choices — a journey read back and agreed, a bill's number, a course — the
+moves a plan marks safe (filling in, opening a calendar, searching, opening a
+page to read) run without a press each, as a checklist with one Pause. A real
+choice, anything the person must type, anything that went wrong, and anything
+that pays, books, registers or changes a record still waits for "user
+confirms". A person can ask to confirm every move.
+
 Verification is not optional. After every action, snapshot the page and check
 it changed the way the plan expected. If it didn't: retry once with a different
 strategy, then hand control to the user. Never assume a click worked.
@@ -54,7 +62,12 @@ The one exception: a step that waits for a list to open gets one attempt, not tw
 - Do not change `CONTRACT.md` or the schema files without all three owners
   agreeing. Additive optional fields are fine; renames and removals are not.
 - Do not add dependencies without asking.
-- Do not use OpenCV, local LLMs, or text-to-speech. Out of scope.
+- Do not use OpenCV or local LLMs. Out of scope.
+- Text-to-speech is in scope only as reading a step aloud in the system's own
+  speech voice, in English, when the person presses the button for it — off
+  by default, stopped when the step changes, and never a bundled or cloud
+  voice. Approved by Raham on 2026-10-14; Nahail and Aly still to be told
+  (DECISIONS.md).
 - `.env` is never committed.
 
 ## Tooling boundaries

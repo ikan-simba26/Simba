@@ -48,6 +48,33 @@ interface Store {
   step: StepPresented | null;
   load: LoadUpdated | null;
   preview: PagePreview | null;
+  /**
+   * The real page, for behind the step (2026-10-07). Asked for quietly when
+   * each step arrives, and kept until the task ends — `preview` is the trust
+   * panel's and is cleared when it closes.
+   */
+  backdrop: PagePreview | null;
+  /** Showing the real page clearly, with the step put aside. */
+  peeking: boolean;
+  /** The stage the last step was in, for a step that does not say. */
+  stageNow: number | null;
+  /**
+   * The checklist: moves SIMBA is doing by itself (`requires_confirmation:
+   * false`, 2026-10-14), in order. The last is the one being done.
+   */
+  checklist: { index: number; label: string }[];
+  /** The checklist lines still to come, as the last line said (2026-10-15). */
+  coming: string[];
+  /** Pause has been pressed and SIMBA has not stopped yet. */
+  pausing: boolean;
+  /**
+   * The task's first screen is up and has not been answered (2026-10-14).
+   * No notice is shown on it, ever: a level change there is the screen
+   * arriving as it is, not a change the person saw happen.
+   */
+  firstScreen: boolean;
+  /** The person's setting: ask before every move. Kept on this computer. */
+  askEachTime: boolean;
   help: HelpRequested | null;
   completed: TaskCompleted | null;
   failed: TaskFailed | null;
@@ -115,7 +142,7 @@ interface Store {
    * It is never rendered: the words on screen come from `copy.levelNotice`,
    * by direction alone.
    */
-  levelNotice: { from: Level; to: Level; because: string } | null;
+  levelNotice: { from: Level; to: Level; because: string; fitted?: boolean } | null;
   /** The shown step has been answered and is waiting to be replaced. */
   answered: boolean;
   /** The development view, off unless someone asks for it by keyboard. */
@@ -127,6 +154,11 @@ interface Store {
   /** Send trust.requested and open the panel when the preview lands. */
   askWhat: () => void;
   closeTrust: () => void;
+  /** Show the real page clearly, or stop. Not counted as asking for help. */
+  peek: (on: boolean) => void;
+  /** Stop the checklist before its next move. */
+  pause: () => void;
+  setAskEachTime: (on: boolean) => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -168,6 +200,17 @@ interface Store {
  */
 const STOP_ID = "cancel";
 
+/** Where the person's "ask me before each thing" setting is kept. */
+const ASK_EACH_KEY = "simba.askEachTime";
+
+function readAskEachTime(): boolean {
+  try {
+    return window.localStorage.getItem(ASK_EACH_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const EMPTY = {
   task: null,
   state: null,
@@ -175,6 +218,13 @@ const EMPTY = {
   answered: false,
   load: null,
   preview: null,
+  backdrop: null,
+  peeking: false,
+  stageNow: null,
+  checklist: [],
+  coming: [],
+  pausing: false,
+  firstScreen: false,
   help: null,
   completed: null,
   failed: null,
@@ -200,6 +250,15 @@ export const useStore = create<Store>((set, get) => {
 
     onMessage: (message: AnyEnvelope) => {
       apply(message, set);
+      // Each new step gets a fresh picture of the real page to sit on. Not a
+      // line of the checklist: no backdrop is shown under it, and every one
+      // asked for there waited in the backend and was answered — a
+      // screenshot each — before the next question's answer was read. In
+      // the real window that held "Register for CS-401" for 31s (2026-10-14).
+      if (message.type === "step.presented" &&
+          (message.payload as StepPresented).requires_confirmation !== false) {
+        connection.askForPicture();
+      }
       append({
         seq: message.seq,
         type: message.type,
@@ -221,6 +280,7 @@ export const useStore = create<Store>((set, get) => {
     overflowHopped: false,
     debug: false,
     trustOpen: false,
+    askEachTime: readAskEachTime(),
     ...EMPTY,
 
     toggleDebug: () => set((current) => ({ debug: !current.debug })),
@@ -235,6 +295,24 @@ export const useStore = create<Store>((set, get) => {
     },
 
     closeTrust: () => set({ trustOpen: false, preview: null }),
+
+    peek: (on) => set({ peeking: on }),
+
+    pause: () => {
+      const last = get().checklist[get().checklist.length - 1];
+      if (!last || get().pausing) return;
+      set({ pausing: true });
+      connection.respondToStep({ step_index: last.index, action_id: "pause", input_values: {} });
+    },
+
+    setAskEachTime: (on) => {
+      set({ askEachTime: on });
+      try {
+        window.localStorage.setItem(ASK_EACH_KEY, on ? "1" : "0");
+      } catch {
+        // No storage: the setting holds until the window closes.
+      }
+    },
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
@@ -257,7 +335,9 @@ export const useStore = create<Store>((set, get) => {
       set({
         level: to,
         overflowHopped: true,
-        levelNotice: { from, to, because: "this step was too long to fit" },
+        // Never on the task's first screen.
+        levelNotice: get().firstScreen ? null
+          : { from, to, because: "this step was too long to fit", fitted: true },
       });
       // Said to the backend, so its level rules know what is on screen — and
       // marked as the guard's, so it is never taken for the person's choice.
@@ -301,7 +381,7 @@ export const useStore = create<Store>((set, get) => {
       // to: a lock carried into a new task is still only their choice.
       const { chosenLevel, levelLocked } = get();
       if (levelLocked) connection.overrideLevel(chosenLevel, true);
-      connection.startTask(goal, flow);
+      connection.startTask(goal, flow, get().askEachTime);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -310,6 +390,8 @@ export const useStore = create<Store>((set, get) => {
     respond: (actionId, values) => {
       const step = get().step;
       if (!step) return;
+      // Answered: what follows is no longer the task's first screen.
+      set({ firstScreen: false });
       const response: StepResponse = {
         step_index: step.step_index,
         action_id: actionId,
@@ -354,12 +436,30 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         completed: null,
         failed: null,
         asking: null,
+        backdrop: null,
+        peeking: false,
+        stageNow: null,
+        firstScreen: true,
       });
       return;
     case "state.changed":
       set({ state: (message.payload as { state: State }).state });
       return;
     case "step.presented":
+      // A line of the checklist (2026-10-14): something SIMBA is doing by
+      // itself. Nothing to answer and no decision to measure, so the
+      // telemetry clock is not started for it.
+      if ((message.payload as StepPresented).requires_confirmation === false) {
+        const row = message.payload as StepPresented;
+        set((current) => ({
+          checklist: [...current.checklist, { index: row.step_index, label: row.instruction }],
+          coming: row.coming ?? [],
+          step: null,
+          stageNow: row.stage ?? current.stageNow,
+          trustOpen: false,
+        }));
+        return;
+      }
       // A new decision: the clock and the pointer start again (telemetry.ts).
       tracker.start((message.payload as StepPresented).step_index);
       // A new step gets its own chance to be moved for overflow — and under a
@@ -368,6 +468,11 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // reshaping.
       set((current) => ({
         step: message.payload as StepPresented,
+        stageNow: (message.payload as StepPresented).stage ?? current.stageNow,
+        // A step that asks ends the checklist before it.
+        checklist: [],
+        coming: [],
+        pausing: false,
         answered: false,
         overflowHopped: false,
         ...(current.levelLocked ? { level: current.chosenLevel } : {}),
@@ -399,28 +504,30 @@ function apply(message: AnyEnvelope, set: SetStore): void {
           load,
           level: load.level,
           // The estimator's own reason. Not shown to the user (CONTRACT.md).
-          levelNotice: { from: current.level, to: load.level, because: load.reason },
+          // Never on the task's first screen, nor before it.
+          levelNotice: current.firstScreen ? null
+            : { from: current.level, to: load.level, because: load.reason },
         };
       });
       return;
     }
     case "page.preview":
-      set({ preview: message.payload as PagePreview });
+      set({ preview: message.payload as PagePreview, backdrop: message.payload as PagePreview });
       return;
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
       tracker.stop();
-      set({ help: message.payload as HelpRequested, step: null });
+      set({ help: message.payload as HelpRequested, step: null, peeking: false });
       return;
     case "task.completed":
       tracker.stop();
-      set({ completed: message.payload as TaskCompleted, step: null });
+      set({ completed: message.payload as TaskCompleted, step: null, peeking: false });
       return;
     case "task.failed":
       tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
-      set({ failed: message.payload as TaskFailed, step: null });
+      set({ failed: message.payload as TaskFailed, step: null, peeking: false });
       return;
     case "error":
       set({ error: message.payload as ErrorPayload });

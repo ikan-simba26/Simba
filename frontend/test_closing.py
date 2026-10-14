@@ -243,6 +243,20 @@ def test_nine_trains_and_eight_journeys_leave_the_way_onward_on_screen(
 
 # --- whole rows (2026-10-05) ---------------------------------------------------
 #
+# Since 2026-10-07 each row is a ticket: the result, then its other cells after
+# a torn-paper rule, and "Fastest" on the one that takes least time.
+
+#: Each ticket's parts, " | " between them.
+# Each ticket's parts, " | " between them; a named cell as "Name value".
+TICKETS = """[...document.querySelectorAll('[data-testid=ticket]')]
+  .map(t => [...t.children].map(c => c.dataset.testid === 'ticket-cell'
+    ? [...c.children].map(x => x.textContent.trim()).join(' ')
+    : c.textContent.trim()).join(' | '))"""
+
+
+def tickets(page: Page) -> list[str]:
+    return page.evaluate(TICKETS)
+#
 # `Finding.rows` carries each result's cells together, repeats kept, on the
 # first finding. The screen reads its lines from them, so no time can sit
 # beside the wrong train.
@@ -258,9 +272,9 @@ def test_two_trains_that_share_a_journey_time_each_show_it(
             {"label": "Journey", "value": "5 h 15 min", "values": ["5 h 15 min"]},
         ]))
 
-    assert page.get_by_text("3UP, 5 h 15 min", exact=True).count() == 1
-    assert page.get_by_text("4DN, 5 h 15 min", exact=True).count() == 1
-    assert page.get_by_text("Train, Journey", exact=True).count() == 1
+    # Both take the same, so neither is the fastest.
+    assert tickets(page) == ["3UP | Journey 5 h 15 min", "4DN | Journey 5 h 15 min"]
+    assert page.get_by_text("Train, Journey", exact=True).count() == 0
     assert "Journey:" not in page.inner_text("body")
 
 
@@ -279,10 +293,10 @@ def test_repeats_on_different_rows_each_train_shows_its_own_time(
          "values": ["5 h 15 min", "6 h 15 min"]},
     ]))
 
-    for line in ("1UP, 07:10, 5 h 15 min", "2UP, 07:10, 6 h 15 min",
-                 "3UP, 09:00, 6 h 15 min"):
-        assert page.get_by_text(line, exact=True).count() == 1, line
-    assert page.get_by_text("Train, Departs, Journey", exact=True).count() == 1
+    assert tickets(page) == ["1UP | Departs 07:10 | Journey 5 h 15 min | Fastest",
+                             "2UP | Departs 07:10 | Journey 6 h 15 min",
+                             "3UP | Departs 09:00 | Journey 6 h 15 min"]
+    assert page.get_by_text("Train, Departs, Journey", exact=True).count() == 0
 
 
 # The longest sentences the closing screen can now be given (2026-10-06): the
@@ -321,6 +335,108 @@ def test_nine_trains_as_rows_leave_the_way_onward_on_screen(
     ]), size, scale)
 
     assert onward_on_screen(page, size[1]) == []
-    for train, journey in NINE_ROWS[:6]:
-        assert page.get_by_text(f"{train}, {journey}", exact=True).count() == 1
-    assert page.get_by_text("and 3 more", exact=True).count() == 1
+    # In the page's order, then the fastest, which is eighth: the one marked
+    # is never among those counted. Five at full height, three in a short
+    # window, where each ticket is one line of its own (2026-10-14).
+    shown = 5 if size[1] > 760 else 3
+    assert tickets(page) == [f"{train} | Journey {journey}"
+                             for train, journey in NINE_ROWS[:shown - 1]] + [
+        "107UP | Journey 4 h 15 min | Fastest"]
+    assert page.get_by_text(f"and {9 - shown} more", exact=True).count() == 1
+
+
+def test_a_tie_marks_every_train_in_it(browser, overlay: str, backend: Backend) -> None:  # noqa: F811
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "11UP, 12DN, 13UP", "values": ["11UP", "12DN", "13UP"],
+         "rows": [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"], ["13UP", "3 h 15 min"]]},
+        {"label": "Journey", "value": "3 h 15 min, 4 h 15 min",
+         "values": ["3 h 15 min", "4 h 15 min"]},
+    ]))
+
+    assert tickets(page) == ["11UP | Journey 3 h 15 min | Fastest",
+                             "12DN | Journey 4 h 15 min",
+                             "13UP | Journey 3 h 15 min | Fastest"]
+
+
+def test_times_that_cannot_be_read_mark_nothing(browser, overlay: str,  # noqa: F811
+                                               backend: Backend) -> None:
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "9UP, 10DN", "values": ["9UP", "10DN"],
+         "rows": [["9UP", "overnight"], ["10DN", "6 h 0 min"]]},
+        {"label": "Journey", "value": "overnight, 6 h 0 min",
+         "values": ["overnight", "6 h 0 min"]},
+    ]))
+
+    assert tickets(page) == ["9UP | Journey overnight", "10DN | Journey 6 h 0 min"]
+
+
+def test_a_bill_is_a_slip_with_its_amount_and_what_supports_it(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    page = end(browser, overlay, backend, completed(
+        "Your bill is 14,382, and it is due on 15-10-2026.", [
+            {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
+            {"label": "Due", "value": "15-10-2026", "values": ["15-10-2026"]},
+        ]))
+
+    found = page.get_by_test_id("findings")
+    assert found.get_attribute("data-shape") == "slip"
+    assert page.locator("[data-testid=findings] p").inner_text().split() == ["Due",
+                                                                            "15-10-2026"]
+    assert page.get_by_text("14,382", exact=True).count() == 1
+
+
+
+def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The live site prints both times in one cell, "08:04 06:20"; the
+    backend reads them apart. Under a heading that says what the trains are
+    for, and with no line naming the columns (2026-10-14)."""
+    script = completed("There are 2 trains. The fastest is 2DN, at 22 hours 16 minutes.", [
+        {"label": "Train", "value": "2DN, 14DN", "values": ["2DN", "14DN"],
+         "rows": [["2DN", "08:04", "06:20, next day", "22 h 16 min"],
+                  ["14DN", "19:09", "19:25, next day", "24 h 16 min"]]},
+        {"label": "Leaves", "value": "08:04, 19:09", "values": ["08:04", "19:09"]},
+        {"label": "Arrives", "value": "06:20, 19:25", "values": ["06:20", "19:25"]},
+        {"label": "Journey", "value": "22 h 16 min, 24 h 16 min",
+         "values": ["22 h 16 min", "24 h 16 min"]},
+    ])
+    script[-1][1]["heading"] = "Lahore Cantt to Karachi Cantt, Thursday 15 October"
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("heading").inner_text() == (
+        "Lahore Cantt to Karachi Cantt, Thursday 15 October")
+    # A next-day arrival says so (the backend's `voice.arrival`, 2026-10-15).
+    assert tickets(page) == [
+        "2DN | Leaves 08:04 | Arrives 06:20, next day | Journey 22 h 16 min | Fastest",
+        "14DN | Leaves 19:09 | Arrives 19:25, next day | Journey 24 h 16 min"]
+    assert "Train, Journey" not in page.inner_text("body")
+    assert "Train, Leaves" not in page.inner_text("body")
+    # Each ticket still one line, nothing to scroll.
+    heights = page.eval_on_selector_all("[data-testid=ticket]",
+                                        "ts => ts.map(t => t.getBoundingClientRect().height)")
+    assert max(heights) < 80, heights
+    assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
+    # Times in the interface's own face, every figure one width (2026-10-15).
+    styles = page.eval_on_selector_all(
+        "[data-testid=ticket-cell] > span:last-child",
+        "cells => cells.map(c => [getComputedStyle(c).fontFamily, "
+        "getComputedStyle(c).fontVariantNumeric])")
+    body = page.evaluate("getComputedStyle(document.body).fontFamily")
+    assert all(family == body and "tabular-nums" in numeric for family, numeric in styles), styles
+
+
+def test_a_page_that_prints_one_time_shows_no_arrival(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Nothing is worked out: an empty "Arrives" is left out."""
+    page = end(browser, overlay, backend, completed(None, [
+        {"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"],
+         "rows": [["7UP", "07:20", "7 h 15 min"], ["8DN", "16:30", "8 h 15 min"]]},
+        {"label": "Leaves", "value": "07:20, 16:30", "values": ["07:20", "16:30"]},
+        {"label": "Journey", "value": "7 h 15 min, 8 h 15 min",
+         "values": ["7 h 15 min", "8 h 15 min"]},
+    ]))
+
+    assert tickets(page)[0] == "7UP | Leaves 07:20 | Journey 7 h 15 min | Fastest"

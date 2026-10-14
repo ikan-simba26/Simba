@@ -465,7 +465,8 @@ def test_a_day_that_has_gone_is_asked_about_again_in_different_words() -> None:
 
     assert brief.day is None
     again = brief.question()
-    assert again is not None and again.instruction == voice.day_gone("29 September")
+    assert again is not None and again.note == voice.day_gone("29 September")
+    assert again.instruction == voice.ASK_TRAVEL_DAY
 
 
 def test_a_day_nobody_could_read_is_asked_about_again() -> None:
@@ -477,7 +478,7 @@ def test_a_day_nobody_could_read_is_asked_about_again() -> None:
     brief.answered("confirm", {"day": "sometime soon"})
 
     again = brief.question()
-    assert again is not None and again.instruction == voice.ASK_DAY_AGAIN
+    assert again is not None and again.note == voice.DAY_NOT_CAUGHT
 
 
 def test_asking_the_same_thing_forever_is_not_an_option() -> None:
@@ -500,7 +501,9 @@ def test_the_second_ask_says_what_was_wrong_with_the_first_answer() -> None:
     brief.answered("confirm", {"reference": "1234"})
 
     again = brief.question()
-    assert again is not None and again.instruction == voice.ASK_REFERENCE_AGAIN
+    assert again is not None and again.note == voice.REFERENCE_NOT_RIGHT
+    # The question itself is asked as before; what was wrong is beside it.
+    assert again.instruction == voice.ASK_REFERENCE
 
 
 def test_a_course_question_says_what_a_course_code_looks_like() -> None:

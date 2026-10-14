@@ -17,8 +17,8 @@ promptly, the way someone who has got their bearings would.
 
 What it checks, from the screen: the level each step is shown at (the pressed
 level dot), whether "I'm showing less for a moment" appeared while the first
-step was still up, and whether "I'm showing a bit more again" appeared after
-the two calm answers — on billing, whose three steps leave no step after the
+step was still up, and whether the fuller notice appeared after
+the two calm answers (since 2026-10-14 "I'm showing a bit more now") — on billing, whose three steps leave no step after the
 second calm one, that is on the ending. Then, from `data/steps.jsonl`, every
 decision the rules made in this run, and which rule fired.
 
@@ -44,7 +44,7 @@ CDP = "http://127.0.0.1:9222"
 GOAL = "What do I owe on my electricity bill?"
 
 SIMPLER = "I'm showing less for a moment."
-FULLER = "I'm showing a bit more again."
+FULLER = "I'm showing a bit more now."
 ENDED = ("I'm done", "I'm stuck, so I've stopped.", "I couldn't finish this.")
 LEVELS = {"Show more": 1, "Show the usual amount": 2, "Show less": 3}
 

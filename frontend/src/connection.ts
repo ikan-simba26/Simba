@@ -91,9 +91,11 @@ export class BackendConnection {
 
   // --- sending -------------------------------------------------------------
 
-  startTask(goal: string, flow?: FlowName): void {
+  startTask(goal: string, flow?: FlowName, confirmEach = false): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
+    // Only when the person asked to be asked every time (2026-10-14).
+    if (confirmEach) payload.confirm_each = true;
     this.send("task.start", payload);
   }
 
@@ -107,6 +109,16 @@ export class BackendConnection {
 
   /** Ask the backend what it is doing. It answers with page.preview. */
   askWhat(): void {
+    this.send("trust.requested", {});
+  }
+
+  /**
+   * A picture of the real page for behind the step (2026-10-07). The same
+   * message as `askWhat`, because the backend answers both the same way; it
+   * is a separate method so that only `askWhat` is ever counted as the
+   * person asking for help.
+   */
+  askForPicture(): void {
     this.send("trust.requested", {});
   }
 

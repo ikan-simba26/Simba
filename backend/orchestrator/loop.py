@@ -32,7 +32,7 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
-from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
+from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target, part_of
 from backend.orchestrator.vault import Credentials, Vault
 from backend.perception.content import Content
 from backend.perception.serializer import (
@@ -147,6 +147,19 @@ class Connection:
                 if message.get("payload", {}).get("step_index") != step_index:
                     continue
             return message
+
+    async def poll(self, seconds: float = 0.02) -> list[dict]:
+        """Whatever the overlay has sent, without waiting for more than a
+        moment — for the checklist's Pause, between moves nobody pressed for
+        (2026-10-14). Waiting on the socket's queue is safe to cut short:
+        nothing is taken off it until it is returned."""
+        got: list[dict] = []
+        while True:
+            try:
+                text = await asyncio.wait_for(self._websocket.receive_text(), seconds)
+            except asyncio.TimeoutError:
+                return got
+            got.append(json.loads(text))
 
 
 def features_of(view: PageView) -> PageFeatures | None:
@@ -366,14 +379,18 @@ def findings_in(
     finding carries the rows (`Finding.rows`), one cell per finding returned.
     """
     for answer in task.about.finds:
-        values = snapshot.content.values_for(answer.reads)
+        values = [v for v in (part_of(value, answer.part)
+                              for value in snapshot.content.values_for(answer.reads)) if v]
         if values:
             known[answer.name] = values
     if rows is not None and task.about.finds:
         read = snapshot.content.rows_for([answer.reads for answer in task.about.finds])
         if read:
-            rows[:] = [{answer.name: cell for answer, cell in zip(task.about.finds, row)}
+            rows[:] = [{answer.name: part_of(cell, answer.part)
+                        for answer, cell in zip(task.about.finds, row)}
                        for row in read]
+            if task.about.per_row is not None:
+                rows[:] = [task.about.per_row(row) for row in rows]
     findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
                         values=known[answer.name])
                 for answer in task.about.finds if answer.name in known]
@@ -442,6 +459,18 @@ class Move:
     # the page offers, and then choosing — and what to choose cannot be known
     # until the page has been looked at.
     quiet: bool = False
+    # What the step is about, for the icon beside it: date, place, choose,
+    # type, read or confirm (`shared/schema.py`, `StepKind`). None means work
+    # it out from the operations (`kind_of`).
+    kind: str | None = None
+    # Which of the task's stages the step is in (`TaskStarted.stages`).
+    stage: int | None = None
+    # Safe to run without a press, and its line on the checklist
+    # (`PlanStep.safe`, 2026-10-14). Only a planner that knows sets it.
+    safe: bool = False
+    doing: str | None = None
+    # What was wrong with the last answer, beside a question asked again.
+    note: str | None = None
 
 
 class Planner(Protocol):
@@ -476,6 +505,9 @@ class Task:
     # means no sentence. Only ever from those values: `voice.explain_*`.
     explain: ("Callable[[dict[str, list[str]], dict[str, list[str]], "
               "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
+    # Above the results on the closing screen: what they are for, from what
+    # the person asked and agreed (2026-10-14). None: no heading.
+    heading: str | None = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -515,6 +547,33 @@ def is_answer(move: "Move", action_id: object) -> bool:
     return action_id != voice.CANCEL_ID and any(a.id == action_id for a in move.actions)
 
 
+def kind_of(move: "Move") -> str:
+    """What a step is about, for the icon beside it (2026-10-07).
+
+    A planner that knows says so (`Move.kind`): the trip planner knows a
+    station from a date. Otherwise it is read off what the step does, which
+    every planner's moves have — the hardcoded plans, the LLM's and replay's:
+    typing is "type", picking from a list is "choose", following a link is
+    "read" (it opens something to look at), and pressing anything else is
+    "confirm". A question is "type" when it has a box and "choose" when it
+    has only buttons.
+    """
+    if move.kind is not None:
+        return move.kind
+    if move.question:
+        return "type" if any(not f.value for f in move.fields) else "choose"
+    operation = move.operations[0] if move.operations else None
+    if operation is None:
+        return "confirm"
+    if operation.kind in ("fill", "type"):
+        return "type"
+    if operation.kind == "select" or operation.target.role == "option":
+        return "choose"
+    if operation.target.role == "link":
+        return "read"
+    return "confirm"
+
+
 def caption_for(move: "Move") -> str:
     """Plain words for what is about to happen. Never the value being typed."""
     operation = move.operations[0] if move.operations else None
@@ -523,6 +582,18 @@ def caption_for(move: "Move") -> str:
     return voice.caption(
         operation.kind, operation.target.label or "this", operation.value or ""
     )
+
+
+#: What counts as a password box in a picture of the page.
+PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
+                  "input[autocomplete=new-password]")
+#: What a password box is painted over with. Solid, and the same in both themes.
+MASK_COLOUR = "#8c7a66"
+
+
+#: The longest a picture of the page may take before it is dropped
+#: (2026-10-15). The picture is optional; the person's answer is not.
+PREVIEW_DEADLINE_S = 5.0
 
 
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
@@ -556,7 +627,14 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
                 )
 
     try:
-        shot = await page.screenshot()
+        # Every password box is painted over before the picture leaves the
+        # backend (2026-10-07). The overlay shows this picture behind every
+        # step and in "Show the real page", and a password is never on it —
+        # not as dots, whose count says its length, and not as text if a site
+        # has a "show password" switch that turns the box into an ordinary
+        # one: those are matched by what they autocomplete.
+        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
+                                     mask_color=MASK_COLOUR)
     except PlaywrightError as error:
         await connection.send(
             "error",
@@ -655,9 +733,19 @@ class _Run:
         rules: LevelRules | None,
         vault: Vault | None = None,
         window: Callable[[], Awaitable[str]] | None = None,
+        auto: bool = False,
     ) -> None:
         self.page = page
         self.connection = connection
+        #: Run the safe moves as a checklist rather than asking for each
+        #: (2026-10-14). The app turns it on unless the person asked to be
+        #: asked every time; a caller that does not say gets the old way.
+        self.auto = auto
+        #: Messages `poll` read that were not a pause: kept for the next wait.
+        self.held: list[dict] = []
+        #: Pictures of the page being taken, each in its own task, so that
+        #: none stands between the person and their answer (2026-10-15).
+        self.previews: set[asyncio.Task] = set()
         self.recorder = recorder
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
@@ -721,11 +809,50 @@ class _Run:
             await asyncio.sleep(WINDOW_POLL_S)
         back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
                     expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
-                    question=True)
+                    question=True, kind="confirm")
         payload = await self.present(back, goal=goal, findings=findings, view=view)
         if payload.get("action_id") != voice.CONFIRM_ID:
             raise StoppedWhileAway
         await self.set_state(was or "acting")
+
+    async def tick(self, move: "Move", *, findings: list[Finding],
+                   coming: list[str] | None = None) -> int:
+        """One line of the checklist: a move SIMBA does by itself. Shown, not
+        asked; nothing waits for an answer, and nothing about the person is
+        measured on it — no row for the estimator, nothing for the level
+        rules, because there was no decision to measure."""
+        self.shown += 1
+        await self.connection.send(
+            "step.presented",
+            StepPresented(
+                step_index=self.shown,
+                step_total=max(self.total, self.shown),
+                instruction=move.doing or move.instruction,
+                detail="",
+                fields=[],
+                actions=[],
+                requires_confirmation=False,
+                findings=findings,
+                step_kind=kind_of(move),
+                stage=move.stage,
+                coming=coming or [],
+            ),
+        )
+        return self.shown
+
+    async def pause_pressed(self) -> bool:
+        """Whether the checklist's Pause has been pressed since last asked."""
+        poll = getattr(self.connection, "poll", None)
+        if poll is None:
+            return False
+        paused = False
+        for message in await poll():
+            if (message.get("type") == "step.response"
+                    and message.get("payload", {}).get("action_id") == voice.PAUSE_ID):
+                paused = True
+            else:
+                self.held.append(message)
+        return paused
 
     async def give_up(self, reason: str) -> None:
         await self.set_state("stuck")
@@ -743,10 +870,12 @@ class _Run:
             TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
         )
 
-    async def open(self, goal: str, estimated_steps: int, start_url: str) -> None:
+    async def open(self, goal: str, estimated_steps: int, start_url: str,
+                   stages: list[str] | None = None) -> None:
         self.total = estimated_steps
         await self.connection.send(
-            "task.started", TaskStarted(goal=goal, estimated_steps=estimated_steps)
+            "task.started",
+            TaskStarted(goal=goal, estimated_steps=estimated_steps, stages=stages or []),
         )
         await self.set_state("thinking")
         await self.page.goto(start_url)
@@ -795,12 +924,18 @@ class _Run:
                 actions=move.actions,
                 requires_confirmation=True,
                 findings=findings,
+                step_kind=kind_of(move),
+                stage=move.stage,
+                note=move.note,
             ),
         )
 
         async def answer_questions(message: dict) -> None:
             if message.get("type") == "trust.requested":
-                await send_preview(self.page, self.connection, move)
+                # Taken beside the wait, never in it (2026-10-15). It was
+                # awaited here: on 2026-10-14 one screenshot took 30s to fail,
+                # and "Register for CS-401", pressed meanwhile, waited 31s.
+                self.picture(move)
                 return
             # Channel B, arriving while the step is on screen: one sample on
             # a timer, and one more with the response itself. Paired with the
@@ -815,10 +950,43 @@ class _Run:
                 return
             await follow_override(message, self.rules, self.adapt)
 
-        response = await self.connection.receive(
-            "step.response", step_index=index, on_other=answer_questions
-        )
+        # Anything that arrived while the checklist ran — a picture asked
+        # for, a telemetry sample — is answered first.
+        held, self.held = self.held, []
+        for message in held:
+            await answer_questions(message)
+        try:
+            response = await self.connection.receive(
+                "step.response", step_index=index, on_other=answer_questions
+            )
+        finally:
+            # Answered: a picture still being taken is of a step that has
+            # gone, and must not race the next move on the page.
+            self.drop_pictures()
         return response.get("payload", {})
+
+    def picture(self, move: "Move") -> None:
+        """Take a picture of the page for the overlay, in a task of its own,
+        and drop it if it is late (`PREVIEW_DEADLINE_S`) or fails: the
+        picture is optional."""
+
+        async def take() -> None:
+            try:
+                await asyncio.wait_for(send_preview(self.page, self.connection, move),
+                                       PREVIEW_DEADLINE_S)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - late, failed or closed: dropped
+                return
+
+        task = asyncio.create_task(take())
+        self.previews.add(task)
+        task.add_done_callback(self.previews.discard)
+
+    def drop_pictures(self) -> None:
+        """Every picture still being taken, dropped."""
+        for task in list(self.previews):
+            task.cancel()
 
 
 async def run_task(
@@ -831,6 +999,7 @@ async def run_task(
     rules: LevelRules | None = None,
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
+    auto: bool = False,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -842,7 +1011,7 @@ async def run_task(
     `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    run = _Run(page, connection, recorder, rules, vault, window)
+    run = _Run(page, connection, recorder, rules, vault, window, auto)
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -856,6 +1025,7 @@ async def run_brief(
     rules: LevelRules | None = None,
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
+    auto: bool = False,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -866,8 +1036,9 @@ async def run_brief(
     stopped the task; a brief that cannot make sense of the answers ends the
     run the way being stuck does, and says why.
     """
-    run = _Run(page, connection, recorder, rules, vault, window)
-    await run.open(brief.goal, brief.estimated_steps, start_url)
+    run = _Run(page, connection, recorder, rules, vault, window, auto)
+    await run.open(brief.goal, brief.estimated_steps, start_url,
+                   getattr(brief, "stages", None))
 
     # A brief that holds its answers to what the site offers reads that first,
     # without touching anything: the train search's own station list
@@ -918,6 +1089,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     # What the site has said back about the values the goal named. See
     # `said_so_far`.
     seen: dict[str, list[str]] = {}
+    # After anything goes wrong, the next move asks again, safe or not: a
+    # checklist that carried on past a failure would be SIMBA deciding what
+    # the person would want (2026-10-14).
+    ask_next = False
 
     # A planner that asks, or that finishes a step quietly, takes more turns
     # than it shows steps. The second bound is what stops one that never
@@ -987,7 +1162,25 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
-        if not move.quiet:
+        # The checklist: a safe move, run without a press (2026-10-14). Pause
+        # is looked for first, so a press lands before the next move rather
+        # than after it.
+        by_itself = run.auto and move.safe and not move.quiet and not ask_next
+        if by_itself and await run.pause_pressed():
+            paused = Move(instruction=voice.PAUSED, detail="", operations=[],
+                          expect=Expectation(), fields=[],
+                          actions=voice.actions(voice.CARRY_ON), question=True,
+                          kind="confirm", stage=move.stage)
+            payload = await run.present(paused, goal=task.goal, findings=findings, view=view)
+            if payload.get("action_id") != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+        if by_itself:
+            steps_taken += 1
+            # What the planner expects to do by itself next, if it knows.
+            ahead = getattr(planner, "coming", None)
+            await run.tick(move, findings=findings, coming=ahead() if ahead else [])
+        elif not move.quiet:
             steps_taken += 1
             # A step that asks for a password uses the saved one if there is
             # one, and offers to keep it if there is not. Either way the
@@ -1040,6 +1233,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             return
 
         if failure is not None:
+            ask_next = True
             consecutive_setbacks += 1
             if consecutive_setbacks >= 2:
                 await give_up(f"{move.instruction} did not work: {failure}")
@@ -1069,6 +1263,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         consecutive_setbacks = 0
         last_failure = None
+        ask_next = False
         if keep is not None:
             # Only now: a password that did not sign anyone in is not kept.
             run.vault.put(page.url, keep)
@@ -1113,6 +1308,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
+            heading=task.heading,
         ),
     )
 

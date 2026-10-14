@@ -12,6 +12,8 @@ export type State = "thinking" | "acting" | "waiting" | "stuck";
 export type Level = 1 | 2 | 3;
 export type ActionKind = "primary" | "secondary" | "destructive";
 export type InputMode = "text" | "voice";
+/** What a step is about, for the icon beside it (2026-10-07). */
+export type StepKind = "date" | "place" | "choose" | "type" | "read" | "confirm";
 
 export type MessageType =
   // backend -> frontend
@@ -40,6 +42,11 @@ export type MessageType =
 export interface TaskStarted {
   goal: string;
   estimated_steps: number;
+  /**
+   * Additive and optional (2026-10-14). The task's stages by name, shown in
+   * place of a count. Fixed for the task. Absent or empty: no stages shown.
+   */
+  stages?: string[];
 }
 
 export interface StateChanged {
@@ -126,6 +133,25 @@ export interface StepPresented {
   requires_confirmation: boolean;
   /** What has been found so far, if the task was looking for anything. */
   findings?: Finding[];
+  /**
+   * Additive and optional (2026-10-07). What kind of thing the step is about,
+   * so one plain icon can go beside it. Absent means no icon.
+   */
+  step_kind?: StepKind;
+  /** Additive and optional (2026-10-14). Which of the task's stages this step
+   *  is in, by position. Absent: the stage before it. */
+  stage?: number;
+  /**
+   * Additive and optional (2026-10-14). What was wrong with the last answer,
+   * beside the question asked again. Cleared once a valid answer is chosen.
+   */
+  note?: string;
+  /**
+   * Additive and optional (2026-10-15). On a checklist line: the lines SIMBA
+   * expects to do by itself after this one, in order. Absent or empty:
+   * nothing more it knows of.
+   */
+  coming?: string[];
 }
 
 /**
@@ -170,6 +196,9 @@ export interface HelpRequested {
 }
 
 export interface TaskCompleted {
+  /** Additive and optional (2026-10-14). What the results are for, above them:
+   *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
+  heading?: string;
   summary: string;
   duration_ms: number;
   steps_taken: number;
@@ -198,6 +227,11 @@ export interface ErrorPayload {
 // --- Frontend to backend -----------------------------------------------------
 
 export interface TaskStart {
+  /**
+   * Additive and optional (2026-10-14). Ask before every move rather than
+   * running the safe ones as a checklist. Absent: the checklist.
+   */
+  confirm_each?: boolean;
   goal: string;
   input_mode: InputMode;
   /** Additive, optional (2026-09-21): the flow the person picked. */
@@ -240,6 +274,9 @@ export interface Telemetry {
   backtracks: number;
   rereads: number;
   help_presses: number;
+  /** Additive and optional (2026-10-14). Presses of "Read this aloud" on this
+   *  step: its own signal, not `help_presses`. */
+  read_aloud?: number;
   /** True on the sample that goes with the answer. Absent means a timer tick. */
   answered?: boolean;
 }

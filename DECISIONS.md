@@ -3937,3 +3937,458 @@ question offers as buttons anywhere else. Stacked, four did not fit at 150%.
 
 **Alternatives.** Send on pressing a name: one press fewer, and no chance to
 see the choice before it goes.
+
+## Read aloud is not built: CLAUDE.md rules text-to-speech out
+
+**Date:** 2026-10-07 (asked for as item 5 of `feat/interface-reveal`)
+
+**Decision.** Not built. CLAUDE.md: "Do not use OpenCV, local LLMs, or
+text-to-speech. Out of scope." A speaker button on the system voice is
+text-to-speech.
+
+**What it would take.** All three owners changing that line. The build itself
+is small: the browser's `speechSynthesis`, no dependency, an English voice,
+off by default, cancelled on every new step.
+
+## The home cards were already the thing asked for
+
+**Date:** 2026-10-07
+
+**Decision.** Item 3 skipped. The home screen already has the three things
+SIMBA can do as large cards with an icon each, above the text box; pressing
+one starts that goal and typing still works. Two differences from the request,
+left as they are: remembered goals take a card's place, up to three in all
+(2026-09-30, for fit at 150%); and the cards are an icon and a line, not
+pictures.
+
+## SIMBA's shape is CSS 3D, stepped twenty times a second
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** Three rings round a round core, CSS `preserve-3d`, one turn in
+36s, on the home screen and "Give me a moment." only; held still under reduced
+motion. No three.js: CLAUDE.md asks before any new dependency, and the request
+allowed "or lighter". The turn steps twenty times a second, because measured
+headless it is not composited (EVALUATION.md, 2026-10-07).
+
+**Cost.** About 70ms of main-thread work in every 5s while it turns, with
+every frame on time.
+
+## The real page is a picture of it, asked for with every step
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** The backdrop is the backend's capture (`page.preview`), at the
+site view's size and place, not the live view made visible: the site view
+stays covered (CLAUDE.md, architecture constraints). The overlay asks for one
+with each step by the existing `trust.requested`; only "What are you doing?"
+counts as a help press. Shown clearly for 1.6s once per task, then blurred
+18px under 82% canvas. A press over 400ms is a hold.
+
+**Cost.** One capture per step in the backend — a screenshot and a page read,
+about 0.2s on the live site — done while the step waits. The reveal shows
+the cluttered page this product hides, briefly and softened; whether that
+helps or unsettles this audience is a question for the sessions with people,
+not for the code.
+
+## Password boxes are painted over in every capture
+
+**Date:** 2026-10-07
+
+**Decision.** `type=password`, and any box autocompleting a current or new
+password (a "show password" switch makes it ordinary text), painted
+`#8c7a66` by Playwright's own mask. In every picture, including the trust
+panel's.
+
+## What a step is about comes from the backend
+
+**Date:** 2026-10-07
+
+**Decision.** `StepPresented.step_kind`, additive and optional. The trip
+planner and the briefs name it; otherwise it is read off the move: typing is
+"type", an option is "choose", a link is "read", any other press is "confirm";
+a question with a box is "type", with buttons only "choose".
+
+**Alternatives.** Work it out in the overlay from the step's words: words are
+not a contract.
+
+## Results as tickets; the fastest is always shown
+
+**Date:** 2026-10-07 (for Aly to review)
+
+**Decision.** Rows are tickets, two to a row, three rows at most; "Fastest" on
+the least time when every time in a column reads as `N h M min`, every tied
+train marked, none when all tie. When the fastest is past those shown it takes
+the last place. A single answer is a slip.
+
+## The station list has one row from the start
+
+**Date:** 2026-10-07
+
+**Decision.** At most two names (or one and "N more") in a row that is there
+before anything is typed, holding the hint until then. The window's bottom
+padding is 32px (was 48), and 4px in a short window (was 16).
+
+**Why.** A step that grows while it is answered is never caught by the overflow
+guard; one that is its full height on arrival is.
+
+**Cost.** Fewer names at once: typing more narrows them.
+
+## Yesterday's branch was committed so this one could start from it
+
+**Date:** 2026-10-07
+
+**Decision.** `feat/railways-ask` had no commits; its work was committed on it
+(`98cf77a`, not merged, not pushed) before `feat/interface-reveal` was made
+from it.
+
+## Text-to-speech is in scope, for reading a step aloud when asked
+
+**Date:** 2026-10-14
+
+**Decision.** CLAUDE.md's rule "Do not use OpenCV, local LLMs, or
+text-to-speech" is changed to allow one use of text-to-speech: reading a step
+aloud in the system's own speech voice, in English, when the person presses
+the button for it — off by default, stopped when the step changes, never a
+bundled or cloud voice. **Approved by Raham on 2026-10-14. Nahail and Aly have
+not yet been told and still need to be.** OpenCV and local LLMs stay out of
+scope.
+
+**What was built.** "Read this aloud" in the row above each step and question,
+at its right edge: the step's sentence, then "You can press …" with the
+answers' own words, through the browser's `speechSynthesis` at 0.9 of the
+voice's rate. No English voice on the system, no button. Pressing it again,
+a new step, or leaving the step stops it. No dependency.
+
+**Decided without being asked.** Where it sits (the row above the card, which
+has room for it on every screen, so no step grows); a 44px pill rather than a
+full-size button (it is not an answer to the step); the rate; reading the
+answers but not "Stop this"; and that pressing it is **not** counted as a
+help press in telemetry — a person who needs a step read may be finding it
+hard, so that is flagged for Nahail as the estimator's owner.
+
+## Three level notices, each true wherever it appears
+
+**Date:** 2026-10-14 (HANDOVER.md, open question 7; for Aly to review)
+
+**Decision.** A step packed closer by the overflow guard says "I've made this
+smaller so it fits."; the level rules simplifying say "I'm showing less for a
+moment." as before; the rules giving detail back say "I'm showing a bit more
+now." — not "again", which was false for a task that started simpler. While a
+step is on screen the notice stops 250px short of the right edge, so "Read this
+aloud" is never under it.
+
+**Alternatives.** No notice for the guard's fold: it is the screen changing
+under the person, and saying so was the 2026-09-25 decision. A longer fitted
+sentence ("…so it all fits on the screen."): it wrapped beside the button.
+
+## Electron's menu bar is hidden, not removed
+
+**Date:** 2026-10-14
+
+**Decision.** `autoHideMenuBar: true` on the window. Alt shows it.
+
+**Alternatives.** Remove the menu: also removes the accelerators a developer
+uses (reload, developer tools). **Cost:** someone who presses Alt sees it.
+
+## Smaller fixes from the real window
+
+**Date:** 2026-10-14 (for Aly to review)
+
+- A chosen station is marked — a tick and the accent's edge — not filled like
+  "That's it" beside it.
+- At level 1 the station box's label sits beside it, as every other field's
+  does; above it, a two-line question scrolled at 150%.
+- "Show the real page" has a browser-window icon; the eye is "What are you
+  doing?"'s.
+- The reply's echo is one line ("You asked" beside the words), and the box
+  drops its lead-in in a short window, as on the home screen.
+
+## How the real window was checked
+
+**Date:** 2026-10-14
+
+**Decision.** Driven over the host's CDP port with real input events to the
+overlay's target only; captured as the overlay's content, or the SIMBA window
+alone with `PrintWindow`. `SIMBA_RECORD_STEPS=0`, so scripted presses never
+became training rows. The 100% captures came from a second real host at
+`--force-device-scale-factor=1`; the machine is at 150% and its setting was
+not changed. Light theme for the review copies was the system's own.
+
+## The person decides, SIMBA clicks: the safe moves run as a checklist
+
+**Date:** 2026-10-14 (asked for by Raham; CLAUDE.md's runtime loop updated to say so)
+
+**Decision.** After the person's decisions — the journey read back and
+agreed, the bill's number, the course — the moves a plan marks `safe` run
+without a press each, shown as checklist lines (`requires_confirmation:
+false`) with one Pause. Safe, in the three flows: every trip move after the
+readback (filling in both stations, the calendar, the day, Search); looking a
+bill up with the number given and opening the full bill; closing the portal's
+notice. **Still asking:** every question; accepting cookies (consent on
+someone else's site is a choice); signing in (the person types); registering
+(it registers); the next move after any failure; every move the LLM planner
+or replay makes (neither knows what is safe). The person can ask to confirm
+every move ("Ask me before each thing I do", kept on this computer, sent as
+`task.start.confirm_each`). The recovery rig always asks.
+
+**What it changes for telemetry and the estimator.** A checklist line is not
+a decision, so nothing about the person is measured on it: no
+`Recorder.note_step` row, no telemetry clock started in the overlay, no
+`LevelRules.start_step`. Hesitation, cursor path, backtracks, re-reads and
+help presses are still measured on every question and on every move that
+still asks. **Fewer rows per task** reach `data/steps.jsonl`: a train journey
+whose goal names everything had 6 shown steps (readback and five moves) and
+now has 1 (the readback); a bill with its number, 3 to 1; a course, 3 to 2.
+The level rules see fewer steps, so "two calm steps" to come back takes more
+of a task, and a heavy page a checklist line passes over is never weighed.
+Rows already recorded are unchanged. **For Nahail:** the training set's rows
+from before and after this date describe different kinds of screen, and the
+pairing should not mix them without saying so.
+
+**Alternatives.** Run everything after the first press: would run cookies and
+registration, which are choices. Mark safety by the kind of operation (type,
+click an option): a click is a click whether it searches or pays.
+
+## Read aloud is its own telemetry signal; Nahail to confirm
+
+**Date:** 2026-10-14 (asked for by Raham)
+
+**Decision.** Each press of "Read this aloud" is counted on the step's
+telemetry as `read_aloud` (additive, optional), and never as `help_presses`.
+`data/steps.jsonl` keeps it beside the other signals, as it keeps every field
+a sample sends. The provisional level rules do not read it, so it moves no
+level. **Nahail, as the estimator's owner, should confirm** whether and how
+the trained estimator uses it: a person who wants a step read may be finding
+it hard, or may simply prefer to listen, and the signal is kept apart so that
+the two can be told apart rather than merged.
+
+## The bill's and the course's stages, and where the stages show
+
+**Date:** 2026-10-14 (the trains' names were asked for; these were not)
+
+**Decision.** A bill's stages are Reference, Look up, Your bill; a course's
+are Course, Sign in, Register, Done. Every step of a flow says which stage it
+is in (`StepPresented.stage`), and a step asked again stays in its stage, so
+the row never grows. The row is the card's first line: replaced while a
+notice is up (one thing at a time), small at level 2, and not shown at level
+3, where the old "Step X of Y" was not shown either. A stage passed is ticked;
+the one the person is in is marked; those to come are plain soft text (they
+were 70% soft until the contrast check below found them under 4.5:1). The
+mock backend sends stages too, so `run.ps1 mock` shows the row.
+
+**Alternatives.** A bar or dots: says how far, not what is left. Stage names
+from the LLM: a model-planned run has no fixed stages, so it shows none.
+
+## A task's first question fits by laying its answers out, not by shrinking
+
+**Date:** 2026-10-14 (the fit was asked for; how was not)
+
+**Decision.** A question whose one answer is "That's it" puts it beside "Stop
+this"; two or three short answers (22 characters or fewer) share a row with
+"Stop this" under them. Ordinary steps keep the column. Level 3 keeps the
+layout, with "Stop this" as its line of text beside a lone answer or under a
+row: it first fell back to the column, which made level 3 up to 107px taller
+than level 2. At level 3 "Pick another day" wraps to two lines inside its
+button; the row is still shorter than level 2's. No notice
+is shown on a task's first screen for any reason, including a level the
+rules chose before it arrived (`store.firstScreen`, cleared on the first
+answer).
+
+**Alternatives.** Smaller type at level 2: the type sizes are the
+accessibility floor. Folding the first screen silently: it would still be
+level 1 on the first screen, which is the thing that was asked against.
+
+## A wrong answer's sentence is a note beside the question
+
+**Date:** 2026-10-14 (the clearing was asked for; the shape was not)
+
+**Decision.** "I couldn't find a station called Narnia." travels as
+`StepPresented.note` (additive, optional) beside the plain question, rather
+than inside the question's own words. It goes the moment a name from the
+site's list is chosen. **A typed answer's note stays until the answer is
+sent and checked**: until then nothing says the new words are any better.
+"Read this aloud" reads the note first.
+
+**Alternatives.** Clearing on every keystroke: says "fine" before anything
+has been checked.
+
+## Leaves and arrives are two parts of one cell
+
+**Date:** 2026-10-14
+
+**Decision.** The site prints a train's departure and arrival in one Time cell
+("08:04 06:20"). A finding may now name a part of a cell (`Answer.part`,
+`plan.part_of`): Leaves is part 0, Arrives part 1, never calculated. A page
+that prints one time gives no arrival, and the ticket shows none. The
+railways replica now prints both times, as the live site does. The fixed plan
+the recorded benchmark numbers came from (`RAILWAYS_TASK`) is unchanged, so
+its numbers stay comparable. Tickets are one per row, each value on one line;
+five fit at 100% and three in a short window ("and N more" says the rest).
+
+**Alternatives.** Six per row as before: the third value wrapped at 150%.
+
+## The presence mark: what moves, and when
+
+**Date:** 2026-10-14 (one mark was asked for; the details were not)
+
+**Decision.** The shape turns only while SIMBA is thinking or acting; it is
+still while it waits for the person, on the home screen, and under reduced
+motion (one tilted pose). Stopped, it takes the warm "stuck" colour, as the
+dot did; done, it carries a tick. On the home screen it settles in once (a
+fade and a slight scale) when SIMBA opens. "Paused when the window isn't
+focused" is `document.hasFocus()` or `document.hidden`, read on focus, blur
+and visibility change.
+
+## The home screen: the greeting's hours, remembered goals, the entrance
+
+**Date:** 2026-10-14 (the redesign was asked for; these were not)
+
+**Decision.** Morning is 05:00 to 11:59, afternoon 12:00 to 16:59, evening
+otherwise, including the small hours ("Good evening" at 02:00 is what people
+say). Goals asked for before are one row under the tiles, two at most, one
+line each, never one a tile offers; stacked, they put the box 100px under the
+window at 100%. The entrance plays once per launch: the shape settles, then
+the tiles rise 18px in turn, 0.7s each; never under reduced motion, never on
+the way back from a task. The pictures are drawn here, inline, in the accent
+and its tint: no image files, nothing to license.
+
+**Alternatives.** Remembered goals first and the tiles fewer (the old one
+list): the three things SIMBA can do would come and go with history.
+
+## Two colour directions, chosen by an attribute; edges for controls
+
+**Date:** 2026-10-14 (two directions were asked for; these were not)
+
+**Decision.** B is `data-palette="b"` on `<html>`, set by `?palette=b` in
+the overlay's address. A stays the default until Raham chooses. A's "more
+depth" is a soft warm light from the top of the window (`--glow`) and shadows
+in layers with a faint top highlight; B has the same, in its own colours. The
+stuck colour is the same warm red-brown in both, so "stopped" looks the same
+whichever is chosen.
+
+Contrast is a test (`frontend/test_contrast.py`), read from `index.css`:
+ink at 7:1 on every ground; every other text pairing at 4.5:1; and a new
+token, `--edge`, for the boundary of anything to press or type in, at 3:1
+against every ground (WCAG 1.4.11). Until now every control's border was the
+divider colour, at 1.3:1 to 1.6:1 in both the old palette and the new ones.
+Text is never drawn translucent outside decoration (the test scans for it).
+
+**Alternatives.** Darken `--line` itself: every divider and ticket outline
+would turn heavy. A theme switch in the interface: not asked for, and one
+more control on screen.
+
+## The scripted real-window runs keep drawing when covered
+
+**Date:** 2026-10-14
+
+**Decision.** The scripted host runs (the walks, the captures, the CPU
+figure) start Electron with `--disable-features=CalculateNativeWinOcclusion`
+and `--disable-backgrounding-occluded-windows`, as well as the forced scale.
+Without them, with other windows over it, Windows marked the host hidden: no
+frames, every capture timed out, and the overlay (correctly) paused its
+motion. These are launch flags for the scripted runs only; `run.ps1` and the
+app are unchanged, and a person's window is drawn because it is in front.
+
+## Fixes found by walking the real window
+
+**Date:** 2026-10-14
+
+- A checklist line no longer asks the backend for a picture of the page. Each
+  request had been answered, a screenshot each, before the next question's
+  answer was read; the course flow's "Register for CS-401" waited 31s.
+- The home tiles' entrance did not play at all: the screens'
+  `AnimatePresence initial={false}` held back every entrance below it. The
+  tiles have their own.
+- The test of "nothing moves while the window is not focused" sampled in the
+  frame the pause was applied and failed 2 runs in 5; it waits one frame.
+- Three backend tests still expected what this branch had changed: a train
+  search's two findings (now four, read by label) and a bill's three weighed
+  steps (now asked before each move, `confirm_each`, the mode in which every
+  step is still a decision).
+
+## Keeping a password is a box to tick; Aly to be told
+
+**Date:** 2026-10-15 (Raham's decision, from the flag of 2026-10-14; **Aly,
+as the interface's and the vault's owner, needs to be told**)
+
+**Decision.** On a sign-in step the backend's offer to keep the password —
+until now a second button, "Sign in and save my password" — is a box to
+tick under the boxes to type in: "Save my password for next time",
+unticked on every new step. The one "Sign in" button sends `remember` when it
+is ticked and `confirm` when it is not; the contract's messages do not
+change (CONTRACT.md says how the offer is drawn). With one answer, "Sign in"
+and "Stop this" share a row.
+
+**Why.** Three stacked buttons ran the screen 96px past the window at 100%
+and 91px at 150%, even at the most compact level (56px and 60px on `main`).
+With the box it fits at every size. One way to sign in, and a choice about
+it, is also one decision fewer on the screen.
+
+**Alternatives.** The two sign-in buttons side by side: "Sign in and save my
+password" wrapped onto two lines inside its button and the screen was still
+14-23px over. Leaving it to scroll.
+
+**Cost.** A box to tick is a smaller target than a button (24px), and is
+easier to miss; the label beside it is part of the target.
+
+## When a train arrives: worked from the journey time, said in the row
+
+**Date:** 2026-10-15 (the "next day" was asked for; how it is worked out was not)
+
+**Decision.** The day a train arrives comes from leaving time plus journey
+time, when that lands within 5 minutes of the arrival clock time; otherwise,
+from the clocks alone (an earlier arrival time than leaving time is the next
+day). One day is "next day"; more is "N days later". It is said in the
+results row (`About.per_row`, `voice.arrival`), so the ticket, the read-aloud
+and anything else reading the rows agree; the findings' own value lists,
+which the step screen shows while the run is going, are left as the page
+printed them. The live site's 14DN arrives at 19:25 after leaving at 19:09,
+24 h 16 min later: the clocks alone would have called it the same day.
+
+**Alternatives.** The clocks alone: wrong on 14DN. Working it out in the
+overlay: the backend's sentence and read-aloud would not know.
+
+## Smaller choices in the 2026-10-15 review fixes
+
+**Date:** 2026-10-15
+
+- **Times:** tabular figures on ticket values only. The face's zero is
+  slashed in every setting (the `zero`, `ss01` and `ss02` features change
+  nothing); kept, because it is what stops 0 being read as O.
+- **Boxes:** a field colour of its own (`--field`: white in the light themes,
+  a lighter shade of the card in the dark), a 2px edge, and a 3px accent ring
+  on `:focus`, not only `:focus-visible`, because a box being typed in should
+  say so however it was reached. The home screen's box has the same.
+- **Buttons:** "Use this number" for a bill's reference and "Use this course"
+  for a course, beside the asked-for "Use this station" and "Use this day". A
+  usable answer is anything but blank or spaces; whether it is a real station
+  or number is still the backend's to check. The rule holds on every step
+  with an empty box, the sign-in step included.
+- **The checklist's lines to come** travel as `StepPresented.coming`
+  (additive, optional), filled by an optional `coming()` on a planner; the LLM
+  and replay planners have none, so they show none. Drawn as an empty dashed
+  ring and the soft text, at full strength, not faded: fainter would fail
+  4.5:1.
+- **The home screen's group** is centred in the window's height; the shape
+  stays above it.
+- **The softened page** was removed rather than made into a framed picture;
+  the light themes' glow, which also shaded the top of the window, is now
+  white.
+- **Telling remembered goals apart:** two goals look the same when they
+  start with 16 characters or more in common (a line shows about 20). A bill
+  says "ending" and its reference's last four digits; anything else, the
+  first word where the two part. The tag is hidden from a screen reader, which
+  reads the whole goal.
+- **A late picture** is dropped after 5s with nothing sent to the overlay;
+  one still being taken when the step is answered is cancelled.
+
+## Direction B, the deep teal, is the default
+
+**Date:** 2026-10-15 (Raham's choice, from the captures of 2026-10-14)
+
+**Decision.** B's values are the bare `:root`, light and dark; A stays,
+under `data-palette="a"`, set by `?palette=a` in the overlay's address. The
+contrast test reads both. Supersedes "A stays the default until Raham
+chooses" in *Two colour directions, chosen by an attribute; edges for
+controls* above.

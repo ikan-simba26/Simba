@@ -7,13 +7,13 @@
  * meet a different one on the next.
  */
 
-import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
-import type { FlowName } from "@shared/schema";
+import type { FlowName, StepKind } from "@shared/schema";
+
+import { Shape } from "./Shape";
 
 import { NOTICE, STATUS } from "../copy";
-import { EASE, MOTION } from "../design";
 
 /* --------------------------------------------------------------- buttons */
 
@@ -53,7 +53,7 @@ export function buttonClass(variant: ButtonVariant, size: ButtonSize = "lg"): st
       "bg-accent text-accent-ink shadow-lift hover:bg-accent-hover " +
       "active:shadow-press disabled:opacity-45 disabled:shadow-none",
     secondary:
-      "border border-line bg-surface text-ink shadow-press hover:border-soft/40 " +
+      "border border-edge bg-surface text-ink shadow-press hover:border-soft " +
       "hover:bg-sunk disabled:opacity-45",
     danger:
       "border border-stuck bg-surface text-stuck hover:bg-stuck-tint disabled:opacity-45",
@@ -117,7 +117,7 @@ export function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-6 rounded-lg border border-line bg-surface
+      className="group flex w-full items-center gap-6 rounded-lg border border-edge bg-surface
                  px-6 py-4 text-left shadow-press transition-[box-shadow,border-color,transform]
                  short:gap-5 short:py-3
                  duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-accent/50
@@ -143,31 +143,6 @@ export function ChoiceCard({
 }
 
 /* --------------------------------------------------------------- notices */
-
-/**
- * A change the person did not make, announced. Calm, raised, and gone on its
- * own: an icon, one sentence, and a way to dismiss it. The outer element is
- * the caller's, so it can carry its own motion.
- */
-const NOTICE_BODY =
-  "flex items-center gap-4 rounded-lg border border-line bg-surface px-6 py-4 " +
-  "text-body text-ink shadow-lift";
-
-/**
- * In the column, above what it is about, pushing it down. The step-failure
- * notice, which carries `data-transient` so the overflow guard discounts it.
- */
-export const NOTICE_CLASS = `mb-6 ${NOTICE_BODY}`;
-
-/**
- * Floating over the top edge of the card, taking no room: the level notice
- * (2026-09-25). In the column it pushed an ending that already filled the
- * window past the bottom, and a scrollbar showed for the eight seconds it was
- * up. It sits over the presence mark and the card's top padding — 56px above
- * the column, about 80px tall — so it never covers the words on the card.
- * The column's wrapper is its positioning context.
- */
-export const FLOATING_NOTICE_CLASS = `absolute inset-x-6 -top-14 z-20 ${NOTICE_BODY}`;
 
 export function DismissButton({ onClick }: { onClick: () => void }) {
   return (
@@ -251,11 +226,22 @@ export function CheckIcon({ size = 28 }: { size?: number }) {
   );
 }
 
-export function PauseIcon({ size = 28 }: { size?: number }) {
+/** Something stopped: an exclamation in a circle. Named PauseIcon until
+ *  2026-10-15, when Pause on the checklist was found wearing it. */
+export function AlertIcon({ size = 28 }: { size?: number }) {
   return (
     <Svg size={size}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7.5v5M12 16h.01" />
+    </Svg>
+  );
+}
+
+/** Pause: two upright bars, as on every player. */
+export function PauseIcon({ size = 28 }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="M9 6v12M15 6v12" strokeWidth={2.6} />
     </Svg>
   );
 }
@@ -287,6 +273,17 @@ export function EyeIcon() {
   );
 }
 
+/** The real page itself: a browser window. Not the eye, which is "What are
+ *  you doing?" beside it — two buttons with two jobs should not look alike. */
+export function PageIcon() {
+  return (
+    <Svg size={26}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+      <path d="M3 9h18M6.5 6.8h.01M9 6.8h.01" />
+    </Svg>
+  );
+}
+
 export function SpeechIcon() {
   return (
     <Svg size={30}>
@@ -295,88 +292,106 @@ export function SpeechIcon() {
   );
 }
 
+/**
+ * What a step is about, as one shape beside it (2026-10-07): a calendar for a
+ * day, a pin for a place, a list for choosing one of several, keys for
+ * typing, a page for something to read, and a tick for agreeing to go ahead.
+ * The step's sentence always says it too; the shape is for finding your place
+ * at a glance, never the only way it is said.
+ */
+export function StepKindIcon({ kind, size = 36 }: { kind: StepKind; size?: number }) {
+  switch (kind) {
+    case "date":
+      return (
+        <Svg size={size}>
+          <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+          <path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01" />
+        </Svg>
+      );
+    case "place":
+      return (
+        <Svg size={size}>
+          <path d="M12 21s-6.5-6-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 15 12 21 12 21Z" />
+          <circle cx="12" cy="9.8" r="2.4" />
+        </Svg>
+      );
+    case "choose":
+      return (
+        <Svg size={size}>
+          <path d="M3.8 6.5 5.4 8l2.8-3M11 6.5h9.5M11 12h9.5M11 17.5h9.5" />
+          <circle cx="6" cy="12" r="1.6" />
+          <circle cx="6" cy="17.5" r="1.6" />
+        </Svg>
+      );
+    case "type":
+      return (
+        <Svg size={size}>
+          <rect x="2.5" y="6" width="19" height="12" rx="3" />
+          <path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8" />
+        </Svg>
+      );
+    case "read":
+      return (
+        <Svg size={size}>
+          <path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+          <path d="M14 3v5h5M9 13h7M9 17h5" />
+        </Svg>
+      );
+    case "confirm":
+      return (
+        <Svg size={size}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M8 12.4 10.8 15 16 9.5" />
+        </Svg>
+      );
+  }
+}
+
 /* -------------------------------------------------------------- presence */
 
 export type PresenceMode = "ready" | "thinking" | "acting" | "waiting" | "stuck" | "done";
 
 /**
  * The assistant, present on every screen, in one place, saying without words
- * what it is doing.
+ * what it is doing — and, since 2026-10-14, the one sign of SIMBA there is:
+ * the 3D shape (`Shape`), where there used to be a dot and, beside it on the
+ * home screen, the shape as well.
  *
- *   ready     a still dot                       — here, nothing happening
- *   thinking  the dot breathes, slowly          — working it out; nothing wanted
- *   acting    a thin arc circles it, slowly     — doing the thing now
- *   waiting   the dot is full, with a halo      — your turn
- *   stuck     the dot turns the warm colour     — it has stopped
- *   done      a still dot with a small tick     — finished
+ *   ready     still                             — here, nothing happening
+ *   thinking  turning, slowly                   — working it out
+ *   acting    turning, slowly                   — doing the thing now
+ *   waiting   still                             — your turn
+ *   stuck     still, in the warm colour         — it has stopped
+ *   done      still, with a tick on its core    — finished
+ *
+ * Large on the home screen, where it is the first thing seen; small
+ * everywhere else, where the step is the thing to look at. It moves only
+ * while SIMBA is working, never under reduced motion, and never while the
+ * window is not focused (`data-motion`, `main.tsx`).
  *
  * Wordless on screen on purpose: `copy.ts` gives `waiting` no sentence
- * because the step is the sentence, and a second thing to read beside it is
- * the clutter this project removes. The state is named for a screen reader,
+ * because the step is the sentence. The state is named for a screen reader,
  * from `STATUS`, and announced when it changes.
- *
- * It replaces two earlier signals: a line crossing the top of the column
- * while acting, and a pulse that dimmed the whole column while thinking. The
- * pulse also dimmed the answer on the closing screen, because the backend
- * never leaves `thinking` after finishing — the one screen that exists to be
- * read was the one that faded in and out (EVALUATION.md, 2026-09-21).
  */
-export function Presence({ mode }: { mode: PresenceMode }) {
-  const colour = mode === "stuck" ? "bg-stuck" : "bg-accent";
+export function Presence({ mode, large = false }: { mode: PresenceMode; large?: boolean }) {
+  const working = mode === "thinking" || mode === "acting";
   return (
     <div
       role="status"
       aria-live="polite"
       aria-label={STATUS[mode]}
-      className="relative flex h-12 w-12 items-center justify-center"
+      className={`relative flex items-center justify-center ${
+        large ? "h-24 w-24 short:h-16 short:w-16" : "h-12 w-12"}`}
       data-presence={mode}
+      data-size={large ? "large" : "small"}
     >
-      {/* The halo: only when it is the person's turn. */}
-      <motion.span
-        className={`absolute inset-0 rounded-full ${colour}`}
-        animate={{ opacity: mode === "waiting" ? 0.16 : 0, scale: mode === "waiting" ? 1 : 0.6 }}
-        transition={{ duration: MOTION.base, ease: EASE }}
-      />
-      {/* The orbit: only while acting. */}
-      <motion.svg
-        className="absolute inset-0 text-accent"
-        viewBox="0 0 40 40"
-        animate={{ opacity: mode === "acting" ? 1 : 0, rotate: mode === "acting" ? 360 : 0 }}
-        transition={
-          mode === "acting"
-            ? { opacity: { duration: MOTION.base, ease: EASE },
-                rotate: { duration: MOTION.orbit, ease: "linear", repeat: Infinity } }
-            : { duration: MOTION.base, ease: EASE }
-        }
-        aria-hidden
-      >
-        <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeDasharray="22 85" />
-      </motion.svg>
-      {/* The dot itself. Finished, it grows into a disc with a tick in it —
-          the same mark, completed, rather than a second thing beside it. */}
-      <motion.span
-        className={`relative flex h-5 w-5 items-center justify-center rounded-full ${colour}`}
-        animate={
-          mode === "thinking"
-            ? { scale: [1, 0.72, 1], opacity: [1, 0.6, 1] }
-            : {
-                scale: mode === "done" ? 1.75 : mode === "waiting" ? 1.15 : 1,
-                opacity: mode === "ready" ? 0.7 : 1,
-              }
-        }
-        transition={
-          mode === "thinking"
-            ? { duration: MOTION.breath, ease: "easeInOut", repeat: Infinity }
-            : { duration: MOTION.base, ease: EASE }
-        }
-      >
-        {mode === "done" && (
-          <span className="text-accent-ink">
-            <CheckIcon size={13} />
-          </span>
-        )}
-      </motion.span>
+      <Shape className={large ? "h-24 w-24 short:h-16 short:w-16" : "h-10 w-10"}
+             turning={working} stuck={mode === "stuck"} />
+      {mode === "done" && (
+        <span className="absolute inset-0 flex items-center justify-center text-accent-ink">
+          <CheckIcon size={large ? 30 : 14} />
+        </span>
+      )}
     </div>
   );
 }

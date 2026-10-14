@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-06 (later) · **1012 passing, 12 skipped, 0 failed** · suite wall clock 1181s, on `feat/railways-ask`, **not merged**. 68 tests added since 944; the 12 skips are the same 12 as below. Earlier today on `feat/multi-october-fifth-rows`: 944 passed, 12 skipped, 1499s. The 12 skips: 5 needing a running Electron host, 2 needing a host **and** `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and need `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`), and 2 needing `SIMBA_LIVE_TESTS=1`. Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-15 · **1209 passing, 12 skipped, 0 failed** · backend 833 in 752s, frontend 376 in 790s (run as two halves; two frontend tests updated for the sign-in box after the run and their file rerun, 19 of 19), on `main` after merging `feat/interface-reveal`; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 35 tests added since 1174 (2026-10-14). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,125 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-15: review fixes, and merged
+
+On `feat/interface-reveal`, one commit per item, then **merged into `main`**
+with `feat/railways-ask` (already inside it).
+
+- **Direction B, the deep teal, is the default**; A with `?palette=a`.
+- **Trains arriving after midnight say so**: "00:50, next day", from the
+  journey time; checked on the live site's rows.
+- **Times** in tabular figures; **empty boxes** look ready (a light fill, a
+  2px edge, a 3px ring with the cursor in them).
+- **A question's main button** says what it does ("Use this station", "Use
+  this day", "Use this number", "Use this course") and waits for an answer.
+- **Pause** has a pause sign; **the checklist shows the lines still to come**
+  (`StepPresented.coming`, additive and optional).
+- **Home**: the box sits under the tiles, one group, centred.
+- **No softened page behind a step**, and the light themes' glow lightens
+  the top of the window rather than shading it.
+- **Question headings** at full strength.
+- **Sign-in**: keeping the password is a box to tick (Raham's choice; **Aly to
+  be told**, DECISIONS.md); the screen now fits at every size.
+- **Remembered goals that would look the same** say what tells them apart
+  ("ending 7890").
+- **A picture of the page never holds the person's answer**: taken beside
+  the wait, dropped after 5s, cancelled on the answer.
+- **For Nahail** (also in HANDOVER.md): fewer training rows per task, and
+  `read_aloud` is a new telemetry signal.
+- **Open, flagged:** "What are you doing?" pressed while a picture is late
+  shows nothing for that press; a remembered goal at 150% reads "Find the…"
+  before its tag; the stage row is 16px at level 2.
+
+### Changed on 2026-10-14 (later): the person decides, SIMBA clicks; the opening; colour
+
+On `feat/interface-reveal`, **not merged**. One commit per item.
+
+- **Safe moves run as a checklist** once the person has decided: filling in,
+  the calendar, searching, opening a page to read. Questions, cookies,
+  signing in, registering, model-planned moves and the move after a failure
+  still ask. "Ask me before each thing I do" keeps the old way. Trains: 9
+  presses to 4. Nothing about the person is recorded on a checklist line
+  (DECISIONS.md: **fewer training rows per task; Nahail to note**).
+- **Named stages** replace "Step X of Y" (trains: From, To, Day, Search,
+  Trains), fixed for the task.
+- **Fixed from the last report:** the first question fits at level 2 at every
+  size, and no notice shows on a task's first screen; a wrong answer's
+  sentence goes once a good one is chosen; no automatic reveal; one thing at a
+  time at the top of a step; results headed with the journey, each ticket
+  with leaves, arrives and how long.
+- **Read aloud is its own telemetry signal** (`read_aloud`); **Nahail to
+  confirm** how the estimator uses it.
+- **One presence mark**, the shape: still unless SIMBA is working, nothing
+  moving when the window is away. Home screen at rest: 0.2% of one core in
+  the real window (was 7.5%).
+- **The home screen**: greeting by the time of day, three tiles with
+  pictures, the whole window's height, an entrance once.
+- **Two colour directions**, A (default) and B (`?palette=b`), both passing a
+  contrast test, light and dark; controls now have a 3:1 edge. **Raham to
+  choose**; captures in `.scratch/directions/` and `.scratch/for-review-2/`.
+- **Fixed from walking the real window and the suite:** a checklist line
+  asked for a picture of the page, which held the course's "Register" for
+  31s; the home tiles' entrance never played; level 3 was taller than level 2
+  on choice questions (up to 107px); three backend tests still expected the
+  old findings and the old number of weighed steps.
+- **Open, flagged:** the course's sign-in screen runs 96px past the window at
+  100% and 91px at 150% even at level 1 (56 and 60 on `main`); the stage row
+  is 16px at level 2, as "Step X of Y" was; a preview that times out blocks
+  the person's answer for 30s; the two remembered bill goals read the same
+  once clamped to one line.
+
+### Changed on 2026-10-14: the new look in the real window, and fixes
+
+On `feat/interface-reveal`, **not merged**. One commit per item.
+
+- **Checked in the real Electron window for the first time** (EVALUATION.md,
+  2026-10-14): the whole train flow on `railways-local`, every bad answer, at
+  this machine's own 150% and at a forced 100%. It found seven things headless
+  had not, listed there; the small ones are fixed.
+- **Read aloud is built.** Raham approved changing CLAUDE.md's rule; **Nahail
+  and Aly still need to be told** (DECISIONS.md). "Read this aloud" above each
+  step: the system's English voice, off until pressed, stopped when the step
+  changes. Checked with the real Windows voices.
+- **The "book a flight" reply fits** at all three sizes.
+- **The level notice says what happened**: "I've made this smaller so it
+  fits." for the overflow guard; "I'm showing a bit more now." for the rules.
+- **Fixed from the real window:** Electron's menu bar hidden; the 9px
+  scrollbar at 150% on two-line station questions; a chosen station no longer
+  a second filled button; stations written to be read in step details; the
+  reveal's one softened frame; two buttons with the same eye; the notice over
+  "Read this aloud".
+- **Left for Raham, not fixed:** see the report's list — chiefly the step
+  count running past itself ("Step 13 of 13"), the guard folding and
+  announcing on the first question of every task, a wrong answer's sentence
+  staying after a good one is chosen, the softened page all but invisible in
+  the light theme, and the shape's 7% of one core while the home screen is up.
+
+### Changed on 2026-10-07: the interface, less plain
+
+On `feat/interface-reveal`, from `feat/railways-ask`, **not merged**. One
+commit per item. Screenshots of every screen, both themes, three sizes, in
+`.scratch/interface-reveal/` (not committed). Most of it is **for Aly to
+review**.
+
+- **The real page behind the step.** Shown clearly for a moment when a task
+  starts, then blurred and dimmed behind the card; "Show the real page" while
+  held, or until hidden. A picture, asked for with each step; the site view
+  is still covered. Password boxes are painted over in every capture.
+- **A shape beside each step** for what it is about — date, place, choose,
+  type, read, confirm — named by the backend (`step_kind`, additive).
+- **Results as tickets**, the fastest marked and always on screen; a bill as
+  a slip. Nine trains still fit at 150%.
+- **SIMBA's shape**, CSS 3D, on the home screen and while thinking; still
+  under reduced motion; about 70ms of main-thread work in 5s while turning.
+- **The question screens** have their shapes too.
+- **Skipped:** the home cards already existed. **Not built:** read aloud —
+  CLAUDE.md rules text-to-speech out; it needs all three owners.
+- **Found and fixed:** reduced motion never reached the Framer animations;
+  the station question from `feat/railways-ask` scrolled by 52px at 100% and
+  150% once names appeared. **Found, not fixed:** the reply to "book a flight"
+  scrolls by 24px at 100% and 45px at 150%, as it did before this branch.
 
 ### Changed on 2026-10-06 (later): every journey answer checked before the site is touched
 

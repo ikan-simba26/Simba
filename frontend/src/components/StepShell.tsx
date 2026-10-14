@@ -14,16 +14,19 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import type { Finding, Level, StepAction, StepField } from "@shared/schema";
+import type { Finding, Level, StepAction, StepField, StepPresented } from "@shared/schema";
 
-import { CHOOSE, FOUND, STEP } from "../copy";
+import { CHOOSE, FOUND, SIGN_IN, STAGES } from "../copy";
+import { NoticeLine, useNotice } from "./Notices";
+import { SpeakButton } from "./Speak";
+import { useStore } from "../store";
 import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
-import { buttonClass } from "./ui";
+import { CheckIcon, InfoIcon, StepKindIcon, buttonClass } from "./ui";
 
 /**
  * The one curve and duration the level change uses.
@@ -106,13 +109,38 @@ export function StepShell({
 
   const findings: Finding[] = step.findings ?? [];
 
+  // What was wrong with the last answer (`note`, 2026-10-14) stays beside the
+  // question until a valid answer is chosen — a name from the site's own list
+  // — and then goes: the person has put it right, and a sentence still saying
+  // they had not would be wrong. A typed answer cannot be checked here, so its
+  // note stays until it is sent and the backend has checked it.
+  const chosenFromList = step.fields.some((field) =>
+    (field.options ?? []).some((option) => plain(option) === plain(values[field.id] ?? "")));
+  const note = step.note && !chosenFromList ? step.note : null;
+
   // Everything but the one way to stop is an answer, and every answer is a
   // button. Until 2026-09-30 exactly two were rendered — the first and one
   // more — which was enough while every step offered go-ahead and stop, and
   // silently dropped the rest once a question offered three answers: "Pick a
   // day" never appeared, and neither did the way to stop.
-  const [lead, ...alternatives] = orderActions(step.actions);
+  // Saving the password, when the backend offers it, is a box to tick, not
+  // a second button (2026-10-15): "Sign in" sends the offer's own id when it
+  // is ticked, and its own when it is not. Unticked for every new step.
+  const saveOffer = step.actions.find((action) => action.id === SAVE_ID);
+  const [save, setSave] = useState(false);
+  useEffect(() => setSave(false), [step.step_index]);
+  const answers = step.actions.filter((action) => action.id !== SAVE_ID);
+  const act = (id: string) =>
+    onAction(saveOffer && save && id === lead?.id ? saveOffer.id : id);
+
+  const [lead, ...alternatives] = orderActions(answers);
   const stop = step.actions.find((action) => action.kind === "secondary");
+  const layout = answersLayout({ ...step, actions: answers });
+  // A box the step asks the person to fill, still empty: the main button
+  // waits for it (2026-10-15). Pressed on an empty box, "That's it" sent
+  // nothing and the same question came back.
+  const unanswered = step.fields.some((field) =>
+    !field.value && !(values[field.id] ?? "").trim());
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -133,24 +161,12 @@ export function StepShell({
       />
 
       <div className="relative flex flex-col">
-        <Fold show={spec.progress !== "none"} gap={0}>
-          {/* Quieter at level 2 than at level 1, and still readable: 0.4 of
-              the soft colour was 2.5:1, under any contrast rule. 0.75 keeps
-              it above 4.5:1 in both themes. */}
-          <motion.p
-            animate={{
-              // Level 1 states it; level 2 murmurs it. A step counter is
-              // reassurance for someone coping and pressure for someone who
-              // is not, which is why level 3 has none at all.
-              fontSize: spec.progress === "full" ? `${TYPE.caption}px` : "16px",
-              opacity: spec.progress === "full" ? 1 : 0.75,
-            }}
-            transition={FOLD}
-            className="font-medium tracking-wide text-soft"
-          >
-            {STEP.count(step.step_index, step.step_total)}
-          </motion.p>
-        </Fold>
+        {/* The card's first line: one thing at a time (2026-10-14). A notice
+            if one is up, else where the person is — the stages, which level 3
+            leaves out — and "Read this aloud" at the right end, which nothing
+            is drawn over. */}
+        <TopLine step={step} stages={spec.progress !== "none"}
+                 full={spec.progress === "full"} answered={answered} />
 
         {/* No `layout` here. A layout animation projects the element's box
             with a transform, which fights an animation of fontSize — the
@@ -160,20 +176,48 @@ export function StepShell({
             recede is kept and softened: at 0.55 the instruction measured
             3.8:1 on the light card, which fails for the one sentence the
             person most needs to read. At 0.8 it is 8.7:1. */}
-        <motion.h1
-          animate={{
-            // Units are required: Framer silently ignores a bare number
-            // for fontSize, where it appends px for height and padding.
-            fontSize: `${typeSize(level, instruction)}px`,
-            opacity: waiting ? 0.8 : 1,
-            paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
-            // Grow after the collapse, for the same reason as UNFOLD.
-            transition: { ...FOLD, delay: 0.1 },
-          }}
-          className="font-semibold leading-[1.25] tracking-[-0.015em] text-ink"
-        >
-          {instruction}
-        </motion.h1>
+        {/* What was wrong with the last answer, kindly, above the question. */}
+        <Fold show={note !== null} gap={spec.progress === "none" ? 0 : spec.gap * 0.35}>
+          <p className="flex items-start gap-3 rounded-lg bg-tint px-5 py-3 text-body text-ink
+                        short:py-2" data-testid="note" role="status">
+            <span className="mt-1 shrink-0 text-accent" aria-hidden><InfoIcon /></span>
+            <span>{note ?? step.note}</span>
+          </p>
+        </Fold>
+
+        {/* What the step is about, as one plain shape beside its sentence
+            (2026-10-07). Beside, not above: it costs width, not height, and
+            height is what a 150% window runs out of. */}
+        <div className="flex items-start gap-5 short:gap-4">
+          {step.step_kind && (
+            <motion.span
+              aria-hidden
+              data-testid="step-kind"
+              data-kind={step.step_kind}
+              animate={{ marginTop: spec.progress === "none" ? 0 : spec.gap * 0.35 }}
+              transition={FOLD}
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-tint
+                         text-accent short:h-13 short:w-13"
+            >
+              <StepKindIcon kind={step.step_kind} />
+            </motion.span>
+          )}
+          <motion.h1
+            animate={{
+              // Units are required: Framer silently ignores a bare number
+              // for fontSize, where it appends px for height and padding.
+              fontSize: `${typeSize(level, instruction)}px`,
+              // Always at full strength (2026-10-15). It was 0.8 while SIMBA
+              // waited for the person — exactly when they have to read it.
+              paddingTop: spec.progress === "none" ? 0 : spec.gap * 0.35,
+              // Grow after the collapse, for the same reason as UNFOLD.
+              transition: { ...FOLD, delay: 0.1 },
+            }}
+            className="min-w-0 flex-1 font-semibold leading-[1.25] tracking-[-0.015em] text-ink"
+          >
+            {instruction}
+          </motion.h1>
+        </div>
 
         {/* What has been found so far, when the task was looking for
             something. Under the instruction and larger than it: the
@@ -216,55 +260,76 @@ export function StepShell({
           </div>
         </Fold>
 
+        <Fold show={Boolean(saveOffer)} gap={spec.gap * 0.4}>
+          <label className="flex cursor-pointer items-center gap-3 text-body text-ink"
+                 data-testid="save-password">
+            <input type="checkbox" className="h-6 w-6 shrink-0 accent-[var(--accent)]"
+                   checked={save} disabled={answered}
+                   onChange={(event) => setSave(event.target.checked)} />
+            {SIGN_IN.save}
+          </label>
+        </Fold>
+
         <Fold show gap={spec.gap}>
-          <motion.div
-            transition={FOLD}
-            className={spec.actionLayout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}
-          >
-            <ActionButton
-              action={lead}
-              height={spec.actionHeight}
-              answered={answered}
-              waiting={waiting}
-              onAction={onAction}
-              grow={spec.actionLayout === "row"}
-            />
-
-            {/* The other answers to a question. Buttons at every level,
-                including level 3: an answer that has been demoted to a line
-                of text is one the person cannot give. */}
-            {alternatives.map((action) => (
-              <ActionButton
-                key={action.id}
-                action={action}
-                height={spec.actionHeight}
-                answered={answered}
-                waiting={waiting}
-                onAction={onAction}
-                grow={spec.actionLayout === "row"}
-                quiet
-              />
-            ))}
-
-            {/* Level 3 demotes the way to stop to plain text. The button
-                collapsing into a line of text is the clearest single moment
-                in the 2 -> 3 fold, so the two forms are separate presences
-                rather than one element restyled. */}
-            {stop && spec.secondary === "button" && (
-              <ActionButton
-                action={stop}
-                height={spec.actionHeight}
-                answered={answered}
-                waiting={waiting}
-                onAction={onAction}
-                grow={spec.actionLayout === "row"}
-                quiet
-              />
+          {/* A question's answers, laid out to fit (2026-10-14): a task's
+              first question has to fit at level 2 without folding, and at
+              150% the station question was 65px too tall. One answer and the
+              way to stop sit side by side; two or three short answers share
+              a row, with the way to stop under them. Ordinary steps keep
+              the column. */}
+          <motion.div transition={FOLD} className="flex flex-col gap-3">
+            {layout === "pair" ? (
+              <div className="flex flex-row gap-3">
+                <ActionButton action={lead} height={spec.actionHeight} answered={answered}
+                              waiting={waiting} onAction={act} grow
+                              blocked={unanswered} />
+                {stop && spec.secondary === "button" && (
+                  <ActionButton action={stop} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={act} grow quiet />
+                )}
+                {/* Level 3: the way to stop as its line of text, still beside
+                    the answer. Under it, level 3 was 18px taller than level 2
+                    (frontend/test_levels.py), and simplifying must never make
+                    a step taller. */}
+                {stop && spec.secondary === "text" && (
+                  <button type="button" disabled={answered}
+                          onClick={() => act(stop.id)}
+                          className={`${buttonClass("quiet")} shrink-0 px-6
+                                      disabled:opacity-40`}>
+                    {stop.label}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className={layout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}>
+                  <ActionButton action={lead} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={act}
+                                grow={layout === "row"} blocked={unanswered} />
+                  {/* The other answers to a question. Buttons at every level,
+                      including level 3: an answer that has been demoted to a
+                      line of text is one the person cannot give. */}
+                  {alternatives.map((action) => (
+                    <ActionButton key={action.id} action={action} height={spec.actionHeight}
+                                  answered={answered} waiting={waiting} onAction={act}
+                                  grow={layout === "row"} quiet />
+                  ))}
+                </div>
+                {/* Level 3 demotes the way to stop to plain text. The button
+                    collapsing into a line of text is the clearest single moment
+                    in the 2 -> 3 fold, so the two forms are separate presences
+                    rather than one element restyled. */}
+                {stop && spec.secondary === "button" && (
+                  <ActionButton action={stop} height={spec.actionHeight} answered={answered}
+                                waiting={waiting} onAction={act} quiet />
+                )}
+              </>
             )}
           </motion.div>
         </Fold>
 
-        <Fold show={Boolean(stop) && spec.secondary === "text"} gap={spec.gap * 0.4}>
+        <Fold show={Boolean(stop) && spec.secondary === "text" && layout !== "pair"}
+              gap={spec.gap * 0.4}>
           <button
             type="button"
             disabled={answered}
@@ -276,6 +341,54 @@ export function StepShell({
         </Fold>
       </div>
     </div>
+  );
+}
+
+/** The card's first line: a notice or the stages, and "Read this aloud". */
+export function TopLine({ step, stages, full, answered }: {
+  step: StepPresented | null; stages: boolean; full: boolean; answered: boolean;
+}) {
+  const notice = useNotice();
+  // One thing on the left: a notice if one is up, else the stages.
+  let left: React.ReactNode = null;
+  if (notice) left = <NoticeLine />;
+  else if (stages) left = <StageRow current={step?.stage} full={full} />;
+  return (
+    <div className="flex min-h-10 items-center justify-between gap-4" data-testid="top-line">
+      <div className="min-w-0 flex-1">
+        {left}
+      </div>
+      <SpeakButton step={step && !answered ? step : null} />
+    </div>
+  );
+}
+
+/**
+ * The task's stages, in a row: those done ticked, the one the person is in
+ * marked, those to come quiet. Fixed for the task, so it never grows.
+ */
+export function StageRow({ current, full }: { current?: number; full: boolean }) {
+  const stages = useStore((state) => state.task?.stages) ?? [];
+  const known = useStore((state) => state.stageNow);
+  const at = current ?? known ?? 0;
+  if (stages.length === 0) return null;
+  return (
+    <ol aria-label={STAGES.label} data-testid="stages"
+        className={`flex flex-wrap items-center gap-x-2 gap-y-1 font-medium tracking-wide
+                    ${full ? "text-caption" : "text-[16px]"}`}>
+      {stages.map((name, index) => (
+        <li key={name} className="flex items-center gap-2"
+            aria-current={index === at ? "step" : undefined}
+            data-state={index < at ? "done" : index === at ? "now" : "to come"}>
+          {index > 0 && <span aria-hidden className="text-soft/50">·</span>}
+          <span className={index === at ? "rounded-full bg-tint px-3 py-0.5 text-accent"
+                           : "text-soft"}>
+            {index < at && <span aria-hidden className="mr-1">✓</span>}
+            {name}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -309,9 +422,7 @@ function Field({
         fontSize: spec.fieldLayout === "inline" ? `${TYPE.small}px` : `${TYPE.body}px`,
       }}
       transition={FOLD}
-      className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
-                 transition-colors duration-200 focus:border-accent focus:bg-surface
-                 focus-visible:outline-none"
+      className="simba-field w-full rounded-md px-4"
       type={field.type === "password" ? "password" : "text"}
       value={value}
       onChange={(event) => onChange(field.id, event.target.value)}
@@ -336,9 +447,17 @@ function Field({
   );
 }
 
-/** How many matches are shown at once: the same few a question offers as
- *  buttons (`voice.MAX_CHOICES`). More is a list to read. */
-const SHOWN_MATCHES = 4;
+/**
+ * How many matches are shown at once: one row of two.
+ *
+ * Four, two to a row, until 2026-10-07: the row under the step card then fell
+ * 52px below a 150% window as soon as anything matched, because the matches
+ * arrive after the overflow guard has measured the step. Now the list has one
+ * row of its own from the start — the hint before anything is typed, the
+ * matches after — so the step is as tall when it arrives as it will ever be,
+ * and the guard measures the real thing.
+ */
+const SHOWN_MATCHES = 2;
 
 /** A name with case, dots and dashes taken out, as the backend compares them. */
 function plain(text: string): string {
@@ -398,52 +517,67 @@ function ChoiceField({
   const options = field.options ?? [];
   const found = matching(options, value);
   const chosen = options.find((option) => plain(option) === plain(value));
-  const shown = chosen ? [chosen] : found.slice(0, SHOWN_MATCHES);
+  // More than fit: the first, and how many more in the second place.
+  const crowded = !chosen && found.length > SHOWN_MATCHES;
+  const shown = chosen ? [chosen] : found.slice(0, crowded ? SHOWN_MATCHES - 1 : SHOWN_MATCHES);
   const more = chosen ? 0 : found.length - shown.length;
+  const typed = value.trim() !== "";
+  const rowHeight = Math.round(spec.fieldHeight * 0.8);
 
   return (
     <div className="flex flex-col gap-3">
-      <motion.label transition={FOLD} className="flex flex-col gap-2">
-        <span className="text-small font-medium text-soft">{field.label}</span>
+      {/* Beside its box at level 1, as every other field is there: above it,
+          the label cost the one line that made a two-line station question
+          scroll by 9px at 150% in the real window (2026-10-14). */}
+      <motion.label transition={FOLD}
+                    className={spec.fieldLayout === "inline"
+                      ? "grid grid-cols-[210px_1fr] items-center gap-4"
+                      : "flex flex-col gap-2"}>
+        <span className={spec.fieldLayout === "inline"
+          ? "text-caption font-medium text-soft" : "text-small font-medium text-soft"}>
+          {field.label}
+        </span>
         <motion.input
           animate={{ height: spec.fieldHeight, fontSize: `${TYPE.body}px` }}
           transition={FOLD}
-          className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
-                     transition-colors duration-200 placeholder:text-soft/70
-                     focus:border-accent focus:bg-surface focus-visible:outline-none"
+          className="simba-field w-full rounded-md px-4"
           type="text"
           value={value}
-          placeholder={CHOOSE.hint}
           autoComplete="off"
           onChange={(event) => onChange(field.id, event.target.value)}
           aria-label={field.label}
         />
       </motion.label>
 
-      {value.trim() !== "" && (
-        // Two to a row. Four stacked put "Stop this" 46px below a 150% window
-        // (`test_a_list_question_fits_at_150_percent`); typing does not
-        // re-run the overflow guard, so nothing would have folded.
-        <div role="group" aria-label={CHOOSE.matches} className="grid grid-cols-2 gap-2">
-          {shown.map((option) => (
-            <motion.button
-              key={option}
-              type="button"
-              aria-pressed={option === chosen}
-              onClick={() => onChange(field.id, readable(option))}
-              animate={{ height: Math.round(spec.fieldHeight * 0.8) }}
-              transition={FOLD}
-              className={`w-full ${buttonClass(option === chosen ? "primary" : "secondary", "fluid")}`}
-            >
-              {readable(option)}
-            </motion.button>
-          ))}
-          {more > 0 && <p className="col-span-2 text-small text-soft">{CHOOSE.more(more)}</p>}
-          {found.length === 0 && (
-            <p className="col-span-2 text-small text-soft">{CHOOSE.none}</p>
-          )}
-        </div>
-      )}
+      {/* One row, always there: the hint, then the matches. */}
+      <motion.div role="group" aria-label={CHOOSE.matches}
+                  className="grid grid-cols-2 items-center gap-2"
+                  animate={{ minHeight: rowHeight }} transition={FOLD}>
+        {!typed && <p className="col-span-2 text-small text-soft">{CHOOSE.hint}</p>}
+        {shown.map((option) => (
+          <motion.button
+            key={option}
+            type="button"
+            aria-pressed={option === chosen}
+            onClick={() => onChange(field.id, readable(option))}
+            animate={{ height: rowHeight }}
+            transition={FOLD}
+            // Chosen, it is marked — a tick and the accent's edge — and not
+            // filled: filled, it was a second solid button beside "That's
+            // it", and two of those on one screen do not say which to press
+            // (2026-10-14).
+            className={`w-full ${buttonClass("secondary", "fluid")} ${
+              option === chosen ? "border-2 border-accent bg-tint" : ""}`}
+          >
+            {option === chosen && <CheckIcon size={24} />}
+            {readable(option)}
+          </motion.button>
+        ))}
+        {more > 0 && <p className="text-small text-soft">{CHOOSE.more(more)}</p>}
+        {typed && found.length === 0 && (
+          <p className="col-span-2 text-small text-soft">{CHOOSE.none}</p>
+        )}
+      </motion.div>
     </div>
   );
 }
@@ -456,6 +590,7 @@ function ActionButton({
   onAction,
   grow,
   quiet,
+  blocked = false,
 }: {
   action?: StepAction;
   height: number;
@@ -464,6 +599,8 @@ function ActionButton({
   onAction: (id: string) => void;
   grow?: boolean;
   quiet?: boolean;
+  /** Waiting for an answer in a box: not pressable yet. */
+  blocked?: boolean;
 }) {
   if (!action) return null;
 
@@ -473,15 +610,42 @@ function ActionButton({
   return (
     <motion.button
       type="button"
-      disabled={answered}
+      disabled={answered || blocked}
       onClick={() => onAction(action.id)}
-      animate={{ height, opacity: answered ? 0.4 : waiting ? 1 : 0.85 }}
+      animate={{ height, opacity: answered ? 0.4 : blocked ? 0.45 : waiting ? 1 : 0.85 }}
       transition={FOLD}
       className={`${grow ? "flex-1" : "w-full"} ${buttonClass(tone, "fluid")}`}
     >
       {action.label}
     </motion.button>
   );
+}
+
+/** The id of the backend's offer to keep a password (`voice.REMEMBER_ID`),
+ *  shown as a box to tick rather than as a button. */
+export const SAVE_ID = "remember";
+
+/** Answers this long or shorter share a row; longer ones keep the column. */
+const SHORT_ANSWER = 22;
+
+/**
+ * How a step's answers are laid out. A question — its answers carry ids of
+ * their own, or it has a box to type in — whose one answer finishes it
+ * puts it beside the way to stop ("pair"); one with two or three short
+ * answers puts them in a row ("row"). Everything else keeps the column. At
+ * level 3, where the way to stop is a line of text, the layouts hold: a pair
+ * keeps the text beside its answer, a row keeps its row with the text under
+ * it. Falling back to the column there made level 3 up to 107px taller than
+ * level 2, and simplifying must never make a step taller.
+ */
+function answersLayout(step: StepPresented): "pair" | "row" | "column" {
+  const answers = step.actions.filter((action) => action.kind !== "secondary");
+  const choices = answers.filter((action) => action.id.startsWith("choice:"));
+  const typed = step.fields.some((field) => !field.value);
+  if (typed && answers.length === 1) return "pair";
+  if (choices.length >= 2 && choices.length === answers.length && answers.length <= 3 &&
+      answers.every((action) => action.label.length <= SHORT_ANSWER)) return "row";
+  return "column";
 }
 
 /**

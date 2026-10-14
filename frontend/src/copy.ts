@@ -25,7 +25,8 @@
  *   - No word where a shorter one exists. "Bill", not "invoice".
  *   - Say what is happening now, not what happened or will happen.
  *   - Never a word the reader has to be taught: no "step", "session",
- *     "verify", "retry", "overlay". (`STEP.count` breaks this one, knowingly —
+ *     "verify", "retry", "overlay". (A count, "Step 2 of 6", broke this one until
+ *     2026-10-14; the stages replaced it —
  *     see the note on it.)
  *   - A sentence ends with a full stop or a question mark. A lead-in that sits
  *     above the thing it introduces ends with nothing. A button label ends
@@ -60,19 +61,39 @@ export const ONWARD = "Do something else";
 /* ------------------------------------------------------------------ home */
 
 export const HOME = {
-  /** The first thing anyone sees. A greeting, not a prompt. */
-  greeting: "Hello. What can I do for you?",
-  /** Above the home screen's cards: what this person asked for before, then
-   *  what SIMBA can do, three at most. One list since 2026-09-30, so one
-   *  lead-in; the remembered ones say so with their icon. A lead-in. */
+  /**
+   * The first thing anyone sees: a greeting for the time of day, then the
+   * question (2026-10-14). Morning until noon, afternoon until five, evening
+   * after; the small hours are still evening, which is what people say.
+   */
+  morning: "Good morning. What can I do for you?",
+  afternoon: "Good afternoon. What can I do for you?",
+  evening: "Good evening. What can I do for you?",
+  /** Above the goals asked for before, under the tiles. A lead-in. */
+  again: "You asked before",
+  /** Beside a remembered bill, when two would otherwise look the same: the
+   *  reference number's last four digits (2026-10-15). */
+  ending: (digits: string) => `ending ${digits}`,
+  /** The name of the row of tiles, for a screen reader: the three things
+   *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
+   *  themselves. */
   canHelp: "I can help with these",
   /** Reveals the text box. Deliberately last, and quiet. */
   somethingElse: "Ask for something new",
   /** Above the text box, once it is showing. */
   askHeading: "What would you like me to do?",
-  placeholder: "Pay my electricity bill",
+  /** What SIMBA really does, in the words a person would type. It said "Pay
+   *  my electricity bill" until 2026-10-14, and SIMBA never pays anything. */
+  placeholder: "Trains from Lahore to Karachi tomorrow",
   start: "Start",
 } as const;
+
+/** The greeting for the hour it is, by the person's own clock. */
+export function greetingAt(hour: number): string {
+  if (hour >= 5 && hour < 12) return HOME.morning;
+  if (hour >= 12 && hour < 17) return HOME.afternoon;
+  return HOME.evening;
+}
 
 /* ---------------------------------------------------------------- flows */
 
@@ -188,18 +209,17 @@ export function presence(situation: Presence): string {
 
 /* ------------------------------------------------------------------ step */
 
-export const STEP = {
-  /**
-   * Small, and in the same place on every step.
-   *
-   * Kept because knowing how much is left is reassuring, and made quiet
-   * because it is also pressure. Level 3 drops it entirely — see `levels.ts`.
-   *
-   * It uses "Step", which the rules above forbid. Not fixed here because it is
-   * not only a wording change — it is a question about whether a count belongs
-   * on screen at all — and it is flagged for review rather than settled.
-   */
-  count: (index: number, total: number) => `Step ${index} of ${total}`,
+/**
+ * Where the person is in the task: the stages by name, which the backend
+ * sends (`task.started.stages`, `voice.*_STAGES`), in place of "Step 2 of 6"
+ * (2026-10-14). A count grew every time a question was asked again — "Step 13
+ * of 13" — so every later screen claimed to be the last; and it used a word
+ * the rules above forbid. The stage names are the backend's; this names the
+ * row for a screen reader.
+ */
+export const STAGES = {
+  /** The row of stages, named for a screen reader. */
+  label: "Where you are",
 } as const;
 
 /* -------------------------------------------------------------- findings */
@@ -233,6 +253,12 @@ export const ENDING = {
    * the step screen for the same thing, so one cut-short list reads one way.
    */
   more: (count: number) => `and ${count} more`,
+  /**
+   * On the result that takes least time, when every result's time can be
+   * read (2026-10-07). The sentence above says which one it is; this marks it
+   * where it is in the list. A tag, so it ends with nothing.
+   */
+  fastest: "Fastest",
 } as const;
 
 /* -------------------------------------------------------- when it stops */
@@ -284,10 +310,23 @@ export const STOPPED = {
  * function only because there are two directions; it is not free text.
  */
 export const NOTICE = {
-  /** The interface simplified itself. */
+  /** The interface simplified itself, because the person seemed to be finding
+   *  it hard. It comes back after two calm steps, so "for a moment" is true. */
   simpler: "I'm showing less for a moment.",
-  /** And put it back. */
-  fuller: "I'm showing a bit more again.",
+  /**
+   * The level rules made it fuller. Not "again" (until 2026-10-14): a task
+   * whose first page started it simpler had never shown more, and the
+   * sentence said it had.
+   */
+  fuller: "I'm showing a bit more now.",
+  /**
+   * The step was too long for the window and was packed closer to fit — the
+   * overflow guard, not the level rules. It used to say `fuller`'s "I'm
+   * showing a bit more again.", which was not what had happened: in the real
+   * window it greeted the very first question of a task, where nothing had
+   * been shown before to show "again" (EVALUATION.md, 2026-10-14).
+   */
+  fitted: "I've made this smaller so it fits.",
   /**
    * A step did not work and the run carried on.
    *
@@ -304,13 +343,16 @@ export const NOTICE = {
 } as const;
 
 /**
- * Which sentence a level change gets. Same direction, same words, always.
+ * Which sentence a level change gets. Same cause and direction, same words,
+ * always.
  *
- * Whatever moved the level — the estimator, or a step too long to fit — the
- * person sees one of these two sentences. The reason it moved is for the
- * development view, not the screen.
+ * A step packed to fit the window says so (`fitted`), whichever levels it
+ * moved between. Otherwise the level rules moved it, and the direction says
+ * which of the other two. The rules' own reason is for the development view,
+ * not the screen.
  */
-export function levelNotice(from: Level, to: Level): string {
+export function levelNotice(from: Level, to: Level, fitted = false): string {
+  if (fitted) return NOTICE.fitted;
   return to > from ? NOTICE.simpler : NOTICE.fuller;
 }
 
@@ -340,6 +382,78 @@ export const TRUST = {
   close: "Close",
 } as const;
 
+/* ------------------------------------------------------------ the checklist */
+
+/**
+ * What SIMBA does by itself once the person has decided (2026-10-14): the
+ * safe mechanical moves, as a short list that ticks off. Each line is the
+ * backend's (`voice.DOING_*`); these are the words round it.
+ */
+/**
+ * Signing in (2026-10-15). Saving the password is a box to tick under the
+ * boxes to type in, not a second "Sign in and save my password" button: one
+ * way to sign in, and a choice about it. Raham's decision; Aly to be told.
+ */
+export const SIGN_IN = {
+  /** Ticked, signing in also keeps the password on this computer. */
+  save: "Save my password for next time",
+} as const;
+
+export const CHECKLIST = {
+  heading: "I'm doing what you asked.",
+  /** Stops before the next move; SIMBA then waits to be told to carry on. */
+  pause: "Pause",
+  /** On the button once pressed, until SIMBA has stopped. */
+  pausing: "Pausing",
+  /** A line that is done, for a screen reader. */
+  done: "Done",
+  /** The line being done, for a screen reader. */
+  now: "Doing this now",
+  /** A line still to come, for a screen reader (2026-10-15). */
+  next: "Still to do",
+} as const;
+
+/**
+ * The person's own settings, kept on this computer (2026-10-14).
+ */
+export const SETTINGS = {
+  /** Off: SIMBA runs the safe moves itself. On: it asks before every one. */
+  askEach: "Ask me before each thing I do",
+} as const;
+
+/* ------------------------------------------------------------ read aloud */
+
+/**
+ * Reading a step aloud in the system's own English voice, when asked
+ * (2026-10-14). Nothing is read unless the button is pressed.
+ */
+export const SPEAK = {
+  read: "Read this aloud",
+  stop: "Stop reading",
+  /** After the step's sentence: the answers it offers, in the buttons' words. */
+  answers: (labels: string[]) =>
+    labels.length === 1
+      ? `You can press ${labels[0]}.`
+      : `You can press ${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}.`,
+} as const;
+
+/* --------------------------------------------------------- the real page */
+
+/**
+ * The real page, shown clear only while the person asks (2026-10-07; the
+ * 1.6s reveal when a task started went on 2026-10-14, and the softened page
+ * behind every step on 2026-10-15). Pressing and holding the button shows it
+ * for as long as it is held; a quick press keeps it showing until the other
+ * button is pressed. Password boxes are painted over before
+ * the picture ever leaves the backend.
+ */
+export const REVEAL = {
+  show: "Show the real page",
+  hide: "Hide the real page",
+  /** The picture of the page while it is shown, for a screen reader. */
+  picture: "The real page",
+} as const;
+
 /* --------------------------------------------------- a list to choose from */
 
 /**
@@ -349,8 +463,8 @@ export const TRUST = {
  * buttons to press. The names themselves come from the site.
  */
 export const CHOOSE = {
-  /** In the empty box. A placeholder, so it ends with nothing. */
-  hint: "Type the first few letters",
+  /** Where the names will be, before anything is typed. */
+  hint: "Type the first few letters to see the names.",
   /** Under the matches, when more match than are shown. */
   more: (count: number) =>
     count === 1 ? "1 more. Keep typing to find yours." : `${count} more. Keep typing to find yours.`,
@@ -375,13 +489,17 @@ export const SITUATIONS: Record<string, string> = {
   "presence.reading": presence("reading"),
   "notice.simpler": NOTICE.simpler,
   "notice.fuller": NOTICE.fuller,
+  "notice.fitted": NOTICE.fitted,
   "notice.skipped": NOTICE.skipped,
   "ending.withoutAnswer": ENDING.withoutAnswer,
   "stopped.heading": STOPPED.heading,
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,
-  "home.greeting": HOME.greeting,
+  "home.morning": HOME.morning,
+  "home.afternoon": HOME.afternoon,
+  "home.evening": HOME.evening,
+  "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
   "trust.ask": TRUST.ask,
   "reply.greeting": REPLY.greeting,
@@ -389,12 +507,16 @@ export const SITUATIONS: Record<string, string> = {
   "reply.clarify": REPLY.clarify,
   "choose.more": CHOOSE.more(5),
   "choose.none": CHOOSE.none,
+  "choose.hint": CHOOSE.hint,
+  "speak.answers": SPEAK.answers(["Today", "Tomorrow", "Pick another day"]),
 };
 
 /** Lead-ins: text that introduces what sits below it. Never punctuated. */
 export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
+  "ending.fastest": ENDING.fastest,
   "home.canHelp": HOME.canHelp,
+  "home.again": HOME.again,
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
 };
@@ -414,6 +536,18 @@ export const LABELS: Record<string, string> = {
   "trust.close": TRUST.close,
   "trust.whole": TRUST.whole,
   "trust.closeUp": TRUST.closeUp,
+  "reveal.show": REVEAL.show,
+  "reveal.hide": REVEAL.hide,
+  "speak.read": SPEAK.read,
+  "checklist.pause": CHECKLIST.pause,
+  "checklist.pausing": CHECKLIST.pausing,
+  "checklist.done": CHECKLIST.done,
+  "checklist.now": CHECKLIST.now,
+  "checklist.next": CHECKLIST.next,
+  "signIn.save": SIGN_IN.save,
+  "home.ending": HOME.ending("7890"),
+  "settings.askEach": SETTINGS.askEach,
+  "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,
   "flow.railways": FLOWS.railways,
@@ -428,5 +562,6 @@ export const LABELS: Record<string, string> = {
   "status.waiting": STATUS.waiting,
   "status.stuck": STATUS.stuck,
   "status.done": STATUS.done,
+  "stages.label": STAGES.label,
   "choose.matches": CHOOSE.matches,
 };

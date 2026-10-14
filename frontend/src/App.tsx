@@ -11,14 +11,14 @@
  * the tokens in `index.css` and `design.ts`.
  */
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
-import { LevelControl, LevelNotice } from "./components/LevelControl";
+import { LevelControl } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
-import { StepFailureNotice } from "./components/StepNotice";
 import {
   AgainIcon,
   Button,
@@ -26,67 +26,34 @@ import {
   CheckIcon,
   ChoiceCard,
   FlowIcon,
+  AlertIcon,
   PauseIcon,
   Presence,
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
-import { ARRIVE, COLUMN, TYPE } from "./design";
+import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+         presence } from "./copy";
+import { FlowIllustration } from "./components/Illustrations";
+import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
+import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
+import { TopLine } from "./components/StepShell";
+import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
+import { useShortWindow } from "./useShortWindow";
 
 const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
 
-/**
- * The most cards the home screen shows, remembered goals and the things SIMBA
- * can do together. Until 2026-09-30 it was three of each: six cards, and at
- * 150% the text box below them fell off the bottom of the window.
- */
-export const HOME_CARDS = 3;
-
-/** One card on the home screen, and what pressing it asks for. */
-export interface HomeCard {
-  goal: string;
-  /** Sent with the goal when the card is one of the things SIMBA can do, so
-   *  the backend runs exactly that and does not guess from the words. */
-  flow?: FlowName;
-  /** Asked for before, which the card's icon says. */
-  remembered: boolean;
-}
-
-/** Two goals are the same card if they differ only in case, spacing or a
- *  closing full stop — "Check my electricity bill." is the bill card. */
+/** Two goals are the same if they differ only in case, spacing or a
+ *  closing full stop — "Check my electricity bill." is the bill tile. */
 function sameGoal(a: string, b: string): boolean {
   const plain = (text: string) =>
     text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/, "").toLowerCase();
   return plain(a) === plain(b);
-}
-
-/**
- * The home screen's one list: what this person asked for before, most recent
- * first, then the things SIMBA can do, with nothing twice and never more than
- * `HOME_CARDS`. A remembered goal that is one of the things SIMBA can do stays
- * in its remembered place and keeps that flow, so pressing it runs exactly
- * what the card always ran.
- */
-export function homeCards(history: PastGoal[]): HomeCard[] {
-  const cards: HomeCard[] = [];
-  const add = (card: HomeCard) => {
-    if (cards.length < HOME_CARDS && !cards.some((c) => sameGoal(c.goal, card.goal))) {
-      cards.push(card);
-    }
-  };
-  for (const past of history) {
-    const flow = ALL_FLOWS.find((name) => sameGoal(FLOWS[name], past.goal));
-    add(flow ? { goal: FLOWS[flow], flow, remembered: true }
-             : { goal: past.goal, remembered: true });
-  }
-  for (const flow of ALL_FLOWS) add({ goal: FLOWS[flow], flow, remembered: false });
-  return cards;
 }
 
 export default function App() {
@@ -103,19 +70,22 @@ export default function App() {
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
   return (
-    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-12
-                    short:pt-3 short:pb-4">
+    // The bottom padding is the one space on every screen nothing reads:
+    // 32px, and 4px in a short window, since the step row and the real page's
+    // button (2026-10-07) took the last few pixels at 100% and 150%.
+    <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
+                    short:pt-3 short:pb-1">
+      {/* The real page, behind everything else, while it is asked for (`Backdrop`). */}
+      <Backdrop />
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
           a narrow strip down the middle of an empty screen. */}
-      {/* `relative`: the level notice floats over the card's top edge,
-          positioned against this column (`FLOATING_NOTICE_CLASS`). */}
-      <div className="relative mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
-        <LevelNotice />
-        <StepFailureNotice />
+      <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
+        <NoticeTimers />
         <Column />
       </div>
+      <PeekBack />
       <TrustPanel />
       <DebugPanel />
     </div>
@@ -135,18 +105,38 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen } = useStore();
+  const { trustOpen, peeking, task, asking, reply, completed, failed, help,
+          stoppedByPerson } = useStore();
   const mode = usePresenceMode();
+  // Large on the home screen, the first thing seen; small everywhere else.
+  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson;
+  // It settles into place once, when SIMBA opens (`entrance.ts`), at the
+  // same moment the tiles' entrance is decided — never under reduced motion.
+  const reduce = useReducedMotion() ?? false;
+  const [settle] = useState(() => !reduce && !entrancePlayed());
+  const aside = trustOpen || peeking;
   return (
-    <motion.div animate={{ opacity: trustOpen ? 0 : 1 }} transition={ARRIVE}>
-      <Presence mode={mode} />
+    // Above the real page behind it (`Backdrop`), and out of the way while
+    // that page is being shown. Nothing else is in this row: since
+    // 2026-10-14 notices and "Read this aloud" are in the card's first line.
+    <motion.div className="relative z-[1] flex w-full justify-center"
+                style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
+                animate={{ opacity: aside ? 0 : 1 }} transition={ARRIVE}>
+      <motion.div initial={home && settle ? { opacity: 0, scale: 0.9 } : false}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.9, ease: EASE }}>
+        <Presence mode={mode} large={home} />
+      </motion.div>
     </motion.div>
   );
 }
 
 function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state, asking } =
-    useStore();
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, peeking, reply, state,
+          asking, checklist } = useStore();
+  // Put aside while the real page is shown: the trust panel's picture, or
+  // the page itself behind the step (`Backdrop`).
+  const aside = trustOpen || peeking;
 
   const stuck = state === "stuck" || Boolean(help);
 
@@ -165,6 +155,8 @@ function Column() {
         ? "failed"
         : step
           ? `step-${step.step_index}`
+          : checklist.length > 0
+            ? "checklist"
           : task || asking
             ? "working"
             : reply
@@ -174,9 +166,9 @@ function Column() {
   return (
     <motion.div
       // Out of the way while the real page is being shown.
-      animate={{ y: trustOpen ? -28 : 0, opacity: trustOpen ? 0 : 1 }}
+      animate={{ y: aside ? -28 : 0, opacity: aside ? 0 : 1 }}
       transition={{ duration: 0.42, ease: [0.4, 0, 0.2, 1] }}
-      style={{ pointerEvents: trustOpen ? "none" : "auto" }}
+      style={{ pointerEvents: aside ? "none" : "auto" }}
     >
       {/* Both screens share one grid cell, so the outgoing and incoming ones
           overlap during the crossfade instead of stacking and shoving the
@@ -200,6 +192,7 @@ function Column() {
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
             {screen.startsWith("step-") && <Step />}
+            {screen === "checklist" && <Checklist />}
             {screen === "completed" && <Completed />}
             {screen === "failed" && <Failed />}
             {screen === "stopped" && <StoppedByPerson />}
@@ -214,51 +207,172 @@ function Column() {
 /* ----------------------------------------------------------------- home */
 
 /**
- * The first screen: a greeting, the three things SIMBA can do, and a place
- * to ask for something in your own words.
+ * The first screen (redesigned 2026-10-14): a greeting for the time of day,
+ * the three things SIMBA can do as three large tiles side by side, each with
+ * a simple picture, and the box to ask in your own words, close under them:
+ * one group, centred in the height of the window. From 2026-10-14 to
+ * 2026-10-15 the box sat at the bottom of the window and the tiles at the
+ * top, which left a large empty gap between the two things to choose from.
+ * Goals asked for before, when there are any, are a short list under the
+ * tiles; a tile is never repeated there.
  *
- * The cards come first because choosing is easier than composing. Each is an
- * icon and one line, and the line is exactly what gets asked for.
+ * Once, when SIMBA opens, the tiles rise in gently after the shape has
+ * settled (`entrance.ts`); never under reduced motion, and never again on the
+ * way back from a task.
  */
 function Home() {
   const { startTask, history } = useStore();
-  // The box is always there, below the cards (2026-09-21). It used to be
-  // revealed behind "Ask for something new" whenever there was history, on
-  // the reasoning that an empty field is the hardest thing on the screen and
-  // should not be the first. The cards now come first and carry that job;
-  // hiding the box as well made asking in your own words look like a
-  // secondary route, and it could hide itself mid-sentence when history
-  // arrived late.
-  // One list, remembered goals first, never more than three cards: a second
-  // list of up to three more is what pushed the box off a 150% screen.
-  const cards = homeCards(history);
+  const reduce = useReducedMotion() ?? false;
+  const [enter] = useState(() => homeEntrance(reduce));
+  const [hour] = useState(() => new Date().getHours());
+  const remembered = rememberedGoals(history);
+  const apart = tellApart(remembered);
 
   return (
-    // 32px between the greeting, the cards and the box, not 40: three
-    // remembered goals of two lines each need the room at 100%.
-    <div className="flex flex-col gap-8 short:gap-6">
-      {/* A step down in a short window: 48px to 38px. The greeting is the
-          one line on this screen nobody needs to read twice. */}
-      <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
-        {HOME.greeting}
-      </h1>
+    <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
+                    short:min-h-[calc(100dvh-92px)] short:gap-5">
+      <div className="flex flex-col gap-8 short:gap-5">
+        <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
+                       short:text-heading" data-testid="greeting">
+          {greetingAt(hour)}
+        </h1>
 
-      <Section lead={HOME.canHelp}>
-        {cards.map((card) => (
-          <ChoiceCard key={card.goal}
-                      icon={card.remembered || !card.flow ? <AgainIcon />
-                            : <FlowIcon flow={card.flow} />}
-                      onClick={() => startTask(card.goal, card.flow)}>
-            {card.goal}
-          </ChoiceCard>
-        ))}
-      </Section>
+        <section className="flex flex-col gap-3" aria-label={HOME.canHelp}>
+          <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="tiles">
+            {/* Its own AnimatePresence: the screens' one above starts with
+                `initial={false}`, which would hold back the tiles' entrance
+                as well as the screen's own. */}
+            <AnimatePresence>
+            {ALL_FLOWS.map((flow, index) => (
+              <motion.li key={flow}
+                         initial={enter ? { opacity: 0, y: 18 } : false}
+                         animate={{ opacity: 1, y: 0 }}
+                         transition={{ duration: 0.7, ease: EASE, delay: 0.35 + index * 0.12 }}>
+                <button type="button" onClick={() => startTask(FLOWS[flow], flow)}
+                        data-testid="tile"
+                        className="group flex h-full w-full flex-col items-center gap-4 rounded-xl
+                                   border border-edge bg-surface px-5 pt-6 pb-5 text-center
+                                   shadow-card transition-[box-shadow,border-color,transform]
+                                   duration-200 hover:border-accent/50 hover:shadow-lift
+                                   active:translate-y-px short:gap-3 short:pt-4 short:pb-4">
+                  <span className="h-24 w-32 short:h-16 short:w-24">
+                    <FlowIllustration flow={flow} />
+                  </span>
+                  <span className="text-lead font-semibold leading-snug text-ink short:text-body">
+                    {FLOWS[flow]}
+                  </span>
+                </button>
+              </motion.li>
+            ))}
+            </AnimatePresence>
+          </ul>
+        </section>
 
-      {/* In a short window the box's lead-in goes: the greeting above has
-          just asked the same question, and three remembered goals of two
-          lines each need the room at 150%. The box keeps it as its name. */}
-      <AskBox lead={HOME.askHeading} leadWhenShort={false} />
+        {/* One row, the lead-in beside the goals: stacked, two goals and
+            their lead-in took 166px and put the box under the bottom of the
+            window at 100% and 150% (2026-10-14). */}
+        {remembered.length > 0 && (
+          <section className="flex items-center gap-3" aria-label={HOME.again}>
+            <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
+            {remembered.map((goal, index) => (
+              <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
+                      data-testid="remembered"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
+                                 border-edge bg-surface px-4 py-2 text-left text-body text-ink
+                                 shadow-press hover:border-accent/50">
+                <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
+                <span className="line-clamp-1 flex-1">{goal}</span>
+                {/* What tells it from the other, never cut off (2026-10-15).
+                    Hidden from a screen reader: the goal is read whole. */}
+                {apart[index] && (
+                  <span className="shrink-0 font-semibold tabular-nums" aria-hidden
+                        data-testid="apart">
+                    {apart[index]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </section>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {/* In a short window the box's lead-in goes: the greeting above has
+            just asked the same question. The box keeps it as its name. */}
+        <AskBox lead={HOME.askHeading} leadWhenShort={false} />
+        <div className="flex justify-end"><AskEachSetting /></div>
+      </div>
     </div>
+  );
+}
+
+/** How many goals asked for before the home screen lists under the tiles. */
+const REMEMBERED = 2;
+
+/**
+ * Goals asked for before, most recent first, each once, and never one a tile
+ * already offers — whatever its case, spacing or full stop.
+ */
+export function rememberedGoals(history: PastGoal[]): string[] {
+  const out: string[] = [];
+  for (const past of history) {
+    if (ALL_FLOWS.some((flow) => sameGoal(FLOWS[flow], past.goal))) continue;
+    if (out.some((goal) => sameGoal(goal, past.goal))) continue;
+    if (out.length < REMEMBERED) out.push(past.goal);
+  }
+  return out;
+}
+
+/** Two goals that start with this many characters in common look the same
+ *  on a remembered goal's one line, which shows about the first twenty. */
+const LOOKS_SAME = 16;
+
+/** A reference number, as the bill flow's goals spell it. */
+const REFERENCE = /\d{10,}/;
+
+/**
+ * What tells each remembered goal from the others, when they would look the
+ * same on one line (2026-10-15): two bills both read "Find the amount due
+ * for…". For a bill, its reference's last four digits ("ending 7890");
+ * otherwise the first word where the two part ("Multan"). Null for a goal
+ * that already looks like itself.
+ */
+export function tellApart(goals: string[]): (string | null)[] {
+  return goals.map((goal, index) => {
+    const twin = goals.find((other, at) =>
+      at !== index && commonStart(goal, other).length >= LOOKS_SAME);
+    if (twin === undefined) return null;
+    const reference = goal.match(REFERENCE);
+    if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
+      return HOME.ending(reference[0].slice(-4));
+    }
+    const words = goal.split(/\s+/);
+    const others = twin.split(/\s+/);
+    const differs = words.findIndex((word, at) => word !== others[at]);
+    return differs >= 0 ? words[differs].replace(/[.,!?]+$/, "") : null;
+  });
+}
+
+/** The words two goals start with, whole words only. */
+function commonStart(a: string, b: string): string {
+  const one = a.split(/\s+/);
+  const two = b.split(/\s+/);
+  const same: string[] = [];
+  for (let at = 0; at < Math.min(one.length, two.length) && one[at] === two[at]; at += 1) {
+    same.push(one[at]);
+  }
+  return same.join(" ");
+}
+
+/** The person's own setting: be asked before every move (2026-10-14). */
+function AskEachSetting() {
+  const { askEachTime, setAskEachTime } = useStore();
+  return (
+    <label className="flex cursor-pointer items-center gap-3 text-small text-soft">
+      <input type="checkbox" className="h-5 w-5 accent-[var(--accent)]" checked={askEachTime}
+             onChange={(event) => setAskEachTime(event.target.checked)} />
+      {SETTINGS.askEach}
+    </label>
   );
 }
 
@@ -293,9 +407,8 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
         </p>
       )}
       <div
-        className="flex items-center gap-4 rounded-xl border-2 border-line bg-surface py-2.5
-                   pr-2.5 pl-6 shadow-card transition-[border-color,box-shadow] duration-200
-                   focus-within:border-accent"
+        className="simba-field-frame flex items-center gap-4 rounded-xl py-2.5 pr-2.5 pl-6
+                   shadow-card"
       >
         <span className="shrink-0 text-soft" aria-hidden>
           <SpeechIcon />
@@ -303,7 +416,7 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
         <input
           autoFocus={autoFocus}
           className="min-w-0 flex-1 bg-transparent py-4 text-lead text-ink outline-none short:py-3
-                     placeholder:text-soft/80 focus-visible:outline-none"
+                     placeholder:text-soft focus-visible:outline-none"
           value={goal}
           onChange={(event) => setGoal(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && start()}
@@ -345,11 +458,14 @@ function Reply() {
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
           {heading}
         </h1>
+        {/* Their words on one line with the lead-in, not two: the reply to
+            "book a flight" scrolled by 24px at 100% and 45px at 150% until
+            2026-10-14. */}
         {reply.kind !== "greeting" && reply.goal && (
-          <div className="flex flex-col gap-1 border-l-4 border-tint pl-4">
-            <p className="text-small font-medium text-soft">{REPLY.youAsked}</p>
-            <p className="text-lead text-ink">{reply.goal}</p>
-          </div>
+          <p className="flex flex-wrap items-baseline gap-x-3 border-l-4 border-tint pl-4">
+            <span className="text-small font-medium text-soft">{REPLY.youAsked}</span>
+            <span className="text-lead text-ink">{reply.goal}</span>
+          </p>
         )}
       </div>
 
@@ -384,7 +500,9 @@ function Reply() {
         </div>
       )}
 
-      <AskBox lead={HOME.askHeading} />
+      {/* In a short window the box's lead-in goes, as on the home screen:
+          the heading above has just asked, and it keeps it as its name. */}
+      <AskBox lead={HOME.askHeading} leadWhenShort={false} />
     </div>
   );
 }
@@ -470,10 +588,74 @@ function Step() {
           card: at this type size, stacked, they pushed a step with a field
           past the bottom of the window. */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
-        <TrustControl />
+        <div className="flex flex-wrap items-center gap-3">
+          <TrustControl />
+          <PeekButton />
+        </div>
         <LevelControl />
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------- checklist */
+
+/**
+ * What SIMBA is doing by itself, once the person has decided (2026-10-14).
+ *
+ * The safe mechanical moves — filling in the form, opening the calendar,
+ * searching — used to be a screen each, with a button to press for each.
+ * Now they run, and each is one line here: done ones ticked, the one being
+ * done marked, in the backend's plain words. One button, Pause, which stops
+ * SIMBA before its next move. Anything that is a real choice, that went
+ * wrong, or that would pay, book, register or change a record still asks.
+ */
+function Checklist() {
+  const { checklist, coming, pausing, pause } = useStore();
+  return (
+    <Card className="px-12 py-10 short:py-7">
+      <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
+        <TopLine step={null} stages full answered />
+        <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
+          {CHECKLIST.heading}
+        </h1>
+        <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite" data-testid="checklist-lines">
+          {checklist.map((row, index) => {
+            const done = index < checklist.length - 1;
+            return (
+              <li key={row.index} className="flex items-center gap-4 text-lead text-ink"
+                  data-state={done ? "done" : "now"}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                                  ${done ? "bg-accent text-accent-ink"
+                                         : "border-2 border-accent text-accent"}`}>
+                  {done ? <CheckIcon size={20} /> : <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
+                </span>
+                <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.now}</span>
+                <span className={done ? "text-soft" : "font-semibold"}>{row.label}</span>
+              </li>
+            );
+          })}
+          {/* What is next, so nothing comes as a surprise (2026-10-15): an
+              empty dashed ring and the softer text. Softer, never fainter
+              than 4.5:1 (`test_contrast.py`). */}
+          {coming.map((label) => (
+            <li key={`coming-${label}`} className="flex items-center gap-4 text-lead"
+                data-state="to come">
+              <span className="h-9 w-9 shrink-0 rounded-full border-2 border-dashed border-edge"
+                    aria-hidden />
+              <span className="sr-only">{CHECKLIST.next}</span>
+              <span className="text-soft">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <div>
+          <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
+            <span data-icon="pause"><PauseIcon size={24} /></span>
+            {pausing ? CHECKLIST.pausing : CHECKLIST.pause}
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -515,6 +697,14 @@ function Completed() {
           {/* The sentence, when there is one, in the lead-in's place: it
               says what the lead-in says and more, and both together were the
               line that kept nine results off a 606px window (2026-10-05). */}
+          {/* What the results are for: the journey the person agreed, not
+              anything the page said (2026-10-14). */}
+          {completed?.heading && (
+            <p className="mb-2 text-title font-semibold tracking-[-0.01em] text-ink
+                          short:text-lead" data-testid="heading">
+              {completed.heading}
+            </p>
+          )}
           {explanation ? (
             <p ref={said}
                className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
@@ -604,17 +794,30 @@ export function Findings({ findings, size, less = 0 }: {
   const count = byRows ? sent.length : lists[0]?.length ?? 0;
 
   if (count <= 1) {
+    const [answer, ...support] = findings;
+    // A slip, like the bill it usually is (2026-10-07): the answer large with
+    // what it is under it, a torn-paper rule, then what supports it, each
+    // value beside its label. Nothing is added that the page did not say.
     return (
-      <div className="flex flex-col gap-7 short:gap-5" data-testid="findings">
-        {findings.map((finding, index) => (
-          <Found key={finding.label} label={finding.label}
-                 // The first finding is the answer; any others support it.
-                 size={index === 0 ? size : Math.round(size * 0.55)}>
-            {/* A supporting finding with several values is the step
-                screen's one line, which counts past four. */}
-            <span>{lists[index].length === 1 ? lists[index][0] : finding.value}</span>
-          </Found>
-        ))}
+      <div className="flex flex-col gap-6 short:gap-4" data-testid="findings" data-shape="slip">
+        <Found label={answer.label} size={size}>
+          <span>{lists[0].length === 1 ? lists[0][0] : answer.value}</span>
+        </Found>
+        {support.length > 0 && (
+          <div className="flex flex-col gap-2 border-t-2 border-dashed border-line pt-5 short:pt-3">
+            {support.map((finding, index) => (
+              <p key={finding.label}
+                 className="flex items-baseline justify-between gap-6 text-lead short:text-body">
+                <span className="text-soft">{finding.label}</span>
+                {/* A supporting finding with several values is the step
+                    screen's one line, which counts past four. */}
+                <span className="font-semibold text-ink">
+                  {lists[index + 1].length === 1 ? lists[index + 1][0] : finding.value}
+                </span>
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -642,6 +845,12 @@ export function Findings({ findings, size, less = 0 }: {
   // 54px for a few; past four, the size of a step's instruction.
   const rowSize = count > 4 ? TYPE.title : Math.round(size * 0.75);
 
+  if (byRows) {
+    return (
+      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart} less={less} />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2" data-testid="findings">
       <Found label={beside.map((finding) => finding.label).join(", ")}
@@ -652,6 +861,123 @@ export function Findings({ findings, size, less = 0 }: {
         )}
       </Found>
       {/* Not beside any one result, so under the list, in the label's type. */}
+      {apart.map((finding) => (
+        <p key={finding.label} className="text-body text-soft">
+          {finding.label}: <span className="font-medium text-ink">{finding.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** `6 h 3 min` as 363, or null for anything else (`voice._minutes`). */
+function minutes(text: string): number | null {
+  const match = /^\s*(\d+)\s*h\s*(\d+)\s*min\s*$/.exec(text);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+/**
+ * Which results take least time, by row: the column whose every cell is a
+ * journey time, its smallest value, and every row that has it. Empty when no
+ * column is all times, or when every result takes the same — then none is
+ * faster, and the sentence above already says they all take that long.
+ */
+export function fastestRows(rows: string[][]): Set<number> {
+  const width = Math.max(0, ...rows.map((row) => row.length));
+  for (let column = 0; column < width; column++) {
+    const times = rows.map((row) => minutes(row[column] ?? ""));
+    if (times.some((time) => time === null)) continue;
+    const best = Math.min(...(times as number[]));
+    const at = new Set(times.flatMap((time, row) => (time === best ? [row] : [])));
+    return at.size === rows.length ? new Set() : at;
+  }
+  return new Set();
+}
+
+/** How many results are shown before the rest are counted: fewer in a short
+ *  window, where each takes the same height. */
+const TICKETS = { full: 5, short: 3 };
+
+/**
+ * Results that came as whole rows, one ticket each (2026-10-07; one to a row
+ * since 2026-10-14).
+ *
+ * The first cell is the result — a train's number — large. The rest follow
+ * in the page's own words, each under its own name: "Leaves 08:04", "Arrives
+ * 06:20", "Journey 22 h 16 min" — the live site prints both times in one
+ * cell, and the backend reads them apart (`Answer.part`); a page that prints
+ * one gives an empty "Arrives", which is left out, not worked out. The line
+ * that used to name the columns, "Train, Journey", is gone: each value now
+ * says what it is. The fastest is marked where the times can be read, and is
+ * never among those counted. Each extra line the sentence above takes, and
+ * each detail that is not on the tickets, gives up one ticket.
+ */
+function Tickets({ findings, rows, onLine, apart, less }: {
+  findings: Finding[]; rows: string[][]; onLine: (index: number) => boolean;
+  apart: Finding[]; less: number;
+}) {
+  const short = useShortWindow();
+  const count = rows.length;
+  const columns = findings.flatMap((_, index) => (onLine(index) ? [index] : []));
+  const room = short ? TICKETS.short : TICKETS.full;
+  const shown = Math.min(count, Math.max(1, room - apart.length - less));
+  const fastest = fastestRows(rows);
+  // The rows shown, in the page's order — and when the fastest is not among
+  // them, it takes the last place, so the one marked is never in "and N more".
+  const picked = Array.from({ length: shown }, (_, index) => index);
+  const best = [...fastest][0];
+  if (best !== undefined && !picked.some((index) => fastest.has(index))) {
+    picked[picked.length - 1] = best;
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="findings" data-shape="tickets">
+      <ul className="flex flex-col gap-2">
+        {picked.map((index) => {
+          const row = rows[index];
+          const [first, ...rest] = columns.map((column) => row[column] ?? "");
+          const named = rest.map((value, at) => ({ value, name: findings[columns[at + 1]].label }))
+            .filter((cell) => cell.value);
+          const quickest = fastest.has(index);
+          return (
+            <li key={index}
+                data-testid="ticket"
+                data-fastest={quickest ? "true" : undefined}
+                className={`flex items-center gap-6 rounded-lg border-2 bg-canvas px-5 py-2
+                            short:py-1.5 ${quickest ? "border-accent" : "border-line"}`}>
+              <span className="w-28 shrink-0 font-semibold leading-[1.1] tracking-[-0.02em]
+                               text-ink" style={{ fontSize: TYPE.title }}>
+                {first}
+              </span>
+              {named.map((cell) => (
+                // One line, the name quietly before its value: under it, each
+                // ticket was 70px and six put "I'm done" off a 800px window.
+                <span key={cell.name} className="flex items-baseline gap-2 whitespace-nowrap"
+                      data-testid="ticket-cell">
+                  <span className="text-caption text-soft">{cell.name}</span>
+                  {/* The interface's own face, with figures of one width so
+                      times line up from ticket to ticket (2026-10-15). Its
+                      zero is slashed in every setting: that is the face's
+                      way of never being read as O. */}
+                  <span className="text-body font-semibold text-ink tabular-nums">
+                    {cell.value}
+                  </span>
+                </span>
+              ))}
+              {quickest && (
+                <span className="ml-auto shrink-0 rounded-full bg-accent px-3 py-0.5
+                                 text-caption font-semibold text-accent-ink">
+                  {ENDING.fastest}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {count > shown && (
+        <p className="text-body font-medium text-soft">{ENDING.more(count - shown)}</p>
+      )}
+      {/* Not on any one ticket, so under them, in the label's type. */}
       {apart.map((finding) => (
         <p key={finding.label} className="text-body text-soft">
           {finding.label}: <span className="font-medium text-ink">{finding.value}</span>
@@ -711,7 +1037,7 @@ function Failed() {
     <div className="flex flex-col gap-8 short:gap-5">
       <Card tone="stuck" className="flex flex-col gap-4 px-12 py-10 short:py-7">
         <span className="text-stuck" aria-hidden>
-          <PauseIcon size={34} />
+          <AlertIcon size={34} />
         </span>
         <h1 className="text-display font-semibold tracking-[-0.015em] text-stuck">
           {STOPPED.failedHeading}

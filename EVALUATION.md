@@ -5009,3 +5009,328 @@ fail; with the reading back skipped, 7 fail.
 **Full suite** on `feat/railways-ask`: **1012 passed, 12 skipped, 0 failed**,
 1181s (944 passed before; 68 added). Docstrings in `details.py` and the
 records were edited while it ran; no code was.
+
+## 2026-10-07 — the interface, less plain: the real page behind, shapes, tickets
+
+On `feat/interface-reveal`, from `feat/railways-ask`. Five of the seven
+things asked for are built; one already existed and one is not allowed.
+Every measurement here is headless Chromium against the built overlay, never
+the Electron window, and no desktop was captured. 168 screenshots — 28
+screens, both themes, 100%, 125% and 150% — are in `.scratch/interface-reveal/`
+(not committed), with the script that takes them.
+
+**Reduced motion did not reach most of the motion.** `index.css` stops CSS
+animation under `prefers-reduced-motion`, and the presence mark is Framer
+Motion, which animates from JavaScript. With reduced motion emulated, the mark
+while thinking had **12 different looks in 12 samples over 3s**; after
+`MotionConfig reducedMotion="user"` and a still mark, **1**
+(`frontend/test_calm.py`). Present since the mark existed.
+
+**The real page behind the step.** The backend's picture of the site, asked
+for with each step, blurred 18px under 82% of the canvas colour, after 1.6s
+shown clearly when a task starts; "Show the real page" clears it while held
+(over 400ms) or until "Hide the real page" after a tap. Password boxes are
+painted over in every capture: on the registration replica with a password
+typed, every pixel inside the box is the mask colour, where the same box
+unmasked has the dots in it (`test_preview_mask.py`, 4). Neither the picture
+nor a peek counted as a help press in any telemetry sample
+(`test_reveal.py`, 8).
+
+**SIMBA's shape costs the main thread, and it was measured.** CSS 3D, no
+dependency. Main-thread task time over 5s on the home screen, three runs each:
+
+| Condition | Main-thread task time in 5s | 95th-percentile frame |
+|---|---|---|
+| No shape on the page | 113–174ms | 16.7–16.8ms |
+| Shape held still (reduced motion) | 122–162ms | 16.7ms |
+| Turning, sixty updates a second | 244–320ms (style recalc 47–61ms) | 16.7–16.8ms |
+| Turning, `will-change: transform` | 249–288ms | 16.7–16.8ms |
+| **Turning, twenty updates a second (kept)** | **181–206ms** | 16.7–16.8ms |
+
+So the 3D turn is not composited here: it costs style work as it changes, and
+layer promotion does not help. Stepping it to twenty updates a second halves
+the extra work, to about 70ms in 5s (1.4% of one core), and no frame is late
+in any condition. Not measured in the Electron window, where a GPU may
+composite it.
+
+**Fit, measured against the base.** The screenshot script flags any page that
+scrolls. Built from `98cf77a` (this branch's base) and from this branch, the
+same screens, overflow in px at 100 / 125 / 150%:
+
+| Screen | Base | This branch, first | After the fix |
+|---|---|---|---|
+| Reply to "book a flight" | 40 / 0 / 57 | 40 / 0 / 57 | 24 / 0 / 45 |
+| Sign-in step | 0 / 0 / 0 | 1 / 0 / 6 | 0 / 0 / 0 |
+| Station question | 0 / 0 / 0 | 1 / 0 / 0 | 0 / 0 / 0 |
+| Station question, "kar" typed | **52** / 0 / **52** | 69 / 0 / 57 | 0 / 0 / 0 |
+
+The station question overflowed on `feat/railways-ask` already: its names
+arrive after the overflow guard has measured the step, and its fit test
+checked the two buttons only. It now keeps one row for the list from the
+start and shows at most two names; its test now requires that nothing
+scrolls. The reply screen is not part of this work and still scrolls (flagged).
+
+**Closing screen.** Nine trains as tickets still leave both buttons on screen
+at all three sizes, with a one-line and a two-line sentence
+(`test_closing.py`, 32, three new). The fastest, eighth of nine, is moved into
+the last place shown so the one marked is never counted away.
+
+**Shapes beside steps.** All three hardcoded plans, the trip planner and every
+question are given the kind they mean (`test_step_kind.py`, 9); a long
+sentence with its shape fits at 150% at levels 1, 2 and 3
+(`test_step_icons.py`, 11).
+
+**Full suite** on `feat/interface-reveal`: **1054 passed, 12 skipped, 0
+failed**, 1173s (1012 before; 42 added). The records were written while it
+ran; no code was changed after it started.
+
+## 2026-10-14 — the new look, in the real window
+
+The first time the interface from `feat/interface-reveal` was seen in the
+Electron host rather than a headless browser. `.\run.ps1 railways-local`, with
+`SIMBA_RECORD_STEPS=0` so scripted presses never reached the estimator's
+training rows. Driven over the host's CDP port with real input events
+(`Input.dispatchMouseEvent`, `Input.insertText`) sent to the overlay's own
+target only; every capture is the overlay's content (`Page.captureScreenshot`)
+or the SIMBA window alone (`PrintWindow` on the window of the process holding
+the CDP port), never the desktop. Scripts and captures in
+`.scratch/window-review/` (not committed).
+
+**This machine's display is at 150%:** the real window is 1266x606 CSS pixels
+at a device pixel ratio of 1.5 — the tightest of the three sizes. The 100%
+captures come from a second real host started with
+`--force-device-scale-factor=1`, as `display_fit_run.py` does; Windows' own
+setting was not touched.
+
+**The whole train flow, walked** (22 screens): home, "train", a station the
+site lacks ("Narnia"), a misspelling ("Lahor", then Lahore Cantt), the same
+station both ways, a day that has passed ("1 October 2026"), the readback,
+five steps, the peek, the results. It completed, and searched Lahore Cantt to
+Karachi Cantt for the 15th.
+
+**What the real window showed that headless did not:**
+
+| Found | Detail |
+|---|---|
+| Electron's own menu bar | File / Edit / View / Window / Help above the overlay, 26px of it at 150% |
+| A scrollbar at 150% | Five question screens 9px too tall — the ones whose sentence explains a wrong answer and runs to two lines — with a classic scrollbar down the side. Already at level 1, the guard's floor |
+| "I'm showing a bit more again." on every first question | The overflow guard's fold, at 100% and at 150% |
+| One softened frame before the reveal | The backdrop drew `data-clear=false` for 17ms, then cleared |
+| "Read this aloud" could not be pressed | For the eight seconds the guard's notice was up it lay over the button; the press landed on the notice. Found when checking item 5, after it was built |
+| The count runs past itself | Re-asked questions push the count past its promise: "Step 10 of 10", "11 of 11", "12 of 12", "13 of 13" — every later screen claims to be the last |
+
+**The shape, the reveal and the blur, measured in the real window** (5s of
+frames and main-thread time from inside the overlay, then 10s of CPU over the
+host's 5 processes):
+
+| Condition | Main-thread work in 5s | 95th-pct frame | Host CPU, % of one core |
+|---|---|---|---|
+| Home, shape turning | 122ms (style 30ms) | 16.8ms | 7.5 |
+| Home, reduced motion (shape still) | 99ms | 17.0ms | 2.7 |
+| Home, shape removed | 92ms | 16.9ms | 0.2 |
+| Question, real page softened behind | 88ms | 16.8ms (one 433ms frame) | 8.4 |
+| Question, backdrop removed | 108ms | 16.8ms | 5.6 |
+
+So in the real window the turn costs less of the main thread than headless
+(+30ms in 5s against +70ms) but about 7% of one core across the host's
+processes, the GPU process included, for as long as the home screen is open.
+Every frame is on time in every condition. The one 433ms frame, with the
+softened page behind a question, happened once and is not explained.
+
+**The reveal's timing** (from a watcher in the page): the first question at
+4891ms, its picture 262ms later, clear for 1602ms (1.6s asked), then softened.
+The peek cleared and hid as pressed. In the light theme the softened page is
+nearly invisible once the reveal is over — a green tint along the top from the
+site's own bar.
+
+**After the fixes, the same walk in the real window at 150%:** content 1266x632
+(the menu bar's 26px given back), **0px of scroll on all 22 screens**, the
+notice reading "I've made this smaller so it fits." beside "Read this aloud"
+rather than over it, the button under its own centre, and pressing it made the
+system speak with the default voice (Microsoft David, en-US; Mark and Zira also
+offered) until "Stop reading". At 100%, before the fixes too, nothing scrolled.
+
+**Fixed in Part B**, each with a test that fails on the old code where the
+old code could be run: the reply to "book a flight" (24px at 100%, 45px at
+150%, before; 0 at all three, after, for every kind of reply); the notice's
+wording; the station box at level 1 (9px); the chosen station as a second
+filled button; the station in capitals in a step's detail; the one softened
+frame; the menu bar; the two eyes; the notice over "Read this aloud".
+
+**Full suite** on `feat/interface-reveal`: **1078 passed, 12 skipped, 0
+failed**, 1206s (1054 before; 24 added). **The host fit test**
+(`SIMBA_HOST_TESTS=1 frontend/test_window_fit.py`), with the menu bar hidden:
+3 passed, at 100%, 125% and 150%.
+
+## 2026-10-14b — the person decides, SIMBA clicks; the opening; two colour directions
+
+On `feat/interface-reveal`, not merged. Headless figures are from the built
+overlay in Chromium at each size's CSS viewport and scale; real-window figures
+from the Electron host driven over CDP, forced to 100% with
+`--force-device-scale-factor=1` (this machine is at 150%), against the three
+local replicas, `SIMBA_USE_HARDCODED_PLAN=1`, `SIMBA_RECORD_STEPS=0`.
+
+**Presses to search for trains, a goal naming nothing.** Before: 9 (four
+questions, then five moves pressed one by one). After: 4 (the four
+questions); the five moves run as a checklist. In the real window the
+checklist took 6.5 to 9.8s over six runs (median 7.7s) from "Yes, that's right" to the results,
+five lines. A bill with its number: 3 presses to 1 (the number) plus the
+cookie question when the site shows it. A course: 4 to 3 (course, sign-in,
+Register); the portal's notice is a checklist line.
+
+**A task's first question at level 2** (scroll overflow, px, at 100% /
+125% / 150% at 632 / 150% at 606):
+
+| | 100% | 125% | 150%, 632 | 150%, 606 |
+|---|---|---|---|---|
+| "Where are you travelling from?", before | +73 | 0 | +39 | +65 |
+| every flow's first question, after (6 questions) | 0 | 0 | 0 | 0 |
+
+**Level 3 against level 2, each flow's first question** (the step card's
+height, px, at 100%). With level 3 falling back to the column, as first
+committed: the read-back 376 / 416, "What day are you travelling?" 345 /
+452, and `test_levels.py`'s medium step 440 / 458 — the simplest level the
+tallest, which that test exists to prevent. Keeping the row at level 3:
+
+| | where from | which station | read back | which day | reference | course |
+|---|---|---|---|---|---|---|
+| level 2 | 477 | 345 | 376 | 345 | 440 | 440 |
+| level 3 | 417 | 324 | 324 | 268 | 408 | 408 |
+
+**The home screen with two remembered goals** (overflow, px): stacked under
+the tiles, +100 at 100% and +51 at 150% (606 and 632); in one row, 0 at all
+four sizes. With no history, 0 at all four. The box's bottom edge sits at
+89% of the window's height at 100% (714 of 800); the old screen's was not
+measured.
+
+**The home screen's entrance.** The tiles' opacity, sampled every frame from
+load: before the fix, 1 from the first frame (the screens'
+`AnimatePresence initial={false}` held it back, so it never played); after,
+0 at 103-274ms, 1 by 1.6s. Under reduced motion: 1 from the first frame.
+
+**The home screen's CPU, real window** (the host's process tree, five
+processes, 10s): 2.0% of one core in the first seconds after opening, **0.2%
+at rest**, 0.0% with the shape removed. Before (2026-10-14a), with the shape
+turning on the home screen: 7.5%. Main-thread work per 5s on the overlay:
+208ms then 213ms with the shape, 161ms without; frames on time throughout
+(p95 16.9-17.0ms).
+
+**A question after a checklist, real window.** The overlay asked for a
+picture of the page on every checklist line; each was answered, a screenshot
+each, before the next answer was read. The course flow's "Register for
+CS-401": 31.0s from the press to the task completing, one screenshot timing
+out at 30s. After: 1.6 to 2.5s in each of the four walks below.
+
+**The course's sign-in screen does not fit** (overflow, px, level 1 — the
+guard's one hop — at 100% / 125% / 150% at 632 / 150% at 606): `main` 56 / 0
+/ 34 / 60; this branch 96 / 0 / 65 / 91. The card's first line (notice and
+"Read this aloud") adds 31-40px. Not fixed; flagged.
+
+**Contrast, both directions** (`frontend/test_contrast.py`, WCAG 2.2 ratios,
+the lowest pairing of each kind):
+
+| | ink | soft text | accent as text | label on accent | stuck | control edge |
+|---|---|---|---|---|---|---|
+| A light | 13.6 | 6.8 | 5.5 | 6.8 | 5.6 | 3.2 |
+| A dark | 12.2 | 6.9 | 7.3 | 9.9 | 7.1 | 3.4 |
+| B light | 13.2 | 6.5 | 6.4 | 8.1 | 5.6 | 3.1 |
+| B dark | 11.6 | 7.3 | 7.3 | 9.2 | 7.1 | 3.7 |
+
+Before, every control's border was the divider colour: 1.3:1 to 1.6:1 against
+its ground, in the old palette and both new ones. Two words were drawn
+translucent and under 4.5:1: the stages still to come (about 3.9:1) and the
+station box's example (about 3.6:1).
+
+**The real window, all three flows** (100%, A and B, light and dark):
+every flow reached its ending in all four (A and B, light and dark), from
+its home-screen tile, with the person's answers typed and chosen through
+real input events.
+
+| | trains: readback to results | tickets | bill: cookie answer to the bill | course: Register to done | screens that scroll |
+|---|---|---|---|---|---|
+| A light | 7.4s | 2 | 4.9s | 2.5s | sign-in, +96px |
+| A dark | 9.2s | 2 | 5.4s | 1.8s | sign-in, +96px |
+| B light | 9.8s | 2 | 5.5s | 1.7s | sign-in, +96px |
+| B dark | 7.7s | 2 | 5.4s | 1.6s | sign-in, +96px |
+
+The results' heading read "Lahore Cantt to Karachi Cantt, Thursday 15
+October" in all four; the first ticket "7UP, Leaves 07:25, Arrives 14:40,
+Journey 7 h 15 min, Fastest". A bill: the reference question, then the
+site's cookie question (it still asks), then "Looking up your bill" and
+"Opening the full bill" as checklist lines. A course: the course, signing in,
+"Closing the portal's notice" as a checklist line, then "Ready to book your
+place on CS-401." asked. One earlier attempt at A dark lost the window after
+the trains (every capture timed out, as a minimised window does); it was run
+again whole. The walk script's own first versions pressed "Read this aloud"
+and then "Stop this" where it meant the cookie answer; those runs are not
+counted.
+
+**The suite.** 1174 passed, 12 skipped, 0 failed (backend 816 in 1194s,
+frontend 358 in 779s, as two halves), and the host window-fit test 3 of 3
+with `SIMBA_HOST_TESTS=1`. The first full run of this branch found 4
+failures: the three stale backend tests and level 3 taller than level 2 on
+`test_levels.py`'s medium step; all four are above.
+
+## 2026-10-15 — review fixes: next-day trains, boxes, buttons, the checklist ahead, sign-in
+
+On `feat/interface-reveal`. Real-window figures as on 2026-10-14b: the
+Electron host forced to 100%, the three local replicas, hardcoded plans,
+`SIMBA_RECORD_STEPS=0`, direction B (now the default), light and dark.
+
+**Next-day arrivals.** The rule (`voice.days_later`) on the two rows ever
+recorded from the live site: 2 of 2 next-day, 14DN among them with an
+arrival clock time later than its departure (19:09, 24 h 16 min, 19:25). One
+read-only search of the live site today, Lahore Cantt to Karachi Cantt: 2
+trains, both said "next day" (2DN 08:04 to 06:20; 14DN 19:09 to 19:25). On
+our copy, 8DN reads "00:50, next day"; the ticket stays one line.
+
+**Figures.** At 46px, Atkinson Hyperlegible Next's digits are 19.8px (1) to
+30.2px (0) wide; with `tabular-nums`, 29.1px each. Its zero is slashed with
+every feature tried (`zero`, `ss01`, `ss02`).
+
+**Boxes.** The new field colour against what sits on it, lowest of each:
+
+| | ink | example text | edge | focus ring (accent) |
+|---|---|---|---|---|
+| B light | 16.7 | 8.2 | 3.87 | 8.1 |
+| B dark | 12.1 | 7.7 | 3.20 | 7.6 |
+| A light | 17.2 | 8.5 | 3.96 | 6.8 |
+| A dark | 13.8 | 7.9 | 3.07 | 8.4 |
+
+**The sign-in screen** (overflow, px, at 100% / 125% / 150% at 632 / 150%
+at 606): with three buttons, 96 / 0 / 65 / 91 (`main`: 56 / 0 / 34 / 60);
+with the box to tick, 0 / 0 / 0 / 0. At 100% and both 150% windows it fits
+after the guard's one step to level 1; at 125%, at level 2. It was 2px over
+at 606 until the gap above the box was taken from 0.6 to 0.4 of the level's.
+
+**The home screen's tiles to box** (the box's top less the tiles' bottom,
+px, no history): 2026-10-14, 185 at 100% and 160 at 150% (606); now 86 and
+32. With two remembered goals, the box is 86px under them at 100%. Nothing
+scrolls at any of the four sizes.
+
+**The top of the window**, at x=100 on the results screen, B light: before,
+(235, 232, 220) at the top against (245, 239, 227) for the canvas, ten
+levels darker; after, (247, 243, 234), a touch lighter.
+
+**A picture of the page and the person's answer.** A stand-in screenshot
+that takes 30s: the answer waited 30.0s in the old loop and under 1s in the
+new, and the picture was cancelled when the answer came. In the real window,
+"Register for CS-401" to the task completing: 31.0s (2026-10-14, one
+screenshot timing out), 1.6-2.5s (after checklist lines stopped asking for
+pictures), 0.6-1.0s now.
+
+**The real window, all three flows, three walks** (B light twice, B dark):
+every flow reached its ending from its home-screen tile; no screen scrolled,
+the sign-in screen included. Trains, readback to results 5.5-6.6s, five
+checklist lines, the four still to come shown from the first; a bill, the
+cookie answer to the bill 2.0-3.1s; a course, "Register" to done 0.6-1.0s,
+the sign-in screen showing "Sign in" and "Stop this" and the box to tick.
+The walk script itself first waited for every button to be enabled and so
+never saw a question whose main button waits for an answer; it now waits
+for "Stop this".
+
+**The suite.** 1209 passed, 12 skipped, 0 failed: backend 833 in 752s,
+frontend 376 in 790s, as two halves; the host window-fit test 3 of 3 with
+`SIMBA_HOST_TESTS=1`. The run found 2 failures, both tests still pressing the
+"Sign in and save my password" button the box to tick replaced; updated, and
+their file rerun, 19 of 19.

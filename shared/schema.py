@@ -17,6 +17,8 @@ State = Literal["thinking", "acting", "waiting", "stuck"]
 Level = Literal[1, 2, 3]
 ActionKind = Literal["primary", "secondary", "destructive"]
 InputMode = Literal["text", "voice"]
+# What a step is about, for the icon beside it (2026-10-07).
+StepKind = Literal["date", "place", "choose", "type", "read", "confirm"]
 
 MessageType = Literal[
     # backend -> frontend
@@ -47,6 +49,10 @@ MessageType = Literal[
 class TaskStarted(BaseModel):
     goal: str
     estimated_steps: int
+    # Additive and optional (2026-10-14). The task's stages by name — trains:
+    # From, To, Day, Search, Trains — shown in place of a count. Fixed for the
+    # task: a question asked again stays in its stage. Empty: no stages shown.
+    stages: List[str] = []
 
 
 class StateChanged(BaseModel):
@@ -148,6 +154,22 @@ class StepPresented(BaseModel):
     # What has been found so far, if the task was looking for anything.
     # Additive and optional: a task that reads nothing sends an empty list.
     findings: List[Finding] = []
+    # Additive and optional (2026-10-07). What kind of thing the step is
+    # about, so the overlay can put one plain icon beside it. Absent: no icon.
+    step_kind: Optional[StepKind] = None
+    # Additive and optional (2026-10-14). Which of `task.started.stages` this
+    # step is in, by position. Absent: the stage before it.
+    stage: Optional[int] = None
+    # Additive and optional (2026-10-14). What was wrong with the last answer,
+    # in one kind sentence, beside the question asked again — "I couldn't find
+    # a station called Narnia." The overlay clears it once a valid answer is
+    # chosen. Absent: nothing was wrong.
+    note: Optional[str] = None
+    # Additive and optional (2026-10-15). On a checklist line
+    # (`requires_confirmation: false`): the lines SIMBA expects to do by itself
+    # after this one, in order, so the person can see what is next. Empty:
+    # nothing more it knows of, or not a checklist line.
+    coming: List[str] = []
 
 
 class StepFailed(BaseModel):
@@ -208,6 +230,10 @@ class TaskCompleted(BaseModel):
     # only from values the page returned (`voice.explain_*`). Optional and
     # additive (2026-10-03): absent when there is nothing it can say safely.
     explanation: Optional[str] = None
+    # Additive and optional (2026-10-14). What the results are for, above them:
+    # "Lahore Cantt to Karachi Cantt, Thursday 15 October". From what the
+    # person asked and agreed, never from the page. Absent: no heading.
+    heading: Optional[str] = None
 
 
 class TaskFailed(BaseModel):
@@ -230,6 +256,10 @@ class TaskStart(BaseModel):
     # pressing a card or answering "which did you mean", so the backend runs
     # exactly that rather than classifying the goal again.
     flow: Optional[FlowName] = None
+    # Additive and optional (2026-10-14). The person's own setting: ask before
+    # every move, as SIMBA always did, rather than running the safe ones as a
+    # checklist. Absent: the checklist.
+    confirm_each: bool = False
 
 
 class StepResponse(BaseModel):
@@ -270,6 +300,9 @@ class Telemetry(BaseModel):
     rereads: int
     help_presses: int
     answered: bool = False
+    # Additive and optional (2026-10-14). Presses of "Read this aloud" on this
+    # step: its own signal, not `help_presses`. Absent: none.
+    read_aloud: int = 0
 
 
 # --- Envelope ----------------------------------------------------------------

@@ -268,10 +268,16 @@ async def play(flow: str, goal: str, send, receive) -> None:
     """One flow's script, start to finish."""
     steps, findings, found_at = SCRIPTS[flow]
 
-    await send("task.started", TaskStarted(goal=goal, estimated_steps=len(steps)))
+    # The stages by name (2026-10-14), each step in its own; the mock's steps
+    # are all past the first question, so they are in the stages after it.
+    stages = {"registration": voice.COURSE_STAGES, "billing": voice.BILL_STAGES,
+              "railways": voice.TRIP_STAGES}[flow]
+    await send("task.started", TaskStarted(goal=goal, estimated_steps=len(steps),
+                                           stages=stages))
     await send("state.changed", StateChanged(state="thinking"))
 
     for step in steps:
+        step = step.model_copy(update={"stage": min(step.step_index, len(stages) - 2)})
         # The registration demo only: one step reported as having failed and
         # been carried past, so the quiet notice can be seen without waiting
         # for a real page to break.

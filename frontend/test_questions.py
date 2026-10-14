@@ -38,7 +38,7 @@ GOAL = "trains to Rawalpindi tomorrow"
 A_QUESTION = {
     "step_index": 1, "step_total": 4,
     "instruction": "What day are you travelling?", "detail": "",
-    "fields": [], "requires_confirmation": True, "findings": [],
+    "fields": [], "requires_confirmation": True, "findings": [], "step_kind": "date",
     "actions": [
         {"id": "choice:0", "label": "Today", "kind": "primary"},
         {"id": "choice:1", "label": "Tomorrow", "kind": "primary"},
@@ -219,12 +219,12 @@ def short_page(playwright_instance: Playwright) -> Iterator[Page]:
     browser.close()
 
 
-def test_a_sign_in_step_with_three_buttons_fits_at_150_percent(
+def test_a_sign_in_step_that_offers_to_keep_the_password_fits_at_150_percent(
     short_page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """The step that offers to keep a password has a third button. Every one of
-    them, and both fields, must be on screen in a 150% window — by the
-    overflow guard folding the step if it has to."""
+    """The step that offers to keep a password: both buttons, the box to tick
+    (a third button until 2026-10-15) and both fields must be on screen in a
+    150% window — by the overflow guard folding the step if it has to."""
     ask(short_page, overlay, backend, [
         ("task.started", {"goal": "Register for CS-401", "estimated_steps": 3}),
         ("state.changed", {"state": "waiting"}),
@@ -234,9 +234,11 @@ def test_a_sign_in_step_with_three_buttons_fits_at_150_percent(
     short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
 
     height = short_page.viewport_size["height"]
-    for name in ("Sign in", "Sign in and save my password", "Stop this"):
+    for name in ("Sign in", "Stop this"):
         box = short_page.get_by_role("button", name=name, exact=True).bounding_box()
         assert box is not None and box["y"] + box["height"] <= height, (name, box)
+    box = short_page.get_by_role("checkbox", name="Save my password for next time").bounding_box()
+    assert box is not None and box["y"] + box["height"] <= height, box
     password = short_page.locator("input[aria-label='Password']")
     assert password.get_attribute("type") == "password"
     box = password.bounding_box()
@@ -255,7 +257,9 @@ def test_the_password_typed_goes_back_with_the_save_answer(
     ])
     short_page.fill("input[aria-label='Student ID or Username']", "raham")
     short_page.fill("input[aria-label='Password']", "typed-here")
-    short_page.get_by_role("button", name="Sign in and save my password", exact=True).click()
+    # Since 2026-10-15 the offer is a box to tick, and "Sign in" sends it.
+    short_page.get_by_role("checkbox", name="Save my password for next time").check()
+    short_page.get_by_role("button", name="Sign in", exact=True).click()
     short_page.wait_for_timeout(800)
 
     payload = answer(backend)
@@ -278,6 +282,8 @@ A_LIST_QUESTION = {
     "fields": [{"id": "destination", "label": "To", "type": "choice", "value": "",
                 "options": STATIONS}],
     "requires_confirmation": True, "findings": [],
+    # With its shape since 2026-10-07, so the fit below includes it.
+    "step_kind": "place",
     "actions": [
         {"id": "confirm", "label": "That's it", "kind": "primary"},
         {"id": "cancel", "label": "Stop this", "kind": "secondary"},
@@ -298,8 +304,8 @@ def test_nothing_from_the_list_shows_until_something_is_typed(
     ask(page, overlay, backend, asked(A_LIST_QUESTION))
 
     assert matches_on(page) == []
-    box = page.locator("input[aria-label='To']")
-    assert box.get_attribute("placeholder") == "Type the first few letters"
+    # The row the names will be in holds the hint until then (2026-10-07).
+    assert page.get_by_text("Type the first few letters to see the names.").is_visible()
 
 
 def test_typing_shows_the_names_that_match_as_buttons(
@@ -323,6 +329,12 @@ def test_pressing_a_name_puts_it_in_the_box_and_that_is_what_is_sent(
     assert page.locator("input[aria-label='To']").input_value() == "Karachi City"
     assert matches_on(page) == ["Karachi City"]
     assert page.locator(MATCHES).first.get_attribute("aria-pressed") == "true"
+    # Marked, not filled: "That's it" stays the one solid button on screen.
+    fills = page.evaluate("""() => [
+      getComputedStyle(document.querySelector('[aria-pressed=true]')).backgroundColor,
+      getComputedStyle([...document.querySelectorAll('button')]
+        .find(b => b.innerText.trim() === "That's it")).backgroundColor]""")
+    assert fills[0] != fills[1], fills
     page.get_by_role("button", name="That's it", exact=True).click()
     page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
     assert answer(backend)["input_values"] == {"destination": "Karachi City"}
@@ -335,8 +347,9 @@ def test_more_matches_than_fit_are_counted_not_listed(
 
     page.fill("input[aria-label='To']", "kot")
 
-    assert len(matches_on(page)) == 4
-    assert page.get_by_text("2 more. Keep typing to find yours.").is_visible()
+    # One row: the best match, and how many more in the second place.
+    assert matches_on(page) == ["Kot Lakhpat"]
+    assert page.get_by_text("5 more. Keep typing to find yours.").is_visible()
 
 
 def test_a_name_nothing_on_the_list_has_says_so(
@@ -353,8 +366,10 @@ def test_a_name_nothing_on_the_list_has_says_so(
 def test_a_list_question_fits_at_150_percent(
     short_page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """Four matches and the count of the rest, the box, and both buttons, all
-    on screen in a 150% window."""
+    """A match and the count of the rest, the box, both buttons and the row
+    under the card, all on screen in a 150% window: nothing scrolls. Until
+    2026-10-07 this checked the buttons only, and the row under the card was
+    52px below the window."""
     ask(short_page, overlay, backend, asked(A_LIST_QUESTION))
     short_page.fill("input[aria-label='To']", "kot")
     short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
@@ -365,6 +380,7 @@ def test_a_list_question_fits_at_150_percent(
         assert box is not None and box["y"] + box["height"] <= height, (name, box)
     last = short_page.locator(MATCHES).last.bounding_box()
     assert last is not None and last["y"] + last["height"] <= height
+    assert not short_page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
 
 
 # --- level 3 keeps the box a question is answered in -----------------------------
@@ -396,3 +412,113 @@ def test_at_level_3_the_box_stays_while_the_answer_is_typed(
     page.get_by_role("button", name="That's it", exact=True).click()
     page.wait_for_selector("text=Let me set where you're starting from.", timeout=15000)
     assert answer(backend)["input_values"] == {"origin": "Lahore"}
+
+
+def test_a_question_has_the_shape_of_what_it_asks(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The question screens look like every other step (2026-10-07)."""
+    ask(page, overlay, backend, asked(A_LIST_QUESTION))
+    assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "place"
+    ask(page, overlay, backend, asked(A_QUESTION))
+    assert page.get_by_test_id("step-kind").get_attribute("data-kind") == "date"
+
+
+# The sentence that explains a station the site does not have runs to two
+# lines, and in the real window at 150% that question scrolled by 9px with a
+# scrollbar down the side (EVALUATION.md, 2026-10-14): already at level 1, the
+# guard's floor, the box's label still sat above it.
+NARNIA = {**A_LIST_QUESTION,
+          "instruction": "I couldn't find a station called Narnia. Type the first few letters "
+                         "and choose where you're travelling from.",
+          "fields": [{**A_LIST_QUESTION["fields"][0], "id": "origin", "label": "From"}]}
+
+
+def test_a_two_line_station_question_fits_at_150_percent_at_level_1(
+    short_page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(short_page, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9}),
+        ("load.updated", {"score": 0.2, "level": 1, "reason": "shown"}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", NARNIA),
+        (AWAIT_RESPONSE, {}),
+    ])
+    short_page.fill("input[aria-label='From']", "lahor")
+    short_page.wait_for_timeout(1500)
+
+    over = short_page.evaluate("document.scrollingElement.scrollHeight - innerHeight")
+    assert over <= 0, f"scrolls by {over}px"
+
+
+
+# --- where you are, by name (2026-10-14) -------------------------------------------
+
+TRIP = ["From", "To", "Day", "Search", "Trains"]
+
+
+def staged(question: dict, stage: int) -> list:
+    return [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": TRIP}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", {**question, "stage": stage}),
+        (AWAIT_RESPONSE, {}),
+    ]
+
+
+def stages_on(page: Page) -> list[tuple[str, str]]:
+    return page.eval_on_selector_all(
+        "[data-testid=stages] li",
+        "items => items.map(i => [i.innerText.replace('✓', '').replace('·', '').trim(),"
+        " i.dataset.state])")
+
+
+def test_the_stages_show_where_the_person_is(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, staged(A_QUESTION, 2))
+
+    assert [tuple(s) for s in stages_on(page)] == [
+        ("From", "done"), ("To", "done"), ("Day", "now"), ("Search", "to come"),
+        ("Trains", "to come")]
+    body = page.inner_text("body")
+    assert "Step" not in body and " of 9" not in body
+
+
+
+# --- what was wrong, cleared once it is put right (2026-10-14) ----------------------
+
+NOTED = {**A_LIST_QUESTION, "instruction": "Where are you travelling to?",
+         "note": "I couldn't find a station called Narnia."}
+
+
+def test_the_note_goes_as_soon_as_a_name_from_the_list_is_chosen(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, asked(NOTED))
+    note = page.get_by_test_id("note")
+    assert note.inner_text().strip() == "I couldn't find a station called Narnia."
+
+    page.fill("input[aria-label='To']", "kar")
+    page.wait_for_timeout(500)
+    assert page.get_by_test_id("note").count() == 1, "typing is not choosing"
+
+    page.locator(MATCHES, has_text="Karachi City").click()
+    page.wait_for_timeout(900)
+    assert page.get_by_test_id("note").count() == 0
+    assert page.get_by_role("heading").first.inner_text().strip() == "Where are you travelling to?"
+
+
+def test_a_typed_answers_note_stays_until_it_is_sent(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """A day cannot be checked here; the backend says whether it was right."""
+    typed = {**A_TYPED_QUESTION, "instruction": "Which day would you like to travel?",
+             "fields": [{"id": "day", "label": "Day", "type": "text", "value": ""}],
+             "note": "1 October has already passed."}
+    ask(page, overlay, backend, asked(typed))
+
+    page.fill("input[aria-label='Day']", "tomorrow")
+    page.wait_for_timeout(600)
+
+    assert page.get_by_test_id("note").inner_text().strip() == "1 October has already passed."

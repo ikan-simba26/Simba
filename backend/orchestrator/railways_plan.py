@@ -276,8 +276,13 @@ def trip_task(origin: str, destination: str, day: date) -> Task:
             ),
             finds=(
                 Answer("Train", reads="Train No."),
+                # The page's `Time` is both times, `08:04 06:20` (2026-10-14).
+                Answer("Leaves", reads="Time", part=0),
+                Answer("Arrives", reads="Time", part=1),
                 Answer("Journey", reads="Duration"),
             ),
+            # "00:50, next day": a train that arrives after midnight says so.
+            per_row=voice.arrival,
         ),
         explain=voice.explain_trains,
     )
@@ -355,6 +360,23 @@ class TripPlanner:
             return self._search(elements)
         return None
 
+    def coming(self) -> list[str]:
+        """The checklist lines after the move just given (2026-10-15): what is
+        left of from, to, the calendar, the day and the search, in that order.
+        """
+        current = self._pending or ""
+        parts = [
+            ("choose origin", ("type origin", "choose origin"), voice.DOING_FROM),
+            ("choose destination", ("type destination", "choose destination"),
+             voice.DOING_TO),
+            ("open month", ("open month",), voice.DOING_CALENDAR),
+            ("pick day", ("pick day",),
+             voice.doing_day(voice.day_words(self.day, self.today))),
+            ("search", ("search",), voice.DOING_SEARCH),
+        ]
+        return [line for done, now, line in parts
+                if done not in self._done and current not in now]
+
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
         """The person's answer to the station question just asked."""
         if self._asking is None:
@@ -415,7 +437,7 @@ class TripPlanner:
             self._pending = f"type {end}"
             query = (self._narrowed.get(end) or place).upper()
             return self._move(
-                instruction, detail.format(place), button,
+                instruction, detail.format(voice.station_name(place)), button,
                 operations=[
                     # The box is read-only until it is clicked.
                     Operation("click", Target("textbox", box)),
@@ -426,6 +448,8 @@ class TripPlanner:
                 # given the longer window a fetched list needs.
                 expect=Expectation(label_like=place, list_opens=True),
                 quiet=self._typed[end] > 1,
+                kind="place",
+                doing=voice.DOING_FROM if end == "origin" else voice.DOING_TO,
             )
 
         station = self.stations.get(end)
@@ -444,17 +468,18 @@ class TripPlanner:
                     voice.narrow_station(place),
                     fields=[StepField(id="station", label=voice.FIELD_STATION,
                                       type="text", value="")],
-                    answers=actions(voice.THATS_IT),
+                    answers=actions(voice.USE_STATION),
                 )
             self.stations[end] = station
 
         self._pending = f"choose {end}"
         return self._move(
-            instruction, detail.format(station.title()), button,
+            instruction, detail.format(voice.station_name(station)), button,
             operations=[Operation("click", Target("option", station))],
             # Committing the choice closes the list, which changes the page.
             expect=Expectation(label_gone=station),
             quiet=True,
+            kind="place",
         )
 
     def _day(self, elements):
@@ -479,6 +504,8 @@ class TripPlanner:
                 "Now the day you're travelling.", f"{words}.", "Set the date",
                 operations=[Operation("click", Target("option", day, qualifier=cell.qualifier))],
                 expect=Expectation(label_gone=day),
+                kind="date",
+                doing=voice.doing_day(words),
             )
 
         self._done.discard("open month")
@@ -492,6 +519,8 @@ class TripPlanner:
                   for _ in range(months_between(self.today, self.day))],
             ],
             expect=Expectation(label_present=day),
+            kind="date",
+            doing=voice.DOING_CALENDAR,
         )
 
     def _search(self, elements):
@@ -523,19 +552,30 @@ class TripPlanner:
             # The search control is a button with no accessible name at all.
             operations=[Operation("click", Target("button", ""))],
             expect=Expectation(rows_at_least=1),
+            kind="confirm",
+            doing=voice.DOING_SEARCH,
         )
 
     # --- shaping -----------------------------------------------------------------
 
-    def _move(self, instruction, detail, button, *, operations, expect, quiet=False):
+    def _move(self, instruction, detail, button, *, operations, expect, quiet=False,
+              kind=None, doing=None):
         from backend.orchestrator.loop import Move
 
+        # Every move this planner makes fills in or sends the search: the
+        # "Search" stage (`voice.TRIP_STAGES`).
         return Move(instruction=instruction, detail=detail, operations=operations,
-                    expect=expect, fields=[], actions=actions(button), quiet=quiet)
+                    expect=expect, fields=[], actions=actions(button), quiet=quiet, kind=kind,
+                    stage=3,
+                    # After the journey is read back and agreed, every move
+                    # here only fills in the form the person described, or
+                    # searches it: safe to run without a press (2026-10-14).
+                    safe=True, doing=doing or instruction)
 
     def _question(self, instruction, *, answers, fields=()):
         from backend.orchestrator.loop import Move
 
+        # Every question this planner asks is which station.
         return Move(instruction=instruction, detail="", operations=[],
                     expect=Expectation(), fields=list(fields), actions=answers,
-                    question=True)
+                    question=True, kind="place", stage=3)
