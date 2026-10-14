@@ -190,6 +190,9 @@ export interface HelpRequested {
 }
 
 export interface TaskCompleted {
+  /** Additive and optional (2026-10-14). What the results are for, above them:
+   *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
+  heading?: string;
   summary: string;
   duration_ms: number;
   steps_taken: number;

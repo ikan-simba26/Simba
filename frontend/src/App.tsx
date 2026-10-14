@@ -42,6 +42,7 @@ import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
+import { useShortWindow } from "./useShortWindow";
 
 const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
 
@@ -624,6 +625,14 @@ function Completed() {
           {/* The sentence, when there is one, in the lead-in's place: it
               says what the lead-in says and more, and both together were the
               line that kept nine results off a 606px window (2026-10-05). */}
+          {/* What the results are for: the journey the person agreed, not
+              anything the page said (2026-10-14). */}
+          {completed?.heading && (
+            <p className="mb-2 text-title font-semibold tracking-[-0.01em] text-ink
+                          short:text-lead" data-testid="heading">
+              {completed.heading}
+            </p>
+          )}
           {explanation ? (
             <p ref={said}
                className="mb-6 text-lead font-medium text-ink short:mb-4 short:text-body"
@@ -813,33 +822,34 @@ export function fastestRows(rows: string[][]): Set<number> {
   return new Set();
 }
 
-/** Results in a grid, two to a row. */
-const TICKETS_PER_ROW = 2;
-/** At most this many rows of them; the rest are counted. */
-const TICKET_ROWS = 3;
+/** How many results are shown before the rest are counted: fewer in a short
+ *  window, where each takes the same height. */
+const TICKETS = { full: 5, short: 3 };
 
 /**
- * Results that came as whole rows, one ticket each (2026-10-07).
+ * Results that came as whole rows, one ticket each (2026-10-07; one to a row
+ * since 2026-10-14).
  *
- * The first cell is the result — a train's number — and the rest sit after a
- * torn-paper rule, in the page's own words; under the grid, one line names
- * what the cells are, as it did when results were lines. The fastest is
- * marked where the times can be read. Two to a row and three rows at most:
- * one line per ticket, so six of them are no taller than the six lines they
- * replace, and the closing screen still fits nine trains at 150%
- * (`test_closing.py`). Each extra line the sentence above takes, and each
- * detail that is not on the tickets, gives up a whole row of them.
+ * The first cell is the result — a train's number — large. The rest follow
+ * in the page's own words, each under its own name: "Leaves 08:04", "Arrives
+ * 06:20", "Journey 22 h 16 min" — the live site prints both times in one
+ * cell, and the backend reads them apart (`Answer.part`); a page that prints
+ * one gives an empty "Arrives", which is left out, not worked out. The line
+ * that used to name the columns, "Train, Journey", is gone: each value now
+ * says what it is. The fastest is marked where the times can be read, and is
+ * never among those counted. Each extra line the sentence above takes, and
+ * each detail that is not on the tickets, gives up one ticket.
  */
 function Tickets({ findings, rows, onLine, apart, less }: {
   findings: Finding[]; rows: string[][]; onLine: (index: number) => boolean;
   apart: Finding[]; less: number;
 }) {
+  const short = useShortWindow();
   const count = rows.length;
   const columns = findings.flatMap((_, index) => (onLine(index) ? [index] : []));
-  const shown = Math.min(count,
-    Math.max(1, TICKET_ROWS - apart.length - less) * TICKETS_PER_ROW);
+  const room = short ? TICKETS.short : TICKETS.full;
+  const shown = Math.min(count, Math.max(1, room - apart.length - less));
   const fastest = fastestRows(rows);
-  const few = count <= 4;
   // The rows shown, in the page's order — and when the fastest is not among
   // them, it takes the last place, so the one marked is never in "and N more".
   const picked = Array.from({ length: shown }, (_, index) => index);
@@ -849,32 +859,36 @@ function Tickets({ findings, rows, onLine, apart, less }: {
   }
 
   return (
-    <div className="flex flex-col gap-3" data-testid="findings" data-shape="tickets">
-      <ul className="grid grid-cols-2 gap-3 short:gap-2">
+    <div className="flex flex-col gap-2" data-testid="findings" data-shape="tickets">
+      <ul className="flex flex-col gap-2">
         {picked.map((index) => {
           const row = rows[index];
           const [first, ...rest] = columns.map((column) => row[column] ?? "");
+          const named = rest.map((value, at) => ({ value, name: findings[columns[at + 1]].label }))
+            .filter((cell) => cell.value);
           const quickest = fastest.has(index);
           return (
             <li key={index}
                 data-testid="ticket"
                 data-fastest={quickest ? "true" : undefined}
-                className={`flex items-center gap-4 rounded-lg border-2 bg-canvas px-5
-                            ${few ? "py-4 short:py-3" : "py-2.5 short:py-1.5"}
-                            ${quickest ? "border-accent" : "border-line"}`}>
-              <span className="font-semibold leading-[1.1] tracking-[-0.02em] text-ink"
-                    style={{ fontSize: few ? TYPE.heading : TYPE.title }}>
+                className={`flex items-center gap-6 rounded-lg border-2 bg-canvas px-5 py-2
+                            short:py-1.5 ${quickest ? "border-accent" : "border-line"}`}>
+              <span className="w-28 shrink-0 font-semibold leading-[1.1] tracking-[-0.02em]
+                               text-ink" style={{ fontSize: TYPE.title }}>
                 {first}
               </span>
-              {rest.some(Boolean) && (
-                <span className="min-w-0 flex-1 truncate border-l-2 border-dashed border-line
-                                 pl-4 text-body font-medium text-ink">
-                  {rest.filter(Boolean).join(", ")}
+              {named.map((cell) => (
+                // One line, the name quietly before its value: under it, each
+                // ticket was 70px and six put "I'm done" off a 800px window.
+                <span key={cell.name} className="flex items-baseline gap-2 whitespace-nowrap"
+                      data-testid="ticket-cell">
+                  <span className="text-caption text-soft">{cell.name}</span>
+                  <span className="text-body font-semibold text-ink">{cell.value}</span>
                 </span>
-              )}
+              ))}
               {quickest && (
-                <span className="shrink-0 rounded-full bg-accent px-3 py-0.5 text-caption
-                                 font-semibold text-accent-ink">
+                <span className="ml-auto shrink-0 rounded-full bg-accent px-3 py-0.5
+                                 text-caption font-semibold text-accent-ink">
                   {ENDING.fastest}
                 </span>
               )}
@@ -882,10 +896,9 @@ function Tickets({ findings, rows, onLine, apart, less }: {
           );
         })}
       </ul>
-      <p className="flex flex-wrap items-baseline gap-x-4 text-body text-soft">
-        <span>{columns.map((index) => findings[index].label).join(", ")}</span>
-        {count > shown && <span className="font-medium">{ENDING.more(count - shown)}</span>}
-      </p>
+      {count > shown && (
+        <p className="text-body font-medium text-soft">{ENDING.more(count - shown)}</p>
+      )}
       {/* Not on any one ticket, so under them, in the label's type. */}
       {apart.map((finding) => (
         <p key={finding.label} className="text-body text-soft">

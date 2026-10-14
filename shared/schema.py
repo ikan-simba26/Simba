@@ -225,6 +225,10 @@ class TaskCompleted(BaseModel):
     # only from values the page returned (`voice.explain_*`). Optional and
     # additive (2026-10-03): absent when there is nothing it can say safely.
     explanation: Optional[str] = None
+    # Additive and optional (2026-10-14). What the results are for, above them:
+    # "Lahore Cantt to Karachi Cantt, Thursday 15 October". From what the
+    # person asked and agreed, never from the page. Absent: no heading.
+    heading: Optional[str] = None
 
 
 class TaskFailed(BaseModel):

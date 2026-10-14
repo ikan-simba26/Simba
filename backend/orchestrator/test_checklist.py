@@ -120,6 +120,15 @@ def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> Non
     assert done.searched == {"from": "RAWALPINDI", "to": "SUKKUR",
                              "date": TOMORROW.isoformat()}
     assert "task.completed" in done.types()
+    # The results say what they are for, and each train when it leaves and
+    # arrives, read from the page's one `Time` cell (2026-10-14).
+    ending = done.of("task.completed")[0]
+    assert ending["heading"] == voice.route_heading("Rawalpindi", "Sukkur", TOMORROW,
+                                                    date.today())
+    rows = ending["findings"][0]["rows"]
+    labels = [f["label"] for f in ending["findings"]]
+    assert labels == ["Train", "Leaves", "Arrives", "Journey"]
+    assert all(len(row) == 4 and all(row) for row in rows), rows
     # Every line was in the Search stage.
     assert {p["stage"] for p in done.of("step.presented")
             if not p["requires_confirmation"]} == {3}

@@ -276,6 +276,9 @@ def trip_task(origin: str, destination: str, day: date) -> Task:
             ),
             finds=(
                 Answer("Train", reads="Train No."),
+                # The page's `Time` is both times, `08:04 06:20` (2026-10-14).
+                Answer("Leaves", reads="Time", part=0),
+                Answer("Arrives", reads="Time", part=1),
                 Answer("Journey", reads="Duration"),
             ),
         ),

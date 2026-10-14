@@ -276,8 +276,14 @@
     const body = document.createElement("tbody");
     for (const train of found) {
       const row = document.createElement("tr");
-      for (const value of [train.number, model.from + " " + model.to, train.time,
-                           train.hours + " h 15 min"]) {
+      // Leaves, then arrives, in one cell: the live site's `Time` reads
+      // "08:04 06:20" (EVALUATION.md, 2026-09-07). Arrives is the replica's
+      // own invented time plus its invented journey.
+      const [h, m] = train.time.split(":").map(Number);
+      const end = (h * 60 + m + train.hours * 60 + 15) % (24 * 60);
+      const arrives = two(Math.floor(end / 60)) + ":" + two(end % 60);
+      for (const value of [train.number, model.from + " " + model.to,
+                           train.time + " " + arrives, train.hours + " h 15 min"]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.appendChild(cell);

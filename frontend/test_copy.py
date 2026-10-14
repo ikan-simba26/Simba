@@ -480,6 +480,10 @@ def backend_labels() -> dict[str, str]:
                  "DOING_FULL_BILL", "DOING_NOTICE"):
         labels[f"voice.{name}"] = getattr(voice, name)
     labels["voice.doing_day"] = voice.doing_day("15 October")
+    # Above the trains found: a heading, so no full stop (2026-10-14).
+    from datetime import date as _date
+    labels["voice.route_heading"] = voice.route_heading(
+        "Lahore Cantt", "Karachi Cantt", _date(2026, 10, 15), _date(2026, 10, 14))
     return labels
 
 

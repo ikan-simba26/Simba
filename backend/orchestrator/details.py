@@ -1001,7 +1001,10 @@ class TripBrief(_Asking):
         from backend.orchestrator.railways_plan import trip_task
 
         return replace(trip_task(self.origin, self.destination, self.day),
-                       goal=self.goal)
+                       goal=self.goal,
+                       heading=voice.route_heading(self._shown("origin"),
+                                                   self._shown("destination"),
+                                                   self.day, self.today))
 
     def _plan(self) -> tuple[Planner, Task]:
         from backend.orchestrator.railways_plan import TripPlanner

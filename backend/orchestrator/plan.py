@@ -117,6 +117,20 @@ class Answer:
 
     name: str
     reads: str
+    # Which value of the cell, when the page prints two in one: the live
+    # train table's `Time` is `08:04 06:20` — leaves, then arrives
+    # (EVALUATION.md, 2026-09-07). None: the whole cell. A cell without that
+    # many values gives nothing, never a value worked out from the others.
+    part: int | None = None
+
+
+def part_of(cell: str, part: int | None) -> str:
+    """One value of a cell that holds several, or the cell; "" if it has not
+    got that many."""
+    if part is None:
+        return cell
+    values = cell.split()
+    return values[part] if part < len(values) else ""
 
 
 @dataclass(frozen=True)

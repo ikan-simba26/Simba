@@ -32,7 +32,7 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
-from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target
+from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target, part_of
 from backend.orchestrator.vault import Credentials, Vault
 from backend.perception.content import Content
 from backend.perception.serializer import (
@@ -379,13 +379,15 @@ def findings_in(
     finding carries the rows (`Finding.rows`), one cell per finding returned.
     """
     for answer in task.about.finds:
-        values = snapshot.content.values_for(answer.reads)
+        values = [v for v in (part_of(value, answer.part)
+                              for value in snapshot.content.values_for(answer.reads)) if v]
         if values:
             known[answer.name] = values
     if rows is not None and task.about.finds:
         read = snapshot.content.rows_for([answer.reads for answer in task.about.finds])
         if read:
-            rows[:] = [{answer.name: cell for answer, cell in zip(task.about.finds, row)}
+            rows[:] = [{answer.name: part_of(cell, answer.part)
+                        for answer, cell in zip(task.about.finds, row)}
                        for row in read]
     findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
                         values=known[answer.name])
@@ -501,6 +503,9 @@ class Task:
     # means no sentence. Only ever from those values: `voice.explain_*`.
     explain: ("Callable[[dict[str, list[str]], dict[str, list[str]], "
               "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
+    # Above the results on the closing screen: what they are for, from what
+    # the person asked and agreed (2026-10-14). None: no heading.
+    heading: str | None = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -1258,6 +1263,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
+            heading=task.heading,
         ),
     )
 

@@ -170,6 +170,12 @@ def when_words(day, today) -> str:
     return f"{day.strftime('%A')} {day_words(day, today)}"
 
 
+def route_heading(origin: str, destination: str, day, today) -> str:
+    """Above the trains found: `Lahore Cantt to Karachi Cantt, Thursday 15
+    October` — the journey the person agreed, not anything the page said."""
+    return f"{origin} to {destination}, {day.strftime('%A')} {day_words(day, today)}"
+
+
 def read_back(origin: str, destination: str, when: str) -> str:
     """The journey, once, before anything on the site is touched."""
     return f"{origin} to {destination}, {when}. Is that right?"

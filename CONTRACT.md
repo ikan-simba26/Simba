@@ -310,6 +310,10 @@ Accumulated across the run rather than read from the last page: the answer is
 often not on the page the task ends on. The billing amount is on the results
 page, and the run then opens the detail page where that column does not exist.
 
+`heading` is additive and optional (added 2026-10-14): what the results are
+for, from what the person asked and agreed — "Lahore Cantt to Karachi Cantt,
+Thursday 15 October" — never from the page. Absent: no heading.
+
 ### `task.failed`
 ```json
 { "reason": "Portal timed out", "recoverable": true }
