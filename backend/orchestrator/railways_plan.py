@@ -415,7 +415,7 @@ class TripPlanner:
             self._pending = f"type {end}"
             query = (self._narrowed.get(end) or place).upper()
             return self._move(
-                instruction, detail.format(place), button,
+                instruction, detail.format(voice.station_name(place)), button,
                 operations=[
                     # The box is read-only until it is clicked.
                     Operation("click", Target("textbox", box)),
@@ -451,7 +451,7 @@ class TripPlanner:
 
         self._pending = f"choose {end}"
         return self._move(
-            instruction, detail.format(station.title()), button,
+            instruction, detail.format(voice.station_name(station)), button,
             operations=[Operation("click", Target("option", station))],
             # Committing the choice closes the list, which changes the page.
             expect=Expectation(label_gone=station),

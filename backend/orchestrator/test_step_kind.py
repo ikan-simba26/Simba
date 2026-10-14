@@ -116,3 +116,16 @@ def test_the_bill_and_the_course_questions_are_typed() -> None:
 
     assert kind_of(BillBrief("g", Understood()).question()) == "type"
     assert kind_of(CourseBrief("g", Understood()).question()) == "type"
+
+
+def test_a_station_in_a_steps_detail_is_written_to_be_read() -> None:
+    """The site writes `KARACHI CANTT`; the step said "Arriving at KARACHI
+    CANTT." until 2026-10-14. A place the person typed keeps their case."""
+    import asyncio
+
+    chosen = TripPlanner("RAWALPINDI", "KARACHI CANTT", date(2026, 10, 8), date(2026, 10, 7),
+                         stations={"origin": "RAWALPINDI", "destination": "KARACHI CANTT"})
+    typed = TripPlanner("Lahore", "Multan", date(2026, 10, 8), date(2026, 10, 7))
+
+    assert asyncio.run(chosen.next_move([], [], None)).detail == "Starting at Rawalpindi."
+    assert asyncio.run(typed.next_move([], [], None)).detail == "Starting at Lahore."
