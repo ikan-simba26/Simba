@@ -395,9 +395,7 @@ function Field({
         fontSize: spec.fieldLayout === "inline" ? `${TYPE.small}px` : `${TYPE.body}px`,
       }}
       transition={FOLD}
-      className="w-full rounded-md border border-edge bg-sunk px-4 text-ink outline-none
-                 transition-colors duration-200 focus:border-accent focus:bg-surface
-                 focus-visible:outline-none"
+      className="simba-field w-full rounded-md px-4"
       type={field.type === "password" ? "password" : "text"}
       value={value}
       onChange={(event) => onChange(field.id, event.target.value)}
@@ -515,9 +513,7 @@ function ChoiceField({
         <motion.input
           animate={{ height: spec.fieldHeight, fontSize: `${TYPE.body}px` }}
           transition={FOLD}
-          className="w-full rounded-md border border-edge bg-sunk px-4 text-ink outline-none
-                     transition-colors duration-200 placeholder:text-soft
-                     focus:border-accent focus:bg-surface focus-visible:outline-none"
+          className="simba-field w-full rounded-md px-4"
           type="text"
           value={value}
           autoComplete="off"

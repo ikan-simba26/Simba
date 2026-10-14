@@ -184,3 +184,32 @@ def test_level_3_is_never_taller_than_level_2(
     two = card_height(browser, overlay, backend, stages, step, 2)
     three = card_height(browser, overlay, backend, stages, step, 3)
     assert three <= two, (name, two, three)
+
+
+def test_an_empty_box_looks_ready_to_type_in(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """On the sunk colour, darker than the card, an empty box read as switched
+    off (2026-10-15). Its own light fill, a 2px edge, and a 3px ring once it
+    has the cursor."""
+    stages, step = FIRST["reference"]
+    page = show(browser, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": stages}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", step),
+        (AWAIT_RESPONSE, {}),
+    ], SIZES["100%"])
+    try:
+        box = page.get_by_role("textbox", name="Reference number")
+        look = """el => { const s = getComputedStyle(el); return {
+            fill: s.backgroundColor, card: getComputedStyle(
+              el.closest('[data-testid=step-shell]')).backgroundColor,
+            edge: s.borderTopWidth, ring: s.outlineWidth, ringStyle: s.outlineStyle}; }"""
+        before = box.evaluate(look)
+        assert before["fill"] == "rgb(255, 255, 255)", before
+        assert before["edge"] == "2px", before
+        box.click()
+        after = box.evaluate(look)
+        assert after["ring"] == "3px" and after["ringStyle"] == "solid", after
+    finally:
+        page.close()

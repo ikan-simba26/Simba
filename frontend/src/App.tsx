@@ -354,9 +354,8 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
         </p>
       )}
       <div
-        className="flex items-center gap-4 rounded-xl border-2 border-edge bg-surface py-2.5
-                   pr-2.5 pl-6 shadow-card transition-[border-color,box-shadow] duration-200
-                   focus-within:border-accent"
+        className="simba-field-frame flex items-center gap-4 rounded-xl py-2.5 pr-2.5 pl-6
+                   shadow-card"
       >
         <span className="shrink-0 text-soft" aria-hidden>
           <SpeechIcon />

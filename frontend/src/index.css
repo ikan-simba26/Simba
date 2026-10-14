@@ -46,6 +46,7 @@
   --sunk: #ede5d6;
   --line: #d9d0be;
   --edge: #76857f;
+  --field: #ffffff;
   --ink: #10211f;
   --soft: #45524f;
   --accent: #0d5a53;
@@ -72,6 +73,7 @@
     --sunk: #0f1d1c;
     --line: #24403c;
     --edge: #5f7f78;
+    --field: #17302d;
     --ink: #f4eee2;
     --soft: #b5c3be;
     --accent: #7fcdbf;
@@ -98,6 +100,7 @@
   --sunk: #efe6d8;
   --line: #dccfbb;
   --edge: #8f7d69;
+  --field: #ffffff;
   --ink: #211a13;
   --soft: #574b3f;
   --accent: #8a4b10;
@@ -122,6 +125,7 @@
     --sunk: #1a1510;
     --line: #3b2f23;
     --edge: #7d6b58;
+    --field: #2a221a;
     --ink: #f7f0e7;
     --soft: #c4b6a6;
     --accent: #eab466;
@@ -150,6 +154,7 @@
   --color-sunk: var(--sunk);
   --color-line: var(--line);
   --color-edge: var(--edge);
+  --color-field: var(--field);
   --color-ink: var(--ink);
   --color-soft: var(--soft);
   --color-muted: var(--soft);
@@ -230,6 +235,37 @@ body {
   -webkit-font-smoothing: antialiased;
   /* The overlay is the whole window; nothing should ever scroll sideways. */
   overflow-x: hidden;
+}
+
+/* A box to type in (2026-10-15). On the sunk colour, darker than the card,
+   an empty box read as switched off. Now: its own light fill, a 2px edge at
+   3:1, and when it has the cursor, the accent's edge and a 3px ring outside
+   it. The ring is drawn on :focus, not :focus-visible, because a box being
+   typed into should say so however it was reached. */
+.simba-field {
+  background-color: var(--field);
+  border: 2px solid var(--edge);
+  color: var(--ink);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.06);
+  outline: none;
+  transition: border-color 0.2s, outline-color 0.2s;
+}
+
+.simba-field::placeholder {
+  color: var(--soft);
+}
+
+.simba-field:focus,
+.simba-field-frame:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.simba-field-frame {
+  background-color: var(--field);
+  border: 2px solid var(--edge);
+  transition: border-color 0.2s, outline-color 0.2s;
 }
 
 /* The window's ground: the canvas, and the light from the top of it. */

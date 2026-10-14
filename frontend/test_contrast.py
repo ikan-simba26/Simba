@@ -21,7 +21,7 @@ import pytest
 
 CSS = (Path(__file__).parent / "src" / "index.css").read_text(encoding="utf-8")
 
-ROLES = ["canvas", "surface", "sunk", "line", "edge", "ink", "soft", "accent", "accent-hover",
+ROLES = ["canvas", "surface", "sunk", "line", "edge", "field", "ink", "soft", "accent", "accent-hover",
          "accent-ink", "tint", "stuck", "stuck-tint"]
 
 
@@ -61,7 +61,7 @@ THEMES = {
     "B light": (":root", False), "B dark": (":root", True),
     "A light": (':root[data-palette="a"]', False), "A dark": (':root[data-palette="a"]', True),
 }
-GROUNDS = ["canvas", "surface", "sunk", "tint"]
+GROUNDS = ["canvas", "surface", "sunk", "tint", "field"]
 TEXT = ([("ink", "stuck-tint")]
         + [("soft", ground) for ground in GROUNDS]
         + [("accent", ground) for ground in GROUNDS]
@@ -93,7 +93,7 @@ def test_the_accent_stands_out_from_the_canvas(theme: str) -> None:
 @pytest.mark.parametrize("theme", list(THEMES))
 def test_the_edge_of_a_control_is_at_least_3(theme: str) -> None:
     colours = palette(*THEMES[theme])
-    for ground in ["canvas", "surface", "sunk"]:
+    for ground in ["canvas", "surface", "sunk", "field"]:
         assert contrast(colours["edge"], colours[ground]) >= 3, (theme, ground)
 
 
