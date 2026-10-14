@@ -219,12 +219,12 @@ def short_page(playwright_instance: Playwright) -> Iterator[Page]:
     browser.close()
 
 
-def test_a_sign_in_step_with_three_buttons_fits_at_150_percent(
+def test_a_sign_in_step_that_offers_to_keep_the_password_fits_at_150_percent(
     short_page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """The step that offers to keep a password has a third button. Every one of
-    them, and both fields, must be on screen in a 150% window — by the
-    overflow guard folding the step if it has to."""
+    """The step that offers to keep a password: both buttons, the box to tick
+    (a third button until 2026-10-15) and both fields must be on screen in a
+    150% window — by the overflow guard folding the step if it has to."""
     ask(short_page, overlay, backend, [
         ("task.started", {"goal": "Register for CS-401", "estimated_steps": 3}),
         ("state.changed", {"state": "waiting"}),
@@ -234,9 +234,11 @@ def test_a_sign_in_step_with_three_buttons_fits_at_150_percent(
     short_page.wait_for_timeout(1500)  # the guard, if it folds, does so once
 
     height = short_page.viewport_size["height"]
-    for name in ("Sign in", "Sign in and save my password", "Stop this"):
+    for name in ("Sign in", "Stop this"):
         box = short_page.get_by_role("button", name=name, exact=True).bounding_box()
         assert box is not None and box["y"] + box["height"] <= height, (name, box)
+    box = short_page.get_by_role("checkbox", name="Save my password for next time").bounding_box()
+    assert box is not None and box["y"] + box["height"] <= height, box
     password = short_page.locator("input[aria-label='Password']")
     assert password.get_attribute("type") == "password"
     box = password.bounding_box()
@@ -255,7 +257,9 @@ def test_the_password_typed_goes_back_with_the_save_answer(
     ])
     short_page.fill("input[aria-label='Student ID or Username']", "raham")
     short_page.fill("input[aria-label='Password']", "typed-here")
-    short_page.get_by_role("button", name="Sign in and save my password", exact=True).click()
+    # Since 2026-10-15 the offer is a box to tick, and "Sign in" sends it.
+    short_page.get_by_role("checkbox", name="Save my password for next time").check()
+    short_page.get_by_role("button", name="Sign in", exact=True).click()
     short_page.wait_for_timeout(800)
 
     payload = answer(backend)
