@@ -4,12 +4,14 @@
  * Until now the overlay covered the site completely, and the only way to see
  * it was the trust panel. That kept the screen calm, and it also made SIMBA a
  * box with words in it: nothing said there was a real website underneath,
- * being worked on. Now the page lies softened — blurred and covered by the
- * canvas colour — behind the step card, where nothing on it can be read and
- * the card is still the only thing to look at. It is only ever clear when the
- * person asks: until 2026-10-14 it also showed clearly for 1.6s when a task
- * started, and in the real window that was a busy site behind a card still
- * arriving — removed, at Raham's request.
+ * being worked on. From then until 2026-10-15 the page also lay softened —
+ * blurred, and covered by the canvas colour — behind every step. In the real
+ * window the site's own header showed through as a dark smudge across the
+ * top of the screen, and blurred shapes are only noise to someone the card
+ * is meant to spare; at Raham's request it is gone. Now nothing is drawn
+ * behind a step: the page is shown, clear, only when the person asks. (Until
+ * 2026-10-14 it also showed clearly for 1.6s when a task started — removed
+ * too.)
  *
  * It is a picture, not the page. The site view is still covered by the
  * overlay exactly as before (CLAUDE.md, architecture constraints); this is the
@@ -24,15 +26,14 @@
  * is counted as asking for help: only "What are you doing?" is.
  *
  * Every change here is a fade, so reduced motion changes nothing about it:
- * the sharp and the softened picture are two layers, and only their opacity
- * moves. No filter is ever animated.
+ * only the picture's opacity moves.
  */
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
 
 import { REVEAL } from "../copy";
-import { EASE, MOTION, VEIL } from "../design";
+import { EASE, MOTION } from "../design";
 import { useStore } from "../store";
 import { Button, PageIcon } from "./ui";
 
@@ -72,23 +73,15 @@ export function Backdrop() {
           data-clear={clear ? "true" : "false"}
           role="img"
           aria-label={REVEAL.picture}
+          aria-hidden={!clear}
         >
-          <img src={source} alt="" className="absolute inset-0 block h-full w-full max-w-none" />
-          {/* Softened: blurred, and a little larger so the blur has no
-              pale edge, then covered. Faded in and out, never re-blurred. */}
+          {/* Drawn only while the person is looking at it. */}
           <motion.img
             src={source}
             alt=""
             className="absolute inset-0 block h-full w-full max-w-none"
-            style={{ filter: `blur(${VEIL.blur}px)`, scale: 1.06 }}
             initial={false}
-            animate={{ opacity: clear ? 0 : 1 }}
-            transition={FADE}
-          />
-          <motion.div
-            className="absolute inset-0 bg-canvas"
-            initial={false}
-            animate={{ opacity: clear ? 0 : VEIL.cover }}
+            animate={{ opacity: clear ? 1 : 0 }}
             transition={FADE}
           />
         </motion.div>

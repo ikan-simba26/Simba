@@ -1,8 +1,9 @@
 """The real page behind the step, in a real browser (2026-10-07).
 
-When a task starts the page shows clearly for a moment, then softens behind
-the card; "Show the real page" clears it while held, or until "Hide the real
-page" after a tap; and none of this counts as asking for help. Against a
+Nothing of the page is drawn behind a step (2026-10-15; until then it lay
+softened there, and its header read as a smudge across the top); "Show the
+real page" shows it clear while held, or until "Hide the real page" after a
+tap; and none of this counts as asking for help. Against a
 scripted backend that answers every `trust.requested` with a picture, as the
 real one does (`loop.send_preview`).
 """
@@ -135,18 +136,21 @@ def card_opacity(page: Page) -> float:
         ".closest('[style*=pointer-events]')).opacity"))
 
 
-def test_the_page_lies_softened_behind_the_step_from_the_start(
+def test_nothing_of_the_page_is_drawn_behind_the_step(
     page: Page, overlay: str, picture: str  # noqa: F811
 ) -> None:
-    """No clear moment when a task starts (removed 2026-10-14)."""
+    """No clear moment when a task starts (removed 2026-10-14), and no
+    softened page behind the card either (removed 2026-10-15): nothing
+    blurred, nothing at all, until the person asks."""
     start(page, overlay, picture)
 
     assert clear(page) == "false"
-    page.wait_for_timeout(1200)  # the fade in
-    blurred = page.evaluate(
-        "[...document.querySelectorAll('[data-testid=backdrop] img')]"
-        ".map(i => getComputedStyle(i).filter + '|' + getComputedStyle(i).opacity)")
-    assert any("blur(18px)|1" == b for b in blurred), blurred
+    page.wait_for_timeout(1200)  # past any fade
+    drawn = page.evaluate(
+        "[...document.querySelectorAll('[data-testid=backdrop] *')]"
+        ".map(e => [getComputedStyle(e).filter, getComputedStyle(e).opacity])")
+    assert drawn and all(opacity == "0" for _, opacity in drawn), drawn
+    assert all(f == "none" for f, _ in drawn), drawn
 
 
 def test_holding_the_button_shows_the_page_and_letting_go_hides_it(
@@ -248,9 +252,9 @@ def test_the_row_under_the_step_fits(browser, overlay: str, picture: str,  # noq
 def test_the_page_is_never_clear_unless_asked(
     page: Page, overlay: str, picture: str  # noqa: F811
 ) -> None:
-    """Every state the page is drawn in, from its first frame, until the
-    person presses "Show the real page": softened, and only that. The
-    automatic 1.6s reveal is gone (2026-10-14)."""
+    """Every state the page is in, from its first frame, until the person
+    presses "Show the real page": not clear. The automatic 1.6s reveal is gone
+    (2026-10-14)."""
     page.add_init_script("""
       window.__clear = [];
       new MutationObserver(() => {

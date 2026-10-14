@@ -427,18 +427,18 @@ export const SPEAK = {
 /* --------------------------------------------------------- the real page */
 
 /**
- * The real page, behind every step (2026-10-07), softened behind the card;
- * clear only while the person asks (the 1.6s reveal when a task started was
- * removed on 2026-10-14). Pressing and holding the button shows it
- * clearly again for as long as it is held; a quick press keeps it showing
- * until the other button is pressed. Password boxes are painted over before
+ * The real page, shown clear only while the person asks (2026-10-07; the
+ * 1.6s reveal when a task started went on 2026-10-14, and the softened page
+ * behind every step on 2026-10-15). Pressing and holding the button shows it
+ * for as long as it is held; a quick press keeps it showing until the other
+ * button is pressed. Password boxes are painted over before
  * the picture ever leaves the backend.
  */
 export const REVEAL = {
   show: "Show the real page",
   hide: "Hide the real page",
-  /** The picture behind the step, for a screen reader. */
-  picture: "The real page, softened behind your task",
+  /** The picture of the page while it is shown, for a screen reader. */
+  picture: "The real page",
 } as const;
 
 /* --------------------------------------------------- a list to choose from */

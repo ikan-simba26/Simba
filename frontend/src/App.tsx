@@ -75,7 +75,7 @@ export default function App() {
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
-      {/* The real page, softened, behind everything else (`Backdrop`). */}
+      {/* The real page, behind everything else, while it is asked for (`Backdrop`). */}
       <Backdrop />
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
