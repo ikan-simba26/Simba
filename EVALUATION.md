@@ -5270,3 +5270,67 @@ frontend 358 in 779s, as two halves), and the host window-fit test 3 of 3
 with `SIMBA_HOST_TESTS=1`. The first full run of this branch found 4
 failures: the three stale backend tests and level 3 taller than level 2 on
 `test_levels.py`'s medium step; all four are above.
+
+## 2026-10-15 — review fixes: next-day trains, boxes, buttons, the checklist ahead, sign-in
+
+On `feat/interface-reveal`. Real-window figures as on 2026-10-14b: the
+Electron host forced to 100%, the three local replicas, hardcoded plans,
+`SIMBA_RECORD_STEPS=0`, direction B (now the default), light and dark.
+
+**Next-day arrivals.** The rule (`voice.days_later`) on the two rows ever
+recorded from the live site: 2 of 2 next-day, 14DN among them with an
+arrival clock time later than its departure (19:09, 24 h 16 min, 19:25). One
+read-only search of the live site today, Lahore Cantt to Karachi Cantt: 2
+trains, both said "next day" (2DN 08:04 to 06:20; 14DN 19:09 to 19:25). On
+our copy, 8DN reads "00:50, next day"; the ticket stays one line.
+
+**Figures.** At 46px, Atkinson Hyperlegible Next's digits are 19.8px (1) to
+30.2px (0) wide; with `tabular-nums`, 29.1px each. Its zero is slashed with
+every feature tried (`zero`, `ss01`, `ss02`).
+
+**Boxes.** The new field colour against what sits on it, lowest of each:
+
+| | ink | example text | edge | focus ring (accent) |
+|---|---|---|---|---|
+| B light | 16.7 | 8.2 | 3.87 | 8.1 |
+| B dark | 12.1 | 7.7 | 3.20 | 7.6 |
+| A light | 17.2 | 8.5 | 3.96 | 6.8 |
+| A dark | 13.8 | 7.9 | 3.07 | 8.4 |
+
+**The sign-in screen** (overflow, px, at 100% / 125% / 150% at 632 / 150%
+at 606): with three buttons, 96 / 0 / 65 / 91 (`main`: 56 / 0 / 34 / 60);
+with the box to tick, 0 / 0 / 0 / 0. At 100% and both 150% windows it fits
+after the guard's one step to level 1; at 125%, at level 2. It was 2px over
+at 606 until the gap above the box was taken from 0.6 to 0.4 of the level's.
+
+**The home screen's tiles to box** (the box's top less the tiles' bottom,
+px, no history): 2026-10-14, 185 at 100% and 160 at 150% (606); now 86 and
+32. With two remembered goals, the box is 86px under them at 100%. Nothing
+scrolls at any of the four sizes.
+
+**The top of the window**, at x=100 on the results screen, B light: before,
+(235, 232, 220) at the top against (245, 239, 227) for the canvas, ten
+levels darker; after, (247, 243, 234), a touch lighter.
+
+**A picture of the page and the person's answer.** A stand-in screenshot
+that takes 30s: the answer waited 30.0s in the old loop and under 1s in the
+new, and the picture was cancelled when the answer came. In the real window,
+"Register for CS-401" to the task completing: 31.0s (2026-10-14, one
+screenshot timing out), 1.6-2.5s (after checklist lines stopped asking for
+pictures), 0.6-1.0s now.
+
+**The real window, all three flows, three walks** (B light twice, B dark):
+every flow reached its ending from its home-screen tile; no screen scrolled,
+the sign-in screen included. Trains, readback to results 5.5-6.6s, five
+checklist lines, the four still to come shown from the first; a bill, the
+cookie answer to the bill 2.0-3.1s; a course, "Register" to done 0.6-1.0s,
+the sign-in screen showing "Sign in" and "Stop this" and the box to tick.
+The walk script itself first waited for every button to be enabled and so
+never saw a question whose main button waits for an answer; it now waits
+for "Stop this".
+
+**The suite.** 1209 passed, 12 skipped, 0 failed: backend 833 in 752s,
+frontend 376 in 790s, as two halves; the host window-fit test 3 of 3 with
+`SIMBA_HOST_TESTS=1`. The run found 2 failures, both tests still pressing the
+"Sign in and save my password" button the box to tick replaced; updated, and
+their file rerun, 19 of 19.

@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-14 (later) · **1174 passing, 12 skipped, 0 failed** · suite wall clock 1975s (backend 1194s, frontend 779s, run as two halves), on `feat/interface-reveal`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 96 tests added since 1078 (earlier on 2026-10-14). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-15 · **1209 passing, 12 skipped, 0 failed** · backend 833 in 752s, frontend 376 in 790s (run as two halves; two frontend tests updated for the sign-in box after the run and their file rerun, 19 of 19), on `main` after merging `feat/interface-reveal`; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 35 tests added since 1174 (2026-10-14). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,36 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-15: review fixes, and merged
+
+On `feat/interface-reveal`, one commit per item, then **merged into `main`**
+with `feat/railways-ask` (already inside it).
+
+- **Direction B, the deep teal, is the default**; A with `?palette=a`.
+- **Trains arriving after midnight say so**: "00:50, next day", from the
+  journey time; checked on the live site's rows.
+- **Times** in tabular figures; **empty boxes** look ready (a light fill, a
+  2px edge, a 3px ring with the cursor in them).
+- **A question's main button** says what it does ("Use this station", "Use
+  this day", "Use this number", "Use this course") and waits for an answer.
+- **Pause** has a pause sign; **the checklist shows the lines still to come**
+  (`StepPresented.coming`, additive and optional).
+- **Home**: the box sits under the tiles, one group, centred.
+- **No softened page behind a step**, and the light themes' glow lightens
+  the top of the window rather than shading it.
+- **Question headings** at full strength.
+- **Sign-in**: keeping the password is a box to tick (Raham's choice; **Aly to
+  be told**, DECISIONS.md); the screen now fits at every size.
+- **Remembered goals that would look the same** say what tells them apart
+  ("ending 7890").
+- **A picture of the page never holds the person's answer**: taken beside
+  the wait, dropped after 5s, cancelled on the answer.
+- **For Nahail** (also in HANDOVER.md): fewer training rows per task, and
+  `read_aloud` is a new telemetry signal.
+- **Open, flagged:** "What are you doing?" pressed while a picture is late
+  shows nothing for that press; a remembered goal at 150% reads "Find the…"
+  before its tag; the stage row is 16px at level 2.
 
 ### Changed on 2026-10-14 (later): the person decides, SIMBA clicks; the opening; colour
 

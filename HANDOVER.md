@@ -5,8 +5,11 @@ without reading the code. Written 2026-09-17 against commit `cc4704f`,
 updated on 2026-09-18, **refreshed on 2026-10-05** against `main` at
 `9fd09bc` plus `feat/multi-october-fifth` — sections 1 to 4, 6 to 8 and 10
 rewritten for what had changed — and brought up to date on 2026-10-06 for
-whole rows, the window waited for and the fastest train named. Section 9 is
-still the 2026-09-17 capture, and says so. About twenty minutes end to end.
+whole rows, the window waited for and the fastest train named, and on
+2026-10-15 for the interface work of 14 and 15 October (the checklist, named
+stages, the new home screen and colours, the review fixes), merged into
+`main` that day. Section 9 is still the 2026-09-17 capture, and says so.
+About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -20,6 +23,27 @@ Also read [CLAUDE.md](CLAUDE.md) (the project's rules, which bind people and
 tools alike), [CONTRACT.md](CONTRACT.md) (every message between the two
 processes) and [RUNNING.md](RUNNING.md) (the launcher, and what to do when it
 fails).
+
+**For Nahail (2026-10-15): two changes that reach the estimator.**
+
+- **Fewer training rows per task.** Since 2026-10-14, once the person has
+  decided (a journey read back and agreed, a bill's number, a course), the
+  safe moves — filling in, the calendar, searching, opening a page to read —
+  run by themselves as a checklist. A checklist line is not a decision, so
+  nothing about the person is recorded on it: no `Recorder.note_step` row, no
+  telemetry, nothing for the level rules. A train journey whose goal names
+  everything had 6 shown steps and now has 1 (the readback); a bill with its
+  number, 3 to 1; a course, 3 to 2. Rows already in `data/steps.jsonl` are
+  unchanged, but rows from before and after 2026-10-14 describe different
+  kinds of screen, and should not be pooled without saying so. A person who
+  ticks "Ask me before each thing I do" gets the old way, and a row per move.
+- **`read_aloud` is a new telemetry signal** (`Telemetry.read_aloud`,
+  additive and optional): how many times "Read this aloud" was pressed on the
+  step. It is never counted as a help press, and the provisional rules do not
+  read it. Whether and how the trained estimator uses it is yours to decide —
+  someone who wants a step read may be finding it hard, or may simply prefer
+  to listen (DECISIONS.md, *Read aloud is its own telemetry signal; Nahail to
+  confirm*).
 
 **How to read the claims below.** Each "works" claim names its evidence: a
 test file, or a dated entry in EVALUATION.md. A test is evidence for today,
@@ -97,11 +121,11 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-10-06: **944 passed, 12 skipped, 0 failed, 1499s**. The 12 skips are
+The full suite was last run on 2026-10-15: **1209 passed, 12 skipped, 0 failed** (backend 833 in 752s, frontend 376 in 790s, as two halves). The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, last run separately on
-2026-10-05: 3 passed), and 2 that hit the live website (not run today).
+2026-10-15: 3 passed), and 2 that hit the live website (not run today).
 
 ### Perception — `backend/perception/` (Nahail)
 
@@ -147,6 +171,9 @@ interactive elements, and the readable content.
 | Says in one plain sentence what the answer means, from the page's own values — and with rows names the fastest train, or says a tie is a tie | `voice.explain_*`, `test_explanation.py` (EVALUATION.md, 2026-10-03c, 2026-10-06b) |
 | Carries results as whole rows, so each train keeps its own time even when times repeat | `Content.rows_for`, `Finding.rows`; on our copy and once on the live site (EVALUATION.md, 2026-10-05c) |
 | Waits, rather than acts, while the SIMBA window is minimised or hidden, and asks before carrying on | `browser.window_watch`, `test_window.py`; in the real window, minimised mid-step for 10.4s (EVALUATION.md, 2026-10-06) |
+| **The person decides, SIMBA clicks**: after the person's choices, the safe moves run as a checklist with one Pause; a real choice, anything typed, anything that went wrong and anything that registers or changes a record still asks | `test_checklist.py`; all three flows in the real window, light and dark (EVALUATION.md, 2026-10-14b, 2026-10-15) |
+| Says when a train arrives the next day, from the journey time | `test_arrival.py`; the live site's two recorded rows, and one read-only live search on 2026-10-15 (EVALUATION.md, 2026-10-15) |
+| A picture of the page never holds the person's answer: taken beside the wait, dropped after 5s | `test_preview_late.py` (EVALUATION.md, 2026-10-15) |
 
 ### Interface — `frontend/` (Aly)
 
@@ -155,7 +182,11 @@ interactive elements, and the readable content.
 | One calm column: a home screen, a working state, a step, and five endings (found an answer, done, failed, stuck, stopped by the person), in a design system with a light and a dark theme | `test_terminal_states.py` renders all five in a real browser, each also reached from a step; before-and-after captures in both themes (2026-09-21) |
 | **Every ending offers a way onward, and it can be pressed** | same file. Fixed 2026-09-17 twice: the stuck ending had nothing to press, and every ending reached from a step had an invisible leftover screen over its buttons (EVALUATION.md, 2026-09-17c) |
 | **Every screen fits the window at 100%, 125% and 150%** — the home screen with or without history, every step, and since 2026-10-05 every ending, with nothing below 20px | `test_home.py`, `test_terminal_states.py` (17 endings at three sizes), and `test_window_fit.py` in the real window (EVALUATION.md, 2026-09-30d, 2026-10-05b) |
-| The closing screen shows the answer: one line per result with its detail, the first six and a count past that, under the sentence | `test_closing.py` (EVALUATION.md, 2026-10-05) |
+| The closing screen shows the answer under a heading saying what it is for: a ticket per train with when it leaves, arrives (and on which day) and how long, five at 100% and three in a short window, and a count past that | `test_closing.py` (EVALUATION.md, 2026-10-05, 2026-10-15) |
+| Named stages instead of a step count (trains: From, To, Day, Search, Trains), fixed for the task | `test_questions.py`, `test_step_kind.py` (2026-10-14) |
+| A task's first question fits at level 2 at every size, and no notice is ever shown on a task's first screen | `test_first_screen.py` (EVALUATION.md, 2026-10-14b) |
+| Two colour directions, B (deep teal, the default) and A (`?palette=a`), each light and dark, every text pairing at 4.5:1 or more and every control's edge at 3:1 | `test_contrast.py`, read from `index.css` (EVALUATION.md, 2026-10-14b, 2026-10-15) |
+| Signing in fits at every size; keeping the password is a box to tick | `test_sign_in.py` (EVALUATION.md, 2026-10-15) |
 | A question can be answered, not only agreed to | `test_questions.py` (2026-09-30) |
 | Three detail levels that fold into each other; level 3 is never the tallest | `test_levels.py` measures rendered heights (tests whatever is in `frontend/dist/`) |
 | The level adapts in a real run, by provisional rules: a heavy page starts simpler, hesitation folds the step, calm steps bring it back, a lock holds | `backend/estimator/rules.py`; live on billing (EVALUATION.md, 2026-09-25) |
@@ -583,8 +614,8 @@ options and a recommendation; this is the list.
 4. **The stuck screen shows a technical reason** (`could not find 'Close' on
    the page`) in small type. The skipped-step notice deliberately removed this
    kind of text.
-5. **"Step 2 of 6"** uses a word the copy rules forbid. Should a count be on
-   screen at all?
+5. *(Settled 2026-10-14: no count; each task names its stages once, and the
+   row of names never grows.)*
 6. **Found values are shown exactly as the page wrote them** — `15-09-2026`.
    Reformatting means inventing; not reformatting is hard for this audience.
 7. *(Settled 2026-10-14: an overflow adjustment says "I've made this smaller

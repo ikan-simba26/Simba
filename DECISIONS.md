@@ -4331,3 +4331,64 @@ password" wrapped onto two lines inside its button and the screen was still
 
 **Cost.** A box to tick is a smaller target than a button (24px), and is
 easier to miss; the label beside it is part of the target.
+
+## When a train arrives: worked from the journey time, said in the row
+
+**Date:** 2026-10-15 (the "next day" was asked for; how it is worked out was not)
+
+**Decision.** The day a train arrives comes from leaving time plus journey
+time, when that lands within 5 minutes of the arrival clock time; otherwise,
+from the clocks alone (an earlier arrival time than leaving time is the next
+day). One day is "next day"; more is "N days later". It is said in the
+results row (`About.per_row`, `voice.arrival`), so the ticket, the read-aloud
+and anything else reading the rows agree; the findings' own value lists,
+which the step screen shows while the run is going, are left as the page
+printed them. The live site's 14DN arrives at 19:25 after leaving at 19:09,
+24 h 16 min later: the clocks alone would have called it the same day.
+
+**Alternatives.** The clocks alone: wrong on 14DN. Working it out in the
+overlay: the backend's sentence and read-aloud would not know.
+
+## Smaller choices in the 2026-10-15 review fixes
+
+**Date:** 2026-10-15
+
+- **Times:** tabular figures on ticket values only. The face's zero is
+  slashed in every setting (the `zero`, `ss01` and `ss02` features change
+  nothing); kept, because it is what stops 0 being read as O.
+- **Boxes:** a field colour of its own (`--field`: white in the light themes,
+  a lighter shade of the card in the dark), a 2px edge, and a 3px accent ring
+  on `:focus`, not only `:focus-visible`, because a box being typed in should
+  say so however it was reached. The home screen's box has the same.
+- **Buttons:** "Use this number" for a bill's reference and "Use this course"
+  for a course, beside the asked-for "Use this station" and "Use this day". A
+  usable answer is anything but blank or spaces; whether it is a real station
+  or number is still the backend's to check. The rule holds on every step
+  with an empty box, the sign-in step included.
+- **The checklist's lines to come** travel as `StepPresented.coming`
+  (additive, optional), filled by an optional `coming()` on a planner; the LLM
+  and replay planners have none, so they show none. Drawn as an empty dashed
+  ring and the soft text, at full strength, not faded: fainter would fail
+  4.5:1.
+- **The home screen's group** is centred in the window's height; the shape
+  stays above it.
+- **The softened page** was removed rather than made into a framed picture;
+  the light themes' glow, which also shaded the top of the window, is now
+  white.
+- **Telling remembered goals apart:** two goals look the same when they
+  start with 16 characters or more in common (a line shows about 20). A bill
+  says "ending" and its reference's last four digits; anything else, the
+  first word where the two part. The tag is hidden from a screen reader, which
+  reads the whole goal.
+- **A late picture** is dropped after 5s with nothing sent to the overlay;
+  one still being taken when the step is answered is cancelled.
+
+## Direction B, the deep teal, is the default
+
+**Date:** 2026-10-15 (Raham's choice, from the captures of 2026-10-14)
+
+**Decision.** B's values are the bare `:root`, light and dark; A stays,
+under `data-palette="a"`, set by `?palette=a` in the overlay's address. The
+contrast test reads both. Supersedes "A stays the default until Raham
+chooses" in *Two colour directions, chosen by an attribute; edges for
+controls* above.
