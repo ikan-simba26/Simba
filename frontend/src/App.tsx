@@ -11,7 +11,7 @@
  * the tokens in `index.css` and `design.ts`.
  */
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
@@ -31,8 +31,11 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, presence } from "./copy";
-import { ARRIVE, COLUMN, TYPE } from "./design";
+import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+         presence } from "./copy";
+import { FlowIllustration } from "./components/Illustrations";
+import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
+import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
@@ -44,52 +47,12 @@ import { useShortWindow } from "./useShortWindow";
 
 const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
 
-/**
- * The most cards the home screen shows, remembered goals and the things SIMBA
- * can do together. Until 2026-09-30 it was three of each: six cards, and at
- * 150% the text box below them fell off the bottom of the window.
- */
-export const HOME_CARDS = 3;
-
-/** One card on the home screen, and what pressing it asks for. */
-export interface HomeCard {
-  goal: string;
-  /** Sent with the goal when the card is one of the things SIMBA can do, so
-   *  the backend runs exactly that and does not guess from the words. */
-  flow?: FlowName;
-  /** Asked for before, which the card's icon says. */
-  remembered: boolean;
-}
-
-/** Two goals are the same card if they differ only in case, spacing or a
- *  closing full stop — "Check my electricity bill." is the bill card. */
+/** Two goals are the same if they differ only in case, spacing or a
+ *  closing full stop — "Check my electricity bill." is the bill tile. */
 function sameGoal(a: string, b: string): boolean {
   const plain = (text: string) =>
     text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/, "").toLowerCase();
   return plain(a) === plain(b);
-}
-
-/**
- * The home screen's one list: what this person asked for before, most recent
- * first, then the things SIMBA can do, with nothing twice and never more than
- * `HOME_CARDS`. A remembered goal that is one of the things SIMBA can do stays
- * in its remembered place and keeps that flow, so pressing it runs exactly
- * what the card always ran.
- */
-export function homeCards(history: PastGoal[]): HomeCard[] {
-  const cards: HomeCard[] = [];
-  const add = (card: HomeCard) => {
-    if (cards.length < HOME_CARDS && !cards.some((c) => sameGoal(c.goal, card.goal))) {
-      cards.push(card);
-    }
-  };
-  for (const past of history) {
-    const flow = ALL_FLOWS.find((name) => sameGoal(FLOWS[name], past.goal));
-    add(flow ? { goal: FLOWS[flow], flow, remembered: true }
-             : { goal: past.goal, remembered: true });
-  }
-  for (const flow of ALL_FLOWS) add({ goal: FLOWS[flow], flow, remembered: false });
-  return cards;
 }
 
 export default function App() {
@@ -146,6 +109,10 @@ function PresenceBar() {
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
   const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson;
+  // It settles into place once, when SIMBA opens (`entrance.ts`), at the
+  // same moment the tiles' entrance is decided — never under reduced motion.
+  const reduce = useReducedMotion() ?? false;
+  const [settle] = useState(() => !reduce && !entrancePlayed());
   const aside = trustOpen || peeking;
   return (
     // Above the real page behind it (`Backdrop`), and out of the way while
@@ -154,7 +121,11 @@ function PresenceBar() {
     <motion.div className="relative z-[1] flex w-full justify-center"
                 style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
                 animate={{ opacity: aside ? 0 : 1 }} transition={ARRIVE}>
-      <Presence mode={mode} large={home} />
+      <motion.div initial={home && settle ? { opacity: 0, scale: 0.9 } : false}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.9, ease: EASE }}>
+        <Presence mode={mode} large={home} />
+      </motion.div>
     </motion.div>
   );
 }
@@ -235,59 +206,109 @@ function Column() {
 /* ----------------------------------------------------------------- home */
 
 /**
- * The first screen: a greeting, the three things SIMBA can do, and a place
- * to ask for something in your own words.
+ * The first screen (redesigned 2026-10-14): a greeting for the time of day,
+ * the three things SIMBA can do as three large tiles side by side, each with
+ * a simple picture, and the box to ask in your own words — over the whole
+ * height of the window, the box at the bottom, rather than all of it in the
+ * top half. Goals asked for before, when there are any, are a short list
+ * under the tiles; a tile is never repeated there.
  *
- * The cards come first because choosing is easier than composing. Each is an
- * icon and one line, and the line is exactly what gets asked for.
+ * Once, when SIMBA opens, the tiles rise in gently after the shape has
+ * settled (`entrance.ts`); never under reduced motion, and never again on the
+ * way back from a task.
  */
 function Home() {
   const { startTask, history } = useStore();
-  // The box is always there, below the cards (2026-09-21). It used to be
-  // revealed behind "Ask for something new" whenever there was history, on
-  // the reasoning that an empty field is the hardest thing on the screen and
-  // should not be the first. The cards now come first and carry that job;
-  // hiding the box as well made asking in your own words look like a
-  // secondary route, and it could hide itself mid-sentence when history
-  // arrived late.
-  // One list, remembered goals first, never more than three cards: a second
-  // list of up to three more is what pushed the box off a 150% screen.
-  const cards = homeCards(history);
+  const reduce = useReducedMotion() ?? false;
+  const [enter] = useState(() => homeEntrance(reduce));
+  const [hour] = useState(() => new Date().getHours());
+  const remembered = rememberedGoals(history);
 
   return (
-    // 32px between the greeting, the cards and the box, not 40: three
-    // remembered goals of two lines each need the room at 100%.
-    <div className="flex flex-col gap-6 short:gap-4">
-      {/* A step down in a short window: 48px to 38px. The greeting is the
-          one line on this screen nobody needs to read twice. */}
-      {/* The shape beside the greeting, no taller than its line, so the
-          home screen is no taller for it. */}
-      <div className="flex items-center justify-between gap-6">
-        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink
-                       short:text-heading">
-          {HOME.greeting}
+    <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-between gap-8
+                    short:min-h-[calc(100dvh-92px)] short:gap-5">
+      <div className="flex flex-col gap-8 short:gap-5">
+        <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
+                       short:text-heading" data-testid="greeting">
+          {greetingAt(hour)}
         </h1>
+
+        <section className="flex flex-col gap-3" aria-label={HOME.canHelp}>
+          <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="tiles">
+            {/* Its own AnimatePresence: the screens' one above starts with
+                `initial={false}`, which would hold back the tiles' entrance
+                as well as the screen's own. */}
+            <AnimatePresence>
+            {ALL_FLOWS.map((flow, index) => (
+              <motion.li key={flow}
+                         initial={enter ? { opacity: 0, y: 18 } : false}
+                         animate={{ opacity: 1, y: 0 }}
+                         transition={{ duration: 0.7, ease: EASE, delay: 0.35 + index * 0.12 }}>
+                <button type="button" onClick={() => startTask(FLOWS[flow], flow)}
+                        data-testid="tile"
+                        className="group flex h-full w-full flex-col items-center gap-4 rounded-xl
+                                   border border-line bg-surface px-5 pt-6 pb-5 text-center
+                                   shadow-card transition-[box-shadow,border-color,transform]
+                                   duration-200 hover:border-accent/50 hover:shadow-lift
+                                   active:translate-y-px short:gap-3 short:pt-4 short:pb-4">
+                  <span className="h-24 w-32 short:h-16 short:w-24">
+                    <FlowIllustration flow={flow} />
+                  </span>
+                  <span className="text-lead font-semibold leading-snug text-ink short:text-body">
+                    {FLOWS[flow]}
+                  </span>
+                </button>
+              </motion.li>
+            ))}
+            </AnimatePresence>
+          </ul>
+        </section>
+
+        {/* One row, the lead-in beside the goals: stacked, two goals and
+            their lead-in took 166px and put the box under the bottom of the
+            window at 100% and 150% (2026-10-14). */}
+        {remembered.length > 0 && (
+          <section className="flex items-center gap-3" aria-label={HOME.again}>
+            <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
+            {remembered.map((goal) => (
+              <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
+                      data-testid="remembered"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
+                                 border-line bg-surface px-4 py-2 text-left text-body text-ink
+                                 shadow-press hover:border-accent/50">
+                <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
+                <span className="line-clamp-1 flex-1">{goal}</span>
+              </button>
+            ))}
+          </section>
+        )}
       </div>
 
-      {/* The setting shares the cards' lead-in line, so the home screen is
-          no taller for it. */}
-      <Section lead={HOME.canHelp} aside={<AskEachSetting />}>
-        {cards.map((card) => (
-          <ChoiceCard key={card.goal}
-                      icon={card.remembered || !card.flow ? <AgainIcon />
-                            : <FlowIcon flow={card.flow} />}
-                      onClick={() => startTask(card.goal, card.flow)}>
-            {card.goal}
-          </ChoiceCard>
-        ))}
-      </Section>
-
-      {/* In a short window the box's lead-in goes: the greeting above has
-          just asked the same question, and three remembered goals of two
-          lines each need the room at 150%. The box keeps it as its name. */}
-      <AskBox lead={HOME.askHeading} leadWhenShort={false} />
+      <div className="flex flex-col gap-3">
+        {/* In a short window the box's lead-in goes: the greeting above has
+            just asked the same question. The box keeps it as its name. */}
+        <AskBox lead={HOME.askHeading} leadWhenShort={false} />
+        <div className="flex justify-end"><AskEachSetting /></div>
+      </div>
     </div>
   );
+}
+
+/** How many goals asked for before the home screen lists under the tiles. */
+const REMEMBERED = 2;
+
+/**
+ * Goals asked for before, most recent first, each once, and never one a tile
+ * already offers — whatever its case, spacing or full stop.
+ */
+export function rememberedGoals(history: PastGoal[]): string[] {
+  const out: string[] = [];
+  for (const past of history) {
+    if (ALL_FLOWS.some((flow) => sameGoal(FLOWS[flow], past.goal))) continue;
+    if (out.some((goal) => sameGoal(goal, past.goal))) continue;
+    if (out.length < REMEMBERED) out.push(past.goal);
+  }
+  return out;
 }
 
 /** The person's own setting: be asked before every move (2026-10-14). */
@@ -303,15 +324,10 @@ function AskEachSetting() {
 }
 
 /** A lead-in and what it introduces. */
-function Section({ lead, children, aside }: {
-  lead: string; children: React.ReactNode; aside?: React.ReactNode;
-}) {
+function Section({ lead, children }: { lead: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3 short:gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-small font-medium text-soft">{lead}</p>
-        {aside}
-      </div>
+      <p className="text-small font-medium text-soft">{lead}</p>
       <div className="flex flex-col gap-3 short:gap-2">{children}</div>
     </section>
   );

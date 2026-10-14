@@ -47,7 +47,7 @@ FRONTEND = Path(__file__).resolve().parent
 BUILD = FRONTEND.parent / ".scratch" / "overlay-terminal"
 
 GOAL = "Find out what I owe"
-GREETING = "Hello. What can I do for you?"
+GREETING = "What can I do for you?"
 
 # In a script, wait here for the overlay's `step.response` before going on.
 AWAIT_RESPONSE = "(await step.response)"
@@ -355,6 +355,20 @@ def test_everything_on_an_ending_leads_somewhere(
         page.wait_for_function(
             f"() => document.body.innerText.includes({json.dumps(GREETING)})", timeout=5000
         )
+
+
+def test_back_home_after_a_task_there_is_no_entrance(
+    page: Page, overlay: str, backend: Backend
+) -> None:
+    """The tiles rise in once, when SIMBA opens (2026-10-14). Coming back to
+    them after a task, they are simply there."""
+    name = next(iter(ENDINGS))
+    label = next(label for label in reach(page, overlay, backend, name) if label)
+    page.get_by_role("button", name=label, exact=True).click()
+    page.get_by_test_id("tile").first.wait_for(state="attached", timeout=5000)
+    assert page.evaluate(
+        "() => +getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"
+    ) == 1
 
 
 MULTIPLE = ["39UP", "1UP", "7UP", "27UP", "101UP"]

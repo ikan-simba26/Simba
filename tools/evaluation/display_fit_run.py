@@ -166,7 +166,8 @@ HOME_JS = """(label) => {
         box_top: Math.round(r.top), box_bottom: Math.round(r.bottom),
         smallest_text_px: Math.min(...sizes),
         input_text_px: parseFloat(getComputedStyle(box).fontSize),
-        cards: document.querySelectorAll('section button').length,
+        cards: document.querySelectorAll('[data-testid=tile]').length,
+        remembered: document.querySelectorAll('[data-testid=remembered]').length,
     };
 }"""
 

@@ -156,6 +156,9 @@ def test_nothing_moves_while_the_window_is_not_focused(moving_page: Page, overla
     thinking(moving_page, overlay, backend)
     moving_page.evaluate("window.dispatchEvent(new Event('blur'))")
     moving_page.evaluate("document.documentElement.dataset.motion = 'paused'")
+    # The pause takes hold on the next frame. Sampled at once, the first pose
+    # could be one step (50ms of turn) before it: 2 runs in 5 failed so.
+    moving_page.wait_for_timeout(150)
 
     play = moving_page.evaluate(
         "getComputedStyle(document.querySelector('.simba-shape')).animationPlayState")

@@ -61,19 +61,36 @@ export const ONWARD = "Do something else";
 /* ------------------------------------------------------------------ home */
 
 export const HOME = {
-  /** The first thing anyone sees. A greeting, not a prompt. */
-  greeting: "Hello. What can I do for you?",
-  /** Above the home screen's cards: what this person asked for before, then
-   *  what SIMBA can do, three at most. One list since 2026-09-30, so one
-   *  lead-in; the remembered ones say so with their icon. A lead-in. */
+  /**
+   * The first thing anyone sees: a greeting for the time of day, then the
+   * question (2026-10-14). Morning until noon, afternoon until five, evening
+   * after; the small hours are still evening, which is what people say.
+   */
+  morning: "Good morning. What can I do for you?",
+  afternoon: "Good afternoon. What can I do for you?",
+  evening: "Good evening. What can I do for you?",
+  /** Above the goals asked for before, under the tiles. A lead-in. */
+  again: "You asked before",
+  /** The name of the row of tiles, for a screen reader: the three things
+   *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
+   *  themselves. */
   canHelp: "I can help with these",
   /** Reveals the text box. Deliberately last, and quiet. */
   somethingElse: "Ask for something new",
   /** Above the text box, once it is showing. */
   askHeading: "What would you like me to do?",
-  placeholder: "Pay my electricity bill",
+  /** What SIMBA really does, in the words a person would type. It said "Pay
+   *  my electricity bill" until 2026-10-14, and SIMBA never pays anything. */
+  placeholder: "Trains from Lahore to Karachi tomorrow",
   start: "Start",
 } as const;
+
+/** The greeting for the hour it is, by the person's own clock. */
+export function greetingAt(hour: number): string {
+  if (hour >= 5 && hour < 12) return HOME.morning;
+  if (hour >= 12 && hour < 17) return HOME.afternoon;
+  return HOME.evening;
+}
 
 /* ---------------------------------------------------------------- flows */
 
@@ -464,7 +481,9 @@ export const SITUATIONS: Record<string, string> = {
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,
-  "home.greeting": HOME.greeting,
+  "home.morning": HOME.morning,
+  "home.afternoon": HOME.afternoon,
+  "home.evening": HOME.evening,
   "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
   "trust.ask": TRUST.ask,
@@ -482,6 +501,7 @@ export const LEADS: Record<string, string> = {
   "found.heading": FOUND.heading,
   "ending.fastest": ENDING.fastest,
   "home.canHelp": HOME.canHelp,
+  "home.again": HOME.again,
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
 };
