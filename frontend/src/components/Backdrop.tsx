@@ -32,7 +32,7 @@ import { useEffect, useRef, useState } from "react";
 import { REVEAL } from "../copy";
 import { EASE, MOTION, VEIL } from "../design";
 import { useStore } from "../store";
-import { Button, EyeIcon } from "./ui";
+import { Button, PageIcon } from "./ui";
 
 /** The frozen viewport the site view has and the backend captures at. */
 const CAPTURE = { width: 1280, height: 800 };
@@ -147,7 +147,7 @@ export function PeekButton() {
       onClick={(event) => event.detail === 0 && peek(true)}
       data-testid="peek"
     >
-      <EyeIcon />
+      <PageIcon />
       {REVEAL.show}
     </Button>
   );

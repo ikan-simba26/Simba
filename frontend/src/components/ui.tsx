@@ -287,6 +287,17 @@ export function EyeIcon() {
   );
 }
 
+/** The real page itself: a browser window. Not the eye, which is "What are
+ *  you doing?" beside it — two buttons with two jobs should not look alike. */
+export function PageIcon() {
+  return (
+    <Svg size={26}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+      <path d="M3 9h18M6.5 6.8h.01M9 6.8h.01" />
+    </Svg>
+  );
+}
+
 export function SpeechIcon() {
   return (
     <Svg size={30}>

@@ -264,3 +264,13 @@ def test_the_first_frame_of_the_page_is_clear_not_softened(
     page.wait_for_timeout(3500)
 
     assert page.evaluate("window.__clear") == ["true", "false"]
+
+
+def test_the_two_buttons_under_the_step_do_not_share_an_icon(
+    page: Page, overlay: str, picture: str  # noqa: F811
+) -> None:
+    """Both were the eye until 2026-10-14."""
+    start(page, overlay, picture)
+    icons = [page.get_by_role("button", name=name).locator("svg").inner_html()
+             for name in ("What are you doing?", "Show the real page")]
+    assert icons[0] != icons[1]
