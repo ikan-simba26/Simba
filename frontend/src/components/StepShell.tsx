@@ -125,7 +125,7 @@ export function StepShell({
   // day" never appeared, and neither did the way to stop.
   const [lead, ...alternatives] = orderActions(step.actions);
   const stop = step.actions.find((action) => action.kind === "secondary");
-  const layout = answersLayout(step, spec.secondary === "button");
+  const layout = answersLayout(step);
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -249,16 +249,28 @@ export function StepShell({
               first question has to fit at level 2 without folding, and at
               150% the station question was 65px too tall. One answer and the
               way to stop sit side by side; two or three short answers share
-              a row, with the way to stop under them. Ordinary steps, and
-              level 3, keep the column. */}
+              a row, with the way to stop under them. Ordinary steps keep
+              the column. */}
           <motion.div transition={FOLD} className="flex flex-col gap-3">
             {layout === "pair" ? (
               <div className="flex flex-row gap-3">
                 <ActionButton action={lead} height={spec.actionHeight} answered={answered}
                               waiting={waiting} onAction={onAction} grow />
-                {stop && (
+                {stop && spec.secondary === "button" && (
                   <ActionButton action={stop} height={spec.actionHeight} answered={answered}
                                 waiting={waiting} onAction={onAction} grow quiet />
+                )}
+                {/* Level 3: the way to stop as its line of text, still beside
+                    the answer. Under it, level 3 was 18px taller than level 2
+                    (frontend/test_levels.py), and simplifying must never make
+                    a step taller. */}
+                {stop && spec.secondary === "text" && (
+                  <button type="button" disabled={answered}
+                          onClick={() => onAction(stop.id)}
+                          className={`${buttonClass("quiet")} shrink-0 px-6
+                                      disabled:opacity-40`}>
+                    {stop.label}
+                  </button>
                 )}
               </div>
             ) : (
@@ -289,7 +301,8 @@ export function StepShell({
           </motion.div>
         </Fold>
 
-        <Fold show={Boolean(stop) && spec.secondary === "text"} gap={spec.gap * 0.4}>
+        <Fold show={Boolean(stop) && spec.secondary === "text" && layout !== "pair"}
+              gap={spec.gap * 0.4}>
           <button
             type="button"
             disabled={answered}
@@ -589,11 +602,13 @@ const SHORT_ANSWER = 22;
  * How a step's answers are laid out. A question — its answers carry ids of
  * their own, or it has a box to type in — whose one answer is "That's it"
  * puts it beside the way to stop ("pair"); one with two or three short
- * answers puts them in a row ("row"). Everything else, and every level where
- * the way to stop is text rather than a button, keeps the column.
+ * answers puts them in a row ("row"). Everything else keeps the column. At
+ * level 3, where the way to stop is a line of text, the layouts hold: a pair
+ * keeps the text beside its answer, a row keeps its row with the text under
+ * it. Falling back to the column there made level 3 up to 107px taller than
+ * level 2, and simplifying must never make a step taller.
  */
-function answersLayout(step: StepPresented, stopIsButton: boolean): "pair" | "row" | "column" {
-  if (!stopIsButton) return "column";
+function answersLayout(step: StepPresented): "pair" | "row" | "column" {
   const answers = step.actions.filter((action) => action.kind !== "secondary");
   const choices = answers.filter((action) => action.id.startsWith("choice:"));
   const typed = step.fields.some((field) => !field.value);

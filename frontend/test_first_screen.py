@@ -154,3 +154,33 @@ def test_a_fold_on_the_first_screen_shows_no_notice_and_the_next_screen_still_ca
         assert page.get_by_test_id("notice-line").count() == 1
     finally:
         page.close()
+
+
+def card_height(browser, overlay: str, backend: Backend, stages, step, level: int) -> int:  # noqa: F811
+    """The step card's height with the level set before the first screen."""
+    page = show(browser, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": stages}),
+        ("load.updated", {"score": 0.9 if level == 3 else 0.5, "level": level, "reason": "set"}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", step),
+        (AWAIT_RESPONSE, {}),
+    ], SIZES["100%"])
+    try:
+        assert level_on_screen(page) == level
+        return page.evaluate("Math.round(document.querySelector("
+                             "'[data-testid=step-shell]').getBoundingClientRect().height)")
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("name", list(FIRST), ids=list(FIRST))
+def test_level_3_is_never_taller_than_level_2(
+    browser, overlay: str, backend: Backend, name: str  # noqa: F811
+) -> None:
+    """Simplifying must never make a step taller (`test_levels.py`). When the
+    answers first shared a row at level 2 (2026-10-14), level 3 kept the
+    column: "What day are you travelling?" was 107px taller at level 3."""
+    stages, step = FIRST[name]
+    two = card_height(browser, overlay, backend, stages, step, 2)
+    three = card_height(browser, overlay, backend, stages, step, 3)
+    assert three <= two, (name, two, three)
