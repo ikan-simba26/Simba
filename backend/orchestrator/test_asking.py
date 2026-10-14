@@ -63,6 +63,16 @@ class ScriptedConnection(Connection):
         self.sent: list[tuple[str, dict]] = []
         self.answers: Answers = list(answers or [])
         self.shown = 0
+        #: The checklist's Pause (2026-10-14): pressed on this call to `poll`.
+        self.pause_on_poll: int | None = None
+        self.polls = 0
+
+    async def poll(self, seconds: float = 0.0) -> list[dict]:  # noqa: ARG002
+        self.polls += 1
+        if self.pause_on_poll == self.polls:
+            return [{"type": "step.response",
+                     "payload": {"step_index": 0, "action_id": "pause", "input_values": {}}}]
+        return []
 
     async def send(self, message_type: str, payload) -> None:
         self.sent.append((message_type, payload.model_dump()))

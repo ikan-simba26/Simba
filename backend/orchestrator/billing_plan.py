@@ -83,6 +83,9 @@ def billing_plan(reference: str) -> list[PlanStep]:
             ],
             expect=Expectation(url_contains="/bill"),
             stage=1,
+            # A lookup with the number the person gave: safe to run.
+            safe=True,
+            doing=voice.DOING_LOOKUP,
         ),
         PlanStep(
             instruction="Now I'll open the full bill.",
@@ -91,6 +94,8 @@ def billing_plan(reference: str) -> list[PlanStep]:
             operations=[Operation("click", Target("link", "View full bill detail"))],
             expect=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
             stage=1,
+            safe=True,
+            doing=voice.DOING_FULL_BILL,
         ),
     ]
 

@@ -421,7 +421,7 @@ def backend_sentences() -> dict[str, str]:
                  "ASK_FROM_AGAIN", "ASK_TO_AGAIN", "ASK_CHANGE", "READY_TO_SEARCH",
                  "ASK_REFERENCE", "REFERENCE_DETAIL", "ASK_REFERENCE_AGAIN", "ASK_COURSE",
                  "COURSE_DETAIL", "ASK_COURSE_AGAIN", "NOT_UNDERSTOOD", "NO_TRAINS",
-                 "WRONG_MONTH", "FORM_CHANGED"):
+                 "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     for where, text in {
         "read_back": voice.read_back("Lahore Cantt", "Karachi Cantt", "tomorrow, 7 October"),
@@ -477,6 +477,11 @@ def backend_labels() -> dict[str, str]:
     for name in ("THATS_IT", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
                  "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
+    # The checklist's lines (2026-10-14): said as what is happening, no full stop.
+    for name in ("DOING_FROM", "DOING_TO", "DOING_CALENDAR", "DOING_SEARCH", "DOING_LOOKUP",
+                 "DOING_FULL_BILL", "DOING_NOTICE"):
+        labels[f"voice.{name}"] = getattr(voice, name)
+    labels["voice.doing_day"] = voice.doing_day("15 October")
     return labels
 
 

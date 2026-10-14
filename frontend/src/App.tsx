@@ -34,9 +34,10 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { ENDING, FLOWS, HOME, REPLY, STOPPED, WHICH, presence } from "./copy";
+import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, presence } from "./copy";
 import { ARRIVE, COLUMN, TYPE } from "./design";
 import { StepView } from "./components/StepView";
+import { StageRow } from "./components/StepShell";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
 import { useStore } from "./store";
@@ -164,7 +165,7 @@ function PresenceBar() {
 
 function Column() {
   const { step, help, completed, failed, stoppedByPerson, task, trustOpen, peeking, reply, state,
-          asking } = useStore();
+          asking, checklist } = useStore();
   // Put aside while the real page is shown: the trust panel's picture, or
   // the page itself behind the step (`Backdrop`).
   const aside = trustOpen || peeking;
@@ -186,6 +187,8 @@ function Column() {
         ? "failed"
         : step
           ? `step-${step.step_index}`
+          : checklist.length > 0
+            ? "checklist"
           : task || asking
             ? "working"
             : reply
@@ -221,6 +224,7 @@ function Column() {
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
             {screen.startsWith("step-") && <Step />}
+            {screen === "checklist" && <Checklist />}
             {screen === "completed" && <Completed />}
             {screen === "failed" && <Failed />}
             {screen === "stopped" && <StoppedByPerson />}
@@ -270,7 +274,9 @@ function Home() {
         <Shape className="h-14 w-14 short:h-11 short:w-11" />
       </div>
 
-      <Section lead={HOME.canHelp}>
+      {/* The setting shares the cards' lead-in line, so the home screen is
+          no taller for it. */}
+      <Section lead={HOME.canHelp} aside={<AskEachSetting />}>
         {cards.map((card) => (
           <ChoiceCard key={card.goal}
                       icon={card.remembered || !card.flow ? <AgainIcon />
@@ -289,11 +295,28 @@ function Home() {
   );
 }
 
+/** The person's own setting: be asked before every move (2026-10-14). */
+function AskEachSetting() {
+  const { askEachTime, setAskEachTime } = useStore();
+  return (
+    <label className="flex cursor-pointer items-center gap-3 text-small text-soft">
+      <input type="checkbox" className="h-5 w-5 accent-[var(--accent)]" checked={askEachTime}
+             onChange={(event) => setAskEachTime(event.target.checked)} />
+      {SETTINGS.askEach}
+    </label>
+  );
+}
+
 /** A lead-in and what it introduces. */
-function Section({ lead, children }: { lead: string; children: React.ReactNode }) {
+function Section({ lead, children, aside }: {
+  lead: string; children: React.ReactNode; aside?: React.ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3 short:gap-2">
-      <p className="text-small font-medium text-soft">{lead}</p>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-small font-medium text-soft">{lead}</p>
+        {aside}
+      </div>
       <div className="flex flex-col gap-3 short:gap-2">{children}</div>
     </section>
   );
@@ -511,6 +534,55 @@ function Step() {
         <LevelControl />
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------- checklist */
+
+/**
+ * What SIMBA is doing by itself, once the person has decided (2026-10-14).
+ *
+ * The safe mechanical moves — filling in the form, opening the calendar,
+ * searching — used to be a screen each, with a button to press for each.
+ * Now they run, and each is one line here: done ones ticked, the one being
+ * done marked, in the backend's plain words. One button, Pause, which stops
+ * SIMBA before its next move. Anything that is a real choice, that went
+ * wrong, or that would pay, book, register or change a record still asks.
+ */
+function Checklist() {
+  const { checklist, pausing, pause, stageNow } = useStore();
+  return (
+    <Card className="px-12 py-10 short:py-7">
+      <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
+        <StageRow current={stageNow ?? undefined} full />
+        <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
+          {CHECKLIST.heading}
+        </h1>
+        <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite" data-testid="checklist-lines">
+          {checklist.map((row, index) => {
+            const done = index < checklist.length - 1;
+            return (
+              <li key={row.index} className="flex items-center gap-4 text-lead text-ink"
+                  data-state={done ? "done" : "now"}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+                                  ${done ? "bg-accent text-accent-ink"
+                                         : "border-2 border-accent text-accent"}`}>
+                  {done ? <CheckIcon size={20} /> : <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
+                </span>
+                <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.now}</span>
+                <span className={done ? "text-soft" : "font-semibold"}>{row.label}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <div>
+          <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
+            <PauseIcon size={24} />
+            {pausing ? CHECKLIST.pausing : CHECKLIST.pause}
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 

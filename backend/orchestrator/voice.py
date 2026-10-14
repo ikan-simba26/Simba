@@ -84,6 +84,32 @@ def choices(labels: list[str]) -> list[StepAction]:
     ]
 
 
+# --- the checklist: what SIMBA is doing by itself (2026-10-14) -------------
+#
+# Once the person has decided, the safe mechanical moves run without a press
+# each, and each is one line of a checklist that ticks off. Labels: no full
+# stop, said as what is happening.
+
+DOING_FROM = "Filling in where you're starting from"
+DOING_TO = "Filling in where you're going"
+DOING_CALENDAR = "Opening the calendar"
+DOING_SEARCH = "Searching"
+DOING_LOOKUP = "Looking up your bill"
+DOING_FULL_BILL = "Opening the full bill"
+DOING_NOTICE = "Closing the portal's notice"
+
+
+def doing_day(words: str) -> str:
+    """`Choosing 15 October`."""
+    return f"Choosing {words}"
+
+
+#: When the person pressed Pause on the checklist. Nothing more is done until
+#: they say so.
+PAUSED = "I've paused. Carry on when you're ready."
+#: The `step.response` action id the checklist's Pause sends.
+PAUSE_ID = "pause"
+
 # The stages of each task, by name, shown in place of a count (2026-10-14).
 # Labels: no full stop, and never the word the rules forbid.
 TRIP_STAGES = ["From", "To", "Day", "Search", "Trains"]

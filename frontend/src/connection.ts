@@ -91,9 +91,11 @@ export class BackendConnection {
 
   // --- sending -------------------------------------------------------------
 
-  startTask(goal: string, flow?: FlowName): void {
+  startTask(goal: string, flow?: FlowName, confirmEach = false): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
+    // Only when the person asked to be asked every time (2026-10-14).
+    if (confirmEach) payload.confirm_each = true;
     this.send("task.start", payload);
   }
 

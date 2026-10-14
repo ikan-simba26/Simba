@@ -215,6 +215,8 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         payload = start.get("payload", {})
         goal = (payload.get("goal") or "").strip()
         chosen = payload.get("flow")
+        # The checklist unless the person asked to be asked every time.
+        auto = not bool(payload.get("confirm_each"))
 
         if chosen in ROUTABLE:
             # Picked by the person from something we offered. Not classified
@@ -255,7 +257,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
 
         async with open_page(replica_url) as page:
             await run_brief(page, connection, brief, replica_url, recorder, rules,
-                            vault=Vault(), window=window_watch(page))
+                            vault=Vault(), window=window_watch(page), auto=auto)
         await websocket.close()
         return
 
@@ -283,6 +285,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         planner = TracePlanner(store, task, site_of(replica_url), planner)
 
     async with open_page(replica_url) as page:
+        # The recovery rig: every move asked, as its measurements assume.
         await run_task(page, connection, planner, task, replica_url, recorder, rules,
                        vault=Vault(), window=window_watch(page))
 

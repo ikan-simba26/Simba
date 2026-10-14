@@ -427,6 +427,7 @@ class TripPlanner:
                 expect=Expectation(label_like=place, list_opens=True),
                 quiet=self._typed[end] > 1,
                 kind="place",
+                doing=voice.DOING_FROM if end == "origin" else voice.DOING_TO,
             )
 
         station = self.stations.get(end)
@@ -482,6 +483,7 @@ class TripPlanner:
                 operations=[Operation("click", Target("option", day, qualifier=cell.qualifier))],
                 expect=Expectation(label_gone=day),
                 kind="date",
+                doing=voice.doing_day(words),
             )
 
         self._done.discard("open month")
@@ -496,6 +498,7 @@ class TripPlanner:
             ],
             expect=Expectation(label_present=day),
             kind="date",
+            doing=voice.DOING_CALENDAR,
         )
 
     def _search(self, elements):
@@ -528,19 +531,24 @@ class TripPlanner:
             operations=[Operation("click", Target("button", ""))],
             expect=Expectation(rows_at_least=1),
             kind="confirm",
+            doing=voice.DOING_SEARCH,
         )
 
     # --- shaping -----------------------------------------------------------------
 
     def _move(self, instruction, detail, button, *, operations, expect, quiet=False,
-              kind=None):
+              kind=None, doing=None):
         from backend.orchestrator.loop import Move
 
         # Every move this planner makes fills in or sends the search: the
         # "Search" stage (`voice.TRIP_STAGES`).
         return Move(instruction=instruction, detail=detail, operations=operations,
                     expect=expect, fields=[], actions=actions(button), quiet=quiet, kind=kind,
-                    stage=3)
+                    stage=3,
+                    # After the journey is read back and agreed, every move
+                    # here only fills in the form the person described, or
+                    # searches it: safe to run without a press (2026-10-14).
+                    safe=True, doing=doing or instruction)
 
     def _question(self, instruction, *, answers, fields=()):
         from backend.orchestrator.loop import Move

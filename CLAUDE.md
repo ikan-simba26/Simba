@@ -36,6 +36,14 @@ Anyone may work anywhere. The owner reviews changes to their area.
     goal -> perceive -> score load -> decide action -> render step
          -> user confirms -> act -> verify -> loop
 
+The person decides; SIMBA clicks (2026-10-14). Once the person has made their
+choices — a journey read back and agreed, a bill's number, a course — the
+moves a plan marks safe (filling in, opening a calendar, searching, opening a
+page to read) run without a press each, as a checklist with one Pause. A real
+choice, anything the person must type, anything that went wrong, and anything
+that pays, books, registers or changes a record still waits for "user
+confirms". A person can ask to confirm every move.
+
 Verification is not optional. After every action, snapshot the page and check
 it changed the way the plan expected. If it didn't: retry once with a different
 strategy, then hand control to the user. Never assume a click worked.

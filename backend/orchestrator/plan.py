@@ -10,6 +10,7 @@ integer ids and the verification, stays the same.
 from dataclasses import dataclass, field
 from typing import Literal
 
+from backend.orchestrator import voice
 from backend.orchestrator.voice import actions
 from shared.schema import StepAction, StepField
 
@@ -209,6 +210,12 @@ class PlanStep:
     actions: list[StepAction] = field(default_factory=list)
     # Which of the task's stages this step is in (`voice.*_STAGES`).
     stage: int | None = None
+    # Safe to do without a press: it only fills in or looks something up, and
+    # the person has already decided what (2026-10-14). Never a step that
+    # pays, books, registers or changes a record, and never one that needs
+    # the person to type or choose. `doing` is its line on the checklist.
+    safe: bool = False
+    doing: str | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:
@@ -252,6 +259,8 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
         stage=1,
+        safe=True,
+        doing=voice.DOING_NOTICE,
     ),
 ]
 
@@ -296,4 +305,6 @@ class HardcodedPlanner:
             fields=step.fields,
             actions=step.actions,
             stage=step.stage,
+            safe=step.safe,
+            doing=step.doing,
         )

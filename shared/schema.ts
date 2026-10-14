@@ -213,6 +213,11 @@ export interface ErrorPayload {
 // --- Frontend to backend -----------------------------------------------------
 
 export interface TaskStart {
+  /**
+   * Additive and optional (2026-10-14). Ask before every move rather than
+   * running the safe ones as a checklist. Absent: the checklist.
+   */
+  confirm_each?: boolean;
   goal: string;
   input_mode: InputMode;
   /** Additive, optional (2026-09-21): the flow the person picked. */

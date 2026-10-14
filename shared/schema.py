@@ -242,6 +242,10 @@ class TaskStart(BaseModel):
     # pressing a card or answering "which did you mean", so the backend runs
     # exactly that rather than classifying the goal again.
     flow: Optional[FlowName] = None
+    # Additive and optional (2026-10-14). The person's own setting: ask before
+    # every move, as SIMBA always did, rather than running the safe ones as a
+    # checklist. Absent: the checklist.
+    confirm_each: bool = False
 
 
 class StepResponse(BaseModel):

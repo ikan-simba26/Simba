@@ -291,7 +291,7 @@ export function StepShell({
  * The task's stages, in a row: those done ticked, the one the person is in
  * marked, those to come quiet. Fixed for the task, so it never grows.
  */
-function StageRow({ current, full }: { current?: number; full: boolean }) {
+export function StageRow({ current, full }: { current?: number; full: boolean }) {
   const stages = useStore((state) => state.task?.stages) ?? [];
   const known = useStore((state) => state.stageNow);
   const at = current ?? known ?? 0;

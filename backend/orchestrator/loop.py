@@ -148,6 +148,19 @@ class Connection:
                     continue
             return message
 
+    async def poll(self, seconds: float = 0.02) -> list[dict]:
+        """Whatever the overlay has sent, without waiting for more than a
+        moment — for the checklist's Pause, between moves nobody pressed for
+        (2026-10-14). Waiting on the socket's queue is safe to cut short:
+        nothing is taken off it until it is returned."""
+        got: list[dict] = []
+        while True:
+            try:
+                text = await asyncio.wait_for(self._websocket.receive_text(), seconds)
+            except asyncio.TimeoutError:
+                return got
+            got.append(json.loads(text))
+
 
 def features_of(view: PageView) -> PageFeatures | None:
     """The page's raw features, or None when this read brought no snapshot.
@@ -448,6 +461,10 @@ class Move:
     kind: str | None = None
     # Which of the task's stages the step is in (`TaskStarted.stages`).
     stage: int | None = None
+    # Safe to run without a press, and its line on the checklist
+    # (`PlanStep.safe`, 2026-10-14). Only a planner that knows sets it.
+    safe: bool = False
+    doing: str | None = None
 
 
 class Planner(Protocol):
@@ -702,9 +719,16 @@ class _Run:
         rules: LevelRules | None,
         vault: Vault | None = None,
         window: Callable[[], Awaitable[str]] | None = None,
+        auto: bool = False,
     ) -> None:
         self.page = page
         self.connection = connection
+        #: Run the safe moves as a checklist rather than asking for each
+        #: (2026-10-14). The app turns it on unless the person asked to be
+        #: asked every time; a caller that does not say gets the old way.
+        self.auto = auto
+        #: Messages `poll` read that were not a pause: kept for the next wait.
+        self.held: list[dict] = []
         self.recorder = recorder
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
@@ -773,6 +797,43 @@ class _Run:
         if payload.get("action_id") != voice.CONFIRM_ID:
             raise StoppedWhileAway
         await self.set_state(was or "acting")
+
+    async def tick(self, move: "Move", *, findings: list[Finding]) -> int:
+        """One line of the checklist: a move SIMBA does by itself. Shown, not
+        asked; nothing waits for an answer, and nothing about the person is
+        measured on it — no row for the estimator, nothing for the level
+        rules, because there was no decision to measure."""
+        self.shown += 1
+        await self.connection.send(
+            "step.presented",
+            StepPresented(
+                step_index=self.shown,
+                step_total=max(self.total, self.shown),
+                instruction=move.doing or move.instruction,
+                detail="",
+                fields=[],
+                actions=[],
+                requires_confirmation=False,
+                findings=findings,
+                step_kind=kind_of(move),
+                stage=move.stage,
+            ),
+        )
+        return self.shown
+
+    async def pause_pressed(self) -> bool:
+        """Whether the checklist's Pause has been pressed since last asked."""
+        poll = getattr(self.connection, "poll", None)
+        if poll is None:
+            return False
+        paused = False
+        for message in await poll():
+            if (message.get("type") == "step.response"
+                    and message.get("payload", {}).get("action_id") == voice.PAUSE_ID):
+                paused = True
+            else:
+                self.held.append(message)
+        return paused
 
     async def give_up(self, reason: str) -> None:
         await self.set_state("stuck")
@@ -866,6 +927,11 @@ class _Run:
                 return
             await follow_override(message, self.rules, self.adapt)
 
+        # Anything that arrived while the checklist ran — a picture asked
+        # for, a telemetry sample — is answered first.
+        held, self.held = self.held, []
+        for message in held:
+            await answer_questions(message)
         response = await self.connection.receive(
             "step.response", step_index=index, on_other=answer_questions
         )
@@ -882,6 +948,7 @@ async def run_task(
     rules: LevelRules | None = None,
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
+    auto: bool = False,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
 
@@ -893,7 +960,7 @@ async def run_task(
     `rules` chooses the detail level as the run goes (`_Run.adapt`). With
     none, the level is whatever the overlay shows and nothing here moves it.
     """
-    run = _Run(page, connection, recorder, rules, vault, window)
+    run = _Run(page, connection, recorder, rules, vault, window, auto)
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -907,6 +974,7 @@ async def run_brief(
     rules: LevelRules | None = None,
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
+    auto: bool = False,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -917,7 +985,7 @@ async def run_brief(
     stopped the task; a brief that cannot make sense of the answers ends the
     run the way being stuck does, and says why.
     """
-    run = _Run(page, connection, recorder, rules, vault, window)
+    run = _Run(page, connection, recorder, rules, vault, window, auto)
     await run.open(brief.goal, brief.estimated_steps, start_url,
                    getattr(brief, "stages", None))
 
@@ -970,6 +1038,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     # What the site has said back about the values the goal named. See
     # `said_so_far`.
     seen: dict[str, list[str]] = {}
+    # After anything goes wrong, the next move asks again, safe or not: a
+    # checklist that carried on past a failure would be SIMBA deciding what
+    # the person would want (2026-10-14).
+    ask_next = False
 
     # A planner that asks, or that finishes a step quietly, takes more turns
     # than it shows steps. The second bound is what stops one that never
@@ -1039,7 +1111,23 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
-        if not move.quiet:
+        # The checklist: a safe move, run without a press (2026-10-14). Pause
+        # is looked for first, so a press lands before the next move rather
+        # than after it.
+        by_itself = run.auto and move.safe and not move.quiet and not ask_next
+        if by_itself and await run.pause_pressed():
+            paused = Move(instruction=voice.PAUSED, detail="", operations=[],
+                          expect=Expectation(), fields=[],
+                          actions=voice.actions(voice.CARRY_ON), question=True,
+                          kind="confirm", stage=move.stage)
+            payload = await run.present(paused, goal=task.goal, findings=findings, view=view)
+            if payload.get("action_id") != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+        if by_itself:
+            steps_taken += 1
+            await run.tick(move, findings=findings)
+        elif not move.quiet:
             steps_taken += 1
             # A step that asks for a password uses the saved one if there is
             # one, and offers to keep it if there is not. Either way the
@@ -1092,6 +1180,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             return
 
         if failure is not None:
+            ask_next = True
             consecutive_setbacks += 1
             if consecutive_setbacks >= 2:
                 await give_up(f"{move.instruction} did not work: {failure}")
@@ -1121,6 +1210,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         consecutive_setbacks = 0
         last_failure = None
+        ask_next = False
         if keep is not None:
             # Only now: a password that did not sign anyone in is not kept.
             run.vault.put(page.url, keep)

@@ -362,6 +362,33 @@ export const TRUST = {
   close: "Close",
 } as const;
 
+/* ------------------------------------------------------------ the checklist */
+
+/**
+ * What SIMBA does by itself once the person has decided (2026-10-14): the
+ * safe mechanical moves, as a short list that ticks off. Each line is the
+ * backend's (`voice.DOING_*`); these are the words round it.
+ */
+export const CHECKLIST = {
+  heading: "I'm doing what you asked.",
+  /** Stops before the next move; SIMBA then waits to be told to carry on. */
+  pause: "Pause",
+  /** On the button once pressed, until SIMBA has stopped. */
+  pausing: "Pausing",
+  /** A line that is done, for a screen reader. */
+  done: "Done",
+  /** The line being done, for a screen reader. */
+  now: "Doing this now",
+} as const;
+
+/**
+ * The person's own settings, kept on this computer (2026-10-14).
+ */
+export const SETTINGS = {
+  /** Off: SIMBA runs the safe moves itself. On: it asks before every one. */
+  askEach: "Ask me before each thing I do",
+} as const;
+
 /* ------------------------------------------------------------ read aloud */
 
 /**
@@ -438,6 +465,7 @@ export const SITUATIONS: Record<string, string> = {
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,
   "home.greeting": HOME.greeting,
+  "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
   "trust.ask": TRUST.ask,
   "reply.greeting": REPLY.greeting,
@@ -476,6 +504,11 @@ export const LABELS: Record<string, string> = {
   "reveal.show": REVEAL.show,
   "reveal.hide": REVEAL.hide,
   "speak.read": SPEAK.read,
+  "checklist.pause": CHECKLIST.pause,
+  "checklist.pausing": CHECKLIST.pausing,
+  "checklist.done": CHECKLIST.done,
+  "checklist.now": CHECKLIST.now,
+  "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,

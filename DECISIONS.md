@@ -4114,3 +4114,38 @@ alone with `PrintWindow`. `SIMBA_RECORD_STEPS=0`, so scripted presses never
 became training rows. The 100% captures came from a second real host at
 `--force-device-scale-factor=1`; the machine is at 150% and its setting was
 not changed. Light theme for the review copies was the system's own.
+
+## The person decides, SIMBA clicks: the safe moves run as a checklist
+
+**Date:** 2026-10-14 (asked for by Raham; CLAUDE.md's runtime loop updated to say so)
+
+**Decision.** After the person's decisions — the journey read back and
+agreed, the bill's number, the course — the moves a plan marks `safe` run
+without a press each, shown as checklist lines (`requires_confirmation:
+false`) with one Pause. Safe, in the three flows: every trip move after the
+readback (filling in both stations, the calendar, the day, Search); looking a
+bill up with the number given and opening the full bill; closing the portal's
+notice. **Still asking:** every question; accepting cookies (consent on
+someone else's site is a choice); signing in (the person types); registering
+(it registers); the next move after any failure; every move the LLM planner
+or replay makes (neither knows what is safe). The person can ask to confirm
+every move ("Ask me before each thing I do", kept on this computer, sent as
+`task.start.confirm_each`). The recovery rig always asks.
+
+**What it changes for telemetry and the estimator.** A checklist line is not
+a decision, so nothing about the person is measured on it: no
+`Recorder.note_step` row, no telemetry clock started in the overlay, no
+`LevelRules.start_step`. Hesitation, cursor path, backtracks, re-reads and
+help presses are still measured on every question and on every move that
+still asks. **Fewer rows per task** reach `data/steps.jsonl`: a train journey
+whose goal names everything had 6 shown steps (readback and five moves) and
+now has 1 (the readback); a bill with its number, 3 to 1; a course, 3 to 2.
+The level rules see fewer steps, so "two calm steps" to come back takes more
+of a task, and a heavy page a checklist line passes over is never weighed.
+Rows already recorded are unchanged. **For Nahail:** the training set's rows
+from before and after this date describe different kinds of screen, and the
+pairing should not mix them without saying so.
+
+**Alternatives.** Run everything after the first press: would run cookies and
+registration, which are choices. Mark safety by the kind of operation (type,
+click an option): a click is a click whether it searches or pays.

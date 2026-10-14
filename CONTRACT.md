@@ -159,6 +159,14 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+**`requires_confirmation: false` is a checklist line** (since 2026-10-14). The
+backend is doing the move by itself: nothing waits for a `step.response`, and
+the overlay shows `instruction` as one line of a checklist that ticks off.
+Its one answer is Pause: a `step.response` with `"action_id": "pause"` and that
+line's `step_index`, after which the backend does nothing more until the
+person says to carry on. `task.start.confirm_each: true` (additive and
+optional) asks for every move to be confirmed instead.
+
 **`stage` is additive and optional, and so is `task.started.stages`**
 (added 2026-10-14). `task.started` names the task's stages once — trains:
 `["From", "To", "Day", "Search", "Trains"]` — and each step says which it is
