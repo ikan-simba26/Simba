@@ -56,6 +56,8 @@ interface Store {
   backdrop: PagePreview | null;
   /** Showing the real page clearly, with the step put aside. */
   peeking: boolean;
+  /** The stage the last step was in, for a step that does not say. */
+  stageNow: number | null;
   help: HelpRequested | null;
   completed: TaskCompleted | null;
   failed: TaskFailed | null;
@@ -187,6 +189,7 @@ const EMPTY = {
   preview: null,
   backdrop: null,
   peeking: false,
+  stageNow: null,
   help: null,
   completed: null,
   failed: null,
@@ -372,6 +375,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         asking: null,
         backdrop: null,
         peeking: false,
+        stageNow: null,
       });
       return;
     case "state.changed":
@@ -386,6 +390,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // reshaping.
       set((current) => ({
         step: message.payload as StepPresented,
+        stageNow: (message.payload as StepPresented).stage ?? current.stageNow,
         answered: false,
         overflowHopped: false,
         ...(current.levelLocked ? { level: current.chosenLevel } : {}),

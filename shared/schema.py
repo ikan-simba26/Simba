@@ -49,6 +49,10 @@ MessageType = Literal[
 class TaskStarted(BaseModel):
     goal: str
     estimated_steps: int
+    # Additive and optional (2026-10-14). The task's stages by name — trains:
+    # From, To, Day, Search, Trains — shown in place of a count. Fixed for the
+    # task: a question asked again stays in its stage. Empty: no stages shown.
+    stages: List[str] = []
 
 
 class StateChanged(BaseModel):
@@ -153,6 +157,9 @@ class StepPresented(BaseModel):
     # Additive and optional (2026-10-07). What kind of thing the step is
     # about, so the overlay can put one plain icon beside it. Absent: no icon.
     step_kind: Optional[StepKind] = None
+    # Additive and optional (2026-10-14). Which of `task.started.stages` this
+    # step is in, by position. Absent: the stage before it.
+    stage: Optional[int] = None
 
 
 class StepFailed(BaseModel):

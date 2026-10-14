@@ -445,3 +445,37 @@ def test_a_two_line_station_question_fits_at_150_percent_at_level_1(
 
     over = short_page.evaluate("document.scrollingElement.scrollHeight - innerHeight")
     assert over <= 0, f"scrolls by {over}px"
+
+
+
+# --- where you are, by name (2026-10-14) -------------------------------------------
+
+TRIP = ["From", "To", "Day", "Search", "Trains"]
+
+
+def staged(question: dict, stage: int) -> list:
+    return [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": TRIP}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", {**question, "stage": stage}),
+        (AWAIT_RESPONSE, {}),
+    ]
+
+
+def stages_on(page: Page) -> list[tuple[str, str]]:
+    return page.eval_on_selector_all(
+        "[data-testid=stages] li",
+        "items => items.map(i => [i.innerText.replace('✓', '').replace('·', '').trim(),"
+        " i.dataset.state])")
+
+
+def test_the_stages_show_where_the_person_is(
+    page: Page, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    ask(page, overlay, backend, staged(A_QUESTION, 2))
+
+    assert [tuple(s) for s in stages_on(page)] == [
+        ("From", "done"), ("To", "done"), ("Day", "now"), ("Search", "to come"),
+        ("Trains", "to come")]
+    body = page.inner_text("body")
+    assert "Step" not in body and " of 9" not in body

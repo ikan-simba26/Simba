@@ -84,6 +84,12 @@ def choices(labels: list[str]) -> list[StepAction]:
     ]
 
 
+# The stages of each task, by name, shown in place of a count (2026-10-14).
+# Labels: no full stop, and never the word the rules forbid.
+TRIP_STAGES = ["From", "To", "Day", "Search", "Trains"]
+BILL_STAGES = ["Reference", "Look up", "Your bill"]
+COURSE_STAGES = ["Course", "Sign in", "Register", "Done"]
+
 ASK_FROM = "Where are you travelling from?"
 ASK_TO = "Where are you travelling to?"
 ASK_DAY = "What day are you travelling?"

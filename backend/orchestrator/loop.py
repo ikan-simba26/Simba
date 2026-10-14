@@ -446,6 +446,8 @@ class Move:
     # type, read or confirm (`shared/schema.py`, `StepKind`). None means work
     # it out from the operations (`kind_of`).
     kind: str | None = None
+    # Which of the task's stages the step is in (`TaskStarted.stages`).
+    stage: int | None = None
 
 
 class Planner(Protocol):
@@ -788,10 +790,12 @@ class _Run:
             TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
         )
 
-    async def open(self, goal: str, estimated_steps: int, start_url: str) -> None:
+    async def open(self, goal: str, estimated_steps: int, start_url: str,
+                   stages: list[str] | None = None) -> None:
         self.total = estimated_steps
         await self.connection.send(
-            "task.started", TaskStarted(goal=goal, estimated_steps=estimated_steps)
+            "task.started",
+            TaskStarted(goal=goal, estimated_steps=estimated_steps, stages=stages or []),
         )
         await self.set_state("thinking")
         await self.page.goto(start_url)
@@ -841,6 +845,7 @@ class _Run:
                 requires_confirmation=True,
                 findings=findings,
                 step_kind=kind_of(move),
+                stage=move.stage,
             ),
         )
 
@@ -913,7 +918,8 @@ async def run_brief(
     run the way being stuck does, and says why.
     """
     run = _Run(page, connection, recorder, rules, vault, window)
-    await run.open(brief.goal, brief.estimated_steps, start_url)
+    await run.open(brief.goal, brief.estimated_steps, start_url,
+                   getattr(brief, "stages", None))
 
     # A brief that holds its answers to what the site offers reads that first,
     # without touching anything: the train search's own station list

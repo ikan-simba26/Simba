@@ -42,6 +42,11 @@ export type MessageType =
 export interface TaskStarted {
   goal: string;
   estimated_steps: number;
+  /**
+   * Additive and optional (2026-10-14). The task's stages by name, shown in
+   * place of a count. Fixed for the task. Absent or empty: no stages shown.
+   */
+  stages?: string[];
 }
 
 export interface StateChanged {
@@ -133,6 +138,9 @@ export interface StepPresented {
    * so one plain icon can go beside it. Absent means no icon.
    */
   step_kind?: StepKind;
+  /** Additive and optional (2026-10-14). Which of the task's stages this step
+   *  is in, by position. Absent: the stage before it. */
+  stage?: number;
 }
 
 /**

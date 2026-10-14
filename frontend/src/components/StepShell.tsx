@@ -18,7 +18,8 @@ import type { ReactNode } from "react";
 
 import type { Finding, Level, StepAction, StepField } from "@shared/schema";
 
-import { CHOOSE, FOUND, STEP } from "../copy";
+import { CHOOSE, FOUND, STAGES } from "../copy";
+import { useStore } from "../store";
 import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
@@ -134,22 +135,11 @@ export function StepShell({
 
       <div className="relative flex flex-col">
         <Fold show={spec.progress !== "none"} gap={0}>
-          {/* Quieter at level 2 than at level 1, and still readable: 0.4 of
-              the soft colour was 2.5:1, under any contrast rule. 0.75 keeps
-              it above 4.5:1 in both themes. */}
-          <motion.p
-            animate={{
-              // Level 1 states it; level 2 murmurs it. A step counter is
-              // reassurance for someone coping and pressure for someone who
-              // is not, which is why level 3 has none at all.
-              fontSize: spec.progress === "full" ? `${TYPE.caption}px` : "16px",
-              opacity: spec.progress === "full" ? 1 : 0.75,
-            }}
-            transition={FOLD}
-            className="font-medium tracking-wide text-soft"
-          >
-            {STEP.count(step.step_index, step.step_total)}
-          </motion.p>
+          {/* Where the person is, by name — never a count, which grew every
+              time a question was asked again (2026-10-14). Level 1 states it;
+              level 2 murmurs it; level 3, one sentence and one thing to
+              press, has none. */}
+          <StageRow current={step.stage} full={spec.progress === "full"} />
         </Fold>
 
         {/* No `layout` here. A layout animation projects the element's box
@@ -294,6 +284,35 @@ export function StepShell({
         </Fold>
       </div>
     </div>
+  );
+}
+
+/**
+ * The task's stages, in a row: those done ticked, the one the person is in
+ * marked, those to come quiet. Fixed for the task, so it never grows.
+ */
+function StageRow({ current, full }: { current?: number; full: boolean }) {
+  const stages = useStore((state) => state.task?.stages) ?? [];
+  const known = useStore((state) => state.stageNow);
+  const at = current ?? known ?? 0;
+  if (stages.length === 0) return null;
+  return (
+    <ol aria-label={STAGES.label} data-testid="stages"
+        className={`flex flex-wrap items-center gap-x-2 gap-y-1 font-medium tracking-wide
+                    ${full ? "text-caption" : "text-[16px]"}`}>
+      {stages.map((name, index) => (
+        <li key={name} className="flex items-center gap-2"
+            aria-current={index === at ? "step" : undefined}
+            data-state={index < at ? "done" : index === at ? "now" : "to come"}>
+          {index > 0 && <span aria-hidden className="text-soft/50">·</span>}
+          <span className={index === at ? "rounded-full bg-tint px-3 py-0.5 text-accent"
+                           : index < at ? "text-soft" : "text-soft/70"}>
+            {index < at && <span aria-hidden className="mr-1">✓</span>}
+            {name}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

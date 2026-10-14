@@ -68,6 +68,7 @@ def billing_plan(reference: str) -> list[PlanStep]:
             actions=actions("Accept cookies"),
             operations=[Operation("click", Target("button", "Accept all cookies"))],
             expect=Expectation(label_gone="Accept all cookies"),
+            stage=1,
         ),
         PlanStep(
             instruction="Let me look up your bill.",
@@ -81,6 +82,7 @@ def billing_plan(reference: str) -> list[PlanStep]:
                 Operation("click", Target("button", "Check Bill")),
             ],
             expect=Expectation(url_contains="/bill"),
+            stage=1,
         ),
         PlanStep(
             instruction="Now I'll open the full bill.",
@@ -88,6 +90,7 @@ def billing_plan(reference: str) -> list[PlanStep]:
             actions=actions("Show me the breakdown"),
             operations=[Operation("click", Target("link", "View full bill detail"))],
             expect=Expectation(url_contains="/bill/detail", title_contains="Bill Detail"),
+            stage=1,
         ),
     ]
 

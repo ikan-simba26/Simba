@@ -536,8 +536,11 @@ class TripPlanner:
               kind=None):
         from backend.orchestrator.loop import Move
 
+        # Every move this planner makes fills in or sends the search: the
+        # "Search" stage (`voice.TRIP_STAGES`).
         return Move(instruction=instruction, detail=detail, operations=operations,
-                    expect=expect, fields=[], actions=actions(button), quiet=quiet, kind=kind)
+                    expect=expect, fields=[], actions=actions(button), quiet=quiet, kind=kind,
+                    stage=3)
 
     def _question(self, instruction, *, answers, fields=()):
         from backend.orchestrator.loop import Move
@@ -545,4 +548,4 @@ class TripPlanner:
         # Every question this planner asks is which station.
         return Move(instruction=instruction, detail="", operations=[],
                     expect=Expectation(), fields=list(fields), actions=answers,
-                    question=True, kind="place")
+                    question=True, kind="place", stage=3)

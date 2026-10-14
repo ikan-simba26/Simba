@@ -98,7 +98,7 @@ def copy() -> dict:
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
         "fitted: [c.levelNotice(2, 1, true), c.levelNotice(3, 2, true)],"
-        "count: [c.STEP.count(1, 3), c.STEP.count(1, 3), c.STEP.count(2, 3)],"
+        "stages: c.STAGES,"
         "home: c.HOME, ending: c.ENDING, stopped: c.STOPPED, more: c.ENDING.more(5),"
         "notice: c.NOTICE, trust: c.TRUST, found: c.FOUND"
         "}));"
@@ -130,7 +130,6 @@ def test_asking_twice_gives_the_same_sentence(copy: dict) -> None:
     A situation is a lookup, not a construction, so this can only fail if
     someone makes it one — which is the change worth catching.
     """
-    assert copy["count"][0] == copy["count"][1]
     assert copy["presence"]["working"] == copy["situations"]["presence.working"]
     assert copy["presence"]["opening"] == copy["situations"]["presence.opening"]
 
@@ -200,8 +199,18 @@ def test_no_two_buttons_share_a_label(copy: dict) -> None:
 # --- the words themselves ---------------------------------------------------
 
 
-def test_the_step_count_is_the_only_place_a_number_is_explained(copy: dict) -> None:
-    assert copy["count"][2] == "Step 2 of 3"
+def test_there_is_no_count_and_no_step_on_screen(copy: dict) -> None:
+    """"Step 2 of 6" is gone (2026-10-14): it grew each time a question was
+    asked again, and it used a word the rules forbid. Where the person is is
+    the stages by name, which are the backend's (`voice.*_STAGES`)."""
+    assert "STEP" not in copy and "count" not in copy
+    assert copy["stages"]["label"] == "Where you are"
+    for stages in (voice.TRIP_STAGES, voice.BILL_STAGES, voice.COURSE_STAGES):
+        assert len(stages) == len(set(stages))
+        for name in stages:
+            assert not taught_words_in(name), name
+            assert name[-1].isalnum(), f"a stage is a label: {name!r}"
+    assert voice.TRIP_STAGES == ["From", "To", "Day", "Search", "Trains"]
 
 
 def test_sentences_end(copy: dict) -> None:
@@ -224,8 +233,8 @@ def test_sentences_end(copy: dict) -> None:
 
 
 def test_no_word_the_reader_would_have_to_be_taught(copy: dict) -> None:
-    """The rule in copy.ts, checked. `STEP.count` is not in these tables, and
-    is the one known exception — flagged in STATUS.md, not settled here."""
+    """The rule in copy.ts, checked. Its one known exception, the step count,
+    was removed on 2026-10-14."""
     for name, text in everything_in(copy).items():
         assert not taught_words_in(text), f"{name} uses {taught_words_in(text)}: {text!r}"
 

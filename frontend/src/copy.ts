@@ -25,7 +25,8 @@
  *   - No word where a shorter one exists. "Bill", not "invoice".
  *   - Say what is happening now, not what happened or will happen.
  *   - Never a word the reader has to be taught: no "step", "session",
- *     "verify", "retry", "overlay". (`STEP.count` breaks this one, knowingly —
+ *     "verify", "retry", "overlay". (A count, "Step 2 of 6", broke this one until
+ *     2026-10-14; the stages replaced it —
  *     see the note on it.)
  *   - A sentence ends with a full stop or a question mark. A lead-in that sits
  *     above the thing it introduces ends with nothing. A button label ends
@@ -188,18 +189,17 @@ export function presence(situation: Presence): string {
 
 /* ------------------------------------------------------------------ step */
 
-export const STEP = {
-  /**
-   * Small, and in the same place on every step.
-   *
-   * Kept because knowing how much is left is reassuring, and made quiet
-   * because it is also pressure. Level 3 drops it entirely — see `levels.ts`.
-   *
-   * It uses "Step", which the rules above forbid. Not fixed here because it is
-   * not only a wording change — it is a question about whether a count belongs
-   * on screen at all — and it is flagged for review rather than settled.
-   */
-  count: (index: number, total: number) => `Step ${index} of ${total}`,
+/**
+ * Where the person is in the task: the stages by name, which the backend
+ * sends (`task.started.stages`, `voice.*_STAGES`), in place of "Step 2 of 6"
+ * (2026-10-14). A count grew every time a question was asked again — "Step 13
+ * of 13" — so every later screen claimed to be the last; and it used a word
+ * the rules above forbid. The stage names are the backend's; this names the
+ * row for a screen reader.
+ */
+export const STAGES = {
+  /** The row of stages, named for a screen reader. */
+  label: "Where you are",
 } as const;
 
 /* -------------------------------------------------------------- findings */
@@ -491,5 +491,6 @@ export const LABELS: Record<string, string> = {
   "status.waiting": STATUS.waiting,
   "status.stuck": STATUS.stuck,
   "status.done": STATUS.done,
+  "stages.label": STAGES.label,
   "choose.matches": CHOOSE.matches,
 };

@@ -207,6 +207,8 @@ class PlanStep:
     expect: Expectation
     fields: list[StepField] = field(default_factory=list)
     actions: list[StepAction] = field(default_factory=list)
+    # Which of the task's stages this step is in (`voice.*_STAGES`).
+    stage: int | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:
@@ -221,6 +223,7 @@ def registration_plan(course: str) -> list[PlanStep]:
             operations=[Operation("click", Target("button", f"Register for {course}"))],
             expect=Expectation(url_contains="/register",
                                title_contains="Registration Confirmed"),
+            stage=2,
         ),
     ]
 
@@ -240,6 +243,7 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
             Operation("click", Target("button", "Sign In")),
         ],
         expect=Expectation(url_contains="/courses"),
+        stage=1,
     ),
     PlanStep(
         instruction="The portal opened a notice. I'll close it.",
@@ -247,6 +251,7 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
         actions=actions("Close it"),
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
+        stage=1,
     ),
 ]
 
@@ -290,4 +295,5 @@ class HardcodedPlanner:
             expect=step.expect,
             fields=step.fields,
             actions=step.actions,
+            stage=step.stage,
         )

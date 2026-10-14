@@ -159,6 +159,14 @@ The main message.
 `detail` renders only at level 1. `fields` is usually empty. `kind` is
 `primary` | `secondary` | `destructive`.
 
+**`stage` is additive and optional, and so is `task.started.stages`**
+(added 2026-10-14). `task.started` names the task's stages once — trains:
+`["From", "To", "Day", "Search", "Trains"]` — and each step says which it is
+in, by position. The overlay shows the names in place of a count, which grew
+every time a question was asked again. A question asked again stays in its
+stage. A step without `stage` is in the stage before it; a task without
+`stages` shows none.
+
 **`step_kind` is additive and optional** (added 2026-10-07). What the step is
 about — `date`, `place`, `choose`, `type`, `read` or `confirm` — so the overlay
 can put one plain icon beside it. The backend sends it on every step; a sender

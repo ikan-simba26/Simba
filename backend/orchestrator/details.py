@@ -587,11 +587,15 @@ class _Asking:
     def _tried(self, what: str) -> bool:
         return self._tries.get(what, 0) > 0
 
-    def _ask(self, move: Move) -> Move:
+    #: The task's stages by name (`voice.*_STAGES`), and the one each kind of
+    #: question is in. Set by each brief.
+    stages: list[str] = []
+
+    def _ask(self, move: Move, stage: int | None = 0) -> Move:
         # The count is read before the first question goes out; asking does
         # not change it.
         self.estimated_steps  # noqa: B018 - freeze it before anything is asked
-        return move
+        return replace(move, stage=stage)
 
     def sentence(self) -> str:
         raise NotImplementedError
@@ -719,6 +723,7 @@ class TripBrief(_Asking):
     """
 
     plan_steps = 5
+    stages = voice.TRIP_STAGES
     _ENDS = ("origin", "destination")
 
     def __init__(self, goal: str, known: Understood, today: date | None = None,
@@ -809,12 +814,12 @@ class TripBrief(_Asking):
             if self._changing:
                 self._waiting = "change"
                 return self._ask(_picked(voice.ASK_CHANGE, [
-                    voice.CHANGE_FROM, voice.CHANGE_TO, voice.CHANGE_DAY]))
+                    voice.CHANGE_FROM, voice.CHANGE_TO, voice.CHANGE_DAY]), stage=3)
             self._waiting = "read back"
             return self._ask(_picked(
                 voice.read_back(self._shown("origin"), self._shown("destination"),
                                 voice.when_words(self.day, self.today)),
-                [voice.READ_BACK_YES, voice.READ_BACK_NO], kind="confirm"))
+                [voice.READ_BACK_YES, voice.READ_BACK_NO], kind="confirm"), stage=3)
         return None
 
     def _ask_station(self, end: str) -> Move:
@@ -825,7 +830,7 @@ class TripBrief(_Asking):
         if offered:
             return self._ask(_picked(
                 instruction, [voice.station_name(s) for s in offered] + [voice.NONE_OF_THESE],
-                kind="place"))
+                kind="place"), stage=self._ENDS.index(end))
         label = voice.FIELD_FROM if end == "origin" else voice.FIELD_TO
         return self._ask(Move(
             instruction=instruction,
@@ -838,16 +843,16 @@ class TripBrief(_Asking):
             actions=voice.actions(voice.THATS_IT),
             question=True,
             kind="place",
-        ))
+        ), stage=self._ENDS.index(end))
 
     def _ask_day(self) -> Move:
         self._waiting = "day"
         if not self._typing_day:
             return self._ask(_picked(
                 self._why.get("day", voice.ASK_DAY),
-                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK], kind="date"))
+                [voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK], kind="date"), stage=2)
         return self._ask(_typed(self._why.get("day", voice.ASK_WHICH_DAY), "", "day",
-                                voice.FIELD_DAY, kind="date"))
+                                voice.FIELD_DAY, kind="date"), stage=2)
 
     # --- answers -----------------------------------------------------------------------
 
@@ -1018,6 +1023,7 @@ class BillBrief(_Asking):
     """A bill to look up: the reference number printed on it."""
 
     plan_steps = 3
+    stages = voice.BILL_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:
@@ -1065,6 +1071,7 @@ class CourseBrief(_Asking):
     """A course to register for: its code."""
 
     plan_steps = 3
+    stages = voice.COURSE_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:

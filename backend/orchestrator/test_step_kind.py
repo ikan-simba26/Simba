@@ -129,3 +129,54 @@ def test_a_station_in_a_steps_detail_is_written_to_be_read() -> None:
 
     assert asyncio.run(chosen.next_move([], [], None)).detail == "Starting at Rawalpindi."
     assert asyncio.run(typed.next_move([], [], None)).detail == "Starting at Lahore."
+
+
+
+# --- the stage each step is in (2026-10-14) ---------------------------------------
+
+
+def test_every_question_a_journey_asks_is_in_its_stage() -> None:
+    """From, To, Day, then Search for the reading back and what to change. A
+    question asked again stays in its stage, so the row never grows."""
+    from backend.orchestrator.test_trip_answers import brief, choice
+
+    made = brief()
+    assert made.stages == ["From", "To", "Day", "Search", "Trains"]
+    stages = []
+    for answer in (("confirm", {"origin": "Narnia"}),       # wrong: asked again, same stage
+                   ("confirm", {"origin": "Lahore Cantt"}),
+                   ("confirm", {"destination": "Rawalpindi"}),
+                   choice(2),                               # pick another day
+                   ("confirm", {"day": "31 February"}),     # wrong: asked again
+                   ("confirm", {"day": "tomorrow"}),
+                   choice(1)):                              # no, change something
+        stages.append(made.question().stage)
+        made.answered(*answer)
+    stages.append(made.question().stage)                    # what to change
+
+    assert stages == [0, 0, 1, 2, 2, 2, 3, 3]
+
+
+def test_the_plans_are_in_their_stages() -> None:
+    assert [s.stage for s in BILLING_PLAN] == [1, 1, 1]
+    assert [s.stage for s in REGISTRATION_PLAN[:2]] == [1, 1]
+    from backend.orchestrator.plan import registration_plan
+
+    assert registration_plan("CS-401")[-1].stage == 2
+
+
+def test_the_bill_and_course_questions_are_the_first_stage() -> None:
+    from backend.orchestrator.details import BillBrief, CourseBrief, Understood
+
+    assert BillBrief("g", Understood()).question().stage == 0
+    assert CourseBrief("g", Understood()).question().stage == 0
+    assert BillBrief.stages == ["Reference", "Look up", "Your bill"]
+    assert CourseBrief.stages == ["Course", "Sign in", "Register", "Done"]
+
+
+def test_the_trip_planners_moves_are_the_search_stage() -> None:
+    import asyncio
+
+    planner = TripPlanner("RAWALPINDI", "SUKKUR", date(2026, 10, 8), date(2026, 10, 7),
+                          stations={"origin": "RAWALPINDI", "destination": "SUKKUR"})
+    assert asyncio.run(planner.next_move([], [], None)).stage == 3
