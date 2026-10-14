@@ -247,8 +247,15 @@ export const useStore = create<Store>((set, get) => {
 
     onMessage: (message: AnyEnvelope) => {
       apply(message, set);
-      // Each new step gets a fresh picture of the real page to sit on.
-      if (message.type === "step.presented") connection.askForPicture();
+      // Each new step gets a fresh picture of the real page to sit on. Not a
+      // line of the checklist: no backdrop is shown under it, and every one
+      // asked for there waited in the backend and was answered — a
+      // screenshot each — before the next question's answer was read. In
+      // the real window that held "Register for CS-401" for 31s (2026-10-14).
+      if (message.type === "step.presented" &&
+          (message.payload as StepPresented).requires_confirmation !== false) {
+        connection.askForPicture();
+      }
       append({
         seq: message.seq,
         type: message.type,
