@@ -498,9 +498,10 @@ async def understand(
 # --- asking for what is missing ---------------------------------------------------
 
 
-def _typed(instruction: str, detail: str, field_id: str, label: str,
+def _typed(instruction: str, detail: str, field_id: str, label: str, button: str,
            kind: str | None = None) -> Move:
-    """A question answered by typing: one box, one button, and the way to stop.
+    """A question answered by typing: one box, one button that says what it
+    does with the answer (`voice.USE_DAY`), and the way to stop.
 
     `kind` is what the question is about, for the shape beside it
     (`loop.kind_of`); without one it is "type"."""
@@ -510,7 +511,7 @@ def _typed(instruction: str, detail: str, field_id: str, label: str,
         operations=[],
         expect=Expectation(),
         fields=[StepField(id=field_id, label=label, type="text", value="")],
-        actions=voice.actions(voice.THATS_IT),
+        actions=voice.actions(button),
         question=True,
         kind=kind,
     )
@@ -847,7 +848,7 @@ class TripBrief(_Asking):
             fields=[StepField(id=end, label=label,
                               type="choice" if self.stations else "text", value="",
                               options=self.stations or [])],
-            actions=voice.actions(voice.THATS_IT),
+            actions=voice.actions(voice.USE_STATION),
             question=True,
             kind="place",
         ), stage=self._ENDS.index(end), note=note)
@@ -862,7 +863,8 @@ class TripBrief(_Asking):
         # Asked again after a day that could not be used: plainly, beside why.
         note = self._why.get("day")
         return self._ask(_typed(voice.ASK_TRAVEL_DAY if note else voice.ASK_WHICH_DAY, "",
-                                "day", voice.FIELD_DAY, kind="date"), stage=2, note=note)
+                                "day", voice.FIELD_DAY, voice.USE_DAY, kind="date"),
+                         stage=2, note=note)
 
     # --- answers -----------------------------------------------------------------------
 
@@ -1054,7 +1056,7 @@ class BillBrief(_Asking):
         if self.gave_up is not None or self.reference:
             return None
         return self._ask(_typed(voice.ASK_REFERENCE, voice.REFERENCE_DETAIL, "reference",
-                                voice.FIELD_REFERENCE),
+                                voice.FIELD_REFERENCE, voice.USE_NUMBER),
                          note=voice.REFERENCE_NOT_RIGHT if self._tried("reference") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
@@ -1101,7 +1103,7 @@ class CourseBrief(_Asking):
         if self.gave_up is not None or self.course:
             return None
         return self._ask(_typed(voice.ASK_COURSE, voice.COURSE_DETAIL, "course",
-                                voice.FIELD_COURSE),
+                                voice.FIELD_COURSE, voice.USE_COURSE),
                          note=voice.COURSE_NOT_CAUGHT if self._tried("course") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:

@@ -165,6 +165,10 @@ def level_on_screen(page: Page) -> int:
 def answer(page: Page, index: int) -> None:
     # The guard measures 480ms after a level settles; give it that and more.
     page.wait_for_timeout(1200)
+    # Every box filled first: the main button waits for them (2026-10-15).
+    for box in page.locator("[data-testid=step-shell] input[type=text], "
+                            "[data-testid=step-shell] input[type=password]").all():
+        box.fill("x")
     page.get_by_role("button", name=f"Go ahead {index}", exact=True).click()
     page.wait_for_timeout(900)
 

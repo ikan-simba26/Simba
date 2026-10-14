@@ -126,6 +126,11 @@ export function StepShell({
   const [lead, ...alternatives] = orderActions(step.actions);
   const stop = step.actions.find((action) => action.kind === "secondary");
   const layout = answersLayout(step);
+  // A box the step asks the person to fill, still empty: the main button
+  // waits for it (2026-10-15). Pressed on an empty box, "That's it" sent
+  // nothing and the same question came back.
+  const unanswered = step.fields.some((field) =>
+    !field.value && !(values[field.id] ?? "").trim());
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -255,7 +260,8 @@ export function StepShell({
             {layout === "pair" ? (
               <div className="flex flex-row gap-3">
                 <ActionButton action={lead} height={spec.actionHeight} answered={answered}
-                              waiting={waiting} onAction={onAction} grow />
+                              waiting={waiting} onAction={onAction} grow
+                              blocked={unanswered} />
                 {stop && spec.secondary === "button" && (
                   <ActionButton action={stop} height={spec.actionHeight} answered={answered}
                                 waiting={waiting} onAction={onAction} grow quiet />
@@ -278,7 +284,7 @@ export function StepShell({
                 <div className={layout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}>
                   <ActionButton action={lead} height={spec.actionHeight} answered={answered}
                                 waiting={waiting} onAction={onAction}
-                                grow={layout === "row"} />
+                                grow={layout === "row"} blocked={unanswered} />
                   {/* The other answers to a question. Buttons at every level,
                       including level 3: an answer that has been demoted to a
                       line of text is one the person cannot give. */}
@@ -563,6 +569,7 @@ function ActionButton({
   onAction,
   grow,
   quiet,
+  blocked = false,
 }: {
   action?: StepAction;
   height: number;
@@ -571,6 +578,8 @@ function ActionButton({
   onAction: (id: string) => void;
   grow?: boolean;
   quiet?: boolean;
+  /** Waiting for an answer in a box: not pressable yet. */
+  blocked?: boolean;
 }) {
   if (!action) return null;
 
@@ -580,9 +589,9 @@ function ActionButton({
   return (
     <motion.button
       type="button"
-      disabled={answered}
+      disabled={answered || blocked}
       onClick={() => onAction(action.id)}
-      animate={{ height, opacity: answered ? 0.4 : waiting ? 1 : 0.85 }}
+      animate={{ height, opacity: answered ? 0.4 : blocked ? 0.45 : waiting ? 1 : 0.85 }}
       transition={FOLD}
       className={`${grow ? "flex-1" : "w-full"} ${buttonClass(tone, "fluid")}`}
     >
@@ -596,7 +605,7 @@ const SHORT_ANSWER = 22;
 
 /**
  * How a step's answers are laid out. A question — its answers carry ids of
- * their own, or it has a box to type in — whose one answer is "That's it"
+ * their own, or it has a box to type in — whose one answer finishes it
  * puts it beside the way to stop ("pair"); one with two or three short
  * answers puts them in a row ("row"). Everything else keeps the column. At
  * level 3, where the way to stop is a line of text, the layouts hold: a pair

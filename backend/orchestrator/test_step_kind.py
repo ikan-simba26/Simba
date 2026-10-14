@@ -11,7 +11,7 @@ from backend.orchestrator.billing_plan import BILLING_PLAN
 from backend.orchestrator.loop import Move, kind_of
 from backend.orchestrator.plan import REGISTRATION_PLAN, Expectation
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, TripPlanner, as_shown
-from backend.orchestrator.voice import THATS_IT, actions, choices
+from backend.orchestrator.voice import USE_DAY, actions, choices
 from backend.orchestrator.test_trip import option, textbox
 from shared.schema import StepField, StepPresented
 
@@ -64,7 +64,7 @@ def test_the_trip_planner_says_place_date_and_agree() -> None:
 def test_a_question_with_a_box_is_typing_and_one_with_buttons_is_choosing() -> None:
     typed = Move(instruction="q", detail="", operations=[], expect=Expectation(),
                  fields=[StepField(id="x", label="X", type="text", value="")],
-                 actions=actions(THATS_IT), question=True)
+                 actions=actions(USE_DAY), question=True)
     picked = Move(instruction="q", detail="", operations=[], expect=Expectation(),
                   fields=[], actions=choices(["A", "B"]), question=True)
 

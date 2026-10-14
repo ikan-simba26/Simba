@@ -451,7 +451,7 @@ class TripPlanner:
                     voice.narrow_station(place),
                     fields=[StepField(id="station", label=voice.FIELD_STATION,
                                       type="text", value="")],
-                    answers=actions(voice.THATS_IT),
+                    answers=actions(voice.USE_STATION),
                 )
             self.stations[end] = station
 

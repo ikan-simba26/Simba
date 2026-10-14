@@ -213,3 +213,33 @@ def test_an_empty_box_looks_ready_to_type_in(
         assert after["ring"] == "3px" and after["ringStyle"] == "solid", after
     finally:
         page.close()
+
+
+def test_the_main_button_waits_for_an_answer(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Disabled while the box is empty, or holds only spaces; pressable once
+    there is something to use (2026-10-15). "Stop this" is never held."""
+    stages, _ = FIRST["reference"]
+    step = question("What is the reference number on your bill?", acts("Use this number"),
+                    [{"id": "reference", "label": "Reference number", "type": "text",
+                      "value": ""}], kind="type")
+    page = show(browser, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": stages}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", step),
+        (AWAIT_RESPONSE, {}),
+    ], SIZES["100%"])
+    try:
+        use = page.get_by_role("button", name="Use this number")
+        assert use.is_disabled()
+        assert page.get_by_role("button", name="Stop this").is_enabled()
+        box = page.get_by_role("textbox", name="Reference number")
+        box.fill("   ")
+        assert use.is_disabled()
+        box.fill("04141234567890")
+        assert use.is_enabled()
+        box.fill("")
+        assert use.is_disabled()
+    finally:
+        page.close()

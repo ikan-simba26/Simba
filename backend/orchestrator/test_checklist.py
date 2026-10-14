@@ -26,7 +26,7 @@ from backend.orchestrator.test_asking import ScriptedConnection
 from backend.orchestrator.test_billing import billing_replica  # noqa: F401
 from backend.orchestrator.test_orchestrator import replica  # noqa: F401
 from backend.orchestrator.test_trip_answers import railways  # noqa: F401
-from backend.orchestrator.voice import CHOICE_PREFIX, THATS_IT
+from backend.orchestrator.voice import CHOICE_PREFIX, TYPED_ANSWERS
 
 TOMORROW = date.today() + timedelta(days=1)
 
@@ -39,7 +39,7 @@ class Answers(ScriptedConnection):
         step = self.of("step.presented")[-1]
         ids = [a["id"] for a in step["actions"]]
         question = any(i.startswith(CHOICE_PREFIX) for i in ids) or any(
-            a["label"] == THATS_IT for a in step["actions"])
+            a["label"] in TYPED_ANSWERS for a in step["actions"])
         answer = ("confirm", {})
         if question or step["instruction"] == voice.PAUSED:
             answer = (self.answers.pop(0) if self.answers else None) or ("cancel", {})

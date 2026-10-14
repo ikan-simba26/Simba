@@ -67,8 +67,15 @@ def actions(label: str) -> list[StepAction]:
 #: answer, and the overlay carries on rather than showing its stop screen.
 CHOICE_PREFIX = "choice:"
 
-#: Finishes a typed answer.
-THATS_IT = "That's it"
+#: Each finishes a typed answer, and says what it does with it (2026-10-15).
+#: Until then all four were "That's it", which says nothing about what
+#: happens next.
+USE_STATION = "Use this station"
+USE_DAY = "Use this day"
+USE_NUMBER = "Use this number"
+USE_COURSE = "Use this course"
+#: All four: what tells a typed question's answer from a go-ahead.
+TYPED_ANSWERS = (USE_STATION, USE_DAY, USE_NUMBER, USE_COURSE)
 
 #: The most answers a question shows as buttons. More than this is a list to
 #: read, which is the thing this interface exists to spare someone.

@@ -42,7 +42,7 @@ from backend.orchestrator.loop import (
 )
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.orchestrator.test_orchestrator import REPLICA_URL, replica  # noqa: F401
-from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, THATS_IT, actions, choices
+from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, USE_STATION, actions, choices
 from shared.schema import StepAction, StepField
 
 # The answers a run is driven with, in the order the questions come. `None`
@@ -116,7 +116,7 @@ def a_question(instruction: str, labels: list[str]) -> Move:
 def a_typed_question(instruction: str, field_id: str) -> Move:
     return Move(instruction=instruction, detail="", operations=[], expect=Expectation(),
                 fields=[StepField(id=field_id, label=field_id.title(), type="text", value="")],
-                actions=actions(THATS_IT), question=True)
+                actions=actions(USE_STATION), question=True)
 
 
 class StoppedPlanner:
@@ -278,7 +278,7 @@ def test_a_question_offers_its_answers_as_buttons_and_one_way_to_stop(
     # The typed one has a box and the button that finishes it.
     typed = connection.of("step.presented")[1]
     assert [f["id"] for f in typed["fields"]] == ["origin"]
-    assert connection.labels(1) == [THATS_IT, "Stop this"]
+    assert connection.labels(1) == [USE_STATION, "Stop this"]
 
 
 def test_the_count_does_not_grow_as_the_questions_are_answered(
@@ -437,7 +437,7 @@ def test_the_count_never_goes_backwards_across_the_questions(
 @pytest.mark.parametrize("action_id", [f"{CHOICE_PREFIX}0", f"{CHOICE_PREFIX}2", "confirm"])
 def test_every_answer_but_the_one_that_stops_is_an_answer(action_id: str) -> None:
     question = a_question("Which day?", ["Today", "Tomorrow", "Pick a day"])
-    question.actions.append(StepAction(id="confirm", label=THATS_IT, kind="primary"))
+    question.actions.append(StepAction(id="confirm", label=USE_STATION, kind="primary"))
     assert is_answer(question, action_id)
 
 

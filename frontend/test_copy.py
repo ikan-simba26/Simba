@@ -472,7 +472,7 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
-    for name in ("THATS_IT", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
+    for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
                  "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
     # The checklist's lines (2026-10-14): said as what is happening, no full stop.

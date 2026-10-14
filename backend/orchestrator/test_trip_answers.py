@@ -55,7 +55,7 @@ from backend.orchestrator.loop import run_brief
 from backend.orchestrator.railways_plan import TripPlanner
 from backend.orchestrator.test_asking import ScriptedConnection
 from backend.orchestrator.test_orchestrator import _wait_for
-from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, THATS_IT
+from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, TYPED_ANSWERS
 
 REPO_ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
 
@@ -140,7 +140,7 @@ def test_a_station_question_offers_the_sites_own_list() -> None:
     assert question is not None and question.instruction == voice.ASK_FROM
     [field] = question.fields
     assert (field.id, field.type, field.options) == ("origin", "choice", STATIONS)
-    assert [a.label for a in question.actions] == [THATS_IT, voice.STOP]
+    assert [a.label for a in question.actions] == [voice.USE_STATION, voice.STOP]
 
 
 def test_a_station_chosen_from_the_list_is_taken_as_the_site_names_it() -> None:
@@ -533,7 +533,7 @@ class Answering(ScriptedConnection):
         step = self.of("step.presented")[-1]
         ids = [action["id"] for action in step["actions"]]
         question = any(i.startswith(CHOICE_PREFIX) for i in ids) or any(
-            action["label"] == THATS_IT for action in step["actions"])
+            action["label"] in TYPED_ANSWERS for action in step["actions"])
         if step["instruction"].endswith("Is that right?") and self.page is not None:
             self.at_read_back = await self.page.evaluate(
                 "({model: {...window.__model}, searched: window.__searched,"
@@ -720,7 +720,7 @@ def converse(url: str, start: dict, answers: list) -> list[dict]:
                 if kind == "step.presented":
                     ids = [a["id"] for a in payload["actions"]]
                     is_question = any(i.startswith(CHOICE_PREFIX) for i in ids) or any(
-                        a["label"] == THATS_IT for a in payload["actions"])
+                        a["label"] in TYPED_ANSWERS for a in payload["actions"])
                     answer = answers.pop(0) if is_question and answers else ("confirm", {})
                     action, values = answer or (CANCEL_ID, {})
                     await send("step.response", {"step_index": payload["step_index"],
