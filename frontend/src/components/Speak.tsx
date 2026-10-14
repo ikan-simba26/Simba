@@ -93,7 +93,7 @@ export function SpeakButton({ step }: { step: StepPresented | null }) {
   // the card, which has 48px, and it is not an answer to the step.
   return (
     <button type="button" onClick={toggle} aria-pressed={speaking} data-testid="speak"
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-line
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-edge
                        bg-surface px-5 text-small font-semibold text-ink shadow-press
                        transition-colors duration-200 hover:bg-sunk
                        aria-pressed:border-accent aria-pressed:bg-tint">

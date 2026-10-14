@@ -20,6 +20,12 @@ window.addEventListener("blur", stillWhenAway);
 document.addEventListener("visibilitychange", stillWhenAway);
 stillWhenAway();
 
+// The colour direction (2026-10-14): A, the default, or B with `?palette=b`.
+// Both are in index.css; which one SIMBA keeps is still to be chosen.
+if (new URLSearchParams(window.location.search).get("palette") === "b") {
+  document.documentElement.dataset.palette = "b";
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {/* Framer Motion animates from JavaScript, so the reduced-motion rule in

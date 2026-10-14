@@ -355,7 +355,7 @@ export function StageRow({ current, full }: { current?: number; full: boolean })
             data-state={index < at ? "done" : index === at ? "now" : "to come"}>
           {index > 0 && <span aria-hidden className="text-soft/50">·</span>}
           <span className={index === at ? "rounded-full bg-tint px-3 py-0.5 text-accent"
-                           : index < at ? "text-soft" : "text-soft/70"}>
+                           : "text-soft"}>
             {index < at && <span aria-hidden className="mr-1">✓</span>}
             {name}
           </span>
@@ -395,7 +395,7 @@ function Field({
         fontSize: spec.fieldLayout === "inline" ? `${TYPE.small}px` : `${TYPE.body}px`,
       }}
       transition={FOLD}
-      className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
+      className="w-full rounded-md border border-edge bg-sunk px-4 text-ink outline-none
                  transition-colors duration-200 focus:border-accent focus:bg-surface
                  focus-visible:outline-none"
       type={field.type === "password" ? "password" : "text"}
@@ -515,8 +515,8 @@ function ChoiceField({
         <motion.input
           animate={{ height: spec.fieldHeight, fontSize: `${TYPE.body}px` }}
           transition={FOLD}
-          className="w-full rounded-md border border-line bg-sunk px-4 text-ink outline-none
-                     transition-colors duration-200 placeholder:text-soft/70
+          className="w-full rounded-md border border-edge bg-sunk px-4 text-ink outline-none
+                     transition-colors duration-200 placeholder:text-soft
                      focus:border-accent focus:bg-surface focus-visible:outline-none"
           type="text"
           value={value}

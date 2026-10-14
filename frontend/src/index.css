@@ -9,56 +9,134 @@
  *
  *   - One accent. It marks the thing to press and the thing that was found,
  *     and nothing else. Stuck is the one other colour, and only when stuck.
- *   - Text is high contrast everywhere. Measured, not eyeballed: ink on the
- *     canvas is 15:1 light and 16:1 dark, the softer secondary text 6.8:1 and
- *     9:1, the label on the accent 6.5:1 and 9.5:1 — every pairing passes
- *     WCAG AA and most pass AAA (DECISIONS.md, 2026-09-21).
+ *   - Text is high contrast everywhere. Measured, not eyeballed, in both
+ *     directions and both themes (`frontend/test_contrast.py`): ink is
+ *     13:1 or more on every ground, every pairing passes WCAG AA, and most
+ *     pass AAA (DECISIONS.md, 2026-09-21 and 2026-10-14).
  *   - Warm neutrals rather than grey: paper and ink, not a dashboard.
+ *   - Two kinds of border. `--line` divides quietly (a rule, a ticket, a
+ *     picture's frame). `--edge` is the boundary of something to press or
+ *     type in, and is 3:1 against every ground it sits on (WCAG 1.4.11),
+ *     because for a low-vision reader that edge is what says "this is a
+ *     button" or "type here" (2026-10-14: every control used `--line`, at
+ *     1.3:1 to 1.6:1 in both directions).
  *
- * Two themes, chosen by the operating system. Everything that differs lives
- * in the two blocks of raw values below; components only ever name the role.
+ * Two colour directions (2026-10-14), each with a light and a dark theme
+ * chosen by the operating system — four blocks of raw values below, and
+ * components only ever name the role:
+ *
+ *   A  warm paper and ink, the default. Refined from the first palette with
+ *      more depth: a soft warm light from the top of the window (`--glow`),
+ *      and shadows in layers, so cards sit on the canvas rather than on it.
+ *   B  a calm deep teal with warm cream: the same roles, cooler accent,
+ *      cream rather than paper. Chosen with `data-palette="b"` on <html>
+ *      (`?palette=b` in the overlay's address).
+ *
+ * Both are measured in `frontend/test_contrast.py`, light and dark: ink at
+ * AAA (7:1) on every ground it sits on, every other text pairing at least
+ * 4.5:1, and the accent at least 3:1 against the canvas as a boundary.
  */
+
+/* --- A: warm paper and ink (default) ---------------------------------- */
 
 :root {
   color-scheme: light;
 
-  --canvas: #f7f2ea;
-  --surface: #fffcf7;
-  --sunk: #f1eadf;
-  --line: #e3d8c8;
-  --ink: #231c15;
-  --soft: #5e5246;
-  --accent: #8c4f12;
-  --accent-hover: #7a430c;
+  --canvas: #f4ede2;
+  --surface: #fffdf9;
+  --sunk: #efe6d8;
+  --line: #dccfbb;
+  --edge: #8f7d69;
+  --ink: #211a13;
+  --soft: #574b3f;
+  --accent: #8a4b10;
+  --accent-hover: #733e0b;
   --accent-ink: #ffffff;
-  --tint: #f5e7d3;
-  --stuck: #9e3b22;
-  --stuck-tint: #f7e2da;
+  --tint: #f6e6cf;
+  --stuck: #9a3820;
+  --stuck-tint: #f8e0d6;
 
-  --shadow-card: 0 1px 2px rgb(60 38 16 / 0.05), 0 10px 30px -8px rgb(60 38 16 / 0.14);
-  --shadow-lift: 0 1px 2px rgb(60 38 16 / 0.08), 0 6px 16px -6px rgb(60 38 16 / 0.2);
-  --shadow-press: 0 1px 1px rgb(60 38 16 / 0.1);
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(232 176 97 / 0.2), transparent 70%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.06),
+    0 3px 8px -3px rgb(60 38 16 / 0.08), 0 18px 40px -14px rgb(60 38 16 / 0.2);
+  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(60 38 16 / 0.08),
+    0 6px 14px -6px rgb(60 38 16 / 0.16), 0 22px 44px -16px rgb(60 38 16 / 0.26);
+  --shadow-press: 0 1px 1px rgb(60 38 16 / 0.1), 0 2px 6px -3px rgb(60 38 16 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --canvas: #15110d;
-    --surface: #1f1913;
-    --sunk: #191410;
-    --line: #382d22;
-    --ink: #f6efe6;
-    --soft: #bfb1a1;
-    --accent: #e8b061;
-    --accent-hover: #f0be77;
+    --canvas: #14100c;
+    --surface: #211a14;
+    --sunk: #1a1510;
+    --line: #3b2f23;
+    --edge: #7d6b58;
+    --ink: #f7f0e7;
+    --soft: #c4b6a6;
+    --accent: #eab466;
+    --accent-hover: #f2c27e;
     --accent-ink: #1c1206;
-    --tint: #3a2a16;
-    --stuck: #ee9a7e;
-    --stuck-tint: #3a1f16;
+    --tint: #3b2a15;
+    --stuck: #f0a083;
+    --stuck-tint: #3c2017;
 
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 36px -10px rgb(0 0 0 / 0.55);
-    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 8px 20px -8px rgb(0 0 0 / 0.6);
+    --glow: radial-gradient(120% 60% at 50% -12%, rgb(232 176 97 / 0.09), transparent 70%);
+    --shadow-card: inset 0 1px 0 rgb(255 240 220 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 38px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: inset 0 1px 0 rgb(255 240 220 / 0.06), 0 1px 2px rgb(0 0 0 / 0.45),
+      0 20px 44px -14px rgb(0 0 0 / 0.7);
+    --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* --- B: deep teal with warm cream ------------------------------------- */
+
+:root[data-palette="b"] {
+  --canvas: #f5efe3;
+  --surface: #fffcf5;
+  --sunk: #ede5d6;
+  --line: #d9d0be;
+  --edge: #76857f;
+  --ink: #10211f;
+  --soft: #45524f;
+  --accent: #0d5a53;
+  --accent-hover: #094842;
+  --accent-ink: #ffffff;
+  --tint: #dbeae4;
+  --stuck: #9a3820;
+  --stuck-tint: #f8e0d6;
+
+  --glow: radial-gradient(120% 60% at 50% -12%, rgb(13 90 83 / 0.1), transparent 70%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.06),
+    0 3px 8px -3px rgb(12 40 37 / 0.08), 0 18px 40px -14px rgb(12 40 37 / 0.18);
+  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.08),
+    0 6px 14px -6px rgb(12 40 37 / 0.14), 0 22px 44px -16px rgb(12 40 37 / 0.24);
+  --shadow-press: 0 1px 1px rgb(12 40 37 / 0.1), 0 2px 6px -3px rgb(12 40 37 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="b"] {
+    --canvas: #0b1817;
+    --surface: #122321;
+    --sunk: #0f1d1c;
+    --line: #24403c;
+    --edge: #5f7f78;
+    --ink: #f4eee2;
+    --soft: #b5c3be;
+    --accent: #7fcdbf;
+    --accent-hover: #98d9cd;
+    --accent-ink: #06201d;
+    --tint: #163430;
+    --stuck: #f0a083;
+    --stuck-tint: #3c2017;
+
+    --glow: radial-gradient(120% 60% at 50% -12%, rgb(127 205 191 / 0.08), transparent 70%);
+    --shadow-card: inset 0 1px 0 rgb(230 255 248 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 38px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: inset 0 1px 0 rgb(230 255 248 / 0.06), 0 1px 2px rgb(0 0 0 / 0.45),
+      0 20px 44px -14px rgb(0 0 0 / 0.7);
     --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
   }
 }
@@ -72,6 +150,7 @@
   --color-raised: var(--surface);
   --color-sunk: var(--sunk);
   --color-line: var(--line);
+  --color-edge: var(--edge);
   --color-ink: var(--ink);
   --color-soft: var(--soft);
   --color-muted: var(--soft);
@@ -152,6 +231,12 @@ body {
   -webkit-font-smoothing: antialiased;
   /* The overlay is the whole window; nothing should ever scroll sideways. */
   overflow-x: hidden;
+}
+
+/* The window's ground: the canvas, and the light from the top of it. */
+.simba-canvas {
+  background-image: var(--glow);
+  background-repeat: no-repeat;
 }
 
 ::selection {

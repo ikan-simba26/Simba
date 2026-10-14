@@ -53,7 +53,7 @@ export function buttonClass(variant: ButtonVariant, size: ButtonSize = "lg"): st
       "bg-accent text-accent-ink shadow-lift hover:bg-accent-hover " +
       "active:shadow-press disabled:opacity-45 disabled:shadow-none",
     secondary:
-      "border border-line bg-surface text-ink shadow-press hover:border-soft/40 " +
+      "border border-edge bg-surface text-ink shadow-press hover:border-soft " +
       "hover:bg-sunk disabled:opacity-45",
     danger:
       "border border-stuck bg-surface text-stuck hover:bg-stuck-tint disabled:opacity-45",
@@ -117,7 +117,7 @@ export function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-6 rounded-lg border border-line bg-surface
+      className="group flex w-full items-center gap-6 rounded-lg border border-edge bg-surface
                  px-6 py-4 text-left shadow-press transition-[box-shadow,border-color,transform]
                  short:gap-5 short:py-3
                  duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-accent/50

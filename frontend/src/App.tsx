@@ -72,7 +72,7 @@ export default function App() {
     // The bottom padding is the one space on every screen nothing reads:
     // 32px, and 4px in a short window, since the step row and the real page's
     // button (2026-10-07) took the last few pixels at 100% and 150%.
-    <div className="flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
+    <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
       {/* The real page, softened, behind everything else (`Backdrop`). */}
       <Backdrop />
@@ -247,7 +247,7 @@ function Home() {
                 <button type="button" onClick={() => startTask(FLOWS[flow], flow)}
                         data-testid="tile"
                         className="group flex h-full w-full flex-col items-center gap-4 rounded-xl
-                                   border border-line bg-surface px-5 pt-6 pb-5 text-center
+                                   border border-edge bg-surface px-5 pt-6 pb-5 text-center
                                    shadow-card transition-[box-shadow,border-color,transform]
                                    duration-200 hover:border-accent/50 hover:shadow-lift
                                    active:translate-y-px short:gap-3 short:pt-4 short:pb-4">
@@ -274,7 +274,7 @@ function Home() {
               <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
                       data-testid="remembered"
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
-                                 border-line bg-surface px-4 py-2 text-left text-body text-ink
+                                 border-edge bg-surface px-4 py-2 text-left text-body text-ink
                                  shadow-press hover:border-accent/50">
                 <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
                 <span className="line-clamp-1 flex-1">{goal}</span>
@@ -354,7 +354,7 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
         </p>
       )}
       <div
-        className="flex items-center gap-4 rounded-xl border-2 border-line bg-surface py-2.5
+        className="flex items-center gap-4 rounded-xl border-2 border-edge bg-surface py-2.5
                    pr-2.5 pl-6 shadow-card transition-[border-color,box-shadow] duration-200
                    focus-within:border-accent"
       >
@@ -364,7 +364,7 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
         <input
           autoFocus={autoFocus}
           className="min-w-0 flex-1 bg-transparent py-4 text-lead text-ink outline-none short:py-3
-                     placeholder:text-soft/80 focus-visible:outline-none"
+                     placeholder:text-soft focus-visible:outline-none"
           value={goal}
           onChange={(event) => setGoal(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && start()}
