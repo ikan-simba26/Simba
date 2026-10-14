@@ -26,6 +26,7 @@ import {
   CheckIcon,
   ChoiceCard,
   FlowIcon,
+  AlertIcon,
   PauseIcon,
   Presence,
   SpeechIcon,
@@ -585,7 +586,7 @@ function Checklist() {
         </ol>
         <div>
           <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
-            <PauseIcon size={24} />
+            <span data-icon="pause"><PauseIcon size={24} /></span>
             {pausing ? CHECKLIST.pausing : CHECKLIST.pause}
           </Button>
         </div>
@@ -972,7 +973,7 @@ function Failed() {
     <div className="flex flex-col gap-8 short:gap-5">
       <Card tone="stuck" className="flex flex-col gap-4 px-12 py-10 short:py-7">
         <span className="text-stuck" aria-hidden>
-          <PauseIcon size={34} />
+          <AlertIcon size={34} />
         </span>
         <h1 className="text-display font-semibold tracking-[-0.015em] text-stuck">
           {STOPPED.failedHeading}

@@ -226,11 +226,22 @@ export function CheckIcon({ size = 28 }: { size?: number }) {
   );
 }
 
-export function PauseIcon({ size = 28 }: { size?: number }) {
+/** Something stopped: an exclamation in a circle. Named PauseIcon until
+ *  2026-10-15, when Pause on the checklist was found wearing it. */
+export function AlertIcon({ size = 28 }: { size?: number }) {
   return (
     <Svg size={size}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7.5v5M12 16h.01" />
+    </Svg>
+  );
+}
+
+/** Pause: two upright bars, as on every player. */
+export function PauseIcon({ size = 28 }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="M9 6v12M15 6v12" strokeWidth={2.6} />
     </Svg>
   );
 }

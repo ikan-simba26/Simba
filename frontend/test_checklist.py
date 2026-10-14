@@ -91,6 +91,11 @@ def test_the_lines_tick_off_and_the_last_is_being_done(page: Page, overlay: str,
     buttons = page.eval_on_selector_all(
         "[data-testid=checklist] button", "bs => bs.map(b => b.innerText.trim())")
     assert buttons == ["Pause"]
+    # With a pause sign: two upright bars, not the alert's circle (2026-10-15).
+    icon = page.eval_on_selector("[data-testid=checklist] button [data-icon=pause] svg",
+                                 "svg => [svg.querySelectorAll('circle').length, "
+                                 "svg.querySelector('path').getAttribute('d')]")
+    assert icon == [0, "M9 6v12M15 6v12"], icon
 
 
 def test_pause_asks_the_backend_to_stop_before_its_next_move(page: Page, overlay: str,  # noqa: F811
