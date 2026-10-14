@@ -97,6 +97,7 @@ def copy() -> dict:
         "presence: {opening: c.presence('opening'), working: c.presence('working')},"
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
+        "fitted: [c.levelNotice(2, 1, true), c.levelNotice(3, 2, true)],"
         "count: [c.STEP.count(1, 3), c.STEP.count(1, 3), c.STEP.count(2, 3)],"
         "home: c.HOME, ending: c.ENDING, stopped: c.STOPPED, more: c.ENDING.more(5),"
         "notice: c.NOTICE, trust: c.TRUST, found: c.FOUND"
@@ -156,6 +157,20 @@ def test_a_level_change_reads_the_same_whichever_levels_it_is_between(copy: dict
 def test_simpler_and_fuller_are_not_the_same_sentence(copy: dict) -> None:
     """Announced changes have to be distinguishable, or announcing is noise."""
     assert copy["notice"]["simpler"] != copy["notice"]["fuller"]
+
+
+def test_a_step_packed_to_fit_says_so_whichever_levels_it_moved_between(copy: dict) -> None:
+    """The overflow guard packs a step closer so it fits; it does not give
+    back detail the level rules took away. Until 2026-10-14 it said the
+    level rules' "I'm showing a bit more again.", and in the real window that
+    greeted the first question of a task, where nothing had been shown before
+    (EVALUATION.md, 2026-10-14)."""
+    assert copy["fitted"] == [copy["notice"]["fitted"]] * 2
+    assert len({copy["notice"]["fitted"], copy["notice"]["simpler"],
+                copy["notice"]["fuller"]}) == 3
+    # Nothing in any of them claims something happened before.
+    for sentence in copy["notice"].values():
+        assert " again" not in sentence, sentence
 
 
 def test_every_situation_has_a_sentence(copy: dict) -> None:

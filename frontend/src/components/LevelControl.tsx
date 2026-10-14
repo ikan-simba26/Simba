@@ -104,7 +104,9 @@ export function LevelNotice() {
           <span className="shrink-0 text-soft" aria-hidden>
             <InfoIcon />
           </span>
-          <span className="flex-1">{noticeFor(levelNotice.from, levelNotice.to)}</span>
+          <span className="flex-1">
+            {noticeFor(levelNotice.from, levelNotice.to, levelNotice.fitted)}
+          </span>
           <DismissButton onClick={dismissLevelNotice} />
         </motion.div>
       )}

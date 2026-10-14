@@ -123,7 +123,7 @@ interface Store {
    * It is never rendered: the words on screen come from `copy.levelNotice`,
    * by direction alone.
    */
-  levelNotice: { from: Level; to: Level; because: string } | null;
+  levelNotice: { from: Level; to: Level; because: string; fitted?: boolean } | null;
   /** The shown step has been answered and is waiting to be replaced. */
   answered: boolean;
   /** The development view, off unless someone asks for it by keyboard. */
@@ -273,7 +273,7 @@ export const useStore = create<Store>((set, get) => {
       set({
         level: to,
         overflowHopped: true,
-        levelNotice: { from, to, because: "this step was too long to fit" },
+        levelNotice: { from, to, because: "this step was too long to fit", fitted: true },
       });
       // Said to the backend, so its level rules know what is on screen — and
       // marked as the guard's, so it is never taken for the person's choice.

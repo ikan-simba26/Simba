@@ -219,3 +219,17 @@ def test_a_lock_carried_into_a_new_task_is_the_persons_level(
     before = backend.received[: types.index("task.start")]
     resent = [m["payload"] for m in before if m.get("type") == "level.override"]
     assert resent == [{"level": 2, "locked": True, "by": "person"}], backend.received
+
+
+def test_a_step_packed_to_fit_says_it_was_made_smaller(page: Page, overlay: str) -> None:
+    """Not "I'm showing a bit more again." (until 2026-10-14), which is what
+    the level rules say when they give detail back — and which greeted the
+    first question of every task in the real window at 150%."""
+    backend = Backend([step(1, tall=True)])
+    start(page, overlay, backend)
+    page.wait_for_timeout(1500)
+
+    assert level_on_screen(page) == 1
+    body = page.inner_text("body")
+    assert "I've made this a little smaller so it all fits on the screen." in body
+    assert "again" not in body

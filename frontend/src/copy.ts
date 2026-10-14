@@ -290,10 +290,23 @@ export const STOPPED = {
  * function only because there are two directions; it is not free text.
  */
 export const NOTICE = {
-  /** The interface simplified itself. */
+  /** The interface simplified itself, because the person seemed to be finding
+   *  it hard. It comes back after two calm steps, so "for a moment" is true. */
   simpler: "I'm showing less for a moment.",
-  /** And put it back. */
-  fuller: "I'm showing a bit more again.",
+  /**
+   * The level rules made it fuller. Not "again" (until 2026-10-14): a task
+   * whose first page started it simpler had never shown more, and the
+   * sentence said it had.
+   */
+  fuller: "I'm showing a bit more now.",
+  /**
+   * The step was too long for the window and was packed closer to fit — the
+   * overflow guard, not the level rules. It used to say `fuller`'s "I'm
+   * showing a bit more again.", which was not what had happened: in the real
+   * window it greeted the very first question of a task, where nothing had
+   * been shown before to show "again" (EVALUATION.md, 2026-10-14).
+   */
+  fitted: "I've made this a little smaller so it all fits on the screen.",
   /**
    * A step did not work and the run carried on.
    *
@@ -310,13 +323,16 @@ export const NOTICE = {
 } as const;
 
 /**
- * Which sentence a level change gets. Same direction, same words, always.
+ * Which sentence a level change gets. Same cause and direction, same words,
+ * always.
  *
- * Whatever moved the level — the estimator, or a step too long to fit — the
- * person sees one of these two sentences. The reason it moved is for the
- * development view, not the screen.
+ * A step packed to fit the window says so (`fitted`), whichever levels it
+ * moved between. Otherwise the level rules moved it, and the direction says
+ * which of the other two. The rules' own reason is for the development view,
+ * not the screen.
  */
-export function levelNotice(from: Level, to: Level): string {
+export function levelNotice(from: Level, to: Level, fitted = false): string {
+  if (fitted) return NOTICE.fitted;
   return to > from ? NOTICE.simpler : NOTICE.fuller;
 }
 
@@ -414,6 +430,7 @@ export const SITUATIONS: Record<string, string> = {
   "presence.reading": presence("reading"),
   "notice.simpler": NOTICE.simpler,
   "notice.fuller": NOTICE.fuller,
+  "notice.fitted": NOTICE.fitted,
   "notice.skipped": NOTICE.skipped,
   "ending.withoutAnswer": ENDING.withoutAnswer,
   "stopped.heading": STOPPED.heading,
