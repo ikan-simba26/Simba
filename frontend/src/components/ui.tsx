@@ -144,41 +144,6 @@ export function ChoiceCard({
 
 /* --------------------------------------------------------------- notices */
 
-/**
- * A change the person did not make, announced. Calm, raised, and gone on its
- * own: an icon, one sentence, and a way to dismiss it. The outer element is
- * the caller's, so it can carry its own motion.
- */
-const NOTICE_BODY =
-  "flex items-center gap-4 rounded-lg border border-line bg-surface px-6 py-4 " +
-  "text-body text-ink shadow-lift";
-
-/**
- * In the column, above what it is about, pushing it down. The step-failure
- * notice, which carries `data-transient` so the overflow guard discounts it.
- */
-export const NOTICE_CLASS = `mb-6 ${NOTICE_BODY}`;
-
-/**
- * Floating over the top edge of the card, taking no room: the level notice
- * (2026-09-25). In the column it pushed an ending that already filled the
- * window past the bottom, and a scrollbar showed for the eight seconds it was
- * up. It sits over the presence mark and the card's top padding — 56px above
- * the column, about 80px tall — so it never covers the words on the card.
- * The column's wrapper is its positioning context.
- */
-export const FLOATING_NOTICE_CLASS = `absolute inset-x-6 -top-14 z-20 ${NOTICE_BODY}`;
-
-/**
- * The same, stopping short of "Read this aloud" at the row's right edge
- * (2026-10-14). Full width, it lay over the button for its eight seconds, and
- * in the real window a press meant for the button landed on the notice: at
- * 150% and at 100% the overflow guard's notice comes up on the first question
- * of a task, which is when someone is most likely to want it read.
- */
-export const FLOATING_NOTICE_BESIDE_SPEAK_CLASS =
-  `absolute left-6 right-[250px] -top-14 z-20 ${NOTICE_BODY}`;
-
 export function DismissButton({ onClick }: { onClick: () => void }) {
   return (
     <button

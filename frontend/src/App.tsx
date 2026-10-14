@@ -15,12 +15,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
-import { SpeakButton } from "./components/Speak";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
-import { LevelControl, LevelNotice } from "./components/LevelControl";
+import { LevelControl } from "./components/LevelControl";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
-import { StepFailureNotice } from "./components/StepNotice";
 import {
   AgainIcon,
   Button,
@@ -36,7 +34,8 @@ import {
 import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, presence } from "./copy";
 import { ARRIVE, COLUMN, TYPE } from "./design";
 import { StepView } from "./components/StepView";
-import { StageRow } from "./components/StepShell";
+import { TopLine } from "./components/StepShell";
+import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
 import { useStore } from "./store";
@@ -118,11 +117,8 @@ export default function App() {
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
           a narrow strip down the middle of an empty screen. */}
-      {/* `relative`: the level notice floats over the card's top edge,
-          positioned against this column (`FLOATING_NOTICE_CLASS`). */}
       <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
-        <LevelNotice />
-        <StepFailureNotice />
+        <NoticeTimers />
         <Column />
       </div>
       <PeekBack />
@@ -145,7 +141,7 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen, peeking, step, answered, task, asking, reply, completed, failed, help,
+  const { trustOpen, peeking, task, asking, reply, completed, failed, help,
           stoppedByPerson } = useStore();
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
@@ -153,15 +149,12 @@ function PresenceBar() {
   const aside = trustOpen || peeking;
   return (
     // Above the real page behind it (`Backdrop`), and out of the way while
-    // that page is being shown. The column's width, so "Read this aloud"
-    // (2026-10-14) can sit at its right edge without the row growing.
+    // that page is being shown. Nothing else is in this row: since
+    // 2026-10-14 notices and "Read this aloud" are in the card's first line.
     <motion.div className="relative z-[1] flex w-full justify-center"
                 style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
                 animate={{ opacity: aside ? 0 : 1 }} transition={ARRIVE}>
       <Presence mode={mode} large={home} />
-      <div className="absolute top-0.5 right-0">
-        <SpeakButton step={step && !answered ? step : null} />
-      </div>
     </motion.div>
   );
 }
@@ -550,11 +543,11 @@ function Step() {
  * wrong, or that would pay, book, register or change a record still asks.
  */
 function Checklist() {
-  const { checklist, pausing, pause, stageNow } = useStore();
+  const { checklist, pausing, pause } = useStore();
   return (
     <Card className="px-12 py-10 short:py-7">
       <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
-        <StageRow current={stageNow ?? undefined} full />
+        <TopLine step={null} stages full answered />
         <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
           {CHECKLIST.heading}
         </h1>

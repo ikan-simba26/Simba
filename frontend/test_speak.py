@@ -171,17 +171,22 @@ def test_there_is_nothing_to_read_on_the_home_screen(page: Page, overlay: str,  
 
 
 @pytest.mark.parametrize("size, scale", [((1280, 800), 1.0), ((1266, 606), 1.5)])
-def test_it_sits_above_the_card_and_adds_no_height(browser, overlay: str,  # noqa: F811
-                                                  backend: Backend, size, scale) -> None:
+def test_it_sits_at_the_end_of_the_cards_first_line(browser, overlay: str,  # noqa: F811
+                                                   backend: Backend, size, scale) -> None:
+    """Since 2026-10-14 the row above the card holds the presence mark and
+    nothing else; "Read this aloud" is at the right end of the card's first
+    line, where the stages are."""
     page = open_with(browser, ENGLISH, size, scale)
     try:
         to_the_step(page, overlay, backend)
         page.wait_for_timeout(1200)
         speak = page.get_by_test_id("speak").bounding_box()
-        card = page.locator("[data-testid=step-shell]").bounding_box()
-        assert speak and card and speak["y"] >= 0
-        # Above the card's own padding: it never covers the step.
-        assert speak["y"] + speak["height"] <= card["y"], (speak, card)
+        line = page.get_by_test_id("top-line").bounding_box()
+        mark = page.locator("[data-presence]").bounding_box()
+        assert speak and line and mark
+        assert line["y"] <= speak["y"] and speak["y"] + speak["height"] <= line["y"] + line["height"]
+        assert speak["x"] + speak["width"] >= line["x"] + line["width"] - 2
+        assert mark["y"] + mark["height"] <= line["y"], "the mark is above the card"
         assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
     finally:
         page.close()
@@ -237,3 +242,48 @@ def test_reading_aloud_is_its_own_signal_not_a_help_press(page: Page, overlay: s
     assert answered and answered[0]["step_index"] == 1
     assert answered[0]["read_aloud"] == 2
     assert answered[0]["help_presses"] == 0
+
+
+
+# --- the top of a step shows one thing at a time (2026-10-14) ------------------------
+
+
+def test_with_a_notice_up_the_top_shows_one_thing_and_covers_nothing(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """A notice takes the stages' place in the card's first line: it never
+    lies over "Read this aloud" or over the presence mark, and the row above
+    the card holds the mark and nothing else."""
+    page = open_with(browser, ENGLISH, (1266, 632), 1.5)
+    try:
+        backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 6,
+                                            "stages": ["From", "To", "Day", "Search", "Trains"]}),
+                          ("state.changed", {"state": "waiting"}),
+                          ("step.presented", {**DAY, "stage": 2}),
+                          (AWAIT_RESPONSE, {}),
+                          ("load.updated", {"score": 0.8, "level": 1, "reason": "pause"}),
+                          ("state.changed", {"state": "waiting"}),
+                          ("step.presented", {**NEXT, "stage": 3}),
+                          (AWAIT_RESPONSE, {})]
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", GOAL)
+        page.get_by_role("button", name="Start").click()
+        page.get_by_role("button", name="Tomorrow", exact=True).click()
+        page.get_by_test_id("notice-line").first.wait_for(timeout=10000)
+        page.wait_for_timeout(900)  # the step before has finished leaving
+        assert page.get_by_test_id("notice-line").count() == 1
+
+        # One thing on the left of the line: the notice, not the stages too.
+        assert page.get_by_test_id("stages").count() == 0
+        for target in ("[data-testid=speak]", "[data-presence]"):
+            box = page.locator(target).bounding_box()
+            under = page.evaluate(
+                "([x, y, sel]) => document.elementFromPoint(x, y)?.closest(sel) !== null",
+                [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, target])
+            assert under, f"something lies over {target}"
+        # The row above the card: the mark, and nothing else that can be seen.
+        row = page.locator("[data-presence]").locator("xpath=..")
+        assert row.evaluate("r => [...r.children].filter(c => c.offsetParent).length") == 1
+        assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
+    finally:
+        page.close()

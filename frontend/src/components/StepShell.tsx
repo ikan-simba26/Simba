@@ -16,9 +16,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 
-import type { Finding, Level, StepAction, StepField } from "@shared/schema";
+import type { Finding, Level, StepAction, StepField, StepPresented } from "@shared/schema";
 
 import { CHOOSE, FOUND, STAGES } from "../copy";
+import { NoticeLine, useNotice } from "./Notices";
+import { SpeakButton } from "./Speak";
 import { useStore } from "../store";
 import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
@@ -143,13 +145,12 @@ export function StepShell({
       />
 
       <div className="relative flex flex-col">
-        <Fold show={spec.progress !== "none"} gap={0}>
-          {/* Where the person is, by name — never a count, which grew every
-              time a question was asked again (2026-10-14). Level 1 states it;
-              level 2 murmurs it; level 3, one sentence and one thing to
-              press, has none. */}
-          <StageRow current={step.stage} full={spec.progress === "full"} />
-        </Fold>
+        {/* The card's first line: one thing at a time (2026-10-14). A notice
+            if one is up, else where the person is — the stages, which level 3
+            leaves out — and "Read this aloud" at the right end, which nothing
+            is drawn over. */}
+        <TopLine step={step} stages={spec.progress !== "none"}
+                 full={spec.progress === "full"} answered={answered} />
 
         {/* No `layout` here. A layout animation projects the element's box
             with a transform, which fights an animation of fontSize — the
@@ -301,6 +302,21 @@ export function StepShell({
           </button>
         </Fold>
       </div>
+    </div>
+  );
+}
+
+/** The card's first line: a notice or the stages, and "Read this aloud". */
+export function TopLine({ step, stages, full, answered }: {
+  step: StepPresented | null; stages: boolean; full: boolean; answered: boolean;
+}) {
+  const notice = useNotice();
+  return (
+    <div className="flex min-h-10 items-center justify-between gap-4" data-testid="top-line">
+      <div className="min-w-0 flex-1">
+        {notice ? <NoticeLine /> : stages ? <StageRow current={step?.stage} full={full} /> : null}
+      </div>
+      <SpeakButton step={step && !answered ? step : null} />
     </div>
   );
 }
