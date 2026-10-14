@@ -386,6 +386,16 @@ export const TRUST = {
  * safe mechanical moves, as a short list that ticks off. Each line is the
  * backend's (`voice.DOING_*`); these are the words round it.
  */
+/**
+ * Signing in (2026-10-15). Saving the password is a box to tick under the
+ * boxes to type in, not a second "Sign in and save my password" button: one
+ * way to sign in, and a choice about it. Raham's decision; Aly to be told.
+ */
+export const SIGN_IN = {
+  /** Ticked, signing in also keeps the password on this computer. */
+  save: "Save my password for next time",
+} as const;
+
 export const CHECKLIST = {
   heading: "I'm doing what you asked.",
   /** Stops before the next move; SIMBA then waits to be told to carry on. */
@@ -531,6 +541,7 @@ export const LABELS: Record<string, string> = {
   "checklist.done": CHECKLIST.done,
   "checklist.now": CHECKLIST.now,
   "checklist.next": CHECKLIST.next,
+  "signIn.save": SIGN_IN.save,
   "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,

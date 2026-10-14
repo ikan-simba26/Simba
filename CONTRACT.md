@@ -167,6 +167,13 @@ line's `step_index`, after which the backend does nothing more until the
 person says to carry on. `task.start.confirm_each: true` (additive and
 optional) asks for every move to be confirmed instead.
 
+**Keeping a password** (2026-10-15; no change to the messages). A sign-in
+step whose password can be kept offers a second answer, `"id": "remember"`,
+beside its own. The overlay draws that offer as a box to tick ("Save my
+password for next time") rather than as a button, and its one sign-in button
+sends `remember` when the box is ticked and its own id when it is not. A
+backend that offers nothing to keep gets no box.
+
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —
 after "Filling in where you're starting from": `["Filling in where you're

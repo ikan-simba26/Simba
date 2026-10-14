@@ -14,11 +14,11 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { Finding, Level, StepAction, StepField, StepPresented } from "@shared/schema";
 
-import { CHOOSE, FOUND, STAGES } from "../copy";
+import { CHOOSE, FOUND, SIGN_IN, STAGES } from "../copy";
 import { NoticeLine, useNotice } from "./Notices";
 import { SpeakButton } from "./Speak";
 import { useStore } from "../store";
@@ -123,9 +123,19 @@ export function StepShell({
   // more — which was enough while every step offered go-ahead and stop, and
   // silently dropped the rest once a question offered three answers: "Pick a
   // day" never appeared, and neither did the way to stop.
-  const [lead, ...alternatives] = orderActions(step.actions);
+  // Saving the password, when the backend offers it, is a box to tick, not
+  // a second button (2026-10-15): "Sign in" sends the offer's own id when it
+  // is ticked, and its own when it is not. Unticked for every new step.
+  const saveOffer = step.actions.find((action) => action.id === SAVE_ID);
+  const [save, setSave] = useState(false);
+  useEffect(() => setSave(false), [step.step_index]);
+  const answers = step.actions.filter((action) => action.id !== SAVE_ID);
+  const act = (id: string) =>
+    onAction(saveOffer && save && id === lead?.id ? saveOffer.id : id);
+
+  const [lead, ...alternatives] = orderActions(answers);
   const stop = step.actions.find((action) => action.kind === "secondary");
-  const layout = answersLayout(step);
+  const layout = answersLayout({ ...step, actions: answers });
   // A box the step asks the person to fill, still empty: the main button
   // waits for it (2026-10-15). Pressed on an empty box, "That's it" sent
   // nothing and the same question came back.
@@ -250,6 +260,16 @@ export function StepShell({
           </div>
         </Fold>
 
+        <Fold show={Boolean(saveOffer)} gap={spec.gap * 0.4}>
+          <label className="flex cursor-pointer items-center gap-3 text-body text-ink"
+                 data-testid="save-password">
+            <input type="checkbox" className="h-6 w-6 shrink-0 accent-[var(--accent)]"
+                   checked={save} disabled={answered}
+                   onChange={(event) => setSave(event.target.checked)} />
+            {SIGN_IN.save}
+          </label>
+        </Fold>
+
         <Fold show gap={spec.gap}>
           {/* A question's answers, laid out to fit (2026-10-14): a task's
               first question has to fit at level 2 without folding, and at
@@ -261,11 +281,11 @@ export function StepShell({
             {layout === "pair" ? (
               <div className="flex flex-row gap-3">
                 <ActionButton action={lead} height={spec.actionHeight} answered={answered}
-                              waiting={waiting} onAction={onAction} grow
+                              waiting={waiting} onAction={act} grow
                               blocked={unanswered} />
                 {stop && spec.secondary === "button" && (
                   <ActionButton action={stop} height={spec.actionHeight} answered={answered}
-                                waiting={waiting} onAction={onAction} grow quiet />
+                                waiting={waiting} onAction={act} grow quiet />
                 )}
                 {/* Level 3: the way to stop as its line of text, still beside
                     the answer. Under it, level 3 was 18px taller than level 2
@@ -273,7 +293,7 @@ export function StepShell({
                     a step taller. */}
                 {stop && spec.secondary === "text" && (
                   <button type="button" disabled={answered}
-                          onClick={() => onAction(stop.id)}
+                          onClick={() => act(stop.id)}
                           className={`${buttonClass("quiet")} shrink-0 px-6
                                       disabled:opacity-40`}>
                     {stop.label}
@@ -284,14 +304,14 @@ export function StepShell({
               <>
                 <div className={layout === "row" ? "flex flex-row gap-3" : "flex flex-col gap-3"}>
                   <ActionButton action={lead} height={spec.actionHeight} answered={answered}
-                                waiting={waiting} onAction={onAction}
+                                waiting={waiting} onAction={act}
                                 grow={layout === "row"} blocked={unanswered} />
                   {/* The other answers to a question. Buttons at every level,
                       including level 3: an answer that has been demoted to a
                       line of text is one the person cannot give. */}
                   {alternatives.map((action) => (
                     <ActionButton key={action.id} action={action} height={spec.actionHeight}
-                                  answered={answered} waiting={waiting} onAction={onAction}
+                                  answered={answered} waiting={waiting} onAction={act}
                                   grow={layout === "row"} quiet />
                   ))}
                 </div>
@@ -301,7 +321,7 @@ export function StepShell({
                     rather than one element restyled. */}
                 {stop && spec.secondary === "button" && (
                   <ActionButton action={stop} height={spec.actionHeight} answered={answered}
-                                waiting={waiting} onAction={onAction} quiet />
+                                waiting={waiting} onAction={act} quiet />
                 )}
               </>
             )}
@@ -600,6 +620,10 @@ function ActionButton({
     </motion.button>
   );
 }
+
+/** The id of the backend's offer to keep a password (`voice.REMEMBER_ID`),
+ *  shown as a box to tick rather than as a button. */
+export const SAVE_ID = "remember";
 
 /** Answers this long or shorter share a row; longer ones keep the column. */
 const SHORT_ANSWER = 22;

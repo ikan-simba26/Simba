@@ -577,3 +577,10 @@ def test_nothing_in_the_backend_writes_its_own_way_to_stop() -> None:
         if re.search(r'TaskFailed\(\s*reason\s*=\s*[f]?"', text):
             offenders.append(f"{path.name}: a failure reason")
     assert not offenders, offenders
+
+
+def test_the_overlay_knows_which_answer_keeps_the_password() -> None:
+    """The overlay draws the backend's offer to keep a password as a box to
+    tick, found by its id (2026-10-15). The two must agree on it."""
+    shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
+    assert f'export const SAVE_ID = "{voice.REMEMBER_ID}";' in shell

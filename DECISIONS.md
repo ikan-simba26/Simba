@@ -4306,3 +4306,28 @@ app are unchanged, and a person's window is drawn because it is in front.
   search's two findings (now four, read by label) and a bill's three weighed
   steps (now asked before each move, `confirm_each`, the mode in which every
   step is still a decision).
+
+## Keeping a password is a box to tick; Aly to be told
+
+**Date:** 2026-10-15 (Raham's decision, from the flag of 2026-10-14; **Aly,
+as the interface's and the vault's owner, needs to be told**)
+
+**Decision.** On a sign-in step the backend's offer to keep the password —
+until now a second button, "Sign in and save my password" — is a box to
+tick under the boxes to type in: "Save my password for next time",
+unticked on every new step. The one "Sign in" button sends `remember` when it
+is ticked and `confirm` when it is not; the contract's messages do not
+change (CONTRACT.md says how the offer is drawn). With one answer, "Sign in"
+and "Stop this" share a row.
+
+**Why.** Three stacked buttons ran the screen 96px past the window at 100%
+and 91px at 150%, even at the most compact level (56px and 60px on `main`).
+With the box it fits at every size. One way to sign in, and a choice about
+it, is also one decision fewer on the screen.
+
+**Alternatives.** The two sign-in buttons side by side: "Sign in and save my
+password" wrapped onto two lines inside its button and the screen was still
+14-23px over. Leaving it to scroll.
+
+**Cost.** A box to tick is a smaller target than a button (24px), and is
+easier to miss; the label beside it is part of the target.
