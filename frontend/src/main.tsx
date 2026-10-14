@@ -20,10 +20,10 @@ window.addEventListener("blur", stillWhenAway);
 document.addEventListener("visibilitychange", stillWhenAway);
 stillWhenAway();
 
-// The colour direction (2026-10-14): A, the default, or B with `?palette=b`.
-// Both are in index.css; which one SIMBA keeps is still to be chosen.
-if (new URLSearchParams(window.location.search).get("palette") === "b") {
-  document.documentElement.dataset.palette = "b";
+// The colour direction: B, the deep teal, by default since 2026-10-15; A, the
+// warm palette, with `?palette=a` (index.css).
+if (new URLSearchParams(window.location.search).get("palette") === "a") {
+  document.documentElement.dataset.palette = "a";
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

@@ -58,8 +58,8 @@ def contrast(a: str, b: str) -> float:
 
 
 THEMES = {
-    "A light": (":root", False), "A dark": (":root", True),
-    "B light": (':root[data-palette="b"]', False), "B dark": (':root[data-palette="b"]', True),
+    "B light": (":root", False), "B dark": (":root", True),
+    "A light": (':root[data-palette="a"]', False), "A dark": (':root[data-palette="a"]', True),
 }
 GROUNDS = ["canvas", "surface", "sunk", "tint"]
 TEXT = ([("ink", "stuck-tint")]
@@ -119,7 +119,7 @@ def test_no_words_are_drawn_translucent() -> None:
 
 
 def test_the_two_directions_differ() -> None:
-    """B is a direction of its own, not A again."""
+    """A is a direction of its own, not B again."""
     for dark in (False, True):
-        a, b = palette(":root", dark), palette(':root[data-palette="b"]', dark)
+        b, a = palette(":root", dark), palette(':root[data-palette="a"]', dark)
         assert a["accent"] != b["accent"] and a["canvas"] != b["canvas"]
