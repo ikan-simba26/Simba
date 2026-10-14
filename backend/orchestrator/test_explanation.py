@@ -215,7 +215,11 @@ def test_the_train_search_ends_with_its_sentence(railways: str) -> None:  # noqa
 
     completed = run.of("task.completed")[0]
     train = completed["findings"][0]
-    rows = [{"Train": t, "Journey": j} for t, j in train["rows"]]
+    # Each row is the train, then every finding's own value: since 2026-10-14
+    # Train, Leaves, Arrives, Journey.
+    labels = [finding["label"] for finding in completed["findings"]]
+    rows = [{"Train": row[0], "Journey": row[labels.index("Journey")]}
+            for row in train["rows"]]
     assert completed["explanation"] == explain_trains({}, {}, rows)
     assert completed["explanation"].startswith(f"There are {len(rows)} trains.")
     # The fastest is named, and it is the train whose own row has that time.
@@ -234,10 +238,12 @@ def test_trains_that_share_journey_times_each_arrive_with_their_own(
     run = search("Hyderabad", "Sukkur", TOMORROW, [], railways)
 
     completed = run.of("task.completed")[0]
-    train, journey = completed["findings"]
-    assert journey["values"] == ["3 h 15 min", "4 h 15 min"]
-    assert train["rows"] == [["11UP", "3 h 15 min"], ["12DN", "4 h 15 min"],
-                             ["13UP", "3 h 15 min"], ["14DN", "4 h 15 min"]]
+    found = {finding["label"]: finding for finding in completed["findings"]}
+    assert list(found) == ["Train", "Leaves", "Arrives", "Journey"]
+    assert found["Journey"]["values"] == ["3 h 15 min", "4 h 15 min"]
+    journeys = [row[3] for row in found["Train"]["rows"]]
+    assert [row[0] for row in found["Train"]["rows"]] == ["11UP", "12DN", "13UP", "14DN"]
+    assert journeys == ["3 h 15 min", "4 h 15 min", "3 h 15 min", "4 h 15 min"]
     assert completed["explanation"] == (
         "There are 4 trains. 11UP and 13UP are the fastest, both at 3 hours 15 minutes.")
 
