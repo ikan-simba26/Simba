@@ -68,7 +68,11 @@ export function Backdrop() {
     return () => window.clearTimeout(timer);
   }, [revealing]);
 
-  const clear = revealing || peeking;
+  // A task's first picture is clear from its very first frame. Waiting for the
+  // effect above to say so drew one frame softened first: 17ms, measured in
+  // the real window on 2026-10-14.
+  const unrevealed = running && Boolean(backdrop) && revealedFor.current !== task;
+  const clear = revealing || peeking || unrevealed;
   const source = backdrop ? `data:image/png;base64,${backdrop.screenshot}` : "";
 
   return (

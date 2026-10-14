@@ -245,3 +245,22 @@ def test_the_row_under_the_step_fits(browser, overlay: str, picture: str,  # noq
             "document.scrollingElement.scrollHeight > window.innerHeight"), size
     finally:
         page.close()
+
+
+def test_the_first_frame_of_the_page_is_clear_not_softened(
+    page: Page, overlay: str, picture: str  # noqa: F811
+) -> None:
+    """In the real window on 2026-10-14 the page appeared softened for one
+    17ms frame, then cleared, then softened again after the reveal."""
+    page.add_init_script("""
+      window.__clear = [];
+      new MutationObserver(() => {
+        const b = document.querySelector('[data-testid=backdrop]');
+        const now = b ? b.dataset.clear : null;
+        if (now && window.__clear[window.__clear.length - 1] !== now) window.__clear.push(now);
+      }).observe(document, {subtree: true, childList: true, attributes: true,
+                            attributeFilter: ['data-clear']});""")
+    start(page, overlay, picture)
+    page.wait_for_timeout(3500)
+
+    assert page.evaluate("window.__clear") == ["true", "false"]
