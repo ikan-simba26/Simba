@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-15 · **1209 passing, 12 skipped, 0 failed** · backend 833 in 752s, frontend 376 in 790s (run as two halves; two frontend tests updated for the sign-in box after the run and their file rerun, 19 of 19), on `main` after merging `feat/interface-reveal`; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 35 tests added since 1174 (2026-10-14). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-16 · **1253 passing, 12 skipped, 0 failed** · backend 856 in 748s, frontend 397 in 851s (run as two halves; one backend test failed in the run, a registration's step count, fixed and its files rerun, 113 of 113), on `feat/proof`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 44 tests added since 1209 (2026-10-15). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,32 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-16: proof — the answer on the real page, and never more than was done
+
+On `feat/proof`, from `main`, **not merged**. One commit per item.
+
+- **"See it on the real page"** on every closing screen with an answer: a
+  still of the page as the task closed, what was read ringed, close up. The
+  page is read again before closing; if it now says something else, no answer
+  is shown. No picture is said in plain words, never shown stale or empty.
+- **Every closing screen ends with what was and was not done**: "I only
+  looked up times. I did not book a ticket or pay for anything."
+- **A change is "done" only with the site's own confirmation on the page**,
+  quoted; otherwise "It isn't confirmed." The step that changes something is
+  tried once.
+- **Registration asks which course from the portal's own list**, after
+  signing in; a course not offered is caught at the question.
+- **"I couldn't get a picture just now"** instead of nothing.
+- **Remembered goals in a few words**: "Bill ending 7890".
+- **A person's bill ends on its results page** (it used to open the full
+  bill, where its answer is not shown).
+- **Fixed from walking the real window:** a list question's button waited for
+  nothing; course codes title-cased; rings covering headings; a confirmation
+  number broken at its hyphen; a live ticket widening the column in Electron.
+- **Open, flagged:** see the report — chiefly the portal's "not final until
+  fees are paid" next to "That's done"; the sign-in first screen needing level
+  1 at 100% and 150%; headless fit checks missing Electron's wider text.
 
 ### Changed on 2026-10-15: review fixes, and merged
 

@@ -5334,3 +5334,59 @@ frontend 376 in 790s, as two halves; the host window-fit test 3 of 3 with
 `SIMBA_HOST_TESTS=1`. The run found 2 failures, both tests still pressing the
 "Sign in and save my password" button the box to tick replaced; updated, and
 their file rerun, 19 of 19.
+
+## 2026-10-16 — proof: the answer on the real page, and never more than was done
+
+On `feat/proof`, not merged. Real-window figures: the Electron host forced
+to 100%, the three local replicas, hardcoded plans, `SIMBA_RECORD_STEPS=0`,
+direction B, light; and one read-only search of the live train site.
+
+**The proof picture, each flow** (rings sent with `task.completed.proof`):
+
+| | rings | what | proof note |
+|---|---|---|---|
+| trains, our copy | 2 | each train's row | none |
+| trains, live site | 2 | each train's row (2DN, 14DN) | none |
+| a bill | 2 | the amount and the due date, the cells only | none |
+| a registration | 2 | "Registration Confirmed", and the confirmation number's row | none |
+| the benchmarks' fixed bill plan (ends on the detail page) | 0 | — | "What I read isn't on the page that's open now, so I have no picture of it." |
+
+Opened from the closing screen, the bill's picture is drawn close up: the
+page more than twice the window onto it, the two cells and their column
+headings readable; on the whole page they were 17px high in a 1280x800
+capture shown at 976px.
+
+**A change that is not confirmed** (the registration replica, a register
+step whose confirmation never comes): `help.requested`, `unconfirmed: true`,
+no `step.failed` — tried once, not a second way. A confirmation missing from
+the final page though the step's own check passed: the same.
+
+**Which course** on the registration replica: 20 courses offered, asked as a
+list after signing in; a course named and offered is not asked about (0
+course questions); "CS-999" named is asked about with "The portal doesn't
+offer CS-999."; a typed course not on the list is asked again with the same
+note. Registering still asks.
+
+**The registration's first screen is now signing in.** It fits at every
+size after the guard's one silent step to level 1 at 100% and both 150%
+windows; at level 2 it is 86 / 0 / 60 / 86px over (100% / 125% / 150% at 632
+/ 150% at 606) — the card fits, the row under it does not. Flagged.
+
+**The real window, every flow as a first-time person** (time from pressing
+the tile to the ending, including the walk's own typing): trains on our
+copy 25.8s, a bill 14.5s, a registration 22.8s, trains on the live site
+54.8s. No screen scrolled. The live search: 2 trains, both said "next day"
+(2DN 08:04 to 06:20; 14DN 19:09 to 19:25).
+
+**Electron lays text out wider than headless Chromium.** The live site's
+row in a ticket — "2DN", "Leaves 08:04", "Arrives 06:20, next day",
+"Journey 22 h 16 min", "Fastest" — is 784px wide headless, inside the card,
+and 896px in the Electron window, where it pushed the whole column from
+880px to 992px. The same ticket after the fix: 784px, wrapped to 93px tall,
+the card at 880px. A fit measured only headless can miss a real overflow.
+
+**The suite.** 1253 passed, 12 skipped, 0 failed: backend 856 in 748s,
+frontend 397 in 851s, as two halves; the host window-fit test 3 of 3 with
+`SIMBA_HOST_TESTS=1`. The run found 1 failure: a registration that named its
+course was counted as four steps where it shows three; fixed, and its files
+rerun, 113 of 113.
