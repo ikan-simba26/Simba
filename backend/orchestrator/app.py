@@ -65,6 +65,7 @@ from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
 from backend.orchestrator.vault import Vault
+from backend.orchestrator import voice
 from backend.orchestrator.router import (
     ROUTABLE,
     Route,
@@ -175,7 +176,8 @@ def past_goals() -> HistoryOffered:
         # A missing or unreadable store is an empty home screen, not a dead
         # socket. The text box is always there underneath.
         return HistoryOffered(goals=[])
-    return HistoryOffered(goals=[PastGoal(goal=goal, site=site) for goal, site in goals])
+    return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
+                                 for goal, site in goals])
 
 
 @app.websocket("/ws")

@@ -51,6 +51,11 @@ socket opens**, before any task.
   ]
 }
 ```
+**`label` is additive and optional** (added 2026-10-16): the goal in a few
+words for the home screen's one line, `"Bill ending 7890"`, `"Trains Lahore
+Cantt to Rawalpindi"`, `"Course CS-401"`. Absent, the goal's own words are
+shown.
+
 What the home screen offers instead of an empty text box. Read from the same
 SQLite trace store that replay uses, newest first, capped at three — so the
 cards are exactly the goals that would replay, rather than a second list that

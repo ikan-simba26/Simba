@@ -57,6 +57,11 @@ export interface StateChanged {
 export interface PastGoal {
   goal: string;
   site: string;
+  /**
+   * Additive and optional (2026-10-16). The goal in a few words, for the home
+   * screen's one line: "Bill ending 7890". Absent: the goal's own words.
+   */
+  label?: string;
 }
 
 /**

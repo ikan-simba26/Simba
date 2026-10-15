@@ -64,6 +64,11 @@ class PastGoal(BaseModel):
 
     goal: str
     site: str
+    # Additive and optional (2026-10-16). The goal in a few words, for the home
+    # screen's one line — "Bill ending 7890", "Trains Lahore Cantt to
+    # Rawalpindi" — built by the backend from what the goal spells out
+    # (`voice.short_label`). Absent: the goal's own words are shown.
+    label: Optional[str] = None
 
 
 class HistoryOffered(BaseModel):

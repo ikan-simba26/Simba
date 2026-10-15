@@ -74,6 +74,11 @@ export const HOME = {
   /** Beside a remembered bill, when two would otherwise look the same: the
    *  reference number's last four digits (2026-10-15). */
   ending: (digits: string) => `ending ${digits}`,
+  /** Beside one of two remembered journeys labelled alike: its day, as
+   *  people say it ("1 October"). */
+  onDay: (day: number, month: number) =>
+    `${day} ${["January", "February", "March", "April", "May", "June", "July", "August",
+               "September", "October", "November", "December"][month - 1]}`,
   /** The name of the row of tiles, for a screen reader: the three things
    *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
    *  themselves. */
@@ -553,6 +558,7 @@ export const LABELS: Record<string, string> = {
   "checklist.next": CHECKLIST.next,
   "signIn.save": SIGN_IN.save,
   "home.ending": HOME.ending("7890"),
+  "home.onDay": HOME.onDay(1, 10),
   "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,

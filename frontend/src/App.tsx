@@ -226,7 +226,10 @@ function Home() {
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
   const remembered = rememberedGoals(history);
-  const apart = tellApart(remembered);
+  // The goal in a few words when the backend could say it (2026-10-16): the
+  // start of a long sentence, cut off, said little.
+  const shown = remembered.map((past) => past.label ?? past.goal);
+  const apart = tellApart(shown, remembered.map((past) => past.goal));
 
   return (
     <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
@@ -274,14 +277,14 @@ function Home() {
         {remembered.length > 0 && (
           <section className="flex items-center gap-3" aria-label={HOME.again}>
             <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
-            {remembered.map((goal, index) => (
+            {remembered.map(({ goal }, index) => (
               <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
                       data-testid="remembered"
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
                                  border-edge bg-surface px-4 py-2 text-left text-body text-ink
                                  shadow-press hover:border-accent/50">
                 <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
-                <span className="line-clamp-1 flex-1">{goal}</span>
+                <span className="line-clamp-1 flex-1">{shown[index]}</span>
                 {/* What tells it from the other, never cut off (2026-10-15).
                     Hidden from a screen reader: the goal is read whole. */}
                 {apart[index] && (
@@ -313,12 +316,12 @@ const REMEMBERED = 2;
  * Goals asked for before, most recent first, each once, and never one a tile
  * already offers — whatever its case, spacing or full stop.
  */
-export function rememberedGoals(history: PastGoal[]): string[] {
-  const out: string[] = [];
+export function rememberedGoals(history: PastGoal[]): PastGoal[] {
+  const out: PastGoal[] = [];
   for (const past of history) {
     if (ALL_FLOWS.some((flow) => sameGoal(FLOWS[flow], past.goal))) continue;
-    if (out.some((goal) => sameGoal(goal, past.goal))) continue;
-    if (out.length < REMEMBERED) out.push(past.goal);
+    if (out.some((kept) => sameGoal(kept.goal, past.goal))) continue;
+    if (out.length < REMEMBERED) out.push(past);
   }
   return out;
 }
@@ -334,23 +337,35 @@ const REFERENCE = /\d{10,}/;
  * What tells each remembered goal from the others, when they would look the
  * same on one line (2026-10-15): two bills both read "Find the amount due
  * for…". For a bill, its reference's last four digits ("ending 7890");
- * otherwise the first word where the two part ("Multan"). Null for a goal
+ * otherwise the first word where the two part ("Multan"), or, where what is
+ * shown is the same word for word — two journeys labelled alike, a day
+ * apart — the first word where the goals themselves part. Null for a goal
  * that already looks like itself.
  */
-export function tellApart(goals: string[]): (string | null)[] {
-  return goals.map((goal, index) => {
-    const twin = goals.find((other, at) =>
-      at !== index && commonStart(goal, other).length >= LOOKS_SAME);
-    if (twin === undefined) return null;
-    const reference = goal.match(REFERENCE);
-    if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
-      return HOME.ending(reference[0].slice(-4));
-    }
-    const words = goal.split(/\s+/);
-    const others = twin.split(/\s+/);
-    const differs = words.findIndex((word, at) => word !== others[at]);
-    return differs >= 0 ? words[differs].replace(/[.,!?]+$/, "") : null;
+export function tellApart(shown: string[], goals: string[] = shown): (string | null)[] {
+  return shown.map((words, index) => {
+    const twin = shown.findIndex((other, at) =>
+      at !== index && commonStart(words, other).length >= LOOKS_SAME);
+    if (twin < 0) return null;
+    if (shown[twin] === words) return firstDifference(goals[index], goals[twin]);
+    return firstDifference(words, shown[twin]);
   });
+}
+
+/** What tells one goal from another, in a word or two. */
+function firstDifference(goal: string, twin: string): string | null {
+  const reference = goal.match(REFERENCE);
+  if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
+    return HOME.ending(reference[0].slice(-4));
+  }
+  const words = goal.split(/\s+/);
+  const others = twin.split(/\s+/);
+  const differs = words.findIndex((word, at) => word !== others[at]);
+  if (differs < 0) return null;
+  const word = words[differs].replace(/[.,!?]+$/, "");
+  // A day the goal spells as 2026-10-01 is said as people say it.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(word);
+  return day ? HOME.onDay(Number(day[3]), Number(day[2])) : word;
 }
 
 /** The words two goals start with, whole words only. */

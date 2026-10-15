@@ -170,6 +170,26 @@ def station_name(name: str) -> str:
     return name.title() if name.isupper() else name
 
 
+_TRIP_GOAL = re.compile(r"Find trains from (.+?) to (.+?) on \d{4}-\d{2}-\d{2}\.?")
+_BILL_GOAL = re.compile(r"Find the amount due for reference number (\d{4,})\.?")
+_COURSE_GOAL = re.compile(r"Register for the course (\S+?)\.?")
+
+
+def short_label(goal: str) -> str | None:
+    """A remembered goal in a few words, for the home screen's one line
+    (2026-10-16): "Trains Lahore Cantt to Rawalpindi", "Bill ending 7890",
+    "Course CS-401". Built from the sentences the briefs write
+    (`details.*Brief.sentence`), which are what is remembered; anything else
+    has no label and is shown in its own words."""
+    if (trip := _TRIP_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Trains {station_name(trip[1])} to {station_name(trip[2])}"
+    if (bill := _BILL_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Bill ending {bill[1][-4:]}"
+    if (course := _COURSE_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Course {course[1]}"
+    return None
+
+
 def when_words(day, today) -> str:
     """The day of a journey the way a person would check it: `tomorrow,
     7 October`, `today, 6 October`, or `Friday 16 October`."""
