@@ -69,7 +69,7 @@ def test_no_course_named_is_asked_after_signing_in_from_the_portals_list(
     assert question["stage"] == 1
     # Whatever the spelling, the course registered is the portal's own.
     assert "task.completed" in done.types(), done.types()
-    assert done.of("task.completed")[0]["explanation"].startswith(
+    assert done.of("task.completed")[0]["scope"].startswith(
         "You are registered for MATH-210")
 
 
@@ -93,7 +93,7 @@ def test_a_course_named_but_not_offered_is_caught_at_the_question(
     [question] = course_questions(done)
     assert question["note"] == "The portal doesn't offer CS-999."
     assert "task.completed" in done.types()
-    assert "CS-401" in done.of("task.completed")[0]["explanation"]
+    assert "CS-401" in done.of("task.completed")[0]["scope"]
 
 
 def test_a_typed_course_not_on_the_list_is_asked_again(replica: str) -> None:  # noqa: F811

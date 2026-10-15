@@ -396,7 +396,7 @@ class CoursePlanner:
         if self.chosen is None:
             return task
         return replace(task, about=About(shows=(Shown(reads="Course", says=self.chosen),)),
-                       explain=voice.explain_course(self.chosen))
+                       scope=voice.explain_course(self.chosen))
 
 
 class HardcodedPlanner:

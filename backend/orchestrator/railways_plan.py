@@ -285,6 +285,7 @@ def trip_task(origin: str, destination: str, day: date) -> Task:
             per_row=voice.arrival,
         ),
         explain=voice.explain_trains,
+        scope=voice.ONLY_LOOKED_UP_TIMES,
     )
 
 

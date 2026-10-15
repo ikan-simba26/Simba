@@ -257,14 +257,19 @@ def test_the_bill_ends_with_its_sentence(billing_replica: str) -> None:  # noqa:
         .payload_of("task.completed")
 
     assert completed["explanation"] == "Your bill is 14,382, and it is due on 15-09-2026."
+    # And the last line, what was not done (2026-10-16).
+    assert completed["scope"] == "I only looked at your bill. I did not pay it."
 
 
 def test_a_registration_ends_with_its_sentence(replica: str) -> None:  # noqa: F811
+    """Since 2026-10-16 it is the closing screen's last line, what changed,
+    and is said once."""
     from backend.orchestrator.test_course import register
 
     completed = register("MATH-210", replica).payload_of("task.completed")
 
-    assert completed["explanation"] == "You are registered for MATH-210 section 001."
+    assert completed["scope"] == "You are registered for MATH-210 section 001."
+    assert completed["explanation"] is None
 
 
 def test_a_task_with_nothing_to_explain_sends_none(replica: str) -> None:  # noqa: F811

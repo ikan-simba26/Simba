@@ -704,6 +704,7 @@ function Completed() {
   const explanation = completed?.explanation ?? null;
   const said = useRef<HTMLParagraphElement>(null);
   const lines = useLines(said);
+  const short = useShortWindow();
 
   return (
     <div className="flex flex-col gap-8 short:gap-5">
@@ -729,7 +730,17 @@ function Completed() {
           ) : (
             <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
           )}
-          <Findings findings={findings} size={TYPE.hero} less={Math.max(0, lines - 1)} />
+          {/* One result fewer in a short window for the last line, as for a
+              sentence's second line: with it, nine results put the buttons
+              off a 606px window (2026-10-16). */}
+          <Findings findings={findings} size={TYPE.hero}
+                    less={Math.max(0, lines - 1) + (short && completed?.scope ? 1 : 0)} />
+          {/* What was done, and what was not (2026-10-16): the last line. */}
+          {completed?.scope && (
+            <p className="mt-6 text-body text-soft short:mt-4" data-testid="scope">
+              {completed.scope}
+            </p>
+          )}
         </Card>
       ) : (
         <div className="flex flex-col items-start gap-5">
@@ -740,10 +751,17 @@ function Completed() {
           <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
             {ENDING.withoutAnswer}
           </h1>
-          {/* What happened, when the page said; otherwise what was asked for. */}
-          <p className="text-lead text-soft" data-testid={explanation ? "explanation" : undefined}>
-            {explanation ?? task?.goal}
-          </p>
+          {/* What happened, when the page said; otherwise what was asked for
+              — unless the last line says what changed. */}
+          {(explanation || !completed?.scope) && (
+            <p className="text-lead text-soft"
+               data-testid={explanation ? "explanation" : undefined}>
+              {explanation ?? task?.goal}
+            </p>
+          )}
+          {completed?.scope && (
+            <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
+          )}
         </div>
       )}
 

@@ -89,6 +89,8 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "findings": [{"label": "Your bill", "value": "14,382"},
                          {"label": "Due", "value": "15-09-2026"}],
+            # What was not done, the last line (2026-10-16).
+            "scope": "I only looked at your bill. I did not pay it.",
         }),
     ],
     # A search that returned several results. The closing screen is the
@@ -114,6 +116,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -135,6 +138,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -152,6 +156,8 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
         ("task.completed", {
             "summary": f"{GOAL} http://127.0.0.1:5000/register", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False, "findings": [],
+            # What changed, the last line (2026-10-16).
+            "scope": "You are registered for CS-401 section 001.",
         }),
     ],
     # The backend ending a task on its own account. `loop.py` has no such path

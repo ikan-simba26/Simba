@@ -1132,7 +1132,9 @@ class CourseBrief(_Asking):
             # puts it in once chosen.
             about=About(shows=(Shown(reads="Course", says=self.course),)
                         if self.course else ()),
-            explain=voice.explain_course(self.course) if self.course else None,
+            # What changed, from what the portal confirmed: the closing
+            # screen's last line (2026-10-16), and so not said twice.
+            scope=voice.explain_course(self.course) if self.course else None,
         )
 
     def _plan(self) -> tuple[Planner, Task]:

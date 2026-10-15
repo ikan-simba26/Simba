@@ -201,6 +201,11 @@ export interface HelpRequested {
 }
 
 export interface TaskCompleted {
+  /**
+   * Additive and optional (2026-10-16). The closing screen's last line: what
+   * was done, and what was not.
+   */
+  scope?: string;
   /** Additive and optional (2026-10-14). What the results are for, above them:
    *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
   heading?: string;

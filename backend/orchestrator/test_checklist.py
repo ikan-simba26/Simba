@@ -125,6 +125,8 @@ def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> Non
     ending = done.of("task.completed")[0]
     assert ending["heading"] == voice.route_heading("Rawalpindi", "Sukkur", TOMORROW,
                                                     date.today())
+    # The last line: nothing was booked or paid (2026-10-16).
+    assert ending["scope"] == voice.ONLY_LOOKED_UP_TIMES
     rows = ending["findings"][0]["rows"]
     labels = [f["label"] for f in ending["findings"]]
     assert labels == ["Train", "Leaves", "Arrives", "Journey"]

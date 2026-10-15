@@ -239,6 +239,10 @@ class TaskCompleted(BaseModel):
     # "Lahore Cantt to Karachi Cantt, Thursday 15 October". From what the
     # person asked and agreed, never from the page. Absent: no heading.
     heading: Optional[str] = None
+    # Additive and optional (2026-10-16). The closing screen's last line: what
+    # was done, and what was not — "I only looked up times. I did not book a
+    # ticket or pay for anything." From `voice.py`, never from a model.
+    scope: Optional[str] = None
 
 
 class TaskFailed(BaseModel):

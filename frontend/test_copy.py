@@ -421,6 +421,7 @@ def backend_sentences() -> dict[str, str]:
                  "ASK_CLOSEST", "NOT_CAUGHT", "DAY_NOT_CAUGHT", "ASK_CHANGE", "READY_TO_SEARCH",
                  "ASK_REFERENCE", "REFERENCE_DETAIL", "REFERENCE_NOT_RIGHT", "ASK_COURSE",
                  "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "COURSES_OFFERED", "NO_COURSES",
+                 "ONLY_LOOKED_UP_TIMES", "ONLY_LOOKED_AT_BILL",
                  "NOT_UNDERSTOOD", "NO_TRAINS",
                  "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)

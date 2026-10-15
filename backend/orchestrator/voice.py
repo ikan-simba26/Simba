@@ -468,6 +468,14 @@ def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]],
     return f"Your bill is {amount[0]}."
 
 
+#: The closing screen's last line, for a search: what was done and what was
+#: not (2026-10-16). Nothing in this project books or pays, and the person
+#: should not have to wonder.
+ONLY_LOOKED_UP_TIMES = "I only looked up times. I did not book a ticket or pay for anything."
+#: The same, for a bill.
+ONLY_LOOKED_AT_BILL = "I only looked at your bill. I did not pay it."
+
+
 def explain_course(course: str):
     """For a registration: which course the confirmation named, as it named it."""
     def explain(found: dict[str, list[str]], seen: dict[str, list[str]],

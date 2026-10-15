@@ -179,6 +179,12 @@ password for next time") rather than as a button, and its one sign-in button
 sends `remember` when the box is ticked and its own id when it is not. A
 backend that offers nothing to keep gets no box.
 
+**`task.completed.scope` is additive and optional** (added 2026-10-16). The
+closing screen's last line, saying what was done and what was not: "I only
+looked up times. I did not book a ticket or pay for anything." For a task
+that changed something, what changed: "You are registered for CS-401 section
+001." Written in `voice.py` for each flow; absent for a model-planned task.
+
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —
 after "Filling in where you're starting from": `["Filling in where you're

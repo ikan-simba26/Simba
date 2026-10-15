@@ -508,6 +508,11 @@ class Task:
     # Above the results on the closing screen: what they are for, from what
     # the person asked and agreed (2026-10-14). None: no heading.
     heading: str | None = field(default=None, kw_only=True)
+    # The closing screen's last line: what was done and what was not
+    # (2026-10-16). A sentence, or built like `explain` from what the site
+    # said back — "You are registered for CS-401 section 001." None: no line.
+    scope: ("str | Callable[[dict[str, list[str]], dict[str, list[str]], "
+            "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -1324,6 +1329,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
             heading=task.heading,
+            scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
         ),
     )
 

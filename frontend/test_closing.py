@@ -440,3 +440,27 @@ def test_a_page_that_prints_one_time_shows_no_arrival(
     ]))
 
     assert tickets(page)[0] == "7UP | Leaves 07:20 | Journey 7 h 15 min | Fastest"
+
+
+def test_the_last_line_says_what_was_not_done(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Every closing screen ends with what was and was not done (2026-10-16)."""
+    script = completed("There are 2 trains. The fastest is 7UP, at 7 hours 15 minutes.", [
+        {"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"],
+         "rows": [["7UP", "07:25", "14:40", "7 h 15 min"],
+                  ["8DN", "16:35", "00:50, next day", "8 h 15 min"]]},
+        {"label": "Leaves", "value": "07:25, 16:35", "values": ["07:25", "16:35"]},
+        {"label": "Arrives", "value": "14:40, 00:50", "values": ["14:40", "00:50"]},
+        {"label": "Journey", "value": "7 h 15 min, 8 h 15 min",
+         "values": ["7 h 15 min", "8 h 15 min"]},
+    ])
+    script[-1][1]["scope"] = ("I only looked up times. I did not book a ticket or pay "
+                              "for anything.")
+    page = end(browser, overlay, backend, script)
+
+    scope = page.get_by_test_id("scope")
+    assert scope.inner_text() == script[-1][1]["scope"]
+    # The last thing in the answer, under the tickets.
+    tickets = page.get_by_test_id("ticket").last.bounding_box()
+    assert scope.bounding_box()["y"] > tickets["y"] + tickets["height"]

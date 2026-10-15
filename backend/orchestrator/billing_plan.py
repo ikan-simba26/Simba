@@ -56,6 +56,7 @@ def bill_task(reference: str) -> Task:
             shows=(Shown(reads="REF NO", says=reference),),
         ),
         explain=voice.explain_bill,
+        scope=voice.ONLY_LOOKED_AT_BILL,
     )
 
 
