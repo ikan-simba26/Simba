@@ -17,6 +17,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
+import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
 import {
@@ -27,12 +28,13 @@ import {
   ChoiceCard,
   FlowIcon,
   AlertIcon,
+  PageIcon,
   PauseIcon,
   Presence,
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+import { CHECKLIST, ENDING, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
@@ -87,6 +89,7 @@ export default function App() {
       </div>
       <PeekBack />
       <TrustPanel />
+      <ProofPanel />
       <DebugPanel />
     </div>
   );
@@ -734,12 +737,21 @@ function Completed() {
               sentence's second line: with it, nine results put the buttons
               off a 606px window (2026-10-16). */}
           <Findings findings={findings} size={TYPE.hero}
-                    less={Math.max(0, lines - 1) + (short && completed?.scope ? 1 : 0)} />
-          {/* What was done, and what was not (2026-10-16): the last line. */}
-          {completed?.scope && (
-            <p className="mt-6 text-body text-soft short:mt-4" data-testid="scope">
-              {completed.scope}
-            </p>
+                    less={Math.max(0, lines - 1)}
+                    footer={short && Boolean(completed?.scope || completed?.proof
+                                             || completed?.proof_note)} />
+          {/* The answer's footer (2026-10-16): the way to see it on the real
+              page, and what was done and what was not — one row, so nine
+              results still leave the way onward on a 606px window. */}
+          {(completed?.scope || completed?.proof || completed?.proof_note) && (
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 short:mt-4">
+              <ProofLine />
+              {completed?.scope && (
+                <p className="min-w-0 flex-1 basis-80 text-body text-soft" data-testid="scope">
+                  {completed.scope}
+                </p>
+              )}
+            </div>
           )}
         </Card>
       ) : (
@@ -770,6 +782,7 @@ function Completed() {
               {completed.confirmation}
             </p>
           )}
+          <ProofLine />
         </div>
       )}
 
@@ -785,6 +798,31 @@ function Completed() {
       </div>
     </div>
   );
+}
+
+/**
+ * The way to see the answer on the real page (2026-10-16), or, when the
+ * backend could not take that picture, why not — in its words. Never a
+ * picture from earlier in the task in its place.
+ */
+function ProofLine() {
+  const { completed, openProof } = useStore();
+  if (completed?.proof) {
+    return (
+      <Button variant="secondary" size="md" wide={false} onClick={openProof}>
+        <PageIcon />
+        {PROOF.see}
+      </Button>
+    );
+  }
+  if (completed?.proof_note) {
+    return (
+      <p className="text-body text-soft" data-testid="proof-note">
+        {completed.proof_note}
+      </p>
+    );
+  }
+  return null;
 }
 
 /**
@@ -825,8 +863,12 @@ function Completed() {
  * closing screen must fit, buttons and all, at 150% with nine results, with a
  * sentence above them or without (`test_closing.py`).
  */
-export function Findings({ findings, size, less = 0 }: {
+export function Findings({ findings, size, less = 0, footer = false }: {
   findings: Finding[]; size: number; less?: number;
+  /** A footer under the answer in a short window (2026-10-16): the way to
+   *  see it on the real page, and what was not done. It costs a list two
+   *  of its lines, and the tickets one. */
+  footer?: boolean;
 }) {
   const lists = findings.map((finding) =>
     finding.values?.length ? finding.values : [finding.value]);
@@ -877,7 +919,7 @@ export function Findings({ findings, size, less = 0 }: {
   // And each line the sentence above takes past its first gives up one too
   // (`less`): a sentence that names a tie of three trains wraps at 150%, and
   // the page then scrolled by 10px (2026-10-06).
-  const shown = Math.max(1, Math.min(count, LISTED - apart.length - less));
+  const shown = Math.max(1, Math.min(count, LISTED - apart.length - less - (footer ? 2 : 0)));
   const rows = Array.from({ length: shown }, (_, row) =>
     findings.flatMap((_, index) => !onLine(index) ? []
       : [byRows ? sent[row][index] ?? "" : lists[index][row]])
@@ -888,7 +930,8 @@ export function Findings({ findings, size, less = 0 }: {
 
   if (byRows) {
     return (
-      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart} less={less} />
+      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart}
+               less={less + (footer ? 1 : 0)} />
     );
   }
 

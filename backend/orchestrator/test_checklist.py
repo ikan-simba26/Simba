@@ -184,16 +184,17 @@ def test_the_bill_asks_about_cookies_then_looks_itself_up(
     billing_replica: str,  # noqa: F811
 ) -> None:
     """Accepting cookies is consent on someone else's site: it asks. Looking
-    up the number the person gave, and opening the full bill, do not."""
+    up the number the person gave does not. (Opening the full bill afterwards
+    was a second line until 2026-10-16; the run now ends on the results.)"""
     brief = BillBrief("check my bill 04141234567890", Understood(reference="04141234567890"))
 
     done = go(billing_replica, brief, [])
 
     assert done.asked() == ["The site is asking about cookies. I'll say yes."]
-    assert done.rows() == [voice.DOING_LOOKUP, voice.DOING_FULL_BILL]
+    assert done.rows() == [voice.DOING_LOOKUP]
     assert "task.completed" in done.types()
     lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]
-    assert [p["coming"] for p in lines] == [[voice.DOING_FULL_BILL], []]
+    assert [p["coming"] for p in lines] == [[]]
 
 
 def test_registering_always_asks(replica: str) -> None:  # noqa: F811

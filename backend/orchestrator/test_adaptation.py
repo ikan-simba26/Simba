@@ -202,14 +202,14 @@ def converse(url: str, before: list[tuple[str, dict]]) -> list[dict]:
 
             for kind, payload in before:
                 await send(kind, payload)
-            # The number is in the goal, so nothing is asked and the run is
-            # the three steps these telemetry samples are written for. What
-            # happens when it is missing is `test_app_routing.py`. Asked
-            # before each move (`confirm_each`): since 2026-10-14 the lookup
-            # and the full bill otherwise run as checklist lines, which are
-            # no decision and are never weighed, so there would be no calm
-            # steps to return on.
-            await send("task.start", {"goal": f"Check my electricity bill {REFERENCE}",
+            # Three screens, the ones these telemetry samples are written for:
+            # the question for the number (left out of the goal since
+            # 2026-10-16, when the bill became two steps), the cookies and the
+            # lookup. Asked before each move (`confirm_each`): since 2026-10-14
+            # the lookup otherwise runs as a checklist line, which is no
+            # decision and is never weighed, so there would be no calm steps to
+            # return on.
+            await send("task.start", {"goal": "Check my electricity bill",
                                       "input_mode": "text", "flow": "billing",
                                       "confirm_each": True})
             while True:

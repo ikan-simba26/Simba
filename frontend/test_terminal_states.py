@@ -76,6 +76,12 @@ def ending(*messages: tuple[str, dict]) -> list[tuple[str, dict]]:
     ]
 
 
+# A picture of the real page with what was read ringed (2026-10-16): the
+# smallest real PNG, which the panel scales to the page's shape.
+PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+PROOF = {"screenshot": PNG, "caption": "What I read is ringed.",
+         "rings": [{"x": 728, "y": 143, "w": 118, "h": 17}]}
+
 HELP = ("help.requested", {
     "reason": "could not find 'Check Bill' on the page",
     "suggestion": "I won't do any more on this. You can ask me for something else.",
@@ -89,8 +95,10 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "findings": [{"label": "Your bill", "value": "14,382"},
                          {"label": "Due", "value": "15-09-2026"}],
-            # What was not done, the last line (2026-10-16).
+            # What was not done, the last line, and the answer on the real
+            # page (2026-10-16).
             "scope": "I only looked at your bill. I did not pay it.",
+            "proof": PROOF,
         }),
     ],
     # A search that returned several results. The closing screen is the
@@ -117,6 +125,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
             "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -139,6 +148,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
             "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -161,6 +171,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "scope": "You are registered for CS-401 section 001.",
             "confirmation": ("The portal says “Registration Confirmed”, with "
                              "confirmation number REG-10234-2026."),
+            "proof": PROOF,
         }),
     ],
     # A change tried and not confirmed (2026-10-16): never "done".
@@ -368,10 +379,16 @@ def test_every_ending_has_something_to_press(
 def test_everything_on_an_ending_leads_somewhere(
     name: str, page: Page, overlay: str, backend: Backend
 ) -> None:
-    """A button that does nothing is not a way onward."""
+    """A button that does nothing is not a way onward. "See it on the real
+    page" (2026-10-16) leads to the picture, and back from it."""
     for label in [label for label in reach(page, overlay, backend, name) if label]:
         reach(page, overlay, backend, name)
         page.get_by_role("button", name=label, exact=True).click()
+        if label == "See it on the real page":
+            page.get_by_test_id("proof-panel").wait_for(timeout=5000)
+            page.get_by_role("button", name="Back to the answer").click()
+            page.get_by_role("button", name="I'm done").wait_for(timeout=5000)
+            continue
         page.wait_for_function(
             f"() => document.body.innerText.includes({json.dumps(GREETING)})", timeout=5000
         )
@@ -383,8 +400,8 @@ def test_back_home_after_a_task_there_is_no_entrance(
     """The tiles rise in once, when SIMBA opens (2026-10-14). Coming back to
     them after a task, they are simply there."""
     name = next(iter(ENDINGS))
-    label = next(label for label in reach(page, overlay, backend, name) if label)
-    page.get_by_role("button", name=label, exact=True).click()
+    reach(page, overlay, backend, name)
+    page.get_by_role("button", name="I'm done", exact=True).click()
     page.get_by_test_id("tile").first.wait_for(state="attached", timeout=5000)
     assert page.evaluate(
         "() => +getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"

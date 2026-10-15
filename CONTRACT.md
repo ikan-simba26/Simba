@@ -196,6 +196,16 @@ rather than with being stuck. The step that
 makes the change is tried once, never again a second way: a second press
 could make the change twice.
 
+**`task.completed.proof` and `proof_note` are additive and optional**
+(added 2026-10-16), with a new shape, `Proof`: `{ "screenshot": "<base64
+png>", "rings": [Highlight, ...], "caption": "What I read is ringed." }`.
+Before closing, the backend reads the page again and compares it with what
+it is about to show; if they differ it shows no answer and says so
+(`help.requested`, `"unconfirmed": true`). Then it takes a still of the page
+with every row or value it read ringed, in the screenshot's own pixels
+(1280x800). When it cannot, `proof_note` says why in plain words. Never an
+empty or stale picture.
+
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —
 after "Filling in where you're starting from": `["Filling in where you're

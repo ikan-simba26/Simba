@@ -22,7 +22,7 @@ import pytest
 import websockets
 
 from backend.orchestrator import voice
-from backend.orchestrator.billing_plan import BILLING_PLAN, REFERENCE
+from backend.orchestrator.billing_plan import REFERENCE, person_billing_plan
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_URL
 from backend.orchestrator.test_billing import REPO_ROOT, _wait_for, billing_replica  # noqa: F401
 
@@ -135,7 +135,7 @@ def test_pay_my_bill_runs_billing_with_the_goal_as_typed(app_url: str) -> None:
 
     started = [m for m in talk.received if m["type"] == "task.started"][0]["payload"]
     assert started["goal"] == "pay my bill"
-    assert started["estimated_steps"] == 1 + len(BILLING_PLAN)
+    assert started["estimated_steps"] == 1 + len(person_billing_plan(REFERENCE))
     assert "task.completed" in talk.types(), talk.types()
     assert "goal.answered" not in talk.types()
 
@@ -158,7 +158,7 @@ def test_a_goal_that_names_the_bill_is_not_asked_about(app_url: str) -> None:
     talk = converse(app_url, {"goal": f"pay my bill {REFERENCE}"})
 
     started = [m for m in talk.received if m["type"] == "task.started"][0]["payload"]
-    assert started["estimated_steps"] == len(BILLING_PLAN)
+    assert started["estimated_steps"] == len(person_billing_plan(REFERENCE))
     first = [m["payload"] for m in talk.received if m["type"] == "step.presented"][0]
     assert first["instruction"] != voice.ASK_REFERENCE
     assert "task.completed" in talk.types(), talk.types()

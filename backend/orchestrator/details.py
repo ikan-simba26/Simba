@@ -1038,9 +1038,12 @@ def _coming_day_of_month(day: int, today: date) -> date | None:
 
 
 class BillBrief(_Asking):
-    """A bill to look up: the reference number printed on it."""
+    """A bill to look up: the reference number printed on it.
 
-    plan_steps = 3
+    The run ends on the results page, where the amount and the due date it
+    reports are shown (2026-10-16; `billing_plan.person_billing_plan`)."""
+
+    plan_steps = 2
     stages = voice.BILL_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
@@ -1069,12 +1072,12 @@ class BillBrief(_Asking):
         return f"Find the amount due for reference number {self.reference}."
 
     def task(self) -> Task:
-        from backend.orchestrator.billing_plan import bill_task
+        from backend.orchestrator.billing_plan import person_bill_task as bill_task
 
         return replace(bill_task(self.reference), goal=self.goal)
 
     def _plan(self) -> tuple[Planner, Task]:
-        from backend.orchestrator.billing_plan import billing_plan
+        from backend.orchestrator.billing_plan import person_billing_plan as billing_plan
 
         task = self.task()
         if self._hardcoded:

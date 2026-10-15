@@ -395,6 +395,21 @@ export const TRUST = {
   tryAgain: "You can ask again in a moment.",
 } as const;
 
+/**
+ * The answer on the real page (2026-10-16): a still of the page as the task
+ * closed, with what was read ringed. The caption, and why there is no
+ * picture when there is none, come from the backend (`voice.PROOF_CAPTION`,
+ * `voice.NO_PROOF_PICTURE`).
+ */
+export const PROOF = {
+  /** Under the answer. */
+  see: "See it on the real page",
+  /** Back from the picture. */
+  back: "Back to the answer",
+  /** The picture, for a screen reader. */
+  picture: "The real page as I finished, with what I read ringed",
+} as const;
+
 /* ------------------------------------------------------------ the checklist */
 
 /**
@@ -561,6 +576,8 @@ export const LABELS: Record<string, string> = {
   "checklist.now": CHECKLIST.now,
   "checklist.next": CHECKLIST.next,
   "signIn.save": SIGN_IN.save,
+  "proof.see": PROOF.see,
+  "proof.back": PROOF.back,
   "home.ending": HOME.ending("7890"),
   "home.onDay": HOME.onDay(1, 10),
   "settings.askEach": SETTINGS.askEach,

@@ -493,3 +493,48 @@ def test_a_change_not_confirmed_says_so_first(
     assert "I'm stuck" not in page.inner_text("body")
     assert page.get_by_test_id("unconfirmed").inner_text().startswith(
         "I tried to press “Register for CS-401”")
+
+
+def test_the_answer_can_be_seen_on_the_real_page(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The still the backend took as it finished, with what it read ringed,
+    where it read it (2026-10-16)."""
+    from frontend.test_terminal_states import PROOF
+
+    proof = {**PROOF, "rings": [{"x": 640, "y": 400, "w": 128, "h": 80},
+                                {"x": 0, "y": 0, "w": 64, "h": 40}]}
+    script = completed("Your bill is 14,382, and it is due on 15-09-2026.", [
+        {"label": "Your bill", "value": "14,382"}, {"label": "Due", "value": "15-09-2026"}])
+    script[-1][1]["proof"] = proof
+    page = end(browser, overlay, backend, script)
+
+    page.get_by_role("button", name="See it on the real page").click()
+    panel = page.get_by_test_id("proof-panel")
+    panel.wait_for(timeout=5000)
+    page.wait_for_timeout(600)
+    assert "What I read is ringed." in panel.inner_text()
+    picture = panel.locator("img").bounding_box()
+    rings = [r.bounding_box() for r in panel.get_by_test_id("proof-ring").all()]
+    assert len(rings) == 2
+    # Where the backend found it, in the picture's own proportions: the
+    # middle of the page is the middle of the picture (each ring 6px wider
+    # all round than what it rings).
+    middle = rings[0]
+    assert abs((middle["x"] + 6 - picture["x"]) / picture["width"] - 0.5) < 0.01
+    assert abs((middle["y"] + 6 - picture["y"]) / picture["height"] - 0.5) < 0.01
+    page.get_by_role("button", name="Back to the answer").click()
+    page.wait_for_timeout(800)
+    assert page.get_by_test_id("proof-panel").count() == 0
+    assert page.get_by_role("button", name="I'm done").is_visible()
+
+
+def test_no_picture_is_said_and_no_button_shown(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    script = completed(None, [{"label": "Your bill", "value": "14,382"}])
+    script[-1][1]["proof_note"] = "I couldn't get a picture of the page to show you."
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("proof-note").inner_text() == script[-1][1]["proof_note"]
+    assert page.get_by_role("button", name="See it on the real page").count() == 0

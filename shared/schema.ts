@@ -195,6 +195,16 @@ export interface PagePreview {
   caption: string;
 }
 
+/**
+ * A still of the real page at the end of a task, with what was read ringed
+ * (2026-10-16).
+ */
+export interface Proof {
+  screenshot: string;
+  rings: Highlight[];
+  caption: string;
+}
+
 export interface HelpRequested {
   reason: string;
   suggestion: string;
@@ -216,6 +226,13 @@ export interface TaskCompleted {
    * the site's own confirmation, quoted. Only when it is on the page.
    */
   confirmation?: string;
+  /**
+   * Additive and optional (2026-10-16). The real page when the task closed,
+   * with every row or value shown ringed.
+   */
+  proof?: Proof;
+  /** Additive and optional (2026-10-16). Why there is no `proof`. */
+  proof_note?: string;
   /** Additive and optional (2026-10-14). What the results are for, above them:
    *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
   heading?: string;

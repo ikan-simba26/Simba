@@ -216,6 +216,15 @@ class PagePreview(BaseModel):
     caption: str
 
 
+class Proof(BaseModel):
+    """A still of the real page at the end of a task, with what was read
+    ringed (2026-10-16): the closing screen's "See it on the real page"."""
+
+    screenshot: str
+    rings: List[Highlight]
+    caption: str
+
+
 class HelpRequested(BaseModel):
     reason: str
     suggestion: str
@@ -252,6 +261,13 @@ class TaskCompleted(BaseModel):
     # Confirmed", with confirmation number REG-10234-2026.' Sent only when the
     # confirmation is on the page; without it the task is not completed.
     confirmation: Optional[str] = None
+    # Additive and optional (2026-10-16). The real page as it was when the
+    # task closed, with every row or value the closing screen shows ringed —
+    # taken after the page was read again and found to agree.
+    proof: Optional[Proof] = None
+    # Additive and optional (2026-10-16). Why there is no `proof`, in plain
+    # words, when there is none: never an empty or stale picture instead.
+    proof_note: Optional[str] = None
 
 
 class TaskFailed(BaseModel):

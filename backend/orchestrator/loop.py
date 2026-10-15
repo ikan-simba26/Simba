@@ -55,6 +55,7 @@ from shared.schema import (
     HelpRequested,
     Highlight,
     PagePreview,
+    Proof,
     StateChanged,
     Finding,
     StepAction,
@@ -608,6 +609,29 @@ PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
                   "input[autocomplete=new-password]")
 #: What a password box is painted over with. Solid, and the same in both themes.
 MASK_COLOUR = "#8c7a66"
+
+
+#: The longest the closing picture may take before it is given up on.
+PROOF_DEADLINE_S = 8.0
+
+#: Where on the page each thing read is: the smallest element whose whole
+#: text is the value, or its table row, in the page's own coordinates.
+RINGS_JS = """(targets) => {
+  const shown = [...document.querySelectorAll('body *')].filter(e => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
+  });
+  const text = (e) => (e.innerText || '').trim().replace(/\\s+/g, ' ');
+  return targets.map(([want, row]) => {
+    const exact = shown.filter(e => text(e) === want &&
+      ![...e.children].some(c => text(c) === want));
+    const el = exact[0];
+    if (!el) return null;
+    const box = (row && el.closest('tr')) || el;
+    const r = box.getBoundingClientRect();
+    return {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
+  });
+}"""
 
 
 #: The longest a picture of the page may take before it is dropped
@@ -1317,6 +1341,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     if settle is not None:
         task = settle(task)
 
+    # What was read before this last look, to compare it with (2026-10-16).
+    read_before = {name: list(values) for name, values in found.items()}
     _, final, _ = await perceive(page)
     findings = findings_in(final, task, found, rows)
     # A task with named values is checked here even without a success
@@ -1332,8 +1358,15 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
         return
 
+    # Read again before closing (2026-10-16): the page has to still say what
+    # is about to be shown, or no answer is shown.
+    if answer_changed(read_before, final, task):
+        await give_up(voice.ANSWER_CHANGED, unconfirmed=True)
+        return
+
     # A change is done only when the site says so, on the page (2026-10-16).
     confirmation: str | None = None
+    confirmed: tuple[str, str | None] | None = None
     if task.confirms is not None:
         headings = [h.text for h in final.content.headings]
         if not any(task.confirms.heading in text for text in headings):
@@ -1346,6 +1379,16 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                      if task.confirms.reads else None)
         confirmation = voice.portal_says(task.confirms.heading, task.confirms.reads,
                                          reference)
+        confirmed = (next(text for text in headings if task.confirms.heading in text),
+                     reference)
+
+    # The proof: a still of the page as it is now, what was read ringed.
+    try:
+        proof, proof_note = await asyncio.wait_for(
+            take_proof(page, proof_targets(task, findings, rows, confirmed)),
+            PROOF_DEADLINE_S)
+    except asyncio.TimeoutError:
+        proof, proof_note = None, voice.NO_PROOF_PICTURE
 
     # A return that was due when the last step was answered has no next step
     # to arrive with, so it goes out before the ending.
@@ -1370,8 +1413,88 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
+            proof=proof,
+            proof_note=proof_note,
         ),
     )
+
+
+def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") -> bool:
+    """Whether the page, read again before closing, says something other than
+    what the run read earlier and is about to show (2026-10-16). A label the
+    page no longer has is not a difference — the value was read on a page
+    since left — and is said instead by there being no picture of it."""
+    for answer in task.about.finds:
+        earlier = before.get(answer.name)
+        now = [v for v in (part_of(value, answer.part)
+                           for value in after.content.values_for(answer.reads)) if v]
+        if earlier and now and set(earlier) != set(now):
+            return True
+    return False
+
+
+def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, str]],
+                  confirmation: tuple[str, str | None] | None) -> list[tuple[str, bool]]:
+    """What to ring on the closing picture: each result's row, by its first
+    value, when there are several; otherwise each value shown, on its own; a
+    change's confirmation heading, and the row its reference is in."""
+    targets: list[tuple[str, bool]] = []
+    # Several results: each one's row. One result — a bill — its values
+    # themselves, so the ring is round the amount, not round the whole line.
+    if len(rows) > 1 and findings:
+        targets += [(row[findings[0].label], True) for row in rows
+                    if row.get(findings[0].label)]
+    else:
+        targets += [(value, False) for finding in findings for value in finding.values]
+    if confirmation is not None:
+        heading, reference = confirmation
+        targets.append((heading, False))
+        if reference:
+            targets.append((reference, True))
+    seen: set[tuple[str, bool]] = set()
+    return [t for t in targets if not (t in seen or seen.add(t))]
+
+
+async def take_proof(page: Page, targets: list[tuple[str, bool]]
+                     ) -> tuple[Proof | None, str | None]:
+    """A still of the page with every target ringed, or why there is none.
+
+    The page is scrolled so the first ring is in view, captured at the frozen
+    viewport, and scrolled back. Password boxes are painted over, as for every
+    picture of the page (`send_preview`)."""
+    if not targets:
+        return None, None
+    try:
+        found = await page.evaluate(RINGS_JS, [list(t) for t in targets])
+    except PlaywrightError:
+        return None, voice.NO_PROOF_PICTURE
+    boxes = [b for b in found if b]
+    if not boxes:
+        return None, voice.NOT_ON_THIS_PAGE
+    before = await page.evaluate("[scrollX, scrollY]")
+    top = min(b["y"] for b in boxes)
+    await page.evaluate(f"window.scrollTo(0, {max(0, int(top) - 40)})")
+    try:
+        at = await page.evaluate("[scrollX, scrollY]")
+        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
+                                     mask_color=MASK_COLOUR)
+    except PlaywrightError:
+        return None, voice.NO_PROOF_PICTURE
+    finally:
+        try:
+            await page.evaluate(f"window.scrollTo({before[0]}, {before[1]})")
+        except PlaywrightError:
+            pass
+    rings = []
+    for b in boxes:
+        x, y = int(b["x"] - at[0]), int(b["y"] - at[1])
+        if y + b["h"] <= 0 or y >= 800:
+            continue
+        rings.append(Highlight(x=x, y=y, w=int(b["w"]), h=int(b["h"])))
+    if not rings:
+        return None, voice.NOT_ON_THIS_PAGE
+    return Proof(screenshot=base64.b64encode(shot).decode("ascii"), rings=rings,
+                 caption=voice.PROOF_CAPTION), None
 
 
 async def follow_override(

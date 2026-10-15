@@ -476,6 +476,19 @@ ONLY_LOOKED_UP_TIMES = "I only looked up times. I did not book a ticket or pay f
 ONLY_LOOKED_AT_BILL = "I only looked at your bill. I did not pay it."
 
 
+#: The proof picture's caption (2026-10-16).
+PROOF_CAPTION = "What I read is ringed."
+#: When no picture of the page could be had at the end.
+NO_PROOF_PICTURE = "I couldn't get a picture of the page to show you."
+#: When what was read is not on the page that is open at the end.
+NOT_ON_THIS_PAGE = ("What I read isn't on the page that's open now, so I have no "
+                    "picture of it.")
+#: `help.requested.reason` when the page, read again before closing, says
+#: something other than what was about to be shown (2026-10-16).
+ANSWER_CHANGED = ("The page changed after I read it, so I can't be sure the answer is "
+                  "right. You can ask me to look again.")
+
+
 def not_confirmed(action: str) -> str:
     """When a step that changes something was tried and the site did not
     confirm it (2026-10-16). Plain, and never "done": it may or may not have

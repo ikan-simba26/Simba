@@ -149,6 +149,8 @@ interface Store {
   debug: boolean;
   /** The trust panel: the user has asked to see the real page. */
   trustOpen: boolean;
+  /** The closing screen's picture of the real page is open (2026-10-16). */
+  proofOpen: boolean;
   /**
    * "What are you doing?" was pressed and no picture came: the backend said
    * it dropped one, or none arrived in `PICTURE_WAIT_MS` (2026-10-16). The
@@ -160,6 +162,8 @@ interface Store {
   /** Send trust.requested and open the panel when the preview lands. */
   askWhat: () => void;
   closeTrust: () => void;
+  openProof: () => void;
+  closeProof: () => void;
   /** Show the real page clearly, or stop. Not counted as asking for help. */
   peek: (on: boolean) => void;
   /** Stop the checklist before its next move. */
@@ -222,6 +226,7 @@ function readAskEachTime(): boolean {
 }
 
 const EMPTY = {
+  proofOpen: false,
   task: null,
   state: null,
   step: null,
@@ -313,6 +318,9 @@ export const useStore = create<Store>((set, get) => {
     },
 
     closeTrust: () => set({ trustOpen: false, preview: null, noPicture: false }),
+
+    openProof: () => set({ proofOpen: true }),
+    closeProof: () => set({ proofOpen: false }),
 
     peek: (on) => set({ peeking: on }),
 
