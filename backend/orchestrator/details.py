@@ -48,10 +48,10 @@ from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
 from backend.orchestrator.plan import (
     About,
+    CoursePlanner,
     Expectation,
     HardcodedPlanner,
     Shown,
-    registration_plan,
 )
 from shared.schema import StepField
 
@@ -1084,9 +1084,14 @@ class BillBrief(_Asking):
 
 
 class CourseBrief(_Asking):
-    """A course to register for: its code."""
+    """A course to register for: its code.
 
-    plan_steps = 3
+    Since 2026-10-16 the hardcoded run asks which course on the portal itself,
+    once signed in, from the courses it lists (`plan.CoursePlanner`): nothing
+    is asked before the site is touched. The model-planned run cannot ask
+    from a page, so it still asks first, in the person's own words."""
+
+    plan_steps = 4
     stages = voice.COURSE_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
@@ -1097,13 +1102,13 @@ class CourseBrief(_Asking):
         self._provider = provider
 
     def _missing(self) -> list[str]:
-        return [] if self.course else ["course"]
+        return [] if self.course or self._hardcoded else ["course"]
 
     def question(self) -> Move | None:
-        if self.gave_up is not None or self.course:
+        if self.gave_up is not None or self.course or self._hardcoded:
             return None
         return self._ask(_typed(voice.ASK_COURSE, voice.COURSE_DETAIL, "course",
-                                voice.FIELD_COURSE, voice.USE_COURSE),
+                                voice.FIELD_COURSE, voice.USE_COURSE), stage=1,
                          note=voice.COURSE_NOT_CAUGHT if self._tried("course") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
@@ -1122,15 +1127,18 @@ class CourseBrief(_Asking):
                                 title_contains="Registration Confirmed"),
             # The course is chosen by pressing its button, so it is in no
             # field to check afterwards. The confirmation says which course
-            # was registered, and that is what has to name this one.
-            about=About(shows=(Shown(reads="Course", says=self.course),)),
-            explain=voice.explain_course(self.course),
+            # was registered, and that is what has to name this one. Not yet
+            # known when it is asked on the portal: `CoursePlanner.settled`
+            # puts it in once chosen.
+            about=About(shows=(Shown(reads="Course", says=self.course),)
+                        if self.course else ()),
+            explain=voice.explain_course(self.course) if self.course else None,
         )
 
     def _plan(self) -> tuple[Planner, Task]:
         task = self.task()
         if self._hardcoded:
-            return HardcodedPlanner(registration_plan(self.course)), task
+            return CoursePlanner(self.course), task
         from backend.orchestrator.llm_loop import LLMPlanner
 
         return LLMPlanner(self._provider, replace(task, goal=self.sentence())), task

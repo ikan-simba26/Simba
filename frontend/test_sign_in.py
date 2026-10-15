@@ -11,10 +11,11 @@ is ticked, and `confirm` when it is not.
 import pytest
 from playwright.sync_api import Page
 
-from frontend.test_first_screen import SIZES, browser, question, show  # noqa: F401
+from frontend.test_first_screen import (  # noqa: F401
+    SIZES, browser, level_on_screen, question, show)
 from frontend.test_terminal_states import AWAIT_RESPONSE, Backend, overlay  # noqa: F401
 
-STAGES = ["Course", "Sign in", "Register", "Done"]
+STAGES = ["Sign in", "Course", "Register", "Done"]
 SIGN_IN = {**question("Let me sign you in first.", [
     {"id": "confirm", "label": "Sign in", "kind": "primary"},
     {"id": "remember", "label": "Sign in and save my password", "kind": "primary"},
@@ -22,8 +23,8 @@ SIGN_IN = {**question("Let me sign you in first.", [
     [{"id": "username", "label": "Student ID or Username", "type": "text", "value": ""},
      {"id": "password", "label": "Password", "type": "password", "value": ""}],
     # As the backend sends it: a step with boxes to type in is "type".
-    detail="Fictional State University student portal.", kind="type", stage=1),
-    "step_index": 2}
+    detail="Fictional State University student portal.", kind="type", stage=0),
+    "step_index": 1}
 FIRST = question("Which course would you like to register for?", [
     {"id": "confirm", "label": "Use this course", "kind": "primary"},
     {"id": "cancel", "label": "Stop this", "kind": "secondary"}],
@@ -36,14 +37,13 @@ def backend() -> Backend:
 
 
 def signing_in(browser, overlay: str, backend: Backend, size: str) -> Page:  # noqa: F811
-    """The sign-in screen, second, after the course question, as in the flow."""
+    """The sign-in screen, first, as in the flow since 2026-10-16: which course
+    is asked after it, from the portal's own list."""
     width, height, scale = SIZES[size]
     page = browser.new_page(viewport={"width": width, "height": height},
                             device_scale_factor=scale)
     backend.script = [
         ("task.started", {"goal": "course", "estimated_steps": 4, "stages": STAGES}),
-        ("state.changed", {"state": "waiting"}), ("step.presented", FIRST),
-        (AWAIT_RESPONSE, {}),
         ("state.changed", {"state": "waiting"}), ("step.presented", SIGN_IN),
         (AWAIT_RESPONSE, {}),
     ]
@@ -51,8 +51,6 @@ def signing_in(browser, overlay: str, backend: Backend, size: str) -> Page:  # n
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
     page.fill("input[aria-label='What would you like me to do?']", "course")
     page.get_by_role("button", name="Start").click()
-    page.get_by_role("textbox", name="Course").fill("CS-401")
-    page.get_by_role("button", name="Use this course").click()
     page.get_by_text("Let me sign you in first.").first.wait_for(timeout=10000)
     page.wait_for_timeout(1800)  # past the guard
     return page
@@ -91,7 +89,7 @@ def test_sign_in_says_whether_to_keep_the_password(browser, overlay: str,  # noq
         page.get_by_role("button", name="Sign in", exact=True).click()
         page.wait_for_timeout(600)
         answer = sent(backend)[-1]
-        assert answer["step_index"] == 2
+        assert answer["step_index"] == 1
         assert answer["action_id"] == action
         assert answer["input_values"] == {"username": "student", "password": "secret"}
     finally:
@@ -106,6 +104,8 @@ def test_the_sign_in_screen_fits(browser, overlay: str, backend: Backend,  # noq
     page = signing_in(browser, overlay, backend, size)
     try:
         over = page.evaluate("document.scrollingElement.scrollHeight - innerHeight")
+        level = level_on_screen(page)
+        print(f"sign-in first screen {size}: level {level}, over {over}")
         assert over <= 0, (size, over)
     finally:
         page.close()

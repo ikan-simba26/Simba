@@ -420,12 +420,14 @@ def backend_sentences() -> dict[str, str]:
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
                  "ASK_CLOSEST", "NOT_CAUGHT", "DAY_NOT_CAUGHT", "ASK_CHANGE", "READY_TO_SEARCH",
                  "ASK_REFERENCE", "REFERENCE_DETAIL", "REFERENCE_NOT_RIGHT", "ASK_COURSE",
-                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "NOT_UNDERSTOOD", "NO_TRAINS",
+                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "COURSES_OFFERED", "NO_COURSES",
+                 "NOT_UNDERSTOOD", "NO_TRAINS",
                  "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     for where, text in {
         "read_back": voice.read_back("Lahore Cantt", "Karachi Cantt", "tomorrow, 7 October"),
         "day_gone": voice.day_gone("5 October"),
+        "course_not_offered": voice.course_not_offered("CS-999"),
         "day_too_far": voice.day_too_far("7 October 2027"),
         "no_such_day": voice.no_such_day("31 February"),
         "not_a_station": voice.not_a_station("Karachy"),

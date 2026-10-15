@@ -125,7 +125,9 @@ PAUSE_ID = "pause"
 # Labels: no full stop, and never the word the rules forbid.
 TRIP_STAGES = ["From", "To", "Day", "Search", "Trains"]
 BILL_STAGES = ["Reference", "Look up", "Your bill"]
-COURSE_STAGES = ["Course", "Sign in", "Register", "Done"]
+# Signing in first since 2026-10-16: which course is asked from the
+# portal's own list, which is only there once signed in.
+COURSE_STAGES = ["Sign in", "Course", "Register", "Done"]
 
 ASK_FROM = "Where are you travelling from?"
 ASK_TO = "Where are you travelling to?"
@@ -248,6 +250,16 @@ REFERENCE_NOT_RIGHT = "That doesn't look like a 14-digit reference number."
 ASK_COURSE = "Which course would you like to register for?"
 COURSE_DETAIL = "A course code looks like CS-401."
 COURSE_NOT_CAUGHT = "I didn't catch that course."
+#: Above the portal's own list of courses, once signed in (2026-10-16).
+COURSES_OFFERED = "These are the courses the portal offers. Type the first few letters."
+#: `help.requested.reason` when the portal lists no course to register for.
+NO_COURSES = "The portal didn't show any courses to register for."
+
+
+def course_not_offered(course: str) -> str:
+    """The note beside the course question, when the one named is not on the
+    portal's list (2026-10-16): caught at the question, not at the button."""
+    return f"The portal doesn't offer {course}."
 
 #: The label beside the box a typed answer goes in.
 FIELD_FROM = "From"

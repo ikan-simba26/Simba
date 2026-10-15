@@ -1281,6 +1281,13 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         filled = [f for f in filled if f.url == page.url]
         filled += await record_fills(page, move)
 
+    # A planner that settled something the task could not know at the
+    # start — which course, chosen on the portal — says so before the end
+    # is checked (`plan.CoursePlanner.settled`, 2026-10-16).
+    settle = getattr(planner, "settled", None)
+    if settle is not None:
+        task = settle(task)
+
     _, final, _ = await perceive(page)
     findings = findings_in(final, task, found, rows)
     # A task with named values is checked here even without a success

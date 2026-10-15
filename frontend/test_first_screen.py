@@ -49,7 +49,7 @@ FIRST = {
         "What is the reference number on your bill?", acts("That's it"),
         [{"id": "reference", "label": "Reference number", "type": "text", "value": ""}],
         detail="It is the 14-digit number at the top left of your bill.", kind="type")),
-    "course": (["Course", "Sign in", "Register", "Done"], question(
+    "course": (["Sign in", "Course", "Register", "Done"], question(
         "Which course would you like to register for?", acts("That's it"),
         [{"id": "course", "label": "Course", "type": "text", "value": ""}],
         detail="A course code looks like CS-401.", kind="type")),
