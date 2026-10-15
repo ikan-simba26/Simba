@@ -101,12 +101,17 @@ def test_a_late_picture_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
     assert took < 1.0
     assert not run.previews
     assert connection.of("page.preview") == []
+    # Said, so "What are you doing?" can say so too (2026-10-16).
+    assert connection.of("error") == [{"code": loop.PREVIEW_LATE,
+                                       "message": "I couldn't get a picture just now."}]
 
 
 def test_a_failed_picture_does_not_stop_the_step() -> None:
     async def broken(page, connection, move) -> None:  # noqa: ARG001
         raise RuntimeError("the page went away")
 
-    took, _ = present(AsksForAPictureThenAnswers(then=0.2), broken)
+    connection = AsksForAPictureThenAnswers(then=0.2)
+    took, _ = present(connection, broken)
 
     assert took < 1.0
+    assert [e["code"] for e in connection.of("error")] == [loop.PREVIEW_LATE]

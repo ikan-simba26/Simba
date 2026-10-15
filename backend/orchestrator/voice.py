@@ -67,6 +67,10 @@ def actions(label: str) -> list[StepAction]:
 #: answer, and the overlay carries on rather than showing its stop screen.
 CHOICE_PREFIX = "choice:"
 
+#: Said when a picture of the page could not be had in time (2026-10-16).
+#: `copy.ts` has the same words, `TRUST.noPicture`, for when nothing came.
+NO_PICTURE = "I couldn't get a picture just now."
+
 #: Each finishes a typed answer, and says what it does with it (2026-10-15).
 #: Until then all four were "That's it", which says nothing about what
 #: happens next.

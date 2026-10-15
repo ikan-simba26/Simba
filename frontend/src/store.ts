@@ -149,6 +149,12 @@ interface Store {
   debug: boolean;
   /** The trust panel: the user has asked to see the real page. */
   trustOpen: boolean;
+  /**
+   * "What are you doing?" was pressed and no picture came: the backend said
+   * it dropped one, or none arrived in `PICTURE_WAIT_MS` (2026-10-16). The
+   * panel says so, rather than the press doing nothing.
+   */
+  noPicture: boolean;
 
   toggleDebug: () => void;
   /** Send trust.requested and open the panel when the preview lands. */
@@ -199,6 +205,10 @@ interface Store {
  * `test_copy.py` checks this id and the backend's agree.
  */
 const STOP_ID = "cancel";
+
+/** How long "What are you doing?" waits for a picture before saying none
+ *  came: the backend's own limit (5s) and a little more. */
+const PICTURE_WAIT_MS = 7000;
 
 /** Where the person's "ask me before each thing" setting is kept. */
 const ASK_EACH_KEY = "simba.askEachTime";
@@ -280,6 +290,7 @@ export const useStore = create<Store>((set, get) => {
     overflowHopped: false,
     debug: false,
     trustOpen: false,
+    noPicture: false,
     askEachTime: readAskEachTime(),
     ...EMPTY,
 
@@ -288,13 +299,20 @@ export const useStore = create<Store>((set, get) => {
     askWhat: () => {
       // Open immediately; the panel waits for the picture rather than the
       // press feeling like it did nothing.
-      set({ trustOpen: true });
+      set({ trustOpen: true, noPicture: false });
+      // And if no picture comes, it says so (2026-10-16). The backend drops
+      // a picture after 5s and says it did; this is for when even that
+      // does not arrive.
+      window.setTimeout(() => {
+        const now = get();
+        if (now.trustOpen && !now.preview) set({ noPicture: true });
+      }, PICTURE_WAIT_MS);
       // The loudest signal channel B has: they stopped and asked.
       tracker.helpPressed();
       connection.askWhat();
     },
 
-    closeTrust: () => set({ trustOpen: false, preview: null }),
+    closeTrust: () => set({ trustOpen: false, preview: null, noPicture: false }),
 
     peek: (on) => set({ peeking: on }),
 
@@ -512,7 +530,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     }
     case "page.preview":
-      set({ preview: message.payload as PagePreview, backdrop: message.payload as PagePreview });
+      set({ preview: message.payload as PagePreview, backdrop: message.payload as PagePreview,
+            noPicture: false });
       return;
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
@@ -529,9 +548,16 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // screen shows the stop, not this — see `stoppedByPerson`.
       set({ failed: message.payload as TaskFailed, step: null, peeking: false });
       return;
-    case "error":
-      set({ error: message.payload as ErrorPayload });
+    case "error": {
+      const error = message.payload as ErrorPayload;
+      // A picture that was dropped matters only to someone waiting for it.
+      const lost = error.code.startsWith("PREVIEW_");
+      set((current) => ({
+        error,
+        noPicture: current.noPicture || (lost && current.trustOpen && !current.preview),
+      }));
       return;
+    }
     default:
       // Unknown types are logged and ignored, never fatal (CONTRACT.md).
       console.warn(`[simba] ignoring unknown message type: ${message.type}`);

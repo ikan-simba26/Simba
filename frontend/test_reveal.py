@@ -277,3 +277,30 @@ def test_the_two_buttons_under_the_step_do_not_share_an_icon(
     icons = [page.get_by_role("button", name=name).locator("svg").inner_html()
              for name in ("What are you doing?", "Show the real page")]
     assert icons[0] != icons[1]
+
+
+def test_asking_with_no_picture_coming_says_so(browser, overlay: str) -> None:  # noqa: F811
+    """"What are you doing?" pressed while no picture comes: until 2026-10-16
+    the press did nothing at all. Now, once the wait is over, it says so and
+    offers the way back."""
+    from frontend.test_terminal_states import AWAIT_RESPONSE, Backend
+
+    backend = Backend()  # answers no request for a picture
+    backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 3}),
+                      ("state.changed", {"state": "waiting"}),
+                      ("step.presented", A_STEP), (AWAIT_RESPONSE, {})]
+    page = browser.new_page(viewport={"width": 1280, "height": 800})
+    try:
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", GOAL)
+        page.get_by_role("button", name="Start").click()
+        page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
+        page.get_by_role("button", name="What are you doing?").click()
+        page.get_by_test_id("no-picture").wait_for(timeout=9000)
+        assert "I couldn't get a picture just now." in page.inner_text("[data-testid=no-picture]")
+        page.get_by_role("button", name="Close").click()
+        page.wait_for_timeout(800)
+        assert page.get_by_test_id("no-picture").count() == 0
+        assert page.get_by_role("button", name="What are you doing?").is_visible()
+    finally:
+        page.close()

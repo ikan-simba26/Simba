@@ -594,6 +594,8 @@ MASK_COLOUR = "#8c7a66"
 #: The longest a picture of the page may take before it is dropped
 #: (2026-10-15). The picture is optional; the person's answer is not.
 PREVIEW_DEADLINE_S = 5.0
+#: The `error` code for a picture that was dropped, late or failed.
+PREVIEW_LATE = "PREVIEW_LATE"
 
 
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
@@ -977,7 +979,13 @@ class _Run:
             except asyncio.CancelledError:
                 raise
             except Exception:  # noqa: BLE001 - late, failed or closed: dropped
-                return
+                # Said, so "What are you doing?" can say it too, rather than
+                # doing nothing (2026-10-16). Nothing more is tried.
+                try:
+                    await self.connection.send("error", ErrorPayload(
+                        code=PREVIEW_LATE, message=voice.NO_PICTURE))
+                except Exception:  # noqa: BLE001 - the socket may be gone
+                    return
 
         task = asyncio.create_task(take())
         self.previews.add(task)

@@ -76,8 +76,8 @@ export function TrustControl() {
 }
 
 export function TrustPanel() {
-  const { trustOpen, preview, closeTrust } = useStore();
-  const showing = trustOpen && preview;
+  const { trustOpen, preview, noPicture, closeTrust } = useStore();
+  const showing = trustOpen && (preview || noPicture);
 
   return (
     <AnimatePresence>
@@ -94,7 +94,17 @@ export function TrustPanel() {
         >
           {/* The way back is inside `Shot`, beside the close-up toggle, so
               the two choices sit together under the picture. */}
-          <Shot preview={preview} onHide={closeTrust} />
+          {preview ? <Shot preview={preview} onHide={closeTrust} /> : (
+            // No picture came (2026-10-16): said, with the way back.
+            <div className="flex max-w-xl flex-col items-center gap-6 text-center"
+                 data-testid="no-picture" role="status">
+              <p className="text-title font-semibold text-ink">{TRUST.noPicture}</p>
+              <p className="text-body text-soft">{TRUST.tryAgain}</p>
+              <Button variant="secondary" size="md" wide={false} onClick={closeTrust}>
+                {TRUST.close}
+              </Button>
+            </div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

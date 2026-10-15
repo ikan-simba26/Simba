@@ -380,6 +380,11 @@ export const TRUST = {
   /** And back in to the thing about to be touched. */
   closeUp: "Show it close up",
   close: "Close",
+  /** Asked, and no picture came in time (2026-10-16). The backend says the
+   *  same words, `voice.NO_PICTURE`. */
+  noPicture: "I couldn't get a picture just now.",
+  /** Under it: what to do next. */
+  tryAgain: "You can ask again in a moment.",
 } as const;
 
 /* ------------------------------------------------------------ the checklist */
@@ -484,6 +489,8 @@ export const CHOOSE = {
  * if two situations that should read the same have drifted apart.
  */
 export const SITUATIONS: Record<string, string> = {
+  "trust.noPicture": TRUST.noPicture,
+  "trust.tryAgain": TRUST.tryAgain,
   "presence.opening": presence("opening"),
   "presence.working": presence("working"),
   "presence.reading": presence("reading"),
