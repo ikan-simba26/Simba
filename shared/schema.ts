@@ -198,6 +198,11 @@ export interface PagePreview {
 export interface HelpRequested {
   reason: string;
   suggestion: string;
+  /**
+   * Additive and optional (2026-10-16). A change was tried and the site did
+   * not confirm it: not "stuck", and the reason is what must be read.
+   */
+  unconfirmed?: boolean;
 }
 
 export interface TaskCompleted {
@@ -206,6 +211,11 @@ export interface TaskCompleted {
    * was done, and what was not.
    */
   scope?: string;
+  /**
+   * Additive and optional (2026-10-16). For a task that changed something,
+   * the site's own confirmation, quoted. Only when it is on the page.
+   */
+  confirmation?: string;
   /** Additive and optional (2026-10-14). What the results are for, above them:
    *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
   heading?: string;

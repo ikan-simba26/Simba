@@ -48,6 +48,7 @@ from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
 from backend.orchestrator.plan import (
     About,
+    Confirmation,
     CoursePlanner,
     Expectation,
     HardcodedPlanner,
@@ -1135,6 +1136,10 @@ class CourseBrief(_Asking):
             # What changed, from what the portal confirmed: the closing
             # screen's last line (2026-10-16), and so not said twice.
             scope=voice.explain_course(self.course) if self.course else None,
+            # Registering changes a record: done only with the portal's own
+            # confirmation on the page, which is quoted.
+            confirms=Confirmation(heading="Registration Confirmed",
+                                  reads="Confirmation number"),
         )
 
     def _plan(self) -> tuple[Planner, Task]:

@@ -66,7 +66,7 @@ def browser(playwright_instance: Playwright) -> Iterator:
 
 
 def end(browser, overlay: str, backend: Backend, script, size=(1280, 800),  # noqa: F811
-        scale: float = 1.0) -> Page:
+        scale: float = 1.0, until: str = "I'm done") -> Page:
     backend.script = script
     backend.responses.clear()
     page = browser.new_page(viewport={"width": size[0], "height": size[1]},
@@ -74,7 +74,7 @@ def end(browser, overlay: str, backend: Backend, script, size=(1280, 800),  # no
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
-    page.get_by_role("button", name="I'm done").wait_for(timeout=15000)
+    page.get_by_role("button", name=until).wait_for(timeout=15000)
     page.wait_for_timeout(900)
     return page
 
@@ -464,3 +464,32 @@ def test_the_last_line_says_what_was_not_done(
     # The last thing in the answer, under the tickets.
     tickets = page.get_by_test_id("ticket").last.bounding_box()
     assert scope.bounding_box()["y"] > tickets["y"] + tickets["height"]
+
+
+def test_a_registration_quotes_the_portals_confirmation(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """What changed, and the site's own word for it (2026-10-16)."""
+    script = completed(None, [])
+    script[-1][1]["scope"] = "You are registered for CS-401 section 001."
+    script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
+                                     "with confirmation number REG-10234-2026.")
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("scope").inner_text() == script[-1][1]["scope"]
+    assert page.get_by_test_id("confirmation").inner_text() == script[-1][1]["confirmation"]
+    # The goal is not repeated where the line says what changed.
+    assert GOAL not in page.inner_text("body")
+
+
+def test_a_change_not_confirmed_says_so_first(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    from frontend.test_terminal_states import ENDINGS
+
+    page = end(browser, overlay, backend, ENDINGS["not confirmed"], until="Do something else")
+
+    assert page.get_by_role("heading", level=1).inner_text() == "It isn't confirmed."
+    assert "I'm stuck" not in page.inner_text("body")
+    assert page.get_by_test_id("unconfirmed").inner_text().startswith(
+        "I tried to press “Register for CS-401”")

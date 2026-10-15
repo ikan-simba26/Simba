@@ -32,7 +32,15 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
-from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target, part_of
+from backend.orchestrator.plan import (
+    About,
+    Confirmation,
+    Expectation,
+    FieldValue,
+    Operation,
+    Target,
+    part_of,
+)
 from backend.orchestrator.vault import Credentials, Vault
 from backend.perception.content import Content
 from backend.perception.serializer import (
@@ -471,6 +479,8 @@ class Move:
     doing: str | None = None
     # What was wrong with the last answer, beside a question asked again.
     note: str | None = None
+    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once.
+    changes: bool = False
 
 
 class Planner(Protocol):
@@ -513,6 +523,10 @@ class Task:
     # said back — "You are registered for CS-401 section 001." None: no line.
     scope: ("str | Callable[[dict[str, list[str]], dict[str, list[str]], "
             "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
+    # For a task that changes something: what the site shows once it has
+    # (2026-10-16). The task is completed only with it on the page, and it is
+    # quoted on the closing screen. None: a task that only reads.
+    confirms: "Confirmation | None" = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -861,13 +875,14 @@ class _Run:
                 self.held.append(message)
         return paused
 
-    async def give_up(self, reason: str) -> None:
+    async def give_up(self, reason: str, unconfirmed: bool = False) -> None:
         await self.set_state("stuck")
         await self.connection.send(
             "help.requested",
             HelpRequested(
                 reason=reason,
                 suggestion=voice.HELP_SUGGESTION,
+                unconfirmed=unconfirmed,
             ),
         )
 
@@ -1231,7 +1246,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         # place took 31.5s to be reported. The longer wait is that step's
         # second chance. An exception to CLAUDE.md's "retry once with a
         # different strategy"; DECISIONS.md.
-        strategies = 1 if move.expect.list_opens else 2
+        # And a step that changes something gets one attempt, too
+        # (2026-10-16): a second press, a different way, could make the change
+        # twice. Its check is that the site confirmed it.
+        strategies = 1 if move.expect.list_opens or move.changes else 2
         # Before every action, the window has to be there (`_Run.ready`).
         ready = (lambda: run.ready(goal=task.goal, findings=findings, view=view))
         try:
@@ -1243,6 +1261,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                                              ready=ready)
         except StoppedWhileAway:
             await run.stopped()
+            return
+
+        if failure is not None and move.changes:
+            # Not done, and not "stuck": tried, and not confirmed. Said so.
+            label = move.actions[0].label if move.actions else move.instruction
+            await give_up(voice.not_confirmed(label), unconfirmed=True)
             return
 
         if failure is not None:
@@ -1308,6 +1332,21 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
         return
 
+    # A change is done only when the site says so, on the page (2026-10-16).
+    confirmation: str | None = None
+    if task.confirms is not None:
+        headings = [h.text for h in final.content.headings]
+        if not any(task.confirms.heading in text for text in headings):
+            changed = next((m for m in reversed(completed) if m.changes), None)
+            label = (changed.actions[0].label if changed and changed.actions
+                     else task.confirms.heading)
+            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            return
+        reference = (final.content.value_for(task.confirms.reads)
+                     if task.confirms.reads else None)
+        confirmation = voice.portal_says(task.confirms.heading, task.confirms.reads,
+                                         reference)
+
     # A return that was due when the last step was answered has no next step
     # to arrive with, so it goes out before the ending.
     if rules is not None:
@@ -1330,6 +1369,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             explanation=task.explain(found, seen, rows) if task.explain else None,
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
+            confirmation=confirmation,
         ),
     )
 

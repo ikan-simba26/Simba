@@ -282,6 +282,9 @@ export const STOPPED = {
    * is the worst thing this screen could say to this audience.
    */
   heading: "I'm stuck, so I've stopped.",
+  /** Instead, when a change was tried and the site did not confirm it
+   *  (2026-10-16): not stuck, and never "done". */
+  unconfirmed: "It isn't confirmed.",
   /**
    * What happens now: nothing more, and they can choose something else.
    *
@@ -505,6 +508,7 @@ export const SITUATIONS: Record<string, string> = {
   "notice.skipped": NOTICE.skipped,
   "ending.withoutAnswer": ENDING.withoutAnswer,
   "stopped.heading": STOPPED.heading,
+  "stopped.unconfirmed": STOPPED.unconfirmed,
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,

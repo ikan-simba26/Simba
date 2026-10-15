@@ -23,7 +23,9 @@ import { STOPPED } from "../copy";
 import { ARRIVE } from "../design";
 
 /** Shown only when stuck. Plain words, no jargon, no error code. */
-export function StuckNote({ reason, suggestion }: { reason?: string; suggestion?: string }) {
+export function StuckNote({ reason, suggestion, unconfirmed = false }: {
+  reason?: string; suggestion?: string; unconfirmed?: boolean;
+}) {
   return (
     <motion.div
       layout
@@ -34,10 +36,15 @@ export function StuckNote({ reason, suggestion }: { reason?: string; suggestion?
       className="flex flex-col gap-4"
     >
       <h1 className="text-display font-semibold tracking-[-0.015em] text-stuck">
-        {STOPPED.heading}
+        {unconfirmed ? STOPPED.unconfirmed : STOPPED.heading}
       </h1>
+      {/* A change the site did not confirm: the reason is the message, read
+          first and at reading size (2026-10-16). */}
+      {unconfirmed && reason ? (
+        <p className="text-lead text-ink" data-testid="unconfirmed">{reason}</p>
+      ) : null}
       <p className="text-lead text-ink">{suggestion ?? STOPPED.suggestion}</p>
-      {reason ? <p className="text-small text-soft">{reason}</p> : null}
+      {reason && !unconfirmed ? <p className="text-small text-soft">{reason}</p> : null}
     </motion.div>
   );
 }

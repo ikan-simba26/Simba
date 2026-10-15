@@ -156,8 +156,22 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
         ("task.completed", {
             "summary": f"{GOAL} http://127.0.0.1:5000/register", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False, "findings": [],
-            # What changed, the last line (2026-10-16).
+            # What changed, the last line, and the portal's own word for it
+            # (2026-10-16).
             "scope": "You are registered for CS-401 section 001.",
+            "confirmation": ("The portal says “Registration Confirmed”, with "
+                             "confirmation number REG-10234-2026."),
+        }),
+    ],
+    # A change tried and not confirmed (2026-10-16): never "done".
+    "not confirmed": [
+        ("state.changed", {"state": "stuck"}),
+        ("help.requested", {
+            "reason": ("I tried to press “Register for CS-401”, but the portal has "
+                       "not confirmed it, so I can't tell you it worked. Please check the "
+                       "portal before you rely on it."),
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
+            "unconfirmed": True,
         }),
     ],
     # The backend ending a task on its own account. `loop.py` has no such path

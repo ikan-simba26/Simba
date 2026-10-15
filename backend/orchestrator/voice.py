@@ -476,6 +476,23 @@ ONLY_LOOKED_UP_TIMES = "I only looked up times. I did not book a ticket or pay f
 ONLY_LOOKED_AT_BILL = "I only looked at your bill. I did not pay it."
 
 
+def not_confirmed(action: str) -> str:
+    """When a step that changes something was tried and the site did not
+    confirm it (2026-10-16). Plain, and never "done": it may or may not have
+    happened, and the person should look."""
+    return (f"I tried to press \u201c{action}\u201d, but the portal has not confirmed it, "
+            f"so I can't tell you it worked. Please check the portal before you rely on it.")
+
+
+def portal_says(heading: str, label: str | None = None, value: str | None = None) -> str:
+    """The site's own confirmation, quoted (2026-10-16): 'The portal says
+    "Registration Confirmed", with confirmation number REG-10234-2026.'"""
+    if label and value:
+        return (f"The portal says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
+                f"{value}.")
+    return f"The portal says \u201c{heading}\u201d."
+
+
 def explain_course(course: str):
     """For a registration: which course the confirmation named, as it named it."""
     def explain(found: dict[str, list[str]], seen: dict[str, list[str]],

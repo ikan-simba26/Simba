@@ -762,6 +762,14 @@ function Completed() {
           {completed?.scope && (
             <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
           )}
+          {/* The site's own confirmation, quoted (2026-10-16): a change is
+              only "done" with it on the page. */}
+          {completed?.confirmation && (
+            <p className="border-l-4 border-accent pl-5 text-body text-ink"
+               data-testid="confirmation">
+              {completed.confirmation}
+            </p>
+          )}
         </div>
       )}
 
@@ -1100,7 +1108,8 @@ function Stuck() {
   return (
     <div className="flex flex-col gap-8 short:gap-5">
       <Card tone="stuck" className="px-12 py-10 short:py-7">
-        <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+        <StuckNote reason={help?.reason} suggestion={help?.suggestion}
+                   unconfirmed={help?.unconfirmed ?? false} />
       </Card>
       <OnwardButton onClick={startOver} />
     </div>

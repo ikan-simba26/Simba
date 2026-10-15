@@ -185,6 +185,17 @@ looked up times. I did not book a ticket or pay for anything." For a task
 that changed something, what changed: "You are registered for CS-401 section
 001." Written in `voice.py` for each flow; absent for a model-planned task.
 
+**`task.completed.confirmation` is additive and optional** (added
+2026-10-16). For a task that changed something, the site's own confirmation,
+quoted from the final page: 'The portal says "Registration Confirmed", with
+confirmation number REG-10234-2026.' A task that changes something is
+completed only when that confirmation is on the page; otherwise it ends in
+`help.requested`, saying plainly that it is not confirmed, with
+`"unconfirmed": true` (additive and optional) so the overlay leads with that
+rather than with being stuck. The step that
+makes the change is tried once, never again a second way: a second press
+could make the change twice.
+
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —
 after "Filling in where you're starting from": `["Filling in where you're

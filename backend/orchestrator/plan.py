@@ -235,6 +235,20 @@ class PlanStep:
     # the person to type or choose. `doing` is its line on the checklist.
     safe: bool = False
     doing: str | None = None
+    # Changes a record (2026-10-16): registers, books, submits. Tried once and
+    # never retried a second way — a second press could make the change twice
+    # — and "done" only once the site's confirmation is on the page.
+    changes: bool = False
+
+
+@dataclass(frozen=True)
+class Confirmation:
+    """What the site shows when a change it was asked to make has been made:
+    a heading, and the reference it gives, by the page's own label. Read from
+    the final page and quoted on the closing screen (2026-10-16)."""
+
+    heading: str
+    reads: str | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:
@@ -250,6 +264,7 @@ def registration_plan(course: str) -> list[PlanStep]:
             expect=Expectation(url_contains="/register",
                                title_contains="Registration Confirmed"),
             stage=2,
+            changes=True,
         ),
     ]
 
@@ -357,7 +372,7 @@ class CoursePlanner:
             [step] = registration_plan(self.chosen)[len(SIGN_IN_AND_CLEAR):]
             return Move(instruction=step.instruction, detail=step.detail,
                         operations=step.operations, expect=step.expect, fields=step.fields,
-                        actions=step.actions, stage=step.stage)
+                        actions=step.actions, stage=step.stage, changes=step.changes)
         return None
 
     def _question(self, Move):
@@ -437,4 +452,5 @@ class HardcodedPlanner:
             stage=step.stage,
             safe=step.safe,
             doing=step.doing,
+            changes=step.changes,
         )

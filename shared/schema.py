@@ -219,6 +219,10 @@ class PagePreview(BaseModel):
 class HelpRequested(BaseModel):
     reason: str
     suggestion: str
+    # Additive and optional (2026-10-16). Set when a step that changes
+    # something was tried and the site did not confirm it: not "stuck", and
+    # the reason is the one thing the person must read.
+    unconfirmed: bool = False
 
 
 class TaskCompleted(BaseModel):
@@ -243,6 +247,11 @@ class TaskCompleted(BaseModel):
     # was done, and what was not — "I only looked up times. I did not book a
     # ticket or pay for anything." From `voice.py`, never from a model.
     scope: Optional[str] = None
+    # Additive and optional (2026-10-16). For a task that changed something:
+    # the site's own confirmation, quoted — 'The portal says "Registration
+    # Confirmed", with confirmation number REG-10234-2026.' Sent only when the
+    # confirmation is on the page; without it the task is not completed.
+    confirmation: Optional[str] = None
 
 
 class TaskFailed(BaseModel):
