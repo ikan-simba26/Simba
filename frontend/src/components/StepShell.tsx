@@ -139,8 +139,16 @@ export function StepShell({
   // A box the step asks the person to fill, still empty: the main button
   // waits for it (2026-10-15). Pressed on an empty box, "That's it" sent
   // nothing and the same question came back.
-  const unanswered = step.fields.some((field) =>
-    !field.value && !(values[field.id] ?? "").trim());
+  // A box whose answers are the site's own list waits for one of them,
+  // chosen or typed whole (2026-10-16): with "Lahor" typed and two Lahore
+  // stations listed, "Use this station" did not say which it would use.
+  const unanswered = step.fields.some((field) => {
+    if (field.value) return false;
+    const typed = (values[field.id] ?? "").trim();
+    if (!typed) return true;
+    const listed = field.options ?? [];
+    return listed.length > 0 && !listed.some((option) => plain(option) === plain(typed));
+  });
 
   return (
     // No `layout` on this container either. Every region below animates its
@@ -465,9 +473,10 @@ function plain(text: string): string {
 }
 
 /** A name in capitals, as a person reads it: `LAHORE CANTT` as `Lahore Cantt`.
- *  The same rule as `voice.station_name`. */
+ *  The same rule as `voice.station_name`. Not a code: `MATH-210` is written as
+ *  the portal writes it, and "Math-210" is not a course (2026-10-16). */
 export function readable(name: string): string {
-  if (name !== name.toUpperCase() || !/[A-Z]/.test(name)) return name;
+  if (name !== name.toUpperCase() || !/[A-Z]/.test(name) || /\d/.test(name)) return name;
   return name.toLowerCase().replace(/(^|[^a-z])([a-z])/g, (_, before, letter) =>
     before + letter.toUpperCase());
 }

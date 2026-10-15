@@ -413,10 +413,16 @@ def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
         "14DN | Leaves 19:09 | Arrives 19:25, next day | Journey 24 h 16 min"]
     assert "Train, Journey" not in page.inner_text("body")
     assert "Train, Leaves" not in page.inner_text("body")
-    # Each ticket still one line, nothing to scroll.
-    heights = page.eval_on_selector_all("[data-testid=ticket]",
-                                        "ts => ts.map(t => t.getBoundingClientRect().height)")
-    assert max(heights) < 80, heights
+    # Each ticket inside the answer's card, as wide as the buttons under it
+    # (2026-10-16: on the live site this pair pushed the card 112px wider),
+    # and nothing to scroll.
+    card = page.get_by_test_id("findings").locator("xpath=ancestor::*[contains(@class,'rounded-xl')][1]")
+    right = card.bounding_box()["x"] + card.bounding_box()["width"]
+    done = page.get_by_role("button", name="Do something else").bounding_box()
+    assert abs(right - (done["x"] + done["width"])) < 2, (right, done)
+    for ticket in page.get_by_test_id("ticket").all():
+        box = ticket.bounding_box()
+        assert box["x"] + box["width"] <= right, box
     assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
     # Times in the interface's own face, every figure one width (2026-10-15).
     styles = page.eval_on_selector_all(
@@ -499,30 +505,44 @@ def test_the_answer_can_be_seen_on_the_real_page(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
     """The still the backend took as it finished, with what it read ringed,
-    where it read it (2026-10-16)."""
+    where it read it (2026-10-16): close up on the rings first, the whole page
+    a press away."""
     from frontend.test_terminal_states import PROOF
 
-    proof = {**PROOF, "rings": [{"x": 640, "y": 400, "w": 128, "h": 80},
-                                {"x": 0, "y": 0, "w": 64, "h": 40}]}
+    rings = [{"x": 728, "y": 143, "w": 118, "h": 17}, {"x": 949, "y": 143, "w": 118, "h": 17}]
     script = completed("Your bill is 14,382, and it is due on 15-09-2026.", [
         {"label": "Your bill", "value": "14,382"}, {"label": "Due", "value": "15-09-2026"}])
-    script[-1][1]["proof"] = proof
+    script[-1][1]["proof"] = {**PROOF, "rings": rings}
     page = end(browser, overlay, backend, script)
 
     page.get_by_role("button", name="See it on the real page").click()
     panel = page.get_by_test_id("proof-panel")
     panel.wait_for(timeout=5000)
-    page.wait_for_timeout(600)
+    page.wait_for_timeout(900)
     assert "What I read is ringed." in panel.inner_text()
-    picture = panel.locator("img").bounding_box()
-    rings = [r.bounding_box() for r in panel.get_by_test_id("proof-ring").all()]
-    assert len(rings) == 2
-    # Where the backend found it, in the picture's own proportions: the
-    # middle of the page is the middle of the picture (each ring 6px wider
-    # all round than what it rings).
-    middle = rings[0]
-    assert abs((middle["x"] + 6 - picture["x"]) / picture["width"] - 0.5) < 0.01
-    assert abs((middle["y"] + 6 - picture["y"]) / picture["height"] - 0.5) < 0.01
+
+    def where() -> tuple[dict, dict, list[dict]]:
+        window = panel.locator("[data-testid=proof-page]").locator("xpath=..").bounding_box()
+        whole = panel.get_by_test_id("proof-page").bounding_box()
+        return window, whole, [r.bounding_box() for r in panel.get_by_test_id("proof-ring").all()]
+
+    window, whole, boxes = where()
+    assert len(boxes) == 2
+    # Each ring where the backend found it, on the page as drawn.
+    for ring, box in zip(rings, boxes):
+        assert abs((box["x"] - whole["x"]) / whole["width"] - ring["x"] / 1280) < 0.005
+        assert abs((box["y"] - whole["y"]) / whole["height"] - ring["y"] / 800) < 0.005
+    # Close up: the page drawn more than twice the window onto it, and both
+    # rings inside that window.
+    assert whole["width"] > 2 * window["width"]
+    for box in boxes:
+        assert window["x"] <= box["x"] and box["x"] + box["width"] <= window["x"] + window["width"]
+
+    page.get_by_role("button", name="Show the whole page").click()
+    page.wait_for_timeout(900)
+    window, whole, boxes = where()
+    assert abs(whole["width"] - window["width"]) <= 4  # the window's 2px border, each side
+
     page.get_by_role("button", name="Back to the answer").click()
     page.wait_for_timeout(800)
     assert page.get_by_test_id("proof-panel").count() == 0

@@ -779,7 +779,7 @@ function Completed() {
           {completed?.confirmation && (
             <p className="border-l-4 border-accent pl-5 text-body text-ink"
                data-testid="confirmation">
-              {completed.confirmation}
+              {unbroken(completed.confirmation)}
             </p>
           )}
           <ProofLine />
@@ -798,6 +798,16 @@ function Completed() {
       </div>
     </div>
   );
+}
+
+/**
+ * A sentence with every code in it — a word with a digit, REG-10301-2026 —
+ * kept on one line (2026-10-16): broken at its hyphen, a confirmation number
+ * read as two.
+ */
+function unbroken(sentence: string) {
+  return sentence.split(/(\S*\d\S*)/).map((part, index) =>
+    index % 2 ? <span key={index} className="whitespace-nowrap">{part}</span> : part);
 }
 
 /**
@@ -1027,8 +1037,13 @@ function Tickets({ findings, rows, onLine, apart, less }: {
             <li key={index}
                 data-testid="ticket"
                 data-fastest={quickest ? "true" : undefined}
-                className={`flex items-center gap-6 rounded-lg border-2 bg-canvas px-5 py-2
-                            short:py-1.5 ${quickest ? "border-accent" : "border-line"}`}>
+                // Its cells wrap onto a second line rather than run past the
+                // column (2026-10-16): on the live site "06:20, next day", a
+                // 22-hour journey and "Fastest" pushed the card 112px wider
+                // than the buttons under it.
+                className={`flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border-2
+                            bg-canvas px-5 py-2 short:py-1.5
+                            ${quickest ? "border-accent" : "border-line"}`}>
               <span className="w-28 shrink-0 font-semibold leading-[1.1] tracking-[-0.02em]
                                text-ink" style={{ fontSize: TYPE.title }}>
                 {first}

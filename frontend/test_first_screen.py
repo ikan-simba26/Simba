@@ -264,3 +264,29 @@ def test_the_question_is_at_full_strength(
         assert colour == page.evaluate("getComputedStyle(document.body).color"), colour
     finally:
         page.close()
+
+
+def test_a_course_code_is_written_as_the_portal_writes_it(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """A list of the portal's courses (2026-10-16): station names in capitals
+    are made readable, but MATH-210 is a code, not a name, and "Math-210" is
+    not a course."""
+    step = question("Which course would you like to register for?",
+                    acts("Use this course"),
+                    [{"id": "course", "label": "Course", "type": "choice", "value": "",
+                      "options": ["MATH-210", "MATH-301", "CS-401"]}], kind="type", stage=1)
+    page = show(browser, overlay, backend, [
+        ("task.started", {"goal": GOAL, "estimated_steps": 4,
+                          "stages": ["Sign in", "Course", "Register", "Done"]}),
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", step),
+        (AWAIT_RESPONSE, {}),
+    ], SIZES["100%"])
+    try:
+        page.get_by_role("textbox", name="Course").fill("MATH")
+        page.wait_for_timeout(400)
+        assert page.get_by_role("button", name="MATH-210", exact=True).is_visible()
+        assert page.get_by_role("button", name="Math-210", exact=True).count() == 0
+    finally:
+        page.close()
