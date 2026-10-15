@@ -1095,7 +1095,7 @@ class CourseBrief(_Asking):
     is asked before the site is touched. The model-planned run cannot ask
     from a page, so it still asks first, in the person's own words."""
 
-    plan_steps = 4
+    plan_steps = 3
     stages = voice.COURSE_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
@@ -1106,7 +1106,9 @@ class CourseBrief(_Asking):
         self._provider = provider
 
     def _missing(self) -> list[str]:
-        return [] if self.course or self._hardcoded else ["course"]
+        # Counted whoever asks it: the hardcoded run asks on the portal, once
+        # signed in, and only when the goal named no course.
+        return [] if self.course else ["course"]
 
     def question(self) -> Move | None:
         if self.gave_up is not None or self.course or self._hardcoded:
