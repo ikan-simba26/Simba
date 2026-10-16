@@ -465,23 +465,6 @@ export const SPEAK = {
       : `You can press ${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}.`,
 } as const;
 
-/* --------------------------------------------------------- the real page */
-
-/**
- * The real page, shown clear only while the person asks (2026-10-07; the
- * 1.6s reveal when a task started went on 2026-10-14, and the softened page
- * behind every step on 2026-10-15). Pressing and holding the button shows it
- * for as long as it is held; a quick press keeps it showing until the other
- * button is pressed. Password boxes are painted over before
- * the picture ever leaves the backend.
- */
-export const REVEAL = {
-  show: "Show the real page",
-  hide: "Hide the real page",
-  /** The picture of the page while it is shown, for a screen reader. */
-  picture: "The real page",
-} as const;
-
 /* --------------------------------------------------- a list to choose from */
 
 /**
@@ -567,8 +550,6 @@ export const LABELS: Record<string, string> = {
   "trust.close": TRUST.close,
   "trust.whole": TRUST.whole,
   "trust.closeUp": TRUST.closeUp,
-  "reveal.show": REVEAL.show,
-  "reveal.hide": REVEAL.hide,
   "speak.read": SPEAK.read,
   "checklist.pause": CHECKLIST.pause,
   "checklist.pausing": CHECKLIST.pausing,

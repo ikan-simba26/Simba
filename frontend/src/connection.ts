@@ -113,16 +113,6 @@ export class BackendConnection {
   }
 
   /**
-   * A picture of the real page for behind the step (2026-10-07). The same
-   * message as `askWhat`, because the backend answers both the same way; it
-   * is a separate method so that only `askWhat` is ever counted as the
-   * person asking for help.
-   */
-  askForPicture(): void {
-    this.send("trust.requested", {});
-  }
-
-  /**
    * Tell the backend the level changed on screen: the person chose it or
    * handed it back, or the overflow guard moved it (`by: "overflow"`, which the
    * backend never takes as a lock).

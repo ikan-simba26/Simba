@@ -1,11 +1,13 @@
-"""The real page behind the step, in a real browser (2026-10-07).
+"""One way to see the real page on any screen (2026-10-16), in a real browser.
 
-Nothing of the page is drawn behind a step (2026-10-15; until then it lay
-softened there, and its header read as a smudge across the top); "Show the
-real page" shows it clear while held, or until "Hide the real page" after a
-tap; and none of this counts as asking for help. Against a
-scripted backend that answers every `trust.requested` with a picture, as the
-real one does (`loop.send_preview`).
+During a step: "What are you doing?", which opens the close-up on what is
+about to be touched, with the whole page a press away inside it. At the end:
+"See it on the real page", and nothing else. Until 2026-10-16 a step also had
+"Show the real page" beside it — a second button to a second picture of the
+same page, drawn behind the step (2026-10-07) — and a picture was asked for
+with every step to be ready for it. Against a scripted backend that answers
+every `trust.requested` with a picture, as the real one does
+(`loop.send_preview`).
 """
 
 import asyncio
@@ -32,7 +34,11 @@ A_STEP = {
     ],
 }
 DONE = {"summary": GOAL, "duration_ms": 1000, "steps_taken": 1, "llm_calls": 0,
-        "replayed": False, "findings": []}
+        "replayed": False, "findings": [],
+        "proof": {"screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ"
+                            "DwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "caption": "What I read is ringed.",
+                  "rings": [{"x": 728, "y": 143, "w": 118, "h": 17}]}}
 
 
 class PictureBackend:
@@ -72,7 +78,7 @@ class PictureBackend:
                     if said["type"] == "trust.requested":
                         await send("page.preview", {
                             "screenshot": self.picture,
-                            "highlight": {"x": 0, "y": 0, "w": 0, "h": 0},
+                            "highlight": {"x": 300, "y": 120, "w": 140, "h": 36},
                             "caption": "This is the page I'm working on."})
                     if said["type"] == "step.response":
                         await send("task.completed", DONE)
@@ -122,112 +128,67 @@ def start(page: Page, overlay: str, picture: str) -> PictureBackend:  # noqa: F8
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
     page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
-    page.wait_for_selector("[data-testid=backdrop]", timeout=10000)
+    page.wait_for_timeout(600)
     return backend
 
 
-def clear(page: Page) -> str:
-    return page.get_attribute("[data-testid=backdrop]", "data-clear")
+#: Every way the overlay has had of showing the real page.
+PAGE_BUTTONS = ("What are you doing?", "Show the real page", "See it on the real page")
 
 
-def card_opacity(page: Page) -> float:
-    return float(page.evaluate(
-        "getComputedStyle(document.querySelector('[data-testid=step-shell]')"
-        ".closest('[style*=pointer-events]')).opacity"))
+def page_buttons(page: Page) -> list[str]:
+    return [name for name in PAGE_BUTTONS
+            if page.get_by_role("button", name=name, exact=True).count()]
 
 
-def test_nothing_of_the_page_is_drawn_behind_the_step(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
-    """No clear moment when a task starts (removed 2026-10-14), and no
-    softened page behind the card either (removed 2026-10-15): nothing
-    blurred, nothing at all, until the person asks."""
+def test_a_step_has_one_way_to_see_the_page(page: Page, overlay: str,  # noqa: F811
+                                            picture: str) -> None:
     start(page, overlay, picture)
 
-    assert clear(page) == "false"
-    page.wait_for_timeout(1200)  # past any fade
-    drawn = page.evaluate(
-        "[...document.querySelectorAll('[data-testid=backdrop] *')]"
-        ".map(e => [getComputedStyle(e).filter, getComputedStyle(e).opacity])")
-    assert drawn and all(opacity == "0" for _, opacity in drawn), drawn
-    assert all(f == "none" for f, _ in drawn), drawn
+    assert page_buttons(page) == ["What are you doing?"]
+    # And nothing of the page is drawn behind the step.
+    assert page.locator("[data-testid=backdrop]").count() == 0
 
 
-def test_holding_the_button_shows_the_page_and_letting_go_hides_it(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
+def test_it_opens_close_up_with_the_whole_page_inside(page: Page, overlay: str,  # noqa: F811
+                                                      picture: str) -> None:
     start(page, overlay, picture)
-    page.wait_for_function(
-        "document.querySelector('[data-testid=backdrop]').dataset.clear === 'false'",
-        timeout=4000)
 
-    button = page.get_by_test_id("peek")
-    box = button.bounding_box()
-    page.mouse.move(box["x"] + 20, box["y"] + 20)
-    page.mouse.down()
+    page.get_by_role("button", name="What are you doing?").click()
+    page.get_by_test_id("trust-panel").wait_for(timeout=10000)
+    page.get_by_test_id("trust-highlight").wait_for(timeout=5000)
+    assert page.get_by_role("button", name="Show the whole page").is_visible()
+
+    page.get_by_role("button", name="Show the whole page").click()
+    assert page.get_by_role("button", name="Show it close up").is_visible()
+    page.get_by_role("button", name="Hide the page").click()
     page.wait_for_timeout(900)
-    assert clear(page) == "true"
-    assert card_opacity(page) < 0.1
-    page.mouse.up()
-    page.wait_for_timeout(900)
-
-    assert clear(page) == "false"
-    assert card_opacity(page) > 0.9
+    assert page.get_by_test_id("trust-panel").count() == 0
 
 
-def test_a_tap_keeps_the_page_until_hide_is_pressed(
+def test_no_picture_is_asked_for_unless_the_person_asks(
     page: Page, overlay: str, picture: str  # noqa: F811
 ) -> None:
-    start(page, overlay, picture)
-
-    page.get_by_test_id("peek").click()
-    page.wait_for_timeout(1500)
-    assert clear(page) == "true"
-
-    page.get_by_role("button", name="Hide the real page").click()
-    page.wait_for_timeout(900)
-    assert clear(page) == "false"
-    assert card_opacity(page) > 0.9
-
-
-def test_the_keyboard_can_show_it_too(page: Page, overlay: str, picture: str) -> None:  # noqa: F811
-    start(page, overlay, picture)
-    page.get_by_test_id("peek").focus()
-
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(2500)
-
-    assert clear(page) == "true"
-
-
-def test_none_of_it_counts_as_asking_for_help(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
-    """Only "What are you doing?" is the person asking. The picture asked for
-    with every step, and looking at the page, are not."""
+    """A picture was asked for with every step, for the page behind it. That
+    page is gone, and so is the asking."""
     backend = start(page, overlay, picture)
-    page.get_by_test_id("peek").click()
-    page.get_by_role("button", name="Hide the real page").click()
+    page.wait_for_timeout(1500)
+    assert [m for m in backend.heard if m["type"] == "trust.requested"] == []
+
+    page.get_by_role("button", name="What are you doing?").click()
+    page.get_by_test_id("trust-panel").wait_for(timeout=10000)
+    assert len([m for m in backend.heard if m["type"] == "trust.requested"]) == 1
+
+
+def test_the_end_has_one_way_to_see_the_page(page: Page, overlay: str,  # noqa: F811
+                                             picture: str) -> None:
+    start(page, overlay, picture)
+
+    page.get_by_role("button", name="Set the departure station").click()
+    page.get_by_role("button", name="I'm done").wait_for(timeout=10000)
     page.wait_for_timeout(600)
 
-    page.get_by_role("button", name="Set the departure station").click()
-    page.wait_for_timeout(800)
-
-    asked = [m for m in backend.heard if m["type"] == "trust.requested"]
-    assert len(asked) >= 1
-    samples = [m["payload"] for m in backend.heard if m["type"] == "telemetry"]
-    assert samples and all(s.get("help_presses", 0) == 0 for s in samples), samples
-
-
-def test_the_page_is_gone_when_the_task_ends(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
-    start(page, overlay, picture)
-
-    page.get_by_role("button", name="Set the departure station").click()
-    page.wait_for_timeout(1500)
-
-    assert page.locator("[data-testid=backdrop]").count() == 0
+    assert page_buttons(page) == ["See it on the real page"]
 
 
 @pytest.mark.parametrize("size, viewport", [
@@ -240,43 +201,13 @@ def test_the_row_under_the_step_fits(browser, overlay: str, picture: str,  # noq
     try:
         start(page, overlay, picture)
         page.wait_for_timeout(1500)
-        for name in ("What are you doing?", "Show the real page", "Stop this"):
+        for name in ("What are you doing?", "Stop this"):
             box = page.get_by_role("button", name=name, exact=True).bounding_box()
             assert box and box["y"] + box["height"] <= height, (size, name, box)
         assert not page.evaluate(
             "document.scrollingElement.scrollHeight > window.innerHeight"), size
     finally:
         page.close()
-
-
-def test_the_page_is_never_clear_unless_asked(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
-    """Every state the page is in, from its first frame, until the person
-    presses "Show the real page": not clear. The automatic 1.6s reveal is gone
-    (2026-10-14)."""
-    page.add_init_script("""
-      window.__clear = [];
-      new MutationObserver(() => {
-        const b = document.querySelector('[data-testid=backdrop]');
-        const now = b ? b.dataset.clear : null;
-        if (now && window.__clear[window.__clear.length - 1] !== now) window.__clear.push(now);
-      }).observe(document, {subtree: true, childList: true, attributes: true,
-                            attributeFilter: ['data-clear']});""")
-    start(page, overlay, picture)
-    page.wait_for_timeout(3500)
-
-    assert page.evaluate("window.__clear") == ["false"]
-
-
-def test_the_two_buttons_under_the_step_do_not_share_an_icon(
-    page: Page, overlay: str, picture: str  # noqa: F811
-) -> None:
-    """Both were the eye until 2026-10-14."""
-    start(page, overlay, picture)
-    icons = [page.get_by_role("button", name=name).locator("svg").inner_html()
-             for name in ("What are you doing?", "Show the real page")]
-    assert icons[0] != icons[1]
 
 
 def test_asking_with_no_picture_coming_says_so(browser, overlay: str) -> None:  # noqa: F811

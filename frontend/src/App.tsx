@@ -14,7 +14,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
 import { ProofPanel } from "./components/ProofPanel";
@@ -77,8 +76,6 @@ export default function App() {
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
-      {/* The real page, behind everything else, while it is asked for (`Backdrop`). */}
-      <Backdrop />
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
@@ -87,7 +84,6 @@ export default function App() {
         <NoticeTimers />
         <Column />
       </div>
-      <PeekBack />
       <TrustPanel />
       <ProofPanel />
       <DebugPanel />
@@ -108,7 +104,7 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen, peeking, task, asking, reply, completed, failed, help,
+  const { trustOpen, task, asking, reply, completed, failed, help,
           stoppedByPerson } = useStore();
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
@@ -117,10 +113,10 @@ function PresenceBar() {
   // same moment the tiles' entrance is decided — never under reduced motion.
   const reduce = useReducedMotion() ?? false;
   const [settle] = useState(() => !reduce && !entrancePlayed());
-  const aside = trustOpen || peeking;
+  const aside = trustOpen;
   return (
-    // Above the real page behind it (`Backdrop`), and out of the way while
-    // that page is being shown. Nothing else is in this row: since
+    // Out of the way while the real page is being shown. Nothing else is in
+    // this row: since
     // 2026-10-14 notices and "Read this aloud" are in the card's first line.
     <motion.div className="relative z-[1] flex w-full justify-center"
                 style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
@@ -135,11 +131,10 @@ function PresenceBar() {
 }
 
 function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, peeking, reply, state,
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
           asking, checklist } = useStore();
-  // Put aside while the real page is shown: the trust panel's picture, or
-  // the page itself behind the step (`Backdrop`).
-  const aside = trustOpen || peeking;
+  // Put aside while the real page is shown: the trust panel's picture.
+  const aside = trustOpen;
 
   const stuck = state === "stuck" || Boolean(help);
 
@@ -604,12 +599,12 @@ function Step() {
       </Card>
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field
-          past the bottom of the window. */}
+          past the bottom of the window. "What are you doing?" is the one way
+          to see the page during a task (2026-10-16): it opens the close-up,
+          with the whole page inside it. "Show the real page" beside it was a
+          second way to the same page, and went. */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <TrustControl />
-          <PeekButton />
-        </div>
+        <TrustControl />
         <LevelControl />
       </div>
     </div>

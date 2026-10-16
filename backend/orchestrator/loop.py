@@ -700,8 +700,8 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
 
     try:
         # Every password box is painted over before the picture leaves the
-        # backend (2026-10-07). The overlay shows this picture behind every
-        # step and in "Show the real page", and a password is never on it —
+        # backend (2026-10-07). The overlay shows this picture when the
+        # person asks "What are you doing?", and a password is never on it —
         # not as dots, whose count says its length, and not as text if a site
         # has a "show password" switch that turns the box into an ordinary
         # one: those are matched by what they autocomplete.
