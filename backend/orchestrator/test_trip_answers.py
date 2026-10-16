@@ -543,8 +543,6 @@ class Answering(ScriptedConnection):
         answer = ("confirm", {})
         if question:
             answer = (self.answers.pop(0) if self.answers else None) or (CANCEL_ID, {})
-        if step["instruction"] in voice.OFFERS and answer == (CANCEL_ID, {}):
-            answer = (voice.DECLINE_ID, {})  # unscripted offer to book: "no" (2026-10-16)
         return {"type": "step.response",
                 "payload": {"step_index": step_index, "action_id": answer[0],
                             "input_values": answer[1]}}
@@ -589,8 +587,7 @@ def test_a_goal_that_names_cities_asks_which_stations_then_reads_back(railways: 
     assert run.searched == {"from": "LAHORE CANTT", "to": "KARACHI CANTT",
                             "date": tomorrow.isoformat()}
     # Read back once: the search step does not say the journey again.
-    # The offer to book comes after, on our replica (2026-10-16).
-    assert instructions[-2:] == [voice.READY_TO_SEARCH, voice.ASK_BOOK]
+    assert instructions[-1] == voice.READY_TO_SEARCH
     assert sum(i.endswith("Is that right?") for i in instructions) == 1
     assert "task.completed" in run.types()
 

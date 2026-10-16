@@ -228,7 +228,18 @@ export interface HelpRequested {
   unconfirmed?: boolean;
 }
 
+/** What can follow an answer, on our replicas (2026-10-16): a quiet second
+ *  button on the closing screen. Pressed, the overlay sends a `step.response`
+ *  whose `action_id` is `id`. */
+export interface TaskOffer {
+  id: string;
+  label: string;
+}
+
 export interface TaskCompleted {
+  /** Additive and optional (2026-10-16). On our replicas, what can follow
+   *  the answer, as a quiet second button beside "Back to start". */
+  offer?: TaskOffer;
   /**
    * Additive and optional (2026-10-16). The closing screen's last line: what
    * was done, and what was not.

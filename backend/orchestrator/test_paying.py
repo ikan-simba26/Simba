@@ -25,21 +25,28 @@ def shown(done, instruction: str) -> dict:
     return next(p for p in done.of("step.presented") if p["instruction"] == instruction)
 
 
-def test_once_the_bill_is_found_it_offers_to_pay_it(billing_replica: str) -> None:  # noqa: F811
+def test_the_bill_comes_with_a_quiet_offer_and_no_question(billing_replica: str) -> None:  # noqa: F811
     done = go(billing_replica, a_bill(), [])
 
-    offer = shown(done, voice.ASK_PAY)
-    assert [a["label"] for a in offer["actions"]] == [
-        voice.PAY_YES, voice.JUST_THE_BILL, voice.STOP]
+    assert done.asked() == [voice.ASK_COOKIES]
     assert done.of("task.started")[0]["stages"][-1] == voice.PAY_STAGE
-    # Unanswered here, so "No, just the bill": the bill, as before.
-    end = done.of("task.completed")[0]
-    assert end["findings"][0]["values"] == ["Rs 14,382"]
-    assert end["scope"] == voice.ONLY_LOOKED_AT_BILL
+    end = done.of("task.completed")
+    assert len(end) == 1 and end[0]["findings"][0]["values"] == ["Rs 14,382"]
+    assert end[0]["scope"] == voice.ONLY_LOOKED_AT_BILL
+    assert end[0]["offer"] == {"id": voice.PAY_ID, "label": voice.PAY_THIS_BILL}
+
+
+def test_a_goal_that_says_pay_goes_straight_to_paying(billing_replica: str) -> None:  # noqa: F811
+    brief = BillBrief("pay my bill", Understood(reference=REFERENCE, wants="pay"))
+    done = go(billing_replica, brief, [])
+
+    end = done.of("task.completed")
+    assert len(end) == 1 and end[0]["confirmation"].startswith("The site says")
+    assert shown(done, voice.FINAL_PAY)["final"][0] == {"label": "Amount", "value": "Rs 14,382"}
 
 
 def test_yes_pays_after_its_final_screen_with_no_card(billing_replica: str) -> None:  # noqa: F811
-    done = go(billing_replica, a_bill(), [("choice:0", {})])
+    done = go(billing_replica, a_bill(), [(voice.PAY_ID, {})])
 
     assert voice.DOING_PAYMENT_PAGE in done.rows()
     final = shown(done, voice.FINAL_PAY)
@@ -55,7 +62,7 @@ def test_yes_pays_after_its_final_screen_with_no_card(billing_replica: str) -> N
     for step in done.of("step.presented"):
         assert not any("card" in f["label"].lower() for f in step["fields"]), step
 
-    end = done.of("task.completed")[0]
+    end = done.of("task.completed")[-1]
     found = {f["label"]: f["values"][0] for f in end["findings"]}
     assert found["Receipt number"].startswith("RCPT-")
     assert found["Amount paid"] == "Rs 14,382"
@@ -82,12 +89,13 @@ def test_dont_pay_pays_nothing(billing_replica: str) -> None:  # noqa: F811
 
     original, checklist.Answers = checklist.Answers, SaysDont
     try:
-        done = go(billing_replica, a_bill(), [("choice:0", {})])
+        done = go(billing_replica, a_bill(), [(voice.PAY_ID, {})])
     finally:
         checklist.Answers = original
 
     assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
-    assert "task.completed" not in done.types()
+    # Only the answer itself completed: nothing was booked or paid.
+    assert len(done.of("task.completed")) == 1
 
 
 def test_a_payment_the_site_does_not_confirm_is_not_done(
@@ -104,9 +112,10 @@ def test_a_payment_the_site_does_not_confirm_is_not_done(
         return replace(task, confirms=replace(task.confirms, heading="Payment Settled"))
 
     monkeypatch.setattr(finish_plan, "payment_task", unconfirmed)
-    done = go(billing_replica, a_bill(), [("choice:0", {})])
+    done = go(billing_replica, a_bill(), [(voice.PAY_ID, {})])
 
-    assert "task.completed" not in done.types()
+    # Only the answer itself completed: nothing was booked or paid.
+    assert len(done.of("task.completed")) == 1
     help = done.of("help.requested")[0]
     assert help["unconfirmed"] is True
     assert help["reason"] == voice.not_confirmed("Confirm Payment", "site")

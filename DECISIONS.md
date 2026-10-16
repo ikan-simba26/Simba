@@ -4654,3 +4654,30 @@ port would be refused, and nothing else is served from this machine.
   words are the backend's `NOTHING_CHANGED`, held equal by a test. "Nothing
   was changed" is true by construction: nothing that books, pays or
   registers is done before the final screen.
+
+## The offer is a quiet button, not a question
+
+**Date:** 2026-10-16 (asked for: "no extra question after every result")
+
+**Decision.** The question after every replica search and bill ("Would you
+like to book one of these trains?") is gone. The closing screen comes as
+always, with "Book one of these" or "Pay this bill" beside "Back to start",
+quieter (outlined, where "Back to start" is filled). A goal that already says
+book or pay goes straight on, with no closing screen between.
+
+**How** (not asked for):
+- **The run stays open after such a closing screen**: the backend sends
+  `task.completed` with `offer` (additive, `TaskOffer`) and waits. Pressed,
+  the overlay sends a `step.response` with the offer's id and the run goes
+  on with the same page, so nothing is searched or looked up again and the
+  cookie question is not asked twice. "Back to start" closes the connection,
+  which ends the waiting run. The alternative — the button starting a new
+  task with the details spelled out — needed no open connection but
+  searched again, read the journey back again and asked about cookies again.
+- **"Which train?" is the booking's first question**, asked from the trains
+  found (buttons up to four, a list past that), and not at all when one
+  train was found. It has no "No" answer: "Stop this" is the way out, and
+  pressing the button was the choice to book.
+- **"Book" and "pay" are read from the goal's words only**: book, booking,
+  reserve, ticket, tickets or seat for trains; pay for a bill ("payment due"
+  is not asking to pay). A model is not asked.

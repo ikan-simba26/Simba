@@ -249,6 +249,15 @@ class HelpRequested(BaseModel):
     unconfirmed: bool = False
 
 
+class TaskOffer(BaseModel):
+    """What can follow an answer, on our replicas (2026-10-16): a quiet
+    second button on the closing screen. Pressed, the overlay sends a
+    `step.response` whose `action_id` is `id`."""
+
+    id: str
+    label: str
+
+
 class TaskCompleted(BaseModel):
     summary: str
     duration_ms: int
@@ -288,6 +297,11 @@ class TaskCompleted(BaseModel):
     # Additive and optional (2026-10-16). Why there is no `proof`, in plain
     # words, when there is none: never an empty or stale picture instead.
     proof_note: Optional[str] = None
+    # Additive and optional (2026-10-16). On our replicas, what can follow
+    # the answer — booking one of the trains, paying the bill — as a quiet
+    # second button beside "Back to start". The backend keeps the run open
+    # for it; going back to start closes the connection.
+    offer: Optional[TaskOffer] = None
 
 
 class TaskFailed(BaseModel):

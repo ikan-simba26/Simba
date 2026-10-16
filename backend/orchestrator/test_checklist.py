@@ -22,7 +22,7 @@ from backend.orchestrator import voice
 from backend.orchestrator.details import BillBrief, CourseBrief, TripBrief, Understood, understand
 from backend.orchestrator.loop import Move, Task, run_brief, run_task
 from backend.orchestrator.plan import About, Expectation, Operation, Target
-from backend.orchestrator.test_asking import ScriptedConnection
+from backend.orchestrator.test_asking import OFFER_IDS, ScriptedConnection
 from backend.orchestrator.test_billing import billing_replica  # noqa: F401
 from backend.orchestrator.test_orchestrator import replica  # noqa: F401
 from backend.orchestrator.test_trip_answers import railways  # noqa: F401
@@ -36,6 +36,12 @@ class Answers(ScriptedConnection):
 
     async def receive(self, message_type, step_index=None, on_other=None):  # noqa: ARG002
         self.shown += 1
+        if self.offered():
+            # The closing screen's offer: taken only when scripted.
+            answer = (self.answers.pop(0) if self.answers and self.answers[0]
+                      and self.answers[0][0] in OFFER_IDS else ("leave", {}))
+            return {"type": "step.response",
+                    "payload": {"step_index": 0, "action_id": answer[0], "input_values": {}}}
         step = self.of("step.presented")[-1]
         ids = [a["id"] for a in step["actions"]]
         question = any(i.startswith(CHOICE_PREFIX) for i in ids) or any(
@@ -43,8 +49,6 @@ class Answers(ScriptedConnection):
         answer = ("confirm", {})
         if question or step["instruction"] == voice.PAUSED:
             answer = (self.answers.pop(0) if self.answers else None) or ("cancel", {})
-        if step["instruction"] in voice.OFFERS and answer == ("cancel", {}):
-            answer = (voice.DECLINE_ID, {})  # unscripted: just the answer
         return {"type": "step.response",
                 "payload": {"step_index": step_index, "action_id": answer[0],
                             "input_values": answer[1]}}
@@ -114,10 +118,8 @@ def a_journey() -> TripBrief:
 def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> None:  # noqa: F811
     done = go(railways, a_journey(), [(f"{CHOICE_PREFIX}0", {})])
 
-    # And, on our replica, the offer to book one (2026-10-16), answered "no".
     assert done.asked() == [voice.read_back("Rawalpindi", "Sukkur",
-                                            voice.when_words(TOMORROW, date.today())),
-                            voice.ASK_BOOK]
+                                            voice.when_words(TOMORROW, date.today()))]
     assert done.rows() == [voice.DOING_FROM, voice.DOING_TO, voice.DOING_CALENDAR,
                            voice.doing_day(voice.day_words(TOMORROW, date.today())),
                            voice.DOING_SEARCH]
@@ -149,7 +151,7 @@ def test_asked_every_time_it_asks_every_time(railways: str) -> None:  # noqa: F8
     done = go(railways, a_journey(), [(f"{CHOICE_PREFIX}0", {})], auto=False)
 
     assert done.rows() == []
-    assert len(done.asked()) == 1 + 5 + 1  # and the offer to book, on our replica
+    assert len(done.asked()) == 1 + 5
     assert "task.completed" in done.types()
 
 
@@ -194,8 +196,7 @@ def test_the_bill_asks_about_cookies_then_looks_itself_up(
 
     done = go(billing_replica, brief, [])
 
-    # And, on our replica, the offer to pay it (2026-10-16), answered "no".
-    assert done.asked() == [voice.ASK_COOKIES, voice.ASK_PAY]
+    assert done.asked() == [voice.ASK_COOKIES]
     assert done.rows() == [voice.DOING_LOOKUP]
     assert "task.completed" in done.types()
     lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]

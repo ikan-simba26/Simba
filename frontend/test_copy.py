@@ -422,7 +422,7 @@ def backend_sentences() -> dict[str, str]:
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["voice.final_press"] = voice.final_press("Register for CS-401")
     # Booking the train picked, on our replica (2026-10-16).
-    for name in ("ASK_BOOK", "ASK_PASSENGER", "PASSENGER_DETAIL", "NAME_NOT_CAUGHT",
+    for name in ("ASK_WHICH_TRAIN", "ASK_PASSENGER", "PASSENGER_DETAIL", "NAME_NOT_CAUGHT",
                  "ASK_CLASS", "CLASS_DETAIL", "NO_CLASSES"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["voice.final_book"] = voice.final_book("7UP")
@@ -430,7 +430,7 @@ def backend_sentences() -> dict[str, str]:
     sentences["booking form instruction"] = voice.DOING_BOOKING_FORM + "."
     sentences["booking fill instruction"] = voice.doing_booking("AC Standard") + "."
     # Paying the bill, on our replica (2026-10-16).
-    for name in ("ASK_PAY", "FINAL_PAY", "PAID_SCOPE"):
+    for name in ("FINAL_PAY", "PAID_SCOPE"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["payment page instruction"] = voice.DOING_PAYMENT_PAGE + "."
     sentences["voice.final_register"] = voice.final_register("CS-401")
@@ -505,13 +505,13 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
-    for name in ("JUST_TIMES", "USE_TRAIN", "USE_NAME", "BOOK_IT", "DONT_BOOK", "OPEN_IT",
+    for name in ("BOOK_ONE", "USE_TRAIN", "USE_NAME", "BOOK_IT", "DONT_BOOK", "OPEN_IT",
                  "FILL_IN", "FIELD_NAME", "FIELD_TRAIN", "BOOK_STAGE", "DOING_BOOKING_FORM"):
         labels[f"voice.{name}"] = getattr(voice, name)
     labels["voice.train_choice"] = voice.train_choice("7UP", "07:25")
     labels["voice.REGISTER_IT"] = voice.REGISTER_IT
     labels["voice.DONT_REGISTER"] = voice.DONT_REGISTER
-    for name in ("PAY_STAGE", "PAY_YES", "JUST_THE_BILL", "DOING_PAYMENT_PAGE", "OPEN_PAYMENT",
+    for name in ("PAY_STAGE", "PAY_THIS_BILL", "DOING_PAYMENT_PAGE", "OPEN_PAYMENT",
                  "PAY_IT", "DONT_PAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
     labels["voice.doing_booking"] = voice.doing_booking("AC Standard")

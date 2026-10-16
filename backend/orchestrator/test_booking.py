@@ -25,25 +25,44 @@ def journey() -> TripBrief:
                      Understood(origin="Lahore Cantt", destination="Karachi Cantt", day=TOMORROW))
 
 
-#: Yes to the read-back; the first train; a name; the second class.
-BOOK_FIRST = [("choice:0", {}), ("choice:0", {}), ("confirm", {"passenger": NAME}),
-              ("choice:1", {})]
+#: Yes to the read-back; "Book one of these" on the closing screen; the
+#: first train; a name; the second class.
+BOOK_FIRST = [("choice:0", {}), (voice.BOOK_ID, {}), ("choice:0", {}),
+              ("confirm", {"passenger": NAME}), ("choice:1", {})]
 
 
 def shown(done, instruction: str) -> dict:
     return next(p for p in done.of("step.presented") if p["instruction"] == instruction)
 
 
-def test_once_the_trains_are_found_it_offers_to_book_one(railways: str) -> None:  # noqa: F811
+def test_the_trains_come_with_a_quiet_offer_and_no_question(railways: str) -> None:  # noqa: F811
+    """No question after the answer (2026-10-16): the closing screen, as
+    always, with "Book one of these" offered beside "Back to start".
+    Someone who wanted only the times presses nothing more."""
     done = go(railways, journey(), [("choice:0", {})])
 
-    offer = shown(done, voice.ASK_BOOK)
-    labels = [a["label"] for a in offer["actions"]]
-    assert labels == ["7UP, leaves 07:25", "8DN, leaves 16:35", voice.JUST_TIMES, voice.STOP]
+    end = done.of("task.completed")
+    assert len(end) == 1 and end[0]["findings"][0]["values"] == ["7UP", "8DN"]
+    assert end[0]["offer"] == {"id": voice.BOOK_ID, "label": voice.BOOK_ONE}
+    assert voice.ASK_WHICH_TRAIN not in done.instructions()
     # The task's stages say there is a booking to come.
     assert done.of("task.started")[0]["stages"][-1] == voice.BOOK_STAGE
-    # Unanswered here, so "No, just the times": the trains, as before.
-    assert done.of("task.completed")[0]["findings"][0]["values"] == ["7UP", "8DN"]
+
+
+def test_a_goal_that_says_book_goes_straight_to_which_train(railways: str) -> None:  # noqa: F811
+    brief = TripBrief("book me a train to Karachi tomorrow",
+                      Understood(origin="Lahore Cantt", destination="Karachi Cantt",
+                                 day=TOMORROW, wants="book"))
+    done = go(railways, brief, [("choice:0", {}), ("choice:1", {}),
+                                ("confirm", {"passenger": NAME}), ("choice:0", {})])
+
+    which = shown(done, voice.ASK_WHICH_TRAIN)
+    assert [a["label"] for a in which["actions"]] == [
+        "7UP, leaves 07:25", "8DN, leaves 16:35", voice.STOP]
+    # No closing screen between the trains and the booking: one ending, the booking's.
+    end = done.of("task.completed")
+    assert len(end) == 1 and end[0]["confirmation"].startswith("The site says")
+    assert end[0]["scope"] == voice.booked_scope("8DN")
 
 
 def test_a_picked_train_is_booked_after_its_final_screen(railways: str) -> None:  # noqa: F811
@@ -71,7 +90,7 @@ def test_a_picked_train_is_booked_after_its_final_screen(railways: str) -> None:
     assert [(a["id"], a["label"]) for a in final["actions"]] == [
         ("confirm", voice.BOOK_IT), (voice.DECLINE_ID, voice.DONT_BOOK)]
 
-    end = done.of("task.completed")[0]
+    end = done.of("task.completed")[-1]
     found = {f["label"]: f["values"][0] for f in end["findings"]}
     assert found["Booking number"].startswith("PR-") and len(found["Booking number"]) == 9
     assert found["Train"] == "7UP"
@@ -105,12 +124,13 @@ def test_dont_book_it_books_nothing(railways: str) -> None:  # noqa: F811
         checklist.Answers = original
 
     assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
-    assert "task.completed" not in done.types()
+    # Only the answer itself completed: nothing was booked or paid.
+    assert len(done.of("task.completed")) == 1
 
 
 def test_a_name_that_is_not_a_name_is_asked_again(railways: str) -> None:  # noqa: F811
-    answers = [*BOOK_FIRST[:2], ("confirm", {"passenger": "  "}), ("confirm", {"passenger": NAME}),
-               ("choice:0", {})]
+    answers = [*BOOK_FIRST[:3], ("confirm", {"passenger": "  "}),
+               ("confirm", {"passenger": NAME}), ("choice:0", {})]
     done = go(railways, journey(), answers)
 
     asked = [p for p in done.of("step.presented") if p["instruction"] == voice.ASK_PASSENGER]
@@ -129,14 +149,15 @@ def test_a_booking_the_site_does_not_confirm_is_not_done(
 
     real = finish_plan.booking_task
 
-    def unconfirmed(train: str):
+    def unconfirmed(train: str | None = None):
         task = real(train)
         return replace(task, confirms=replace(task.confirms, heading="Ticket Issued"))
 
     monkeypatch.setattr(finish_plan, "booking_task", unconfirmed)
     done = go(railways, journey(), list(BOOK_FIRST))
 
-    assert "task.completed" not in done.types()
+    # Only the answer itself completed: nothing was booked or paid.
+    assert len(done.of("task.completed")) == 1
     help = done.of("help.requested")[0]
     assert help["unconfirmed"] is True
     assert help["reason"] == voice.not_confirmed("Confirm Booking", "site")
@@ -150,5 +171,5 @@ def test_nothing_is_shown_as_found_on_the_way_to_a_booking(railways: str) -> Non
 
     for instruction in (voice.ASK_PASSENGER, voice.ASK_CLASS, voice.final_book("7UP")):
         assert shown(done, instruction)["findings"] == [], instruction
-    # The offer itself still shows the trains it is about.
-    assert shown(done, voice.ASK_BOOK)["findings"][0]["values"] == ["7UP", "8DN"]
+    # Which train, too: the trains are named on its buttons.
+    assert shown(done, voice.ASK_WHICH_TRAIN)["findings"] == []

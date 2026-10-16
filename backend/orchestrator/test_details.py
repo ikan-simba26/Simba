@@ -560,3 +560,21 @@ def test_a_count_read_twice_is_the_same_count() -> None:
 
     assert first == 3 + 1 + TripBrief.plan_steps
     assert brief.estimated_steps == first
+
+
+@pytest.mark.parametrize("flow, goal, wanted", [
+    ("railways", "book me a train to Karachi tomorrow", "book"),
+    ("railways", "I need a ticket from Lahore to Multan", "book"),
+    ("railways", "trains to Karachi tomorrow", None),
+    ("billing", "pay my electricity bill", "pay"),
+    ("billing", "is my payment due yet", None),
+    ("billing", "check my bill", None),
+    ("registration", "book me onto CS-401", None),
+])
+def test_a_goal_that_asks_for_the_job_finished_says_so(flow, goal, wanted) -> None:
+    """"Book" or "pay" in the goal (2026-10-16): straight on to booking or
+    paying once the answer is in, with no closing screen between."""
+    from backend.orchestrator.details import wants
+
+    assert wants(flow, goal) == wanted
+    assert read(flow, goal).wants == wanted

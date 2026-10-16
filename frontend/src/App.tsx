@@ -708,7 +708,7 @@ function Checklist() {
  * to the home screen.
  */
 function Completed() {
-  const { completed, task, startOver } = useStore();
+  const { completed, task, startOver, takeOffer } = useStore();
   const findings = completed?.findings ?? [];
   // One plain sentence saying what the result means, written by the backend
   // from the page's own values (`voice.explain_*`). This screen writes none of
@@ -801,8 +801,21 @@ function Completed() {
       )}
 
       {/* One way on (2026-10-16). "I'm done" and "Do something else" sat
-          here side by side and both went home. */}
-      <OnwardButton onClick={startOver} />
+          here side by side and both went home. On our replicas, what can
+          follow the answer — "Book one of these", "Pay this bill" — sits
+          beside it, quieter: someone who wanted only the answer presses
+          nothing more. */}
+      {completed?.offer ? (
+        <div className="flex flex-row gap-3" data-testid="onward">
+          <Button className="flex-1" onClick={startOver}>{STOPPED.again}</Button>
+          <Button className="flex-1" variant="secondary" onClick={takeOffer}
+                  data-testid="offer">
+            {completed.offer.label}
+          </Button>
+        </div>
+      ) : (
+        <OnwardButton onClick={startOver} />
+      )}
     </div>
   );
 }

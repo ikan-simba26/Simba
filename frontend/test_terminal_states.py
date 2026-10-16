@@ -199,6 +199,28 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             ],
         }),
     ],
+    # The same trains on our replica, with the quiet offer beside the way on
+    # (2026-10-16): "Book one of these".
+    "completed with trains and an offer to book": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/", "duration_ms": 1,
+            "steps_taken": 5, "llm_calls": 0, "replayed": False,
+            "heading": "Lahore Cantt to Karachi Cantt, Thursday 15 October",
+            "explanation": "There are 2 trains. The fastest is 7UP, at 7 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
+            "offer": {"id": "book", "label": "Book one of these"},
+            "findings": [
+                {"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"],
+                 "rows": [["7UP", "07:25", "14:40", "7 h 15 min"],
+                          ["8DN", "16:35", "00:50, next day", "8 h 15 min"]]},
+                {"label": "Leaves", "value": "07:25, 16:35", "values": ["07:25", "16:35"]},
+                {"label": "Arrives", "value": "14:40, 00:50", "values": ["14:40", "00:50"]},
+                {"label": "Journey", "value": "7 h 15 min, 8 h 15 min",
+                 "values": ["7 h 15 min", "8 h 15 min"]},
+            ],
+        }),
+    ],
     # A bill whose picture could not be taken: the reason in its place.
     "completed with an answer and no picture": [
         ("task.completed", {
@@ -501,6 +523,11 @@ def test_everything_on_an_ending_leads_somewhere(
     for label in [label for label in reach(page, overlay, backend, name) if label]:
         reach(page, overlay, backend, name)
         page.get_by_role("button", name=label, exact=True).click()
+        if label == "Book one of these":
+            # The run goes on to book (2026-10-16): working, until its first
+            # question comes.
+            page.get_by_text("Give me a moment.").wait_for(timeout=5000)
+            continue
         if label == "See it on the real page":
             page.get_by_test_id("proof-panel").wait_for(timeout=5000)
             page.get_by_role("button", name="Back to the answer").click()
@@ -687,3 +714,19 @@ def test_dont_ends_calmly_and_says_nothing_was_changed(
     if name.startswith("don't"):
         answers = [m for m in backend.responses if m.get("type") == "step.response"]
         assert answers[-1]["payload"]["action_id"] == "decline"
+
+
+def test_the_offer_sits_beside_the_way_on_and_says_which(
+    page: Page, overlay: str, backend: Backend
+) -> None:
+    """Quieter than "Back to start", beside it, and pressed it sends its own
+    id (2026-10-16). Someone who wanted only the times presses nothing more."""
+    labels = reach(page, overlay, backend, "completed with trains and an offer to book")
+    assert labels[-2:] == ["Back to start", "Book one of these"]
+    on, offer = (page.get_by_role("button", name=name, exact=True).bounding_box()
+                 for name in ("Back to start", "Book one of these"))
+    assert abs(on["y"] - offer["y"]) < 2 and offer["x"] > on["x"]
+    looks = page.evaluate("""() => ['Back to start', 'Book one of these'].map(name =>
+        getComputedStyle([...document.querySelectorAll('button')]
+          .find(b => b.innerText.trim() === name)).backgroundColor)""")
+    assert looks[0] != looks[1], looks  # the way on leads; the offer is quieter

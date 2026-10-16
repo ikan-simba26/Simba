@@ -67,6 +67,7 @@ from shared.schema import (
     ErrorPayload,
     StepPresented,
     TaskCompleted,
+    TaskOffer,
     TaskFailed,
     TaskStarted,
     LevelOverride,
@@ -1273,44 +1274,59 @@ async def run_brief(
         return
 
     planner, task = brief.settle()
-    offer_for = getattr(brief, "offer", None)
-    completed = await carry_out(run, planner, task, send=offer_for is None)
-    if offer_for is None or completed is None:
+    follow_for = getattr(brief, "follow_on", None)
+    completed = await carry_out(run, planner, task, send=follow_for is None)
+    if follow_for is None or completed is None:
         return
-    await finish(run, brief, completed, offer_for(completed) if on_replica(page.url) else None)
+    await finish(run, completed, follow_for(completed) if on_replica(page.url) else None)
 
 
 @dataclass(frozen=True)
-class Offer:
-    """What a brief offers once its answer is in, on a replica (2026-10-16):
-    one question — which train to book, whether to pay the bill — and what
-    each answer leads to. `take` gives the planner and task that finish the
-    job, or None for the answer that wants only what was found."""
+class FollowOn:
+    """What can follow the answer, on a replica (2026-10-16): booking one of
+    the trains found, paying the bill. Offered as a quiet second button on
+    the closing screen (`id`, `label`), or taken straight away when the goal
+    asked for it (`straight`). `take` gives the planner and the task that
+    finish the job."""
 
-    question: "Move"
-    take: Callable[[str, dict[str, str]], "tuple[Planner, Task] | None"]
+    id: str
+    label: str
+    straight: bool
+    take: Callable[[], "tuple[Planner, Task]"]
 
 
-async def finish(run: _Run, brief: Brief, completed: TaskCompleted,
-                 offer: Offer | None) -> None:
-    """The answer, and, when there is an offer, the job finished if the
-    person asks for it. "No" ends with the answer, exactly as it would have
-    ended without the offer."""
-    if offer is None:
+class LeftTheAnswer(Exception):
+    """The person went on from the closing screen without the follow-on."""
+
+
+async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -> None:
+    """The answer, and the job finished if the person asks for it.
+
+    Asked for in the goal: straight on, no closing screen between. Otherwise
+    the closing screen as always, with one more, quieter button; the run
+    waits for it until the person presses it, goes back to start (which
+    closes the connection), or cancels. Someone who wanted only the answer
+    presses nothing extra (2026-10-16; it was a question after every answer).
+    """
+    if follow is None:
         await run.connection.send("task.completed", completed)
         return
-    _, _, view = await perceive(run.page)
-    payload = await run.present(offer.question, goal=brief.goal,
-                                findings=completed.findings, view=view)
-    if not is_answer(offer.question, payload.get("action_id")):
-        await run.stopped()
-        return
-    then = offer.take(payload["action_id"], payload.get("input_values") or {})
-    if then is None:
-        await run.connection.send("task.completed", completed)
-        return
-    await run.set_state("thinking")
-    planner, task = then
+    if not follow.straight:
+        await run.connection.send("task.completed", completed.model_copy(
+            update={"offer": TaskOffer(id=follow.id, label=follow.label)}))
+
+        async def left(message: dict) -> None:
+            if message.get("type") == "task.cancel":
+                raise LeftTheAnswer
+
+        try:
+            response = await run.connection.receive("step.response", on_other=left)
+        except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
+            return
+        if response.get("payload", {}).get("action_id") != follow.id:
+            return  # any other answer: the closing screen was the end
+        await run.set_state("thinking")
+    planner, task = follow.take()
     await carry_out(run, planner, task)
 
 

@@ -33,13 +33,14 @@ from shared.schema import StepField
 BOOK_TRAIN = "Book train "
 
 
-def booking_task(train: str):
-    """Booking one seat on `train`: done only with the site's confirmation on
-    the page, and its booking number, train, date and seat quoted from it."""
+def booking_task(train: str | None = None):
+    """Booking one seat: done only with the site's confirmation on the page,
+    and its booking number, train, date and seat quoted from it. Which train
+    is settled by the planner once the person has said (`settled`)."""
     from backend.orchestrator.loop import Task
 
     return Task(
-        goal=f"Book a seat on {train}.",
+        goal=f"Book a seat on {train}." if train else "Book a seat.",
         estimated_steps=4,
         success=Expectation(title_contains="Booking Confirmed"),
         about=About(finds=(
@@ -50,15 +51,16 @@ def booking_task(train: str):
         )),
         confirms=Confirmation(heading="Booking Confirmed", reads="Booking number",
                               caveat="No real ticket", who="site"),
-        scope=voice.booked_scope(train),
+        scope=voice.booked_scope(train) if train else None,
     )
 
 
 class BookingPlanner:
-    """Books the train the person picked, on the railways replica.
+    """Books a train the search found, on the railways replica.
 
-    Opens its booking form (a page to read: runs by itself), asks the two
-    things the form needs — the passenger's name, and the class from the
+    Asks which train — from the trains found, unless there is only one —
+    then opens its booking form (a page to read: runs by itself), asks the
+    two things the form needs — the passenger's name, and the class from the
     form's own choices — fills them in, and shows the final screen. Only
     "Book it" there presses "Confirm Booking".
     """
@@ -68,8 +70,10 @@ class BookingPlanner:
     #: Marks its own change: only "Confirm Booking" books.
     marks_changes = True
 
-    def __init__(self, train: str, stage: int) -> None:
-        self.train = train
+    def __init__(self, trains: list[tuple[str, str]], stage: int) -> None:
+        #: The trains found, each with when it leaves, as the results showed them.
+        self.trains = trains
+        self.train: str | None = trains[0][0] if len(trains) == 1 else None
         self.stage = stage
         self.name: str | None = None
         self.klass: str | None = None
@@ -80,9 +84,33 @@ class BookingPlanner:
     def coming(self) -> list[str]:
         return []
 
+    def _which(self, Move):
+        """Which of the trains found, as buttons, or a list when there are many."""
+        names = [train for train, _ in self.trains]
+        if len(self.trains) <= voice.MAX_CHOICES:
+            fields = []
+            actions = voice.choices([voice.train_choice(t, leaves) for t, leaves in self.trains])
+        else:
+            fields = [StepField(id="train", label=voice.FIELD_TRAIN, type="choice", value="",
+                                options=names)]
+            actions = voice.actions(voice.USE_TRAIN)
+        return Move(instruction=voice.ASK_WHICH_TRAIN, detail="", operations=[],
+                    expect=Expectation(), fields=fields, actions=actions, question=True,
+                    kind="choose", stage=self.stage)
+
+    def settled(self, task):
+        """The task, with the train the person chose in it."""
+        from dataclasses import replace
+
+        if self.train is None:
+            return task
+        return replace(task, scope=voice.booked_scope(self.train))
+
     async def next_move(self, elements, history, setback):
         from backend.orchestrator.loop import Move
 
+        if self.train is None:
+            return self._which(Move)
         if "open" not in self._done:
             self._done.add("open")
             return Move(instruction=voice.DOING_BOOKING_FORM + ".", detail="",
@@ -141,6 +169,14 @@ class BookingPlanner:
         return None
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        if self.train is None:
+            names = [train for train, _ in self.trains]
+            index = action_id.removeprefix(voice.CHOICE_PREFIX)
+            if index.isdigit() and int(index) < len(names):
+                self.train = names[int(index)]
+            elif input_values.get("train") in names:
+                self.train = input_values["train"]
+            return
         if self.name is None:
             name = " ".join((input_values.get("passenger") or "").split())
             if name and len(name) <= 60 and any(ch.isalpha() for ch in name):

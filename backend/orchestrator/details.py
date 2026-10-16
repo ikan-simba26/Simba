@@ -79,6 +79,9 @@ class Understood:
     day: date | None = None
     reference: str | None = None
     course: str | None = None
+    #: What the goal asks done once the answer is in (2026-10-16): "book" a
+    #: train, "pay" a bill. Read from the words only; a model is not asked.
+    wants: str | None = None
     #: A day the goal named that cannot be travelled on, and why — so the
     #: question that asks for the day can say what was wrong with that one.
     day_problem: "DayReading | None" = None
@@ -421,6 +424,22 @@ def clean_place(text: str | None) -> str | None:
     return words.title() if 0 < len(words) <= 40 else None
 
 
+#: The words that ask for the job finished, not only the answer (2026-10-16).
+#: "Ticket" counts for trains: the router has already decided it is trains.
+WANTS = {
+    "railways": ("book", re.compile(r"\b(book|booking|reserve|ticket|tickets|seat)\b", re.I)),
+    "billing": ("pay", re.compile(r"\bpay\b", re.I)),
+}
+
+
+def wants(flow: str, goal: str) -> str | None:
+    """"book" or "pay" when the goal asks for it, else None."""
+    if flow not in WANTS:
+        return None
+    what, words = WANTS[flow]
+    return what if words.search(goal) else None
+
+
 def by_keywords(flow: str, goal: str, today: date) -> Understood:
     """The offline reader. Only what the flow in hand could use is looked for,
     so a number in a train request is never mistaken for a course."""
@@ -474,7 +493,7 @@ async def understand(
     """What the goal says about this flow. The model if it answers, and the
     keyword reader for whatever it did not say, or for all of it otherwise."""
     today = today or date.today()
-    known = by_keywords(flow, goal, today)
+    known = replace(by_keywords(flow, goal, today), wants=wants(flow, goal))
     if model is None or not goal.strip():
         return known
     try:
@@ -493,6 +512,7 @@ async def understand(
         reference=read.reference or known.reference,
         course=read.course or known.course,
         day_problem=known.day_problem,
+        wants=known.wants,
     )
 
 
@@ -734,12 +754,12 @@ class TripBrief(_Asking):
     def stages(self) -> list[str]:
         return [*voice.TRIP_STAGES, voice.BOOK_STAGE] if self.finishes else voice.TRIP_STAGES
 
-    def offer(self, completed) -> "Offer | None":
-        """Once the trains are found, on a replica: which to book, or none
-        (2026-10-16). From the trains on the closing screen, as they are
-        shown there."""
+    def follow_on(self, completed) -> "FollowOn | None":
+        """Once the trains are found, on a replica: booking one of them
+        (2026-10-16). A quiet second button on the closing screen, or, when
+        the goal said to book, straight on to "Which train?"."""
         from backend.orchestrator.finish_plan import BookingPlanner, booking_task
-        from backend.orchestrator.loop import Offer
+        from backend.orchestrator.loop import FollowOn
 
         found = completed.findings[0] if completed.findings else None
         if found is None or found.label != "Train":
@@ -748,36 +768,17 @@ class TripBrief(_Asking):
             trains = [(row[0], row[1] if len(row) > 1 else "") for row in found.rows if row[0]]
         else:
             trains = [(train, "") for train in found.values or [found.value]]
-        names = [train for train, _ in trains]
         stage = len(voice.TRIP_STAGES)
-        no = StepAction(id=voice.DECLINE_ID, label=voice.JUST_TIMES, kind="primary")
-        if len(trains) < voice.MAX_CHOICES:
-            buttons = voice.choices([voice.train_choice(t, leaves) for t, leaves in trains])
-            fields = []
-            actions = [*buttons[:-1], no, buttons[-1]]
-        else:
-            fields = [StepField(id="train", label=voice.FIELD_TRAIN, type="choice", value="",
-                                options=names)]
-            actions = [*voice.actions(voice.USE_TRAIN)[:1], no, *voice.actions(voice.USE_TRAIN)[1:]]
-        question = Move(instruction=voice.ASK_BOOK, detail="", operations=[],
-                        expect=Expectation(), fields=fields, actions=actions, question=True,
-                        kind="choose", stage=stage)
-
-        def take(action_id: str, input_values: dict[str, str]):
-            index = action_id.removeprefix(voice.CHOICE_PREFIX)
-            if index.isdigit() and int(index) < len(names):
-                train = names[int(index)]
-            elif action_id == voice.CONFIRM_ID and input_values.get("train") in names:
-                train = input_values["train"]
-            else:
-                return None
-            return BookingPlanner(train, stage), replace(booking_task(train), goal=self.goal)
-
-        return Offer(question=question, take=take)
+        return FollowOn(
+            id=voice.BOOK_ID, label=voice.BOOK_ONE, straight=self.wants == "book",
+            take=lambda: (BookingPlanner(trains, stage), replace(booking_task(), goal=self.goal)))
 
     def __init__(self, goal: str, known: Understood, today: date | None = None,
                  hardcoded: bool = True, provider=None) -> None:
         super().__init__(goal)
+        #: "book" when the goal asked for a ticket: straight on once the
+        #: trains are found (2026-10-16).
+        self.wants = known.wants
         self.today = today or date.today()
         #: Each end as the person said it.
         self.places: dict[str, str | None] = {"origin": known.origin,
@@ -1103,33 +1104,27 @@ class BillBrief(_Asking):
     def stages(self) -> list[str]:
         return [*voice.BILL_STAGES, voice.PAY_STAGE] if self.finishes else voice.BILL_STAGES
 
-    def offer(self, completed) -> "Offer | None":
-        """Once the bill is found, on a replica: whether to pay it, or only
-        to know it (2026-10-16)."""
+    def follow_on(self, completed) -> "FollowOn | None":
+        """Once the bill is found, on a replica: paying it (2026-10-16). A
+        quiet second button on the closing screen, or, when the goal said to
+        pay, straight on to the payment page."""
         from backend.orchestrator.finish_plan import PaymentPlanner, payment_task
-        from backend.orchestrator.loop import Offer
+        from backend.orchestrator.loop import FollowOn
 
         if not completed.findings:
             return None
         stage = len(voice.BILL_STAGES)
-        yes = voice.choices([voice.PAY_YES])
-        question = Move(
-            instruction=voice.ASK_PAY, detail="", operations=[], expect=Expectation(),
-            fields=[], question=True, kind="choose", stage=stage,
-            actions=[yes[0], StepAction(id=voice.DECLINE_ID, label=voice.JUST_THE_BILL,
-                                        kind="primary"), yes[-1]])
-
-        def take(action_id: str, input_values: dict[str, str]):
-            if action_id != yes[0].id:
-                return None
-            return PaymentPlanner(stage), replace(payment_task(self.reference), goal=self.goal)
-
-        return Offer(question=question, take=take)
+        return FollowOn(
+            id=voice.PAY_ID, label=voice.PAY_THIS_BILL, straight=self.wants == "pay",
+            take=lambda: (PaymentPlanner(stage),
+                          replace(payment_task(self.reference), goal=self.goal)))
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:
         super().__init__(goal)
         self.reference = known.reference
+        #: "pay" when the goal asked to pay: straight on once the bill is found.
+        self.wants = known.wants
         self._hardcoded = hardcoded
         self._provider = provider
 

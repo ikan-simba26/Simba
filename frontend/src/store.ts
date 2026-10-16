@@ -162,6 +162,11 @@ interface Store {
   askWhat: () => void;
   closeTrust: () => void;
   openProof: () => void;
+  /**
+   * The closing screen's offer pressed (2026-10-16): the run, kept open for
+   * it, goes on to book or pay. Its id is sent as a `step.response`.
+   */
+  takeOffer: () => void;
   closeProof: () => void;
   /** Stop the checklist before its next move. */
   pause: () => void;
@@ -371,7 +376,20 @@ export const useStore = create<Store>((set, get) => {
 
     // Clears the finished task but keeps the remembered goals, so "do
     // something else" lands on the home screen rather than an empty box.
-    startOver: () => set({ ...EMPTY }),
+    startOver: () => {
+      // A run still waiting on the closing screen's offer (2026-10-16) is
+      // over: the connection closes, and the next task opens a new one.
+      if (get().completed?.offer) connection.close();
+      set({ ...EMPTY });
+    },
+
+    takeOffer: () => {
+      const offer = get().completed?.offer;
+      if (!offer) return;
+      connection.respondToStep({ step_index: 0, action_id: offer.id, input_values: {} });
+      // Back to "working" until the booking's or the payment's first screen.
+      set({ completed: null, proofOpen: false, firstScreen: false, state: "thinking" });
+    },
 
     setWsUrl: (wsUrl) => set({ wsUrl }),
 

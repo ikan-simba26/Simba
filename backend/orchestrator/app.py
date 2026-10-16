@@ -260,7 +260,12 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         async with open_page(replica_url) as page:
             await run_brief(page, connection, brief, replica_url, recorder, rules,
                             vault=Vault(), window=window_watch(page), auto=auto)
-        await websocket.close()
+        # The overlay may have closed it already: going back to start from a
+        # closing screen that offered more closes the connection (2026-10-16).
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass
         return
 
     # Only the recovery rig comes this way: a page built to fail, with a plan

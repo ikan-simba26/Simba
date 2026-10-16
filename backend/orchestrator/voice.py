@@ -762,10 +762,13 @@ NO_FINAL_SCREEN = ("I couldn't read from the page exactly what would happen, so 
 
 #: The stage the booking is in, after the trains are found.
 BOOK_STAGE = "Book"
-#: Asked once the trains are on screen, on a replica only.
-ASK_BOOK = "Would you like to book one of these trains?"
-#: The answer that wants only the times: the closing screen, as before.
-JUST_TIMES = "No, just the times"
+#: The quiet second button on a search's closing screen, on a replica only,
+#: and the `step.response` id it sends (2026-10-16). It was a question after
+#: every search, "Would you like to book one of these trains?".
+BOOK_ONE = "Book one of these"
+BOOK_ID = "book"
+#: The booking's first question, from the trains found.
+ASK_WHICH_TRAIN = "Which train would you like to book?"
 #: Finishes choosing a train from a list, when there are too many for buttons.
 USE_TRAIN = "Book this train"
 FIELD_TRAIN = "Train"
@@ -807,8 +810,6 @@ def booked_scope(train: str) -> str:
 #: asked before each thing.
 OPEN_IT = "Open the form"
 FILL_IN = "Fill it in"
-#: Every question that offers to finish a task once its answer is in.
-OFFERS = (ASK_BOOK,)
 TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
 
 
@@ -816,11 +817,9 @@ TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
 
 #: The stage the payment is in, after the bill is found.
 PAY_STAGE = "Pay"
-#: Asked once the bill is on screen, on a replica only.
-ASK_PAY = "Would you like to pay this bill?"
-PAY_YES = "Yes, pay it"
-#: The answer that wants only the bill: the closing screen, as before.
-JUST_THE_BILL = "No, just the bill"
+#: The quiet second button on a bill's closing screen, on a replica only.
+PAY_THIS_BILL = "Pay this bill"
+PAY_ID = "pay"
 DOING_PAYMENT_PAGE = "Opening the payment page"
 OPEN_PAYMENT = "Open the page"
 #: The payment's final screen. It is a practice payment, and says so.
@@ -829,7 +828,6 @@ PAY_IT = "Pay it"
 DONT_PAY = "Don't pay"
 #: The closing line once the site has confirmed the payment.
 PAID_SCOPE = "I paid your bill on the practice site. No card was used."
-OFFERS = (*OFFERS, ASK_PAY)
 
 
 # --- registering, behind the same final screen (2026-10-16) -----------------
