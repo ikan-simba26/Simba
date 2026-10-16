@@ -59,7 +59,8 @@ def test_the_bill_rings_the_amount_and_the_due_date(billing_replica: str) -> Non
 
     end = ending(go(billing_replica, brief, []))
 
-    assert [f["values"] for f in end["findings"]] == [["14,382"], ["15-09-2026"]]
+    # Shown in plain words, found on the page by its own.
+    assert [f["values"] for f in end["findings"]] == [["Rs 14,382"], ["15 September 2026"]]
     rings = end["proof"]["rings"]
     assert len(rings) == 2 and all(inside(r) and r["w"] < 300 for r in rings)
 

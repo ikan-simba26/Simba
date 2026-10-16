@@ -160,8 +160,11 @@ SCRIPTS: dict[str, tuple[list[StepPresented], list[Finding], int]] = {
     "billing": (
         from_plan(BILLING_PLAN),
         [
-            Finding(label="Your bill", value=BILL_AMOUNT, values=[BILL_AMOUNT]),
-            Finding(label="Due", value=BILL_DUE, values=[BILL_DUE]),
+            # In plain words, as the real backend says them (2026-10-16).
+            Finding(label="Your bill", value=voice.rupees(BILL_AMOUNT),
+                    values=[voice.rupees(BILL_AMOUNT)]),
+            Finding(label="Due", value=voice.page_date(BILL_DUE),
+                    values=[voice.page_date(BILL_DUE)]),
         ],
         3,
     ),

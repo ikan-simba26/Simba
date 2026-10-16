@@ -123,6 +123,11 @@ class Answer:
     # (EVALUATION.md, 2026-09-07). None: the whole cell. A cell without that
     # many values gives nothing, never a value worked out from the others.
     part: int | None = None
+    # How a value is said on screen, in plain words (2026-10-16): the bill's
+    # `14,382` as "Rs 14,382", its `15-09-2026` as "15 September 2026". Only
+    # what is shown: what is checked, compared and ringed is the page's own
+    # text. None: as the page wrote it.
+    plain: Callable[[str], str] | None = None
 
 
 def part_of(cell: str, part: int | None) -> str:

@@ -51,9 +51,11 @@ def bill_task(reference: str) -> Task:
         # back: the bill it shows carries a reference number of its own, and it
         # has to be the one that was asked about. See `Shown`.
         about=About(
+            # Said in plain words (2026-10-16): "Rs 14,382", "15 September
+            # 2026". Read, compared and ringed as the page prints them.
             finds=(
-                Answer("Your bill", reads="P/WITHIN"),
-                Answer("Due", reads="DUE DT"),
+                Answer("Your bill", reads="P/WITHIN", plain=voice.rupees),
+                Answer("Due", reads="DUE DT", plain=voice.page_date),
             ),
             shows=(Shown(reads="REF NO", says=reference),),
         ),

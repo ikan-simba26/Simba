@@ -373,17 +373,18 @@ def test_times_that_cannot_be_read_mark_nothing(browser, overlay: str,  # noqa: 
 def test_a_bill_is_a_slip_with_its_amount_and_what_supports_it(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
+    # In plain words, as the backend now sends them (2026-10-16).
     page = end(browser, overlay, backend, completed(
-        "Your bill is 14,382, and it is due on 15-10-2026.", [
-            {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
-            {"label": "Due", "value": "15-10-2026", "values": ["15-10-2026"]},
+        "Your bill is Rs 14,382, due 15 October 2026.", [
+            {"label": "Your bill", "value": "Rs 14,382", "values": ["Rs 14,382"]},
+            {"label": "Due", "value": "15 October 2026", "values": ["15 October 2026"]},
         ]))
 
     found = page.get_by_test_id("findings")
     assert found.get_attribute("data-shape") == "slip"
-    assert page.locator("[data-testid=findings] p").inner_text().split() == ["Due",
-                                                                            "15-10-2026"]
-    assert page.get_by_text("14,382", exact=True).count() == 1
+    assert page.locator("[data-testid=findings] p").inner_text().split() == [
+        "Due", "15", "October", "2026"]
+    assert page.get_by_text("Rs 14,382", exact=True).count() == 1
 
 
 
@@ -531,8 +532,9 @@ def test_the_answer_can_be_seen_on_the_real_page(
     from frontend.test_terminal_states import PROOF
 
     rings = [{"x": 728, "y": 143, "w": 118, "h": 17}, {"x": 949, "y": 143, "w": 118, "h": 17}]
-    script = completed("Your bill is 14,382, and it is due on 15-09-2026.", [
-        {"label": "Your bill", "value": "14,382"}, {"label": "Due", "value": "15-09-2026"}])
+    script = completed("Your bill is Rs 14,382, due 15 September 2026.", [
+        {"label": "Your bill", "value": "Rs 14,382"},
+        {"label": "Due", "value": "15 September 2026"}])
     script[-1][1]["proof"] = {**PROOF, "rings": rings}
     page = end(browser, overlay, backend, script)
 

@@ -241,7 +241,7 @@ def test_no_to_cookies_leaves_them_and_still_finds_the_bill(
     done = run(inner())
 
     assert "task.failed" not in done.types()
-    assert done.of("task.completed")[0]["findings"][0]["values"] == ["14,382"]
+    assert done.of("task.completed")[0]["findings"][0]["values"] == ["Rs 14,382"]
     assert done.searched is True  # the banner was never accepted
 
 

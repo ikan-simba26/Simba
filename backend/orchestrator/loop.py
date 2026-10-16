@@ -400,11 +400,19 @@ def findings_in(
                        for row in read]
             if task.about.per_row is not None:
                 rows[:] = [task.about.per_row(row) for row in rows]
-    findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
-                        values=known[answer.name])
+    # Said in plain words where the task says how (`Answer.plain`,
+    # 2026-10-16); `known` keeps the page's own text, which is what is
+    # compared and ringed.
+    def shown(answer, values: list[str]) -> list[str]:
+        return [answer.plain(v) for v in values] if answer.plain else list(values)
+
+    findings = [Finding(label=answer.name, value=voice.found(shown(answer, known[answer.name])),
+                        values=shown(answer, known[answer.name]))
                 for answer in task.about.finds if answer.name in known]
     if rows and findings and findings[0].label == task.about.finds[0].name:
-        findings[0].rows = [[row.get(finding.label, "") for finding in findings]
+        plain = {answer.name: answer.plain for answer in task.about.finds}
+        findings[0].rows = [[(plain[f.label] or str)(row[f.label]) if row.get(f.label) else ""
+                             for f in findings]
                             for row in rows]
     return findings
 
@@ -1414,7 +1422,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     # The proof: a still of the page as it is now, what was read ringed.
     try:
         proof, proof_note = await asyncio.wait_for(
-            take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said)),
+            take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said,
+                                           found)),
             PROOF_DEADLINE_S)
     except asyncio.TimeoutError:
         proof, proof_note = None, voice.NO_PROOF_PICTURE
@@ -1465,7 +1474,8 @@ def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") 
 
 def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, str]],
                   confirmation: tuple[str, str | None] | None,
-                  caveat: str | None = None) -> list[tuple[str, bool] | tuple[str, bool, bool]]:
+                  caveat: str | None = None, found: dict[str, list[str]] | None = None,
+                  ) -> list[tuple[str, bool] | tuple[str, bool, bool]]:
     """What to ring on the closing picture: each result's row, by its first
     value, when there are several; otherwise each value shown, on its own; a
     change's confirmation heading, the row its reference is in, and the
@@ -1473,11 +1483,13 @@ def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, st
     targets: list[tuple[str, bool] | tuple[str, bool, bool]] = []
     # Several results: each one's row. One result — a bill — its values
     # themselves, so the ring is round the amount, not round the whole line.
+    # Found by the page's own text, not the plain words they are shown in.
     if len(rows) > 1 and findings:
         targets += [(row[findings[0].label], True) for row in rows
                     if row.get(findings[0].label)]
     else:
-        targets += [(value, False) for finding in findings for value in finding.values]
+        targets += [(value, False) for finding in findings
+                    for value in (found or {}).get(finding.label, finding.values)]
     if confirmation is not None:
         heading, reference = confirmation
         targets.append((heading, False))

@@ -108,8 +108,8 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
     `task.completed` can only have come from remembering them. Until
     2026-09-17 nothing tested that the answer reached the end at all.
 
-    The due date is exactly as the page wrote it. Nothing reformats a found
-    value (STATUS.md).
+    Said in plain words since 2026-10-16 — "Rs 14,382", "15 September
+    2026" — from the page's own figures; nothing else about a value changes.
     """
     connection = drive(HardcodedPlanner(BILLING_PLAN), BILLING_TASK, billing_replica)
 
@@ -119,9 +119,10 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
         # list the closing screen shows. One value, so they say the same thing.
         # And the bill's one table row whole, on the first finding: the amount
         # and the date due, from the same row (2026-10-05).
-        {"label": "Your bill", "value": "14,382", "values": ["14,382"],
-         "rows": [["14,382", "15-09-2026"]]},
-        {"label": "Due", "value": "15-09-2026", "values": ["15-09-2026"], "rows": []},
+        {"label": "Your bill", "value": "Rs 14,382", "values": ["Rs 14,382"],
+         "rows": [["Rs 14,382", "15 September 2026"]]},
+        {"label": "Due", "value": "15 September 2026", "values": ["15 September 2026"],
+         "rows": []},
     ]
     # And it was shown while the run was still going, from the step it turned up on.
     assert connection.of("step.presented")[-1]["findings"] == completed["findings"]

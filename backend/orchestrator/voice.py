@@ -28,6 +28,7 @@ Imports nothing but the schema, so a plan, the mock backend and a test can
 all use it without pulling in a browser.
 """
 
+import datetime
 import re
 
 from shared.schema import StepAction
@@ -485,15 +486,46 @@ def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
     return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
 
 
+_AMOUNT = re.compile(r"\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?")
+_PAGE_DATE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
+_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"]
+
+
+def rupees(amount: str) -> str:
+    """An amount the billing site prints bare, `14,382`, as `Rs 14,382`
+    (2026-10-16). The site says all its amounts are in Pakistani Rupees; it
+    puts no sign beside them. The figures are the page's own; anything that
+    is not a plain amount is as the page wrote it."""
+    text = amount.strip()
+    return f"Rs {text}" if _AMOUNT.fullmatch(text) else amount
+
+
+def page_date(text: str) -> str:
+    """A date the billing site writes `15-09-2026`, day first, as `15
+    September 2026` (2026-10-16). Anything else, or a day that is not in the
+    calendar, as the page wrote it."""
+    match = _PAGE_DATE.fullmatch(text.strip())
+    if match is None:
+        return text
+    day, month, year = int(match[1]), int(match[2]), int(match[3])
+    try:
+        datetime.date(year, month, day)
+    except ValueError:
+        return text
+    return f"{day} {_MONTHS[month - 1]} {year}"
+
+
 def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]],
                  rows: list[dict[str, str]] | None = None) -> str | None:
-    """The amount and the date it is due, in the page's own figures."""
+    """The amount and the date it is due, in plain words from the page's own
+    figures: "Your bill is Rs 14,382, due 15 September 2026." """
     amount, due = found.get("Your bill") or [], found.get("Due") or []
     if len(amount) != 1 or not _readable(*amount):
         return None
     if len(due) == 1 and _readable(*due):
-        return f"Your bill is {amount[0]}, and it is due on {due[0]}."
-    return f"Your bill is {amount[0]}."
+        return f"Your bill is {rupees(amount[0])}, due {page_date(due[0])}."
+    return f"Your bill is {rupees(amount[0])}."
 
 
 #: The closing screen's last line, for a search: what was done and what was
