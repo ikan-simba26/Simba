@@ -1354,6 +1354,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         await set_state("thinking")
         elements, before, view = await perceive(page)
         findings = findings_in(before, task, found, rows)
+        # A task that changes something has no answer to show on the way: what
+        # it reads is its receipt, from the confirmation, shown at the end.
+        # On the booking form "Here's what I found: 7UP" pushed the name
+        # question past a 1280x800 window (2026-10-16, in the real window).
+        if task.confirms is not None:
+            findings = []
         said_so_far(before, task, seen)
 
         # Durable verification: everything typed so far has to *still* be

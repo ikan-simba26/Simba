@@ -140,3 +140,15 @@ def test_a_booking_the_site_does_not_confirm_is_not_done(
     help = done.of("help.requested")[0]
     assert help["unconfirmed"] is True
     assert help["reason"] == voice.not_confirmed("Confirm Booking", "site")
+
+
+def test_nothing_is_shown_as_found_on_the_way_to_a_booking(railways: str) -> None:  # noqa: F811
+    """The booking's steps carry no findings: what it reads is its receipt,
+    shown at the end. "Here's what I found: 7UP" on the name question ran it
+    past a 1280x800 window in the real window (2026-10-16)."""
+    done = go(railways, journey(), list(BOOK_FIRST))
+
+    for instruction in (voice.ASK_PASSENGER, voice.ASK_CLASS, voice.final_book("7UP")):
+        assert shown(done, instruction)["findings"] == [], instruction
+    # The offer itself still shows the trains it is about.
+    assert shown(done, voice.ASK_BOOK)["findings"][0]["values"] == ["7UP", "8DN"]

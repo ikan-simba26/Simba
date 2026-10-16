@@ -502,6 +502,10 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         // The picture was of the previous step; it is stale now.
         preview: null,
         trustOpen: false,
+        // A final screen keeps its own layout at every level (2026-10-16):
+        // "I've made this smaller so it fits", carried over from the screen
+        // before, was untrue on it, and hid where the person is.
+        ...((message.payload as StepPresented).final ? { levelNotice: null } : {}),
       }));
       return;
     case "history.offered":

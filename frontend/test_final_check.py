@@ -175,14 +175,34 @@ OFFER = {
 }
 
 
+#: The booking's two questions, as the backend sends them: no findings on
+#: the way to a change (2026-10-16).
+NAME = {**OFFER, "step_index": 8, "step_kind": "type", "findings": [],
+        "instruction": "What name should the ticket be in?",
+        "detail": "Type it as it is on your ID card.",
+        "fields": [{"id": "passenger", "label": "Name", "type": "text", "value": ""}],
+        "actions": [{"id": "confirm", "label": "Use this name", "kind": "primary"},
+                    {"id": "cancel", "label": "Stop this", "kind": "secondary"}]}
+CLASS = {**OFFER, "step_index": 9, "findings": [],
+         "instruction": "Which class would you like?",
+         "detail": "These are the classes the booking form offers.",
+         "actions": [{"id": "choice:0", "label": "Economy", "kind": "primary"},
+                     {"id": "choice:1", "label": "AC Standard", "kind": "primary"},
+                     {"id": "choice:2", "label": "AC Business", "kind": "primary"},
+                     {"id": "cancel", "label": "Stop this", "kind": "secondary"}]}
+QUESTIONS = {"offer": OFFER, "name": NAME, "class": CLASS}
+
+
+@pytest.mark.parametrize("question", list(QUESTIONS))
 @pytest.mark.parametrize("size", list(SIZES), ids=list(SIZES))
-def test_the_offer_to_book_fits(browser, overlay: str, backend: Backend,  # noqa: F811
-                                size: str) -> None:
+def test_the_booking_questions_fit(browser, overlay: str, backend: Backend,  # noqa: F811
+                                   size: str, question: str) -> None:
     width, height, scale = SIZES[size]
     page = browser.new_page(viewport={"width": width, "height": height},
                             device_scale_factor=scale)
+    step = QUESTIONS[question]
     backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": STAGES}),
-                      ("state.changed", {"state": "waiting"}), ("step.presented", OFFER),
+                      ("state.changed", {"state": "waiting"}), ("step.presented", step),
                       (AWAIT_RESPONSE, {})]
     try:
         page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
@@ -190,9 +210,46 @@ def test_the_offer_to_book_fits(browser, overlay: str, backend: Backend,  # noqa
         page.get_by_role("button", name="Start").click()
         page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
         page.wait_for_timeout(1800)  # past the guard
-        for action in OFFER["actions"]:
+        for action in step["actions"]:
             box = page.get_by_role("button", name=action["label"], exact=True).bounding_box()
             assert box and box["y"] + box["height"] <= height, (size, action["label"], box)
         assert page.evaluate("document.scrollingElement.scrollHeight <= innerHeight"), size
+    finally:
+        page.close()
+
+
+FIRST = {"step_index": 8, "step_total": 9, "stage": 5, "instruction": "Which class would you like?",
+         "detail": "", "fields": [], "requires_confirmation": True, "findings": [],
+         "actions": [{"id": "choice:0", "label": "Economy", "kind": "primary"},
+                     {"id": "choice:1", "label": "AC Standard", "kind": "primary"},
+                     {"id": "cancel", "label": "Stop this", "kind": "secondary"}]}
+
+
+def test_no_level_notice_is_carried_onto_the_final_screen(browser, overlay: str,  # noqa: F811
+                                                          backend: Backend) -> None:
+    """A level change just before it — the rules folding the screen before,
+    as the guard's "I've made this smaller so it fits." did in the real
+    window — is not shown on the final screen, which keeps its own layout
+    whatever the level (2026-10-16)."""
+    page = browser.new_page(viewport={"width": 1280, "height": 800})
+    backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": STAGES}),
+                      ("state.changed", {"state": "waiting"}), ("step.presented", FIRST),
+                      (AWAIT_RESPONSE, {}),
+                      ("load.updated", {"score": 0.8, "level": 3, "reason": "test"}),
+                      ("step.presented", BOOKING), (AWAIT_RESPONSE, {})]
+    try:
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", GOAL)
+        page.get_by_role("button", name="Start").click()
+        page.get_by_role("button", name="AC Standard").click()
+        # The screen before fades out beside it: wait until it has gone.
+        page.wait_for_function(
+            "document.querySelectorAll('[data-testid=final-check]').length === 1",
+            timeout=15000)
+        page.wait_for_timeout(1200)
+        shown = page.get_by_test_id("final-check").inner_text()
+        assert "showing less" not in shown and "smaller" not in shown, shown
+        # Where the person is shows instead.
+        assert "Book" in shown
     finally:
         page.close()
