@@ -4682,6 +4682,29 @@ book or pay goes straight on, with no closing screen between.
   reserve, ticket, tickets or seat for trains; pay for a bill ("payment due"
   is not asking to pay). A model is not asked.
 
+## A registration the portal qualifies is not "That's done."
+
+**Date:** 2026-10-16 (asked for: "You're registered for CS-401. The portal
+says it isn't final until fees are paid.")
+
+- **Said in the task's plain words, only when the page says it.** The
+  registration's confirmation names a phrase ("not final until") and a
+  plain version of it ("it isn't final until fees are paid"). The plain
+  version is said only when the portal's own sentence holding the phrase is
+  on the final page; otherwise nothing is said. The portal's whole sentence
+  is no longer quoted on the screen (it is ringed on the proof picture): two
+  versions of one warning was one too many. This drops "tuition" and "or a
+  payment plan is in place" from what is read on screen. **Flagged.**
+- **The heading is what the portal confirmed** ("You're registered for
+  CS-401."), with the tick, and the plain caveat straight under it; the
+  confirmation quote and the proof follow. "That's done." stays for a change
+  the site does not qualify.
+- **A booking and a payment keep "That's done."** Their caveats ("No real
+  ticket was booked and no money was taken", "No money was taken") are about
+  the practice site, not conditions on the change, and are still quoted.
+  **Flagged**: on a real site they would not exist; on ours, "That's done."
+  beside "no real ticket was booked" may read oddly.
+
 ## A press on a button that has just arrived is ignored
 
 **Date:** 2026-10-16 (asked for: "a press on a button that moved or appeared

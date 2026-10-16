@@ -284,6 +284,10 @@ class Confirmation:
     # breath, says it is not final until fees are paid. Never said unless the
     # page says it.
     caveat: str | None = None
+    # The caveat in a few plain words, said for it when the page says it —
+    # "it isn't final until fees are paid" — and then the closing screen
+    # does not say "That's done." (2026-10-16). None: the sentence is quoted.
+    caveat_plain: str | None = None
     # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
     who: str = "portal"
 
@@ -467,7 +471,8 @@ class CoursePlanner:
         if self.chosen is None:
             return task
         return replace(task, about=About(shows=(Shown(reads="Course", says=self.chosen),)),
-                       scope=voice.explain_course(self.chosen))
+                       scope=voice.explain_course(self.chosen),
+                       heading=voice.registered(self.chosen))
 
 
 class HardcodedPlanner:

@@ -1679,7 +1679,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
-            caveat=(voice.site_also_says(caveat_said, task.confirms.who)
+            caveat=(voice.site_qualifies(caveat_said, task.confirms)
                     if caveat_said and task.confirms else None),
             proof=proof,
             proof_note=proof_note,

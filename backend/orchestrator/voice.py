@@ -852,3 +852,22 @@ NOT_ON_REAL_SITE_BILL = "I only looked at your bill. I don't pay bills on the re
 #: Never, on any site.
 NO_PAYMENT_DETAILS = ("This page asks for card or bank details. I never type those, so I've "
                       "stopped. Nothing was paid.")
+
+
+# --- a change the site qualifies (2026-10-16) --------------------------------
+
+
+def registered(course: str) -> str:
+    """Above a registration the portal confirmed, in place of "That's done."
+    when the portal says it is not final."""
+    return f"You're registered for {course}."
+
+
+def site_qualifies(sentence: str, confirms) -> str:
+    """What the site says against what it confirmed: in the task's plain words
+    when it has them — "The portal says it isn't final until fees are paid."
+    — else its own sentence, quoted. Only ever called when the page says it."""
+    plain = getattr(confirms, "caveat_plain", None)
+    if plain:
+        return f"The {confirms.who} says {plain}."
+    return site_also_says(sentence, confirms.who)

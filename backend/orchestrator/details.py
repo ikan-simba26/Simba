@@ -1222,7 +1222,10 @@ class CourseBrief(_Asking):
             # confirmation on the page, which is quoted.
             confirms=Confirmation(heading="Registration Confirmed",
                                   reads="Confirmation number",
-                                  caveat="not final until"),
+                                  caveat="not final until",
+                                  caveat_plain="it isn't final until fees are paid"),
+            # Said instead of "That's done." when the portal qualifies it.
+            heading=voice.registered(self.course) if self.course else None,
         )
 
     def _plan(self) -> tuple[Planner, Task]:

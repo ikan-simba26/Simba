@@ -256,9 +256,10 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "confirmation": ("The portal says “Registration Confirmed”, with "
                              "confirmation number REG-10234-2026."),
             # And what it says against it (2026-10-16).
-            # And what it says against it (2026-10-16).
-            "caveat": ("The portal also says “Registration is not final until tuition "
-                       "and fees are paid or a payment plan is in place”."),
+            # Not "That's done." (2026-10-16): what it confirmed, and what it
+            # says against it.
+            "heading": "You're registered for CS-401.",
+            "caveat": "The portal says it isn't final until fees are paid.",
             "proof": PROOF,
         }),
     ],

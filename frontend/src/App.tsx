@@ -859,6 +859,12 @@ function Completed() {
 function ChangeDone() {
   const { completed } = useStore();
   const receipt = completed?.findings ?? [];
+  // When the site qualifies what it confirmed — "not final until fees are
+  // paid" — the screen does not say "That's done." (2026-10-16). It says what
+  // the site confirmed, and, straight under it, what the site says against
+  // it: "You're registered for CS-401. The portal says it isn't final until
+  // fees are paid." Both are the backend's words (`heading`, `caveat`).
+  const qualified = Boolean(completed?.heading && completed?.caveat);
   return (
     <div className="flex flex-col items-start gap-5 short:gap-3" data-testid="change-done">
       <div className="flex items-center gap-5">
@@ -867,11 +873,13 @@ function ChangeDone() {
           <CheckIcon size={34} />
         </span>
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink
-                       short:text-heading">
-          {ENDING.withoutAnswer}
+                       short:text-heading" data-testid="done-heading">
+          {qualified ? completed?.heading : ENDING.withoutAnswer}
         </h1>
       </div>
-      {completed?.scope && (
+      {qualified ? (
+        <p className="text-lead font-medium text-ink" data-testid="caveat">{completed?.caveat}</p>
+      ) : completed?.scope && (
         <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
       )}
       <p className="border-l-4 border-accent pl-5 text-body text-ink" data-testid="confirmation">
@@ -892,7 +900,7 @@ function ChangeDone() {
       )}
       {/* What the site says against it, in its own words: never more than
           the site says (2026-10-16). */}
-      {completed?.caveat && (
+      {completed?.caveat && !qualified && (
         <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
           {completed.caveat}
         </p>
