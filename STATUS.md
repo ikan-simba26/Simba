@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-16 · **1253 passing, 12 skipped, 0 failed** · backend 856 in 748s, frontend 397 in 851s (run as two halves; one backend test failed in the run, a registration's step count, fixed and its files rerun, 113 of 113), on `feat/proof`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%, the real host). 44 tests added since 1209 (2026-10-15). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-16 · **1291 passing, 12 skipped, 0 failed** · backend 860 in 736s, frontend 431 in 830s (run as two halves: the two `test_checklist.py` files cannot be collected in one run; the first full run had 1 failure, a test still expecting the bill as "14,382", fixed and the whole suite rerun), on `feat/proof`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), now covering 25 endings and the sign-in screen. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,29 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-16 (later): finishing proof, and merged
+
+On `feat/proof`, one commit per item, then **merged into `main`** after a
+clean full suite and host fit test (EVALUATION.md, 2026-10-16b).
+
+- **The portal's caveat is quoted** under its confirmation, its sentence
+  whole: "Registration is not final until tuition and fees are paid or a
+  payment plan is in place" (`task.completed.caveat`, additive).
+- **Cookies are a question**: "This site asks about cookies. Shall I say
+  yes?" — Yes, No, and the way to stop. No leaves the banner and carries on.
+- **A bill in plain words**: "Rs 14,382, due 15 September 2026". Checked and
+  ringed by the page's own text.
+- **One way to see the page**: "What are you doing?" during a task (close-up,
+  whole page inside); "See it on the real page" at the end. "Show the real
+  page" and the picture asked for with every step are gone.
+- **"Back to start"**, one button, on every ending.
+- **The host fit test** covers 25 endings and the sign-in screen at three
+  scales. It found nine ticketed trains 179px below a 1280x800 window; the
+  closing screen now gives up results until it fits.
+- **Open, flagged:** "That's done." beside "not final until fees are paid";
+  the sign-in screen still needs level 1 at 100% and 150%; Yes is the filled
+  button on the cookie question.
 
 ### Changed on 2026-10-16: proof — the answer on the real page, and never more than was done
 
@@ -990,7 +1013,7 @@ On `feat/railways-ask`, **not merged**.
   0.55 → 0.8, the level-2 step count 0.4 → 0.75, the resting level dots
   0.4 → 0.7. Each was under a contrast rule before.
 - **Nobody from the audience has seen the redesign.**
-- **"I'm done" and "Do something else" go to the same place.**
+- ~~**"I'm done" and "Do something else" go to the same place.**~~ **One "Back to start" since 2026-10-16.**
 - **The stuck screen still shows the technical reason** in small type. In the
   2026-09-17 run that reason would have told the person the date had been
   lost, when it had been set correctly.
@@ -1022,7 +1045,7 @@ On `feat/railways-ask`, **not merged**.
   progress can show "and 2 more" for a while before the ending shows them.
 - "I'm showing a bit more again." is also what an overflow drop says.
 - "Step 2 of 6" uses a word `copy.ts` forbids.
-- A found value is shown as the page wrote it (`15-09-2026`).
+- ~~A found value is shown as the page wrote it (`15-09-2026`).~~ **A bill's are said in plain words since 2026-10-16**; a train's times are still the page's.
 - Home-screen history is stale after a task (`CONTRACT.md`).
 - A backend that dies mid-task leaves "Give me a moment." on screen with
   nothing to press.

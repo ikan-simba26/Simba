@@ -4473,3 +4473,37 @@ in the person's words: a model cannot ask from a page.
 - **A ticket's cells wrap** onto a second line rather than widen the column.
 - **A registration's count** includes the course question only when the goal
   named no course, whichever planner asks it.
+
+## Finishing proof: the details nobody asked for, 2026-10-16
+
+**Date:** 2026-10-16 (the six items were asked for; these details were not)
+
+- **The portal's caveat is found by a phrase the task names**
+  (`Confirmation.caveat`, "not final until") and quoted as the whole sentence
+  that holds it, exactly as the page writes it, with its full stop moved
+  outside the quotation marks: 'The portal also says "Registration is not
+  final until tuition and fees are paid or a payment plan is in place".' Not
+  said at all when the page does not say it. Its paragraph is ringed on the
+  proof picture. A new optional field, `task.completed.caveat`, rather than a
+  second sentence inside `confirmation`, so the overlay can show it under the
+  confirmation. **"That's done." stays the heading** beside it; flagged.
+- **The cookie question keeps "Stop this"** under Yes and No. The rule that
+  every step offers the same way to stop is older than this item, and Yes and
+  No are both answers that carry on. No (`voice.DECLINE_ID`) leaves the
+  banner as it is; the bill is still looked up behind it. The step's detail
+  line, which said the same thing again, is gone. Yes is the filled button and
+  No the quieter one, as every question's first answer is; flagged.
+- **A bill in plain words**: `Answer.plain` changes only what is shown. "Rs"
+  because the site says all its amounts are in Pakistani Rupees, though it
+  prints none beside them; a date only in the site's own `dd-mm-yyyy`, with
+  the year always said; anything else as the page wrote it. The sentence is
+  now "Your bill is Rs 14,382, due 15 September 2026." The mock says the same.
+- **One way to see the page**: "What are you doing?" is the one button during
+  a step (it was already the one that opens the close-up, and the help signal
+  the estimator reads). The picture asked for with every step went with "Show
+  the real page", since it was only for the page behind the step; the panel
+  now waits for its picture after the press, as it did before 2026-10-07.
+- **"Back to start"** is one full-width button under every ending.
+- **A closing screen that does not fit gives up results until it does**,
+  measured after layout, at most eight. The fixed counts stay as the first
+  guess. The registration's ending puts its mark beside "That's done.".

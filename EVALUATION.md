@@ -5390,3 +5390,51 @@ frontend 397 in 851s, as two halves; the host window-fit test 3 of 3 with
 `SIMBA_HOST_TESTS=1`. The run found 1 failure: a registration that named its
 course was counted as four steps where it shows three; fixed, and its files
 rerun, 113 of 113.
+
+## 2026-10-16b — finishing proof: the caveat, cookies, plain words, one way to see, one way on
+
+On `feat/proof`. Headless figures from the suite; real-window figures from
+`frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1` and
+`python -m tools.evaluation.display_fit_run` (forced 100%, 125%, 150%).
+
+**The portal's caveat.** On the registration replica, registering for
+MATH-210 now ends with 'The portal also says "Registration is not final
+until tuition and fees are paid or a payment plan is in place".', the
+portal's sentence whole, and 3 rings on the proof picture (the heading, the
+confirmation number's row, the caveat's paragraph). Words the page does not
+use give no caveat (tested with "subject to a refund").
+
+**Cookies, Yes or No.** On the billing replica, No leaves the banner on the
+page (`#cookie-bar` still visible at the end) and the bill is still found,
+`Rs 14,382`.
+
+**The closing screen in the real window**, 25 endings (was 17) and the
+sign-in screen, at three forced scales:
+
+| scale | window (CSS) | endings, all buttons on screen, none scrolling | lowest button of any ending | sign-in screen: level it settled at, lowest button, scrolls |
+|---|---|---|---|---|
+| 100% | 1280x800 | 25 of 25 | 759 | level 1, 734, no |
+| 125% | 1280x760 | 25 of 25 | 584 | level 2, 688, no |
+| 150% | 1266x632 | 25 of 25 | 584 | level 1, 588, no |
+
+The sign-in screen still needs the guard's silent step to level 1 at 100%
+and 150% (as on 2026-10-16, before "Show the real page" left the row under
+the card). Site-view captures were 12/20, 11/20 and 20/20, the known 100%
+capture problem (2026-09-27), not asserted.
+
+**Found by the new endings.** Nine trains as tickets with next-day arrivals
+— the live site's real shape — put the way on 179px below a 1280x800
+window (lowest button 979): a ticket that wraps is two lines, and the counts
+assumed one. The closing screen now gives up a result at a time, measured
+after layout, until it fits. And with the caveat, the registration's ending
+scrolled a 1266x606 window; its mark now sits beside the heading.
+
+**The suite.** First run: 1 failed, 1290 passed, 12 skipped (backend 859 in
+736s, frontend 431 in 826s, as two halves; the root `test_checklist.py` names
+collide, so one run cannot collect both). The failure was a test that still
+expected the bill as "14,382" after it became "Rs 14,382"; fixed, and the
+whole suite run again (below).
+
+The whole suite again, after the fix: **1291 passed, 12 skipped, 0 failed**
+(backend 860 in 736s, frontend 431 in 830s). The host window-fit test, 3 of
+3, on the same frontend.
