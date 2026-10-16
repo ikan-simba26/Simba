@@ -615,16 +615,18 @@ MASK_COLOUR = "#8c7a66"
 PROOF_DEADLINE_S = 8.0
 
 #: Where on the page each thing read is: the smallest element whose whole
-#: text is the value, or its table row, in the page's own coordinates.
+#: text is the value, or its table row, in the page's own coordinates. A
+#: sentence quoted from a paragraph (`within`) is the smallest element that
+#: holds it.
 RINGS_JS = """(targets) => {
   const shown = [...document.querySelectorAll('body *')].filter(e => {
     const r = e.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
   });
   const text = (e) => (e.innerText || '').trim().replace(/\\s+/g, ' ');
-  return targets.map(([want, row]) => {
-    const exact = shown.filter(e => text(e) === want &&
-      ![...e.children].some(c => text(c) === want));
+  return targets.map(([want, row, within]) => {
+    const has = (e) => within ? text(e).includes(want) : text(e) === want;
+    const exact = shown.filter(e => has(e) && ![...e.children].some(has));
     const el = exact[0];
     if (!el) return null;
     const box = (row && el.closest('tr')) || el;
@@ -632,6 +634,23 @@ RINGS_JS = """(targets) => {
     return {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
   });
 }"""
+
+
+#: Every sentence of the page's visible text, as the page writes it.
+SENTENCES_JS = """() => (document.body.innerText || '')
+  .split(/\\n+/).flatMap(line => line.split(/(?<=[.!?])\\s+/))
+  .map(s => s.trim().replace(/\\s+/g, ' ')).filter(Boolean)"""
+
+
+async def site_sentence(page: Page, words: str) -> str | None:
+    """The page's own sentence holding these words, exactly as it wrote it,
+    or None when the page does not say them (2026-10-16)."""
+    try:
+        sentences = await page.evaluate(SENTENCES_JS)
+    except PlaywrightError:
+        return None
+    wanted = words.casefold()
+    return next((s for s in sentences if wanted in s.casefold()), None)
 
 
 #: The longest a picture of the page may take before it is dropped
@@ -1381,11 +1400,15 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                                          reference)
         confirmed = (next(text for text in headings if task.confirms.heading in text),
                      reference)
+    # And what the site says against it, in its own sentence (2026-10-16):
+    # "not final until tuition and fees are paid". Only if it says it.
+    caveat_said = (await site_sentence(page, task.confirms.caveat)
+                   if task.confirms is not None and task.confirms.caveat else None)
 
     # The proof: a still of the page as it is now, what was read ringed.
     try:
         proof, proof_note = await asyncio.wait_for(
-            take_proof(page, proof_targets(task, findings, rows, confirmed)),
+            take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said)),
             PROOF_DEADLINE_S)
     except asyncio.TimeoutError:
         proof, proof_note = None, voice.NO_PROOF_PICTURE
@@ -1413,6 +1436,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
+            caveat=voice.site_also_says(caveat_said) if caveat_said else None,
             proof=proof,
             proof_note=proof_note,
         ),
@@ -1434,11 +1458,13 @@ def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") 
 
 
 def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, str]],
-                  confirmation: tuple[str, str | None] | None) -> list[tuple[str, bool]]:
+                  confirmation: tuple[str, str | None] | None,
+                  caveat: str | None = None) -> list[tuple[str, bool] | tuple[str, bool, bool]]:
     """What to ring on the closing picture: each result's row, by its first
     value, when there are several; otherwise each value shown, on its own; a
-    change's confirmation heading, and the row its reference is in."""
-    targets: list[tuple[str, bool]] = []
+    change's confirmation heading, the row its reference is in, and the
+    paragraph its caveat is quoted from."""
+    targets: list[tuple[str, bool] | tuple[str, bool, bool]] = []
     # Several results: each one's row. One result — a bill — its values
     # themselves, so the ring is round the amount, not round the whole line.
     if len(rows) > 1 and findings:
@@ -1451,11 +1477,13 @@ def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, st
         targets.append((heading, False))
         if reference:
             targets.append((reference, True))
-    seen: set[tuple[str, bool]] = set()
+    if caveat:
+        targets.append((caveat, False, True))
+    seen: set[tuple] = set()
     return [t for t in targets if not (t in seen or seen.add(t))]
 
 
-async def take_proof(page: Page, targets: list[tuple[str, bool]]
+async def take_proof(page: Page, targets: list[tuple[str, bool] | tuple[str, bool, bool]]
                      ) -> tuple[Proof | None, str | None]:
     """A still of the page with every target ringed, or why there is none.
 

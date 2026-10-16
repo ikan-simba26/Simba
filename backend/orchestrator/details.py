@@ -1144,7 +1144,8 @@ class CourseBrief(_Asking):
             # Registering changes a record: done only with the portal's own
             # confirmation on the page, which is quoted.
             confirms=Confirmation(heading="Registration Confirmed",
-                                  reads="Confirmation number"),
+                                  reads="Confirmation number",
+                                  caveat="not final until"),
         )
 
     def _plan(self) -> tuple[Planner, Task]:

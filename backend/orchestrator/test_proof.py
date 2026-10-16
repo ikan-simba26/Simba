@@ -70,7 +70,8 @@ def test_a_registration_rings_the_portals_confirmation(replica: str) -> None:  #
     end = ending(go_signed_in(replica, brief, []))
 
     assert end["confirmation"].endswith("confirmation number REG-10301-2026.")
-    assert len(end["proof"]["rings"]) == 2  # the heading, and the number's row
+    # The heading, the number's row, and the caveat's paragraph.
+    assert len(end["proof"]["rings"]) == 3
 
 
 def test_what_was_read_on_a_page_since_left_has_no_picture(

@@ -227,6 +227,11 @@ export interface TaskCompleted {
    */
   confirmation?: string;
   /**
+   * Additive and optional (2026-10-16). What the site says against that
+   * confirmation, its own sentence quoted whole. Only when the page says it.
+   */
+  caveat?: string;
+  /**
    * Additive and optional (2026-10-16). The real page when the task closed,
    * with every row or value shown ringed.
    */

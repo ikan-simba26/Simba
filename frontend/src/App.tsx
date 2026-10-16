@@ -782,6 +782,13 @@ function Completed() {
               {unbroken(completed.confirmation)}
             </p>
           )}
+          {/* And what the site says against it, in its own words: never more
+              than the site says (2026-10-16). */}
+          {completed?.caveat && (
+            <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
+              {completed.caveat}
+            </p>
+          )}
           <ProofLine />
         </div>
       )}

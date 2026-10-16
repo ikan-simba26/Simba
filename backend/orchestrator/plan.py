@@ -249,6 +249,12 @@ class Confirmation:
 
     heading: str
     reads: str | None = None
+    # A few words of the site's own warning about what was done — "not final
+    # until" — whose whole sentence is quoted beside the confirmation
+    # (2026-10-16): the portal confirms a registration and, in the same
+    # breath, says it is not final until fees are paid. Never said unless the
+    # page says it.
+    caveat: str | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:

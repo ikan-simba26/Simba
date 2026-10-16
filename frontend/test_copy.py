@@ -434,6 +434,9 @@ def backend_sentences() -> dict[str, str]:
         "portal_says": voice.portal_says("Registration Confirmed", "Confirmation number",
                                          "REG-10234-2026"),
         "portal_says, no reference": voice.portal_says("Registration Confirmed"),
+        "site_also_says": voice.site_also_says(
+            "Registration is not final until tuition and fees are paid or a payment "
+            "plan is in place."),
         "day_too_far": voice.day_too_far("7 October 2027"),
         "no_such_day": voice.no_such_day("31 February"),
         "not_a_station": voice.not_a_station("Karachy"),

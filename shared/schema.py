@@ -261,6 +261,11 @@ class TaskCompleted(BaseModel):
     # Confirmed", with confirmation number REG-10234-2026.' Sent only when the
     # confirmation is on the page; without it the task is not completed.
     confirmation: Optional[str] = None
+    # Additive and optional (2026-10-16). What the site says against that
+    # confirmation, its own sentence quoted whole — 'The portal also says
+    # "Registration is not final until tuition and fees are paid or a payment
+    # plan is in place".' Only when the final page says it.
+    caveat: Optional[str] = None
     # Additive and optional (2026-10-16). The real page as it was when the
     # task closed, with every row or value the closing screen shows ringed —
     # taken after the page was read again and found to agree.

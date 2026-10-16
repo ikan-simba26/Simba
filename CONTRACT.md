@@ -196,6 +196,13 @@ rather than with being stuck. The step that
 makes the change is tried once, never again a second way: a second press
 could make the change twice.
 
+**`task.completed.caveat` is additive and optional** (added 2026-10-16). What
+the site says against its own confirmation, its sentence quoted whole from
+the final page: 'The portal also says "Registration is not final until
+tuition and fees are paid or a payment plan is in place".' Sent only when
+the page says it; the closing screen shows it under the confirmation, so it
+never says more than the site does.
+
 **`task.completed.proof` and `proof_note` are additive and optional**
 (added 2026-10-16), with a new shape, `Proof`: `{ "screenshot": "<base64
 png>", "rings": [Highlight, ...], "caption": "What I read is ringed." }`.

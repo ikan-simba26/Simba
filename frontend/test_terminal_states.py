@@ -171,6 +171,9 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "scope": "You are registered for CS-401 section 001.",
             "confirmation": ("The portal says “Registration Confirmed”, with "
                              "confirmation number REG-10234-2026."),
+            # And what it says against it (2026-10-16).
+            "caveat": ("The portal also says “Registration is not final until tuition "
+                       "and fees are paid or a payment plan is in place”."),
             "proof": PROOF,
         }),
     ],

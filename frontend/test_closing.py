@@ -486,6 +486,27 @@ def test_a_registration_quotes_the_portals_confirmation(
     assert page.get_by_test_id("confirmation").inner_text() == script[-1][1]["confirmation"]
     # The goal is not repeated where the line says what changed.
     assert GOAL not in page.inner_text("body")
+    # No caveat sent, none shown.
+    assert page.get_by_test_id("caveat").count() == 0
+
+
+def test_a_registration_quotes_the_portals_caveat_under_its_confirmation(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The portal confirms, and in the same page says it is not final until
+    fees are paid (2026-10-16): both are quoted, the caveat under."""
+    script = completed(None, [])
+    script[-1][1]["scope"] = "You are registered for CS-401 section 001."
+    script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
+                                     "with confirmation number REG-10234-2026.")
+    script[-1][1]["caveat"] = ("The portal also says “Registration is not final until "
+                               "tuition and fees are paid or a payment plan is in place”.")
+    page = end(browser, overlay, backend, script)
+
+    caveat = page.get_by_test_id("caveat")
+    assert caveat.inner_text() == script[-1][1]["caveat"]
+    confirmation = page.get_by_test_id("confirmation").bounding_box()
+    assert caveat.bounding_box()["y"] >= confirmation["y"] + confirmation["height"]
 
 
 def test_a_change_not_confirmed_says_so_first(

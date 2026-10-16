@@ -62,6 +62,25 @@ def test_the_portals_confirmation_is_quoted(replica: str) -> None:  # noqa: F811
         "The portal says “Registration Confirmed”, with confirmation number "
         "REG-10301-2026.")
     assert ending["scope"] == "You are registered for MATH-210 section 001."
+    # And what the portal says against it, its own sentence whole.
+    assert ending["caveat"] == (
+        "The portal also says “Registration is not final until tuition and fees are "
+        "paid or a payment plan is in place”.")
+    # Ringed where it was read, with the heading and the number's row.
+    assert len(ending["proof"]["rings"]) == 3
+
+
+def test_a_caveat_the_page_does_not_say_is_not_said(replica: str) -> None:  # noqa: F811
+    """Never more than the site: words it does not use give no caveat."""
+    steps = [*SIGN_IN_AND_CLEAR, register_step(Expectation(url_contains="/register"))]
+    task = Task(goal="g", estimated_steps=3, about=About(),
+                confirms=Confirmation(heading="Registration Confirmed",
+                                      reads="Confirmation number",
+                                      caveat="subject to a refund"))
+
+    done = drive(replica, steps, task)
+
+    assert done.of("task.completed")[0]["caveat"] is None
 
 
 def test_a_change_the_site_does_not_confirm_is_not_done(replica: str) -> None:  # noqa: F811

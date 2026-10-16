@@ -506,6 +506,15 @@ def portal_says(heading: str, label: str | None = None, value: str | None = None
     return f"The portal says \u201c{heading}\u201d."
 
 
+def site_also_says(sentence: str) -> str:
+    """The site's own warning about what was confirmed, quoted whole
+    (2026-10-16): 'The portal also says "Registration is not final until
+    tuition and fees are paid or a payment plan is in place".' Its words,
+    never a summary of them: the closing screen never says more than the
+    site, nor less."""
+    return f"The portal also says “{sentence.rstrip('.')}”."
+
+
 def explain_course(course: str):
     """For a registration: which course the confirmation named, as it named it."""
     def explain(found: dict[str, list[str]], seen: dict[str, list[str]],
