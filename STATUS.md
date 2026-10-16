@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-16 · **1291 passing, 12 skipped, 0 failed** · backend 860 in 736s, frontend 431 in 830s (run as two halves: the two `test_checklist.py` files cannot be collected in one run; the first full run had 1 failure, a test still expecting the bill as "14,382", fixed and the whole suite rerun), on `feat/proof`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), now covering 25 endings and the sign-in screen. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-16 · **1394 passing, 12 skipped, 0 failed** · backend 886 in 805s, frontend 508 in 999s (two halves), on `feat/finish`, **not merged**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%). `main` has `feat/proof` (1291 passed, 12 skipped, merged and pushed the same day). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,34 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-16 (last): SIMBA finishes the task, on our replicas
+
+On `feat/finish`, from `main`, **not merged**. One commit per item, and one
+for what the real window found (EVALUATION.md, 2026-10-16c).
+
+- **The final-step rule replaces "never execute an irreversible action"**
+  (CLAUDE.md; Raham's request; **Nahail and Aly to be told**): a change
+  happens only on a replica and only after a final screen — what will
+  happen in plain words, what, how much and when as the page states them,
+  do it / don't, no default, no timer. Held in the loop for every planner.
+- **Trains**: after the results, on our replica, "Would you like to book
+  one of these trains?"; then the name and class the form needs, the final
+  screen, and "Booking Confirmed" quoted with booking number, train, date
+  and seat.
+- **Bill**: "Would you like to pay this bill?"; a pretend payment with no
+  card; the receipt quoted.
+- **Registration**: its register step is the same final screen, with the
+  course's own row.
+- **Live sites**: "I only looked up times. I don't book tickets or pay on
+  the real site." and the one way to see the page; payment details are
+  never typed anywhere.
+- **Honest endings**: "That's done." only with the site's confirmation;
+  "Don't" ends "I didn't do it. Nothing was changed."
+- **Open, flagged:** the offer is made after every replica search and bill
+  (one more press for someone who wanted only the answer); the first walk's
+  unexplained stop; the recorded registration benchmarks predate the final
+  screen; CONTRACT.md's `final` and the rule need the other two owners.
 
 ### Changed on 2026-10-16 (later): finishing proof, and merged
 

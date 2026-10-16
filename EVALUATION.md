@@ -5438,3 +5438,55 @@ whole suite run again (below).
 The whole suite again, after the fix: **1291 passed, 12 skipped, 0 failed**
 (backend 860 in 736s, frontend 431 in 830s). The host window-fit test, 3 of
 3, on the same frontend.
+
+## 2026-10-16c — finishing the task on our replicas, behind a final screen
+
+On `feat/finish`, **not merged**. Real-window figures: the Electron host
+forced to 100%, the three replicas, hardcoded plans, keyword routing,
+`SIMBA_RECORD_STEPS=0`, direction B, light; a script pressing as a person
+would (`.scratch/walk-finish/walk5.py`, not committed). No live site was
+touched.
+
+**Each flow to the end, in the real window** (time from pressing the tile to
+the ending, including the script's own typing and captures):
+
+| flow | screens | longest scroll | final screen: details read from the page | focus on arrival | ending | proof rings | seconds |
+|---|---|---|---|---|---|---|---|
+| trains: book 7UP, AC Standard | 15 | 0px | 8 (train, from, to, date, leaves, passenger, class, fare) | none | "That's done.", booking PR-242128, coach 3 seat 29 | 7 | 33.3 |
+| bill: pay | 7 | 0px | 4 (amount, month, due date, reference) | none | "That's done.", receipt RCPT-614700 | 6 | 16.1 |
+| course: register MATH-210 | 4 | 0px | 7 (course, title, days, time, teacher, room, credit hours) | none | "That's done.", REG-10301-2026 | 3 | 17.4 |
+| trains: "Don't book it" | 14 | 0px | 8 | none | "I didn't do it. Nothing was changed." | — | 28.0 |
+
+**What the walks found** (three walks; the third is the table):
+- **The first walk ended both train runs "I've stopped, as you asked."**
+  between pressing "Tomorrow" and the read-back. Two later walks, which
+  capture each screen before pressing on it, did not reproduce it. **Not
+  explained**: no log line shows which press sent the stop. Suspected, not
+  shown: a level change landing as the day question arrives moves "Stop
+  this" under a press aimed at "Tomorrow".
+- **"Here's what I found: 7UP" on the booking's questions** pushed the name
+  question 16px past 1280x800 even after the guard's step to level 1. Fixed:
+  no findings on the way to a change.
+- **"I've made this smaller so it fits." on the final screen**, carried over
+  from the screen before. Fixed: cleared when a final screen arrives.
+
+**Headless fit**, every final screen and the booking's questions at 1280x800,
+1280x734, 1266x632 and 1266x606: the three final screens, "which train",
+the name and the class all fit with nothing scrolling. The booking's final
+screen first ran 20px past 1280x800 and 31px past 1266x606: its details in
+four narrow columns wrapped "17 October 2026" and a three-word name onto two
+lines; two columns of "name value" lines fixed it. The offer to book, three
+answers stacked, ran past 1266x632; they now share a row.
+
+**The rule, in the loop** (`test_final_step.py`, `test_live_site.py`): on a
+page not served from this machine a change is never shown or pressed; a
+change whose details the page does not state is not done; a change marked
+safe still waits for its final screen; card, CVV, autocomplete `cc-number`
+and IBAN boxes are refused before anything is shown or typed, an ordinary box
+is still typed into.
+
+**The suite**, on the final tree: **1394 passed, 12 skipped, 0 failed**
+(backend 886 in 805s, frontend 508 in 999s, as two halves). The host
+window-fit test, 3 of 3 at 100%, 125% and 150%, now over 32 endings —
+including a booking, a payment, and "don't" pressed on a final screen — and
+the sign-in screen. 103 tests added since 1291 this morning.
