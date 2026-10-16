@@ -4618,3 +4618,23 @@ port would be refused, and nothing else is served from this machine.
   presses; its timetable line, written into the plan, is now the same
   details read from the page. Its recorded numbers were measured before the
   final screen and now include one more screen to answer.
+
+## The live site: said plainly, and payment details never typed
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **The closing line on the live site** is "I only looked up times. I don't
+  book tickets or pay on the real site."; on our replica it stays "I only
+  looked up times. I did not book a ticket or pay for anything." The one
+  button is the existing "See it on the real page": the page as the search
+  ended, the trains ringed. No button that opens the live site itself: the
+  site view is covered by design, and a link out of SIMBA is a second way to
+  the page.
+- **"Not ours" is decided by where the page is served from**, the same test
+  as the final-step rule, so the live train site never sees the offer to
+  book.
+- **Payment details are refused by what a box is**, on any site and for any
+  planner: a label or name with card, CVV, CVC, CSC, security code, expiry,
+  IBAN, SWIFT or bank account in it, or an `autocomplete` of `cc-*`. The run
+  ends before anything is shown or typed: "This page asks for card or bank
+  details. I never type those, so I've stopped. Nothing was paid."

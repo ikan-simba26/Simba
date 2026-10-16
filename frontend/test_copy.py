@@ -433,6 +433,9 @@ def backend_sentences() -> dict[str, str]:
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["payment page instruction"] = voice.DOING_PAYMENT_PAGE + "."
     sentences["voice.final_register"] = voice.final_register("CS-401")
+    # The real site: read, never booked or paid (2026-10-16).
+    for name in ("NOT_ON_REAL_SITE_TIMES", "NOT_ON_REAL_SITE_BILL", "NO_PAYMENT_DETAILS"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",

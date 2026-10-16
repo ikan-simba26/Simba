@@ -841,3 +841,16 @@ DONT_REGISTER = "Don't register"
 def final_register(course: str) -> str:
     """The registration's final screen."""
     return f"I'll register you for {course}, with these details."
+
+
+# --- the real site: read, never booked or paid (2026-10-16) -----------------
+
+#: The closing line of a search on the live site.
+NOT_ON_REAL_SITE_TIMES = ("I only looked up times. I don't book tickets or pay on the real "
+                          "site.")
+#: The same, for a bill on a site that is not ours.
+NOT_ON_REAL_SITE_BILL = "I only looked at your bill. I don't pay bills on the real site."
+#: `help.requested.reason` when a step would type card or bank details.
+#: Never, on any site.
+NO_PAYMENT_DETAILS = ("This page asks for card or bank details. I never type those, so I've "
+                      "stopped. Nothing was paid.")

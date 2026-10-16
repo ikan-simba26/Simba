@@ -518,6 +518,39 @@ CHANGE_WORDS = re.compile(
     r"place order|submit|confirm)\b", re.IGNORECASE)
 
 
+#: What a box for card or bank details is called, by its label or its name.
+PAYMENT_WORDS = re.compile(
+    r"\b(card|cvv|cvc|csc|security code|expiry|expiration|iban|swift|bank account)\b",
+    re.IGNORECASE)
+
+
+async def asks_for_payment(page: Page, elements: list[Element], move: "Move") -> bool:
+    """Whether a move would type into a box for card or bank details: by its
+    label, its name, or what the page says it autocompletes (`cc-number`,
+    `cc-csc`, …). SIMBA never types payment details, anywhere (CLAUDE.md, the
+    final-step rule; 2026-10-16)."""
+    for operation in move.operations:
+        if operation.kind != "fill":
+            continue
+        element_id = (operation.element_id if operation.element_id is not None
+                      else pick(elements, operation.target))
+        element = next((e for e in elements if e.id == element_id), None)
+        words = " ".join(filter(None, [operation.target.label,
+                                       element.label if element else "",
+                                       element.name if element else ""]))
+        if PAYMENT_WORDS.search(words):
+            return True
+        if element is not None:
+            try:
+                filled = await resolve(page, elements, element.id).get_attribute(
+                    "autocomplete", timeout=2000)
+            except PlaywrightError:
+                filled = None
+            if (filled or "").strip().lower().startswith("cc-"):
+                return True
+    return False
+
+
 def on_replica(url: str) -> bool:
     """Whether a page is one of our replicas: served from this machine."""
     from urllib.parse import urlparse
@@ -1380,6 +1413,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
 
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
+
+        # Card or bank details are never typed, on any site (2026-10-16).
+        if await asks_for_payment(page, elements, move):
+            await give_up(voice.NO_PAYMENT_DETAILS)
+            return
 
         # The final step (2026-10-16): a move that books, pays, registers or
         # changes a record is done only on a replica, and only after its

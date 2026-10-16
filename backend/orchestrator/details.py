@@ -1052,6 +1052,10 @@ class TripBrief(_Asking):
 
         return replace(trip_task(self.origin, self.destination, self.day),
                        goal=self.goal,
+                       # On the live site it says plainly that it never books
+                       # or pays there (2026-10-16).
+                       scope=(voice.ONLY_LOOKED_UP_TIMES if self.finishes
+                              else voice.NOT_ON_REAL_SITE_TIMES),
                        heading=voice.route_heading(self._shown("origin"),
                                                    self._shown("destination"),
                                                    self.day, self.today))
@@ -1150,7 +1154,9 @@ class BillBrief(_Asking):
     def task(self) -> Task:
         from backend.orchestrator.billing_plan import person_bill_task as bill_task
 
-        return replace(bill_task(self.reference), goal=self.goal)
+        return replace(bill_task(self.reference), goal=self.goal,
+                       scope=(voice.ONLY_LOOKED_AT_BILL if self.finishes
+                              else voice.NOT_ON_REAL_SITE_BILL))
 
     def _plan(self) -> tuple[Planner, Task]:
         from backend.orchestrator.billing_plan import person_billing_plan as billing_plan
