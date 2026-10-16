@@ -160,7 +160,7 @@ straight to the five steps.
 
 ### 2:40 — it only does what you ask (1 minute)
 
-Press **"Do something else"**, then type:
+Press **"Back to start"**, then type:
 
 ```
 hello

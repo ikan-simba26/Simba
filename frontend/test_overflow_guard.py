@@ -213,10 +213,11 @@ def test_a_lock_carried_into_a_new_task_is_the_persons_level(
     page.wait_for_selector("text=Go ahead 2")
     answer(page, 2)                                                # answered at the guard's 1
 
-    page.get_by_role("button", name="Do something else").click()
+    page.get_by_role("button", name="Back to start").click()
     backend.received.clear()
     page.fill("input[aria-label='What would you like me to do?']", "Again")
-    page.get_by_role("button", name="Start").click()
+    # Exact: "Back to start" may still be fading out (2026-10-16).
+    page.get_by_role("button", name="Start", exact=True).click()
     page.wait_for_timeout(1500)
 
     types = [m.get("type") for m in backend.received]

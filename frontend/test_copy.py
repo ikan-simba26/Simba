@@ -246,11 +246,11 @@ def test_apostrophes_are_straight(copy: dict) -> None:
         assert "’" not in text and "‘" not in text, f"{name}: {text!r}"
 
 
-def test_the_closing_screen_offers_a_way_out_and_a_way_on(copy: dict) -> None:
-    """Never a dead end: a task that has ended has two things to press."""
-    assert copy["ending"]["finish"].strip()
-    assert copy["ending"]["again"].strip()
-    assert copy["ending"]["finish"] != copy["ending"]["again"]
+def test_the_closing_screen_offers_one_way_on(copy: dict) -> None:
+    """Never a dead end, and never two buttons to one place (2026-10-16):
+    "I'm done" and "Do something else" both went home."""
+    assert copy["ending"]["again"] == copy["onward"] == "Back to start"
+    assert "finish" not in copy["ending"]
 
 
 def test_a_list_cut_short_reads_the_same_on_both_screens(copy: dict) -> None:
@@ -270,7 +270,7 @@ def test_one_place_onwards_has_one_name(copy: dict) -> None:
 
 def test_the_wording_asked_for(copy: dict) -> None:
     """The 2026-09-17 wording, pinned so a later change is a deliberate one."""
-    assert copy["ending"]["finish"] == "I'm done"
+    assert copy["onward"] == "Back to start"
     assert copy["home"]["somethingElse"] == "Ask for something new"
     assert copy["found"]["heading"] == "Here's what I found"
     assert copy["stopped"]["heading"] == "I'm stuck, so I've stopped."

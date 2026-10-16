@@ -562,7 +562,7 @@ function Step() {
   // point. The exiting element then emptied mid-exit, Framer never finished
   // removing it, and it stayed in the column's grid cell at opacity 0 on top
   // of the ending, swallowing every click. Measured on 2026-09-17: after any
-  // step, "I'm done", "Do something else" and every other ending's button
+  // step, every ending's button
   // could not be pressed, and had not been since at least `cc4704f`. Keeping
   // the last step rendered lets the exit run to completion.
   const leaving = useRef(step);
@@ -688,8 +688,9 @@ function Checklist() {
  * read to see where a run ended — and which put an address like
  * `http://127.0.0.1:5000/register` on this screen in 26px type.
  *
- * Two actions, always in the same order and the same place: finish, or ask
- * for something else. Both currently lead to the home screen; see STATUS.md.
+ * One action, the same on every ending: "Back to start" (2026-10-16). Until
+ * then there were two here, "I'm done" and "Do something else", and both led
+ * to the home screen.
  */
 function Completed() {
   const { completed, task, startOver } = useStore();
@@ -750,14 +751,19 @@ function Completed() {
           )}
         </Card>
       ) : (
-        <div className="flex flex-col items-start gap-5">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint
-                           text-accent" aria-hidden>
-            <CheckIcon size={34} />
-          </span>
-          <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
-            {ENDING.withoutAnswer}
-          </h1>
+        <div className="flex flex-col items-start gap-5 short:gap-3">
+          {/* The mark beside the heading, not above it (2026-10-16): with the
+              portal's caveat quoted under its confirmation, the stacked
+              screen scrolled a 606px window. */}
+          <div className="flex items-center gap-5">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full
+                             bg-tint text-accent" aria-hidden>
+              <CheckIcon size={34} />
+            </span>
+            <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+              {ENDING.withoutAnswer}
+            </h1>
+          </div>
           {/* What happened, when the page said; otherwise what was asked for
               — unless the last line says what changed. */}
           {(explanation || !completed?.scope) && (
@@ -788,16 +794,9 @@ function Completed() {
         </div>
       )}
 
-      {/* Side by side, in the same order, finish first. Stacked, the pair is
-          140px at 150% and 172px at 100%: at 150% that is what put six results
-          and both buttons out of reach of a 606px window, and at 100% it left
-          nine results 0px from a scrollbar (2026-10-05). */}
-      <div className="flex flex-row gap-3">
-        <Button className="flex-1" onClick={startOver}>{ENDING.finish}</Button>
-        <Button className="flex-1" variant="secondary" onClick={startOver}>
-          {ENDING.again}
-        </Button>
-      </div>
+      {/* One way on (2026-10-16). "I'm done" and "Do something else" sat
+          here side by side and both went home. */}
+      <OnwardButton onClick={startOver} />
     </div>
   );
 }
@@ -1052,7 +1051,7 @@ function Tickets({ findings, rows, onLine, apart, less }: {
               </span>
               {named.map((cell) => (
                 // One line, the name quietly before its value: under it, each
-                // ticket was 70px and six put "I'm done" off a 800px window.
+                // ticket was 70px and six put the way on off a 800px window.
                 <span key={cell.name} className="flex items-baseline gap-2 whitespace-nowrap"
                       data-testid="ticket-cell">
                   <span className="text-caption text-soft">{cell.name}</span>

@@ -50,7 +50,7 @@ GOALS = [
 #: What only an ending says. Not "Here's what I found": a step that has found
 #: something says that too, and the first version of this script stopped on
 #: step 3 of the bill and called it the end.
-ENDED = ("I'm done", "I'm stuck, so I've stopped.", "I couldn't finish this.")
+ENDED = ("Back to start", "I'm stuck, so I've stopped.", "I couldn't finish this.")
 REPLIES = {"Hello. Here's what I can help with.": "greeting",
            "I can't do that yet.": "unsupported",
            "Which of these did you mean?": "clarify"}

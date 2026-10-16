@@ -66,7 +66,7 @@ def browser(playwright_instance: Playwright) -> Iterator:
 
 
 def end(browser, overlay: str, backend: Backend, script, size=(1280, 800),  # noqa: F811
-        scale: float = 1.0, until: str = "I'm done") -> Page:
+        scale: float = 1.0, until: str = "Back to start") -> Page:
     backend.script = script
     backend.responses.clear()
     page = browser.new_page(viewport={"width": size[0], "height": size[1]},
@@ -127,7 +127,7 @@ SIZES = [((1280, 800), 1.0), ((1280, 734), 1.25), ((1266, 606), 1.5)]
 def onward_on_screen(page: Page, height: int) -> list[str]:
     """The buttons of the way onward that are not wholly on screen."""
     off = []
-    for name in ("I'm done", "Do something else"):
+    for name in ("Back to start",):
         box = page.get_by_role("button", name=name, exact=True).bounding_box()
         if box is None or box["y"] + box["height"] > height:
             off.append(name)
@@ -419,7 +419,7 @@ def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
     # and nothing to scroll.
     card = page.get_by_test_id("findings").locator("xpath=ancestor::*[contains(@class,'rounded-xl')][1]")
     right = card.bounding_box()["x"] + card.bounding_box()["width"]
-    done = page.get_by_role("button", name="Do something else").bounding_box()
+    done = page.get_by_role("button", name="Back to start").bounding_box()
     assert abs(right - (done["x"] + done["width"])) < 2, (right, done)
     for ticket in page.get_by_test_id("ticket").all():
         box = ticket.bounding_box()
@@ -515,7 +515,7 @@ def test_a_change_not_confirmed_says_so_first(
 ) -> None:
     from frontend.test_terminal_states import ENDINGS
 
-    page = end(browser, overlay, backend, ENDINGS["not confirmed"], until="Do something else")
+    page = end(browser, overlay, backend, ENDINGS["not confirmed"], until="Back to start")
 
     assert page.get_by_role("heading", level=1).inner_text() == "It isn't confirmed."
     assert "I'm stuck" not in page.inner_text("body")
@@ -569,7 +569,7 @@ def test_the_answer_can_be_seen_on_the_real_page(
     page.get_by_role("button", name="Back to the answer").click()
     page.wait_for_timeout(800)
     assert page.get_by_test_id("proof-panel").count() == 0
-    assert page.get_by_role("button", name="I'm done").is_visible()
+    assert page.get_by_role("button", name="Back to start").is_visible()
 
 
 def test_no_picture_is_said_and_no_button_shown(

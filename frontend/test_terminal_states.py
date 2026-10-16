@@ -390,7 +390,7 @@ def test_everything_on_an_ending_leads_somewhere(
         if label == "See it on the real page":
             page.get_by_test_id("proof-panel").wait_for(timeout=5000)
             page.get_by_role("button", name="Back to the answer").click()
-            page.get_by_role("button", name="I'm done").wait_for(timeout=5000)
+            page.get_by_role("button", name="Back to start").wait_for(timeout=5000)
             continue
         page.wait_for_function(
             f"() => document.body.innerText.includes({json.dumps(GREETING)})", timeout=5000
@@ -404,7 +404,7 @@ def test_back_home_after_a_task_there_is_no_entrance(
     them after a task, they are simply there."""
     name = next(iter(ENDINGS))
     reach(page, overlay, backend, name)
-    page.get_by_role("button", name="I'm done", exact=True).click()
+    page.get_by_role("button", name="Back to start", exact=True).click()
     page.get_by_test_id("tile").first.wait_for(state="attached", timeout=5000)
     assert page.evaluate(
         "() => +getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"
@@ -523,7 +523,7 @@ def test_the_stuck_screen_says_what_happens_and_offers_a_way_on(
     assert "I won't do any more on this. You can ask me for something else." in text
     for promise in ("carry on", "Can you", "help with"):
         assert promise not in text, promise
-    assert "Do something else" in labels
+    assert "Back to start" in labels
 
 
 def test_stopping_is_not_reported_as_a_failure(
@@ -546,7 +546,7 @@ def test_stopping_is_not_reported_as_a_failure(
     assert "I've stopped, as you asked." in text
     assert "I couldn't finish this." not in text
     assert "You asked me to stop." not in text
-    assert "Do something else" in labels
+    assert "Back to start" in labels
 
 
 def test_a_failure_the_person_did_not_choose_still_says_so(

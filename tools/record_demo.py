@@ -60,7 +60,7 @@ MOCK_WS = f"ws://127.0.0.1:{MOCK_PORT}/ws"
 #: recording is for an audience, not a benchmark.
 BEAT_MS = 1800
 
-ENDED = ("I'm done", "I'm stuck, so I've stopped.", "I couldn't finish this.")
+ENDED = ("Back to start", "I'm stuck, so I've stopped.", "I couldn't finish this.")
 
 #: (name, which backend, what to type, what it shows)
 CLIPS: list[tuple[str, str, str, str]] = [
@@ -213,7 +213,7 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
             # 2026-10-05 a sentence takes the lead-in's place.
             found = page.locator("[data-testid=findings]").count() > 0
             seen.append("found an answer" if found
-                        else "done" if ending == "I'm done" else f"ended: {ending}")
+                        else "done" if ending == "Back to start" else f"ended: {ending}")
             break
         # A reply: nothing starts, and that is the clip.
         if "Here's what I can help with" in text:

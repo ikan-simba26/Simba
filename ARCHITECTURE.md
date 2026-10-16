@@ -304,7 +304,7 @@ whether any step was replayed, and the findings.
 The overlay is one column showing one screen at a time (`App.tsx`): home,
 working ("Let me open that for you." then "Give me a moment."), a step, or
 one of five endings — found an answer, done, failed, stuck, and stopped by
-the person. **Every ending offers "Do something else"**, which returns to the
+the person. **Every ending offers "Back to start"**, which returns to the
 home screen; `frontend/test_terminal_states.py` renders each, including after
 a step, and fails if one has nothing to press or a button that goes nowhere.
 

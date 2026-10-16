@@ -54,9 +54,11 @@ import type { FlowName, Level } from "@shared/schema";
  * One name, because it is one destination. The closing screen and the two
  * screens that end without finishing used to call it "Do something else" and
  * "Start again", and "Start again" also suggested it would retry the same
- * task, which it never did.
+ * task, which it never did. The closing screen also had "I'm done" beside it,
+ * which went to the same place: two buttons for one way on. Since 2026-10-16
+ * there is one, everywhere, and it says where it goes.
  */
-export const ONWARD = "Do something else";
+export const ONWARD = "Back to start";
 
 /* ------------------------------------------------------------------ home */
 
@@ -249,9 +251,8 @@ export const ENDING = {
   withAnswer: FOUND.heading,
   /** When it did not. Nothing was being looked for; something was done. */
   withoutAnswer: "That's done.",
-  /** Ends the task. */
-  finish: "I'm done",
-  /** Starts another. */
+  /** The one way on (2026-10-16): "I'm done" and "Do something else" both
+   *  led home, and are one button now. */
   again: ONWARD,
   /**
    * Under a list of results cut short. The same words `voice.found` uses on
@@ -540,7 +541,6 @@ export const LABELS: Record<string, string> = {
   onward: ONWARD,
   "home.somethingElse": HOME.somethingElse,
   "home.start": HOME.start,
-  "ending.finish": ENDING.finish,
   "notice.dismiss": NOTICE.dismiss,
   "level.unlock": LEVEL.unlock,
   "level.choose1": LEVEL.choose(1),

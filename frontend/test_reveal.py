@@ -185,7 +185,7 @@ def test_the_end_has_one_way_to_see_the_page(page: Page, overlay: str,  # noqa: 
     start(page, overlay, picture)
 
     page.get_by_role("button", name="Set the departure station").click()
-    page.get_by_role("button", name="I'm done").wait_for(timeout=10000)
+    page.get_by_role("button", name="Back to start").wait_for(timeout=10000)
     page.wait_for_timeout(600)
 
     assert page_buttons(page) == ["See it on the real page"]
