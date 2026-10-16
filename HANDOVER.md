@@ -8,7 +8,10 @@ rewritten for what had changed — and brought up to date on 2026-10-06 for
 whole rows, the window waited for and the fastest train named, and on
 2026-10-15 for the interface work of 14 and 15 October (the checklist, named
 stages, the new home screen and colours, the review fixes), merged into
-`main` that day. Section 9 is still the 2026-09-17 capture, and says so.
+`main` that day. Brought up to date again on 2026-10-17 for the
+final-step rule: booking, paying and registering on our replicas behind a
+final screen, the offer as a quiet button, the press guard, and what Nahail
+and Aly must agree (below). Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -118,8 +121,12 @@ thing about to be touched ringed.
 
 Three hard rules shape everything ([CLAUDE.md](CLAUDE.md)):
 
-- **It never does anything irreversible.** No payments, no submissions that
-  change real records. It stops at the confirmation screen.
+- **It changes something only on our own copies, and only after a final
+  screen** (since 2026-10-16, replacing "never anything irreversible"). A
+  booking, a payment or a registration happens only on a replica, after a
+  screen that says what will happen and shows what, how much and when as the
+  page states them, with "do it" and "don't" and no default. On a live site
+  it only reads, and it never types card or bank details.
 - **The language model never sees a credential**, and **never writes a
   selector**. Perception numbers the page's elements; the model answers
   "click 14"; the backend turns 14 back into something clickable.
@@ -262,7 +269,7 @@ interactive elements, and the readable content.
 | **A credential store beyond the minimum** | One saved password per site, Windows only, forgettable only from a sign-in step during a task. Deleting it from the home screen would need a new contract message |
 | **Voice input** | In the contract, out of scope for now |
 | **Replay tuning** (when to trust a trace over fresh planning) | Not started. Trace memory is off by default |
-| **Anything irreversible** | By design, permanently |
+| **Anything that changes a real record** | By design: on our replicas only, behind a final screen; never on a live site |
 | **CI** | Nobody has set it up. Tests run when someone runs them, and the tests that need the Electron window skip silently without one |
 | **New sites or flows** | Not before asking: CLAUDE.md's October phase forbids them |
 
@@ -655,8 +662,8 @@ options and a recommendation; this is the list.
    is covered. Letting the person finish the step themselves would be a
    feature: reveal the page, then carry on. *Settled for now, 2026-09-17; the
    larger question is open.*
-2. **"I'm done" and "Do something else" do the same thing.** Both go to the
-   home screen. What should "I'm done" do?
+2. *(Settled 2026-10-16: "I'm done" and "Do something else", which did the
+   same thing, are one "Back to start".)*
 3. *(Settled 2026-09-17: pressing "Stop this" now shows "I've stopped, as you
    asked.", not a failure.)*
 4. **The stuck screen shows a technical reason** (`could not find 'Close' on

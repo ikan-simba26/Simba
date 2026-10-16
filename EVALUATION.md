@@ -5573,3 +5573,16 @@ now (`hardcoded_registration_benchmark`, every move asked, its register step
 behind the final screen): **10/10, 3 steps, 0 model calls, 3.47s mean
 (3.0–4.8)**. One more screen than before is answered — the final screen
 takes the register step's place, so the count of steps is unchanged.
+
+**The suite on `feat/finish`, 2026-10-17, before merging: 1421 passed, 12
+skipped, 0 failed** (backend 896 in 1484s, frontend 525 in 1198s, as two
+halves). The host window-fit test failed once at 100% —
+`TargetClosedError` from the host's page after 22 minutes, where a passing
+run takes about 7 — and passed 3 of 3 when re-run on the same tree (425s),
+as did a timed run of 100% alone (every one of 34 endings in 2–3s, the
+sign-in screen fitting). Not explained; no code changed between the runs.
+**The backend half has taken 23–25 minutes in every run since
+2026-10-16 afternoon, against 12–13 before.** Its slowest tests are the
+deliberate verification time-outs (50s, 23s, 22s), as before; none waits on
+the offer. Not explained either; this machine's wall clock carries ±2x
+(2026-09-17h), and nothing of the work's was left running.
