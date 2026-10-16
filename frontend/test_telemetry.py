@@ -14,6 +14,7 @@ import asyncio
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import subprocess
@@ -71,6 +72,10 @@ def overlay() -> Iterator[str]:
     built = subprocess.run(
         [npx, "vite", "build", "--outDir", str(BUILD), "--emptyOutDir", "--logLevel", "error"],
         cwd=FRONTEND, capture_output=True, text=True, timeout=300,
+        # Presses count at once in these tests: the guard that ignores a press
+        # on a button that has just arrived (2026-10-16) is tested on its own
+        # (`test_press_guard.py`), which turns it back on.
+        env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0"},
     )
     assert built.returncode == 0 and (BUILD / "index.html").exists(), built.stderr
 

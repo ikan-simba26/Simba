@@ -5490,3 +5490,50 @@ is still typed into.
 window-fit test, 3 of 3 at 100%, 125% and 150%, now over 32 endings —
 including a booking, a payment, and "don't" pressed on a final screen — and
 the sign-in screen. 103 tests added since 1291 this morning.
+
+## 2026-10-16e — the unexplained stop: found, and guarded against
+
+On `feat/finish`. The Electron host at forced 100% (1280x800) and 150%
+(1266x632), the three replicas, hardcoded plans, keyword routing. The train
+search walked by a script that presses each answer the moment its screen is
+up, as the walk that stopped did (`.scratch/walk-finish/walk_repeat.py`, not
+committed), every press logged by the overlay itself (`pressGuard.ts`:
+which button, the level, ms since that button last moved, ms since anything
+moved).
+
+| build | scale | runs | reached the trains | ended "I've stopped" | other | presses ignored by the guard |
+|---|---|---|---|---|---|---|
+| before: log on, guard off, no fix | 100% | 20 | 5 | **15** | — | — |
+| before | 150% | 20 | 0 | **7** | 13 stalled on a press that hit no button | — |
+| after: leaving screen inert, guard on (500ms) | 100% | 20 | **20** | 0 | — | 80 |
+| after | 150% | 20 | **20** | 0 | — | 69 |
+
+**The cause.** Every one of the 22 stops was a press on "Stop this" 68–183ms
+after that button appeared, at level 2 — no level change was involved. It
+was the crossfade. When an answer moved the run to the next question, the
+outgoing screen re-rendered with the *new* step while its old station box
+was still folding away, so its buttons stood lower than the arriving
+screen's. The script aimed at "Tomorrow" on the fading copy (found first in
+the page); the press went to whatever was on top at that point, which was
+the arriving screen's "Stop this". At 150% the same misalignment more often
+put the press on the gap between buttons, so it did nothing and the run
+waited (the 13 stalls). A person aiming at a screen that is still fading out
+can do the same.
+
+**The fixes.** (1) A screen on its way out shows its own step and takes no
+presses (`ScreenFrame`, `Step({index})`). (2) The guard: a press is ignored
+when its button moved or appeared in the last 500ms, or when a different
+button was under that point in the last 500ms. In the after runs it ignored
+4 presses a run on average — the script presses within milliseconds of a
+button appearing, which a person rarely does — and the script pressed again.
+
+**Found on the way, in the guard itself.** Its first version counted a
+pressed button's own 1px nudge (`active:translate-y-px`) as a move, so every
+press would have been ignored; and it stopped sampling while a button eased
+its last pixel or two, so the look taken at a press read the gap as a fresh
+move. Both fixed before the after runs; `test_press_guard.py` holds the
+behaviour.
+
+**Not explained here:** in the first, stalled before-batch the home tile's
+press sometimes did not register and twice the checklist sat on its first
+line for over a minute at 150%. Neither recurred in the 40 after runs.

@@ -4681,3 +4681,27 @@ book or pay goes straight on, with no closing screen between.
 - **"Book" and "pay" are read from the goal's words only**: book, booking,
   reserve, ticket, tickets or seat for trains; pay for a bill ("payment due"
   is not asking to pay). A model is not asked.
+
+## A press on a button that has just arrived is ignored
+
+**Date:** 2026-10-16 (asked for: "a press on a button that moved or appeared
+in the last 500 ms is ignored, and 'Stop this' never appears where another
+button was a moment before")
+
+- **What counts as moving**: a change of more than 2px in a button's box,
+  read whenever the page changes and frame by frame until nothing moves; not
+  at all at rest. A press's own 1px nudge is not a move.
+- **"Where another button was"** is any other button whose box held that
+  point in the last 500ms, including one that has since gone (the home
+  screen's tile, a step that faded out).
+- **An ignored press does nothing and says nothing.** No notice: the person
+  presses again, and a notice would itself move what is on screen.
+- **A keyboard press** (Enter on a focused button) is held only to its own
+  button's settling, not to what was under the pointer.
+- **Every press is logged** in `window.__simbaPresses` (the last 200) and the
+  console; nothing is sent to the backend or written to disk.
+- **The tests' builds turn the guard off** (`VITE_SIMBA_SETTLE_MS=0`) so
+  their presses count at once; `test_press_guard.py` turns it on, and the
+  host fit test runs the real build, guard on, pressing as a person would.
+- **A screen on its way out takes no presses and shows its own step**: the
+  structural cause, fixed where it was, as well as guarded.

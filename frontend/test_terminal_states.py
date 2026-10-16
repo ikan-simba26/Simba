@@ -32,6 +32,7 @@ import asyncio
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import subprocess
@@ -255,6 +256,7 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "confirmation": ("The portal says “Registration Confirmed”, with "
                              "confirmation number REG-10234-2026."),
             # And what it says against it (2026-10-16).
+            # And what it says against it (2026-10-16).
             "caveat": ("The portal also says “Registration is not final until tuition "
                        "and fees are paid or a payment plan is in place”."),
             "proof": PROOF,
@@ -394,6 +396,10 @@ def overlay() -> Iterator[str]:
     built = subprocess.run(
         [npx, "vite", "build", "--outDir", str(BUILD), "--emptyOutDir", "--logLevel", "error"],
         cwd=FRONTEND, capture_output=True, text=True, timeout=300,
+        # Presses count at once in these tests: the guard that ignores a press
+        # on a button that has just arrived (2026-10-16) is tested on its own
+        # (`test_press_guard.py`), which turns it back on.
+        env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0"},
     )
     assert built.returncode == 0 and (BUILD / "index.html").exists(), built.stderr
 
@@ -488,12 +494,17 @@ def reach(page: Page, overlay: str, backend: Backend, name: str) -> list[str]:
     backend.script = ENDINGS[name]
     backend.responses.clear()
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+    # In a build where a press on a button that has just arrived is ignored
+    # (the real host's, 2026-10-16), wait as a person would.
+    settle = page.evaluate("window.__simbaSettle || 0")
+    page.wait_for_timeout(settle + 200 if settle else 0)
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
     if any(message_type == AWAIT_RESPONSE for message_type, _ in backend.script):
         # A step comes first, and the person answers it.
         page.wait_for_selector("[data-testid=step-shell], [data-testid=final-check]",
                                timeout=15000)
+        page.wait_for_timeout(settle + 600 if settle else 0)
         page.get_by_role("button", name=PRESSES.get(name, GO_AHEAD), exact=True).click()
     # Let the last message land and the crossfade finish.
     page.wait_for_function(

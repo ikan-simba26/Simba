@@ -225,6 +225,7 @@ def read_sign_in(overlay: Page, scale: str) -> dict:
         (AWAIT_RESPONSE, {}),
     ]
     overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{backend.port}")
+    overlay.wait_for_timeout(800)  # a press on a button just arrived is ignored
     overlay.fill("input[aria-label='What would you like me to do?']", "course")
     overlay.get_by_role("button", name="Start").click()
     overlay.get_by_text("Let me sign you in first.").first.wait_for(timeout=15000)

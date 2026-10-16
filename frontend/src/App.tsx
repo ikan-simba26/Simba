@@ -11,7 +11,7 @@
  * the tokens in `index.css` and `design.ts`.
  */
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
@@ -44,6 +44,7 @@ import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
+import { watchPresses } from "./pressGuard";
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
 import { useShortWindow } from "./useShortWindow";
@@ -70,6 +71,10 @@ export default function App() {
   // Channel B, for as long as the window is up: the pointer is watched and a
   // sample goes out on a timer while a step waits (`telemetry.ts`).
   useEffect(() => watchTelemetry(), [watchTelemetry]);
+
+  // Every press logged, and a press on a button that has only just arrived
+  // where it is ignored (2026-10-16, `pressGuard.ts`).
+  useEffect(() => watchPresses(() => useStore.getState().level), []);
 
   return (
     // The bottom padding is the one space on every screen nothing reads:
@@ -182,29 +187,48 @@ function Column() {
           column blank. */}
       <div className="grid">
         <AnimatePresence initial={false}>
-          <motion.div
-            key={screen}
-            /* No `layout` on this element: reflow is done with `layout` on
-               the blocks inside a step instead. */
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={ARRIVE}
-            className="[grid-area:1/1]"
-          >
+          <ScreenFrame key={screen}>
             {screen === "idle" && <Home />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
-            {screen.startsWith("step-") && <Step />}
+            {screen.startsWith("step-") && <Step index={Number(screen.slice(5))} />}
             {screen === "checklist" && <Checklist />}
             {screen === "completed" && <Completed />}
             {screen === "failed" && <Failed />}
             {screen === "stopped" && <StoppedByPerson />}
             {screen === "declined" && <NothingChanged />}
             {screen === "stuck" && <Stuck />}
-          </motion.div>
+          </ScreenFrame>
         </AnimatePresence>
       </div>
+    </motion.div>
+  );
+}
+
+/**
+ * One screen of the column, arriving and leaving as a crossfade. A screen on
+ * its way out takes no presses (2026-10-16): while a step faded out beside
+ * the next one, the two copies' buttons sat at different heights, and a
+ * press aimed at "Tomorrow" on the fading copy landed on the arriving
+ * screen's "Stop this" — the stop nobody could explain from the first walk
+ * of 2026-10-16. Found by logging every press (`pressGuard.ts`).
+ */
+function ScreenFrame({ children }: { children: React.ReactNode }) {
+  const present = useIsPresent();
+  return (
+    <motion.div
+      /* No `layout` on this element: reflow is done with `layout` on the
+         blocks inside a step instead. */
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={ARRIVE}
+      className="[grid-area:1/1]"
+      style={{ pointerEvents: present ? "auto" : "none" }}
+      aria-hidden={!present}
+      data-leaving={present ? undefined : "true"}
+    >
+      {children}
     </motion.div>
   );
 }
@@ -556,8 +580,12 @@ function Working() {
 
 /* ----------------------------------------------------------------- step */
 
-function Step() {
-  const { step, state, level, respond, answered } = useStore();
+function Step({ index }: { index: number }) {
+  const { step: current, state, level, respond, answered } = useStore();
+  // Only its own step (2026-10-16). A screen on its way out kept rendering
+  // whatever step was current — the next one — with its old boxes still
+  // folding away, so its buttons stood where the arriving screen's were not.
+  const step = current && current.step_index === index ? current : null;
   const [values, setValues] = useState<Record<string, string>>({});
   const measured = useRef<HTMLDivElement>(null);
 
