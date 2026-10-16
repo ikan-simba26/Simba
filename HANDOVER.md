@@ -45,6 +45,54 @@ fails).
   to listen (DECISIONS.md, *Read aloud is its own telemetry signal; Nahail to
   confirm*).
 
+**For Nahail and Aly (2026-10-16): four things to agree.** Each was settled
+by Raham for the orchestrator's side and is in use on `main`; none is
+ratified. CLAUDE.md puts the contract and its rules with all three owners.
+Disagreeing with any of them means a change, not a revert: each is listed
+with what it would cost to undo.
+
+1. **The final-step rule** (CLAUDE.md, replacing "never execute an
+   irreversible action"; DECISIONS.md, *The final-step rule replaces…*). A
+   payment, booking, registration or other change happens only on a replica
+   (a page served from this machine), only after a final screen that says
+   what will happen and shows what, how much and when as the page states
+   them, with two buttons — do it / don't — no default and no timer. On a
+   live site SIMBA only reads, and it never types card or bank details
+   anywhere. Enforced in `loop.carry_out` for every planner. *To undo:* the
+   booking, the pretend payment and registering all stop at their final
+   screen.
+2. **The contract fields added since 6 October**, every one additive and
+   optional, so a side that ignores one still works:
+   - `StepField.options` (10-06): the site's own list for a box to choose from.
+   - `StepPresented.step_kind` (10-07): the shape beside a step.
+   - `StepPresented.stage` and `TaskStarted.stages` (10-14): named stages in
+     place of "Step X of Y".
+   - `StepPresented.note` (10-14): what was wrong with the last answer.
+   - `requires_confirmation: false` read as a checklist line, its one answer
+     `"pause"`, and `TaskStart.confirm_each` (10-14).
+   - `TaskCompleted.heading` (10-14): what the results are for.
+   - `Telemetry.read_aloud` (10-14).
+   - `StepPresented.coming` (10-15): the checklist lines still to come.
+   - `PastGoal.label` (10-16): a remembered goal in a few words.
+   - `TaskCompleted.scope`, `confirmation`, `caveat`, `proof` (with the new
+     shape `Proof`) and `proof_note`; `HelpRequested.unconfirmed`; the
+     `error` code `PREVIEW_LATE` (10-15 and 10-16): what was and was not
+     done, the site's own confirmation and caveat, and the answer on the
+     real page.
+   - `StepPresented.final` with the new shape `Detail` (10-16): the final
+     screen.
+   - `TaskCompleted.offer` with the new shape `TaskOffer` (10-16): booking
+     or paying as a quiet button; the run stays open for it.
+   *To undo any one:* drop it on both sides; nothing else reads it.
+3. **Read aloud** (CLAUDE.md, approved by Raham on 2026-10-14): a step read
+   in the system's own English voice, only when the button is pressed, off
+   by default, stopped when the step changes; its own telemetry signal.
+   *To undo:* remove the button; `read_aloud` stays 0.
+4. **Saving a password is a box to tick** under the sign-in boxes, not a
+   second "Sign in and save my password" button (Raham's choice, 2026-10-15;
+   CONTRACT.md, *Keeping a password*; no message changed). *To undo:* the
+   overlay draws the backend's `remember` answer as a button again.
+
 **How to read the claims below.** Each "works" claim names its evidence: a
 test file, or a dated entry in EVALUATION.md. A test is evidence for today,
 because the suite was run today. A dated run is evidence for that date only.
