@@ -65,7 +65,8 @@ def test_the_portals_confirmation_is_quoted(replica: str) -> None:  # noqa: F811
     # And what the portal says against it, plainly, under what it confirmed
     # in place of "That's done." (2026-10-16): the page's sentence holds it.
     assert ending["heading"] == "You're registered for MATH-210."
-    assert ending["caveat"] == "The portal says it isn't final until fees are paid."
+    assert ending["caveat"] == ("The portal says it isn't final until tuition and fees are "
+                                "paid, or a payment plan is in place.")
     # Ringed where it was read, with the heading and the number's row.
     assert len(ending["proof"]["rings"]) == 3
 

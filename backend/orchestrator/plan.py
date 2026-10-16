@@ -285,8 +285,10 @@ class Confirmation:
     # page says it.
     caveat: str | None = None
     # The caveat in a few plain words, said for it when the page says it —
-    # "it isn't final until fees are paid" — and then the closing screen
-    # does not say "That's done." (2026-10-16). None: the sentence is quoted.
+    # "it isn't final until tuition and fees are paid, or a payment plan is in
+    # place", the whole of what the page says, in its order (2026-10-17) — and
+    # then the closing screen does not say "That's done." (2026-10-16). None:
+    # the sentence is quoted.
     caveat_plain: str | None = None
     # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
     who: str = "portal"

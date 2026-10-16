@@ -865,7 +865,8 @@ def registered(course: str) -> str:
 
 def site_qualifies(sentence: str, confirms) -> str:
     """What the site says against what it confirmed: in the task's plain words
-    when it has them — "The portal says it isn't final until fees are paid."
+    when it has them — "The portal says it isn't final until tuition and fees are
+    paid, or a payment plan is in place."
     — else its own sentence, quoted. Only ever called when the page says it."""
     plain = getattr(confirms, "caveat_plain", None)
     if plain:

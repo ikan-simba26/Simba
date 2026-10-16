@@ -5686,3 +5686,17 @@ overlay page with the flag false, true and absent
 (`test_window.py::test_a_minimised_host_does_not_pause_a_run_started_from_another_overlay`),
 and the built overlay setting it (`frontend/test_window_started.py`). Every
 pause is now a line in `logs/backend.log`: the state, and how long it lasted.
+
+## 2026-10-17c — the registration's caveat, in full
+
+`fix/stability`. The closing screen of a registration now says what the
+portal says in full: "The portal says it isn't final until tuition and fees
+are paid, or a payment plan is in place." (it said "…until fees are paid",
+which dropped the payment plan, half of the portal's meaning). The portal's
+own sentence is "Registration is not final until tuition and fees are paid
+or a payment plan is in place". Measured: the closing screen with the longer
+line still fits — `frontend/test_terminal_states.py`, `test_closing.py` and
+`test_copy.py`, **288 passed**, which includes every ending, this one among
+them, at the window's size at 100%, 125% and 150% with every button wholly on
+screen and nothing scrolling; the host fit test checks it in the real window
+at the end of this branch.

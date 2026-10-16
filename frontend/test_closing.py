@@ -491,6 +491,12 @@ def test_a_registration_quotes_the_portals_confirmation(
     assert page.get_by_test_id("caveat").count() == 0
 
 
+#: What the portal says against a registration, in full (2026-10-17): fees,
+#: or a payment plan — the plan is half of what it says.
+CAVEAT = ("The portal says it isn't final until tuition and fees are paid, or a payment "
+          "plan is in place.")
+
+
 def test_a_registration_with_a_caveat_is_not_said_done(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
@@ -502,14 +508,14 @@ def test_a_registration_with_a_caveat_is_not_said_done(
     script[-1][1]["heading"] = "You're registered for CS-401."
     script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
                                      "with confirmation number REG-10234-2026.")
-    script[-1][1]["caveat"] = "The portal says it isn't final until fees are paid."
+    script[-1][1]["caveat"] = CAVEAT
     page = end(browser, overlay, backend, script)
 
     assert "That's done." not in page.inner_text("body")
     heading = page.get_by_test_id("done-heading")
     caveat = page.get_by_test_id("caveat")
     assert heading.inner_text() == "You're registered for CS-401."
-    assert caveat.inner_text() == "The portal says it isn't final until fees are paid."
+    assert caveat.inner_text() == CAVEAT
     assert heading.bounding_box()["y"] < caveat.bounding_box()["y"]
     assert caveat.bounding_box()["y"] < page.get_by_test_id("confirmation").bounding_box()["y"]
 
