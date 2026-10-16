@@ -65,19 +65,26 @@ ENDED = ("Back to start", "I'm stuck, so I've stopped.", "I couldn't finish this
 #: (name, which backend, what to type, what it shows)
 CLIPS: list[tuple[str, str, str, str]] = [
     ("railways", "real", "trains to Rawalpindi tomorrow",
-     "our copy of the train search: where from, which Lahore station, five steps, "
-     "the journey said back, ending on the trains"),
+     "our copy of the train search: where from, which Lahore station, the day, the "
+     "journey said back, the search as a checklist, the trains as tickets, and the "
+     "answer on the real page"),
+    # A booking with its final screen (2026-10-16): "book" in the goal goes
+    # straight on from the trains to "Which train?".
+    ("booking", "real", "book a train from Lahore to Karachi tomorrow",
+     "which station at each end, the read-back, the checklist, which train, a name, "
+     "a class, the final screen held, Book it, the site's confirmation and the page"),
     ("billing", "real", "What do I owe on my electricity bill?",
-     "the billing replica: the reference number asked for, three steps, ending on "
-     "the amount and the due date"),
+     "the billing replica: the reference number, cookies asked Yes or No, the "
+     "lookup as a checklist, the bill in plain words, and the answer on the real page"),
     ("hello", "real", "hello",
      "a greeting and the three things SIMBA can do — no task started"),
     ("fold", "mock", "Register for CS-401",
      "the scripted run, including the fold from one detail level to the next"),
-    # The number is in the goal so nothing is asked, and the clip stays about
-    # the level: it hesitates on the first *step*.
-    ("adapt", "real", "What do I owe on my electricity bill 04141234567890?",
-     "billing, hesitating on step 1 until it folds, then two calm answers and back"),
+    # No notice is shown on a task's first screen (2026-10-14), so the clip
+    # answers the first — the reference number — and hesitates on the second,
+    # the cookie question, until it folds.
+    ("adapt", "real", "What do I owe on my electricity bill?",
+     "billing, hesitating on the cookie question until it folds, then calm, and back"),
 ]
 
 #: What each clip types when it is asked something, in order, and which answer
@@ -85,8 +92,17 @@ CLIPS: list[tuple[str, str, str, str]] = [
 #: to do. A clip with nothing here presses each screen's first button.
 ANSWERS: dict[str, dict[str, list[str]]] = {
     "railways": {"type": ["Lahore"], "pick": ["Lahore Cantt"]},
+    "booking": {"type": ["Ayesha Khan"],
+                "pick": ["Lahore Cantt", "Karachi Cantt", "AC Standard"]},
     "billing": {"type": ["04141234567890"]},
+    "adapt": {"type": ["04141234567890"]},
+    # The mock's third step has a box to fill (2026-10-15: its button waits
+    # for it).
+    "fold": {"type": ["S-2026-0142"]},
 }
+
+#: Clips whose closing screen then opens "See it on the real page" for a beat.
+SHOWS_PROOF = {"railways", "booking", "billing"}
 
 #: The live site. No clip may run there.
 LIVE_RAILWAYS = "pakrailways.gov.pk"
@@ -141,35 +157,69 @@ def refuse_the_live_site(site: str) -> None:
             "railways-local`) so it runs on our own copy, then record again.")
 
 
+#: Buttons in a step that are not answers to it.
+NOT_ANSWERS = {"Read this aloud", "Stop reading", "Stop this"}
+
+
+def answers_in(shell) -> list:
+    """The screen's answers, in order: no "Read this aloud", no way to stop."""
+    return [b for b in shell.locator("button:not([disabled])").all()
+            if b.is_visible() and b.inner_text().strip() not in NOT_ANSWERS]
+
+
+def press(page, button) -> str:
+    """Press like a person: the overlay ignores a press on a button that has
+    only just arrived (2026-10-16), so give it a moment first, and if the
+    overlay's own log says the press was ignored, press again."""
+    label = button.inner_text().strip()
+    for _ in range(4):
+        page.wait_for_timeout(700)
+        button.click()
+        last = page.evaluate("(window.__simbaPresses || []).slice(-1)[0] || null")
+        if not last or not last.get("ignored"):
+            break
+    return label
+
+
 def answer_screen(page, shell, typed: list[str], picks: list[str]) -> str | None:
     """Answer whatever the screen in `shell` asks. Returns what was done, or
     None when there is nothing to press yet.
 
-    A box: type the next answer into it, then press the screen's own button.
-    Several answers offered: press the next one named in `picks`, if it is
-    there. Anything else: the first button, which is the screen's go-ahead.
+    A box: type the next answer into it, choose it from the site's own names
+    when one of `picks` is offered, then press the screen's own button for a
+    typed answer ("Use this station", "Use this name"). Several answers
+    offered: press the next one named in `picks`, if it is there. Anything
+    else: the first answer, which is the screen's go-ahead.
     """
-    buttons = shell.locator("button:not([disabled])")
-    if not buttons.count():
+    from backend.orchestrator.voice import TYPED_ANSWERS
+
+    if not answers_in(shell) and not shell.locator("input:not([disabled])").count():
         return None
-    box = shell.locator("input:not([disabled])")
+    box = shell.locator("input[type=text]:not([disabled]), input:not([type]):not([disabled])")
     if box.count() and typed:
         value = typed.pop(0)
         box.first.click()
         box.first.type(value, delay=60)
-        page.wait_for_timeout(500)
-        buttons.first.click()
+        page.wait_for_timeout(900)
+        if picks:
+            wanted = shell.get_by_role("button", name=picks[0], exact=True)
+            if wanted.count():
+                picks.pop(0)
+                press(page, wanted.first)
+        finish = ([b for b in answers_in(shell) if b.inner_text().strip() in TYPED_ANSWERS]
+                  or answers_in(shell)[:1])
+        if finish:
+            press(page, finish[0])
         return f"typed {value!r}"
     if picks:
         wanted = shell.get_by_role("button", name=picks[0], exact=True)
         if wanted.count():
             picks.pop(0)
-            label = wanted.first.inner_text().strip()
-            wanted.first.click()
-            return f"chose {label!r}"
-    label = buttons.first.inner_text().strip()
-    buttons.first.click()
-    return label
+            return f"chose {press(page, wanted.first)!r}"
+    offered = answers_in(shell)
+    if not offered:
+        return None
+    return press(page, offered[0])
 
 
 def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Path, list[str]]:
@@ -201,11 +251,21 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
     seen: list[str] = []
     #: The screen last acted on, by its words: a new screen is new words.
     last = ""
+    acted = time.time()
     deadline = time.time() + 300
     while time.time() < deadline:
         page.wait_for_timeout(600)
         text = page.evaluate("() => document.body.innerText")
         ending = next((e for e in ENDED if e in text), None)
+        if ending:
+            page.wait_for_timeout(1000)  # the closing screen, settled
+            text = page.evaluate("() => document.body.innerText")
+        if ending and name in SHOWS_PROOF and "See it on the real page" in text:
+            page.wait_for_timeout(BEAT_MS * 2)  # the answer, read first
+            press(page, page.get_by_role("button", name="See it on the real page"))
+            page.wait_for_timeout(BEAT_MS * 2)
+            press(page, page.get_by_role("button", name="Back to the answer"))
+            seen.append("showed the real page")
         if ending:
             # Which ending, because "I'm stuck" is an ending too, and a clip
             # that ends on it is not a fallback for a run that worked.
@@ -222,21 +282,41 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
         if "I can't do that yet." in text:
             seen.append("declined")
             break
+        # The final screen (2026-10-16): held long enough to be read, then
+        # "do it" — the first of its two answers, which look alike.
+        final = page.locator("[data-testid=final-check]")
+        if final.count() and final.first.is_visible():
+            answer = final.first.locator("[data-testid=final-answers] button").first
+            if answer.is_enabled():  # once: answered, its buttons are disabled
+                page.wait_for_timeout(BEAT_MS * 2)
+                label = press(page, answer)
+                seen.append(f"final screen: {label}")
+                page.wait_for_timeout(BEAT_MS)
+            continue
         shell = page.locator("[data-testid=step-shell]")
         if shell.count() and shell.first.is_visible():
             words = " ".join(shell.first.inner_text().split())
-            ready = shell.first.locator("button:not([disabled])").count()
+            ready = shell.first.locator("xpath=.//button[not(@disabled)]"
+                                        "[not(ancestor::*[@data-testid='top-line'])]").count()
+            # The same screen still up long after it was answered: the press
+            # did not take (pressed too soon after the screen arrived, say).
+            # A person presses again.
+            if words == last and time.time() - acted > 10:
+                last = ""
             if ready and words != last:
                 last = words
+                acted = time.time()
                 page.wait_for_timeout(BEAT_MS)
-                if name in HESITATES and not seen:
+                # On the second screen: the first never shows a notice.
+                if name in HESITATES and len(seen) == 1:
                     folded = hesitate(page, SIMPLER)
                     seen.append(f"folded after {folded}s" if folded else "never folded")
                     page.wait_for_timeout(BEAT_MS * 2)  # let the fold be seen
                     last = " ".join(shell.first.inner_text().split())
+                heading = shell.first.locator("h1").first.inner_text().strip()
                 done = answer_screen(page, shell.first, typed, picks)
                 if done:
-                    seen.append(done)
+                    seen.append(f"{heading[:40]} -> {done}")
     page.wait_for_timeout(2500)  # let the last screen be read
 
     video = page.video
