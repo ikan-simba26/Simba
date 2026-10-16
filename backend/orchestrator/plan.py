@@ -288,22 +288,43 @@ class Confirmation:
     who: str = "portal"
 
 
+def course_final(course: str) -> tuple[FinalRead, ...]:
+    """What registering for `course` shows on its final screen (2026-10-16):
+    the course's own row on the portal's list — its title, when it meets,
+    who teaches it, where, and its credit hours — found by its subject and
+    number (`CS-401` is subject `CS`, number `401`)."""
+    subject, _, number = course.partition("-")
+    row = (("Subj", subject), ("Crse", number))
+    return (
+        FinalRead("Course", fixed=course),
+        FinalRead("Title", "Title", row=row),
+        FinalRead("Days", "Days", row=row),
+        FinalRead("Time", "Time", row=row),
+        FinalRead("Teacher", "Instructor", row=row),
+        FinalRead("Room", "Room", row=row),
+        FinalRead("Credit hours", "Cr", row=row),
+    )
+
+
+def register_step(course: str, stage: int | None = 2) -> PlanStep:
+    """The step that registers: a change, behind its final screen."""
+    return PlanStep(
+        instruction=voice.final_register(course),
+        detail="This registers you for the course.",
+        actions=actions(f"Register for {course}"),
+        operations=[Operation("click", Target("button", f"Register for {course}"))],
+        expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+        stage=stage,
+        changes=True,
+        final=course_final(course),
+        final_answers=(voice.REGISTER_IT, voice.DONT_REGISTER),
+    )
+
+
 def registration_plan(course: str) -> list[PlanStep]:
     """The registration plan for one course, by its code as the portal prints
     it (`CS-401`). The person says which; nothing here picks one for them."""
-    return [
-        *SIGN_IN_AND_CLEAR,
-        PlanStep(
-            instruction=f"Ready to book your place on {course}.",
-            detail="This registers you for the course.",
-            actions=actions(f"Register for {course}"),
-            operations=[Operation("click", Target("button", f"Register for {course}"))],
-            expect=Expectation(url_contains="/register",
-                               title_contains="Registration Confirmed"),
-            stage=2,
-            changes=True,
-        ),
-    ]
+    return [*SIGN_IN_AND_CLEAR, register_step(course)]
 
 
 SIGN_IN_AND_CLEAR: list[PlanStep] = [
@@ -340,15 +361,9 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
 # course can know; `registration_plan` is what a person's request runs.
 REGISTRATION_PLAN: list[PlanStep] = [
     *SIGN_IN_AND_CLEAR,
-    PlanStep(
-        instruction="Ready to book your place on CS-401.",
-        detail="3 credit hours. MWF 10:00-10:50, Dr. Aslam, SCI 214.",
-        actions=actions("Register for CS-401"),
-        operations=[Operation("click", Target("button", "Register for CS-401"))],
-        expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
-        # Registers (2026-10-16): behind a final screen, like every change.
-        changes=True,
-    ),
+    # Registers (2026-10-16): behind its final screen, like every change. Its
+    # timetable line is the final screen's details now, read from the page.
+    register_step("CS-401", stage=None),
 ]
 
 

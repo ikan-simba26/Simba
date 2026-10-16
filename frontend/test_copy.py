@@ -432,6 +432,7 @@ def backend_sentences() -> dict[str, str]:
     for name in ("ASK_PAY", "FINAL_PAY", "PAID_SCOPE"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["payment page instruction"] = voice.DOING_PAYMENT_PAGE + "."
+    sentences["voice.final_register"] = voice.final_register("CS-401")
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
@@ -504,6 +505,8 @@ def backend_labels() -> dict[str, str]:
                  "FILL_IN", "FIELD_NAME", "FIELD_TRAIN", "BOOK_STAGE", "DOING_BOOKING_FORM"):
         labels[f"voice.{name}"] = getattr(voice, name)
     labels["voice.train_choice"] = voice.train_choice("7UP", "07:25")
+    labels["voice.REGISTER_IT"] = voice.REGISTER_IT
+    labels["voice.DONT_REGISTER"] = voice.DONT_REGISTER
     for name in ("PAY_STAGE", "PAY_YES", "JUST_THE_BILL", "DOING_PAYMENT_PAGE", "OPEN_PAYMENT",
                  "PAY_IT", "DONT_PAY"):
         labels[f"voice.{name}"] = getattr(voice, name)

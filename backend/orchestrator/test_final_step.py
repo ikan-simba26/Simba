@@ -134,9 +134,20 @@ SIGN_IN = [("confirm", {"username": "student", "password": "pw"})]
 def test_registering_waits_for_its_final_screen_and_do_it(replica: str) -> None:  # noqa: F811
     done, page = drive(replica, REGISTRATION_PLAN, SIGN_IN + [("confirm", {}), ("confirm", {})])
 
+    # The course's own row on the portal's list (2026-10-16, item 4).
     final = done.of("step.presented")[-1]
-    assert final["final"] == [{"label": voice.WHAT_I_PRESS, "value": "Register for CS-401"}]
-    assert [a["id"] for a in final["actions"]] == ["confirm", voice.DECLINE_ID]
+    assert final["instruction"] == voice.final_register("CS-401")
+    assert final["final"] == [
+        {"label": "Course", "value": "CS-401"},
+        {"label": "Title", "value": "Advanced Widget Design"},
+        {"label": "Days", "value": "MWF"},
+        {"label": "Time", "value": "10:00-10:50"},
+        {"label": "Teacher", "value": "Dr. Aslam"},
+        {"label": "Room", "value": "SCI 214"},
+        {"label": "Credit hours", "value": "3"},
+    ]
+    assert [(a["id"], a["label"]) for a in final["actions"]] == [
+        ("confirm", voice.REGISTER_IT), (voice.DECLINE_ID, voice.DONT_REGISTER)]
     assert page.title.startswith("Registration Confirmed")
 
 

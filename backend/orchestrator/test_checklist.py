@@ -281,7 +281,7 @@ def test_registering_always_asks(replica: str) -> None:  # noqa: F811
 
     assert done.rows() == [voice.DOING_NOTICE]
     assert done.asked() == ["Let me sign you in first.",
-                            voice.final_press("Register for CS-401")]
+                            voice.final_register("CS-401")]
     assert "task.completed" in done.types()
 
 

@@ -37,13 +37,37 @@ BOOKING = {
 }
 
 
+#: The registration's and the payment's, as the backend sends them.
+REGISTERING = {**BOOKING, "stage": 2,
+               "instruction": "I'll register you for CS-401, with these details.",
+               "actions": [{"id": "confirm", "label": "Register", "kind": "primary"},
+                           {"id": "decline", "label": "Don't register", "kind": "primary"}],
+               "final": [{"label": "Course", "value": "CS-401"},
+                         {"label": "Title", "value": "Advanced Widget Design"},
+                         {"label": "Days", "value": "MWF"},
+                         {"label": "Time", "value": "10:00-10:50"},
+                         {"label": "Teacher", "value": "Dr. Aslam"},
+                         {"label": "Room", "value": "SCI 214"},
+                         {"label": "Credit hours", "value": "3"}]}
+PAYING = {**BOOKING, "stage": 3,
+          "instruction": ("I'll pay this bill for you. It is a practice payment, and no card "
+                          "is used."),
+          "actions": [{"id": "confirm", "label": "Pay it", "kind": "primary"},
+                      {"id": "decline", "label": "Don't pay", "kind": "primary"}],
+          "final": [{"label": "Amount", "value": "Rs 14,382"},
+                    {"label": "Bill", "value": "AUG 2026"},
+                    {"label": "Due", "value": "15 September 2026"},
+                    {"label": "Reference number", "value": "04141234567890"}]}
+SCREENS = {"booking": BOOKING, "registration": REGISTERING, "payment": PAYING}
+
+
 @pytest.fixture(scope="module")
 def backend() -> Backend:
     return Backend()
 
 
 def final(browser, overlay: str, backend: Backend, size: str,  # noqa: F811
-          level: int | None = None) -> Page:
+          level: int | None = None, step: dict = BOOKING) -> Page:
     width, height, scale = SIZES[size]
     page = browser.new_page(viewport={"width": width, "height": height},
                             device_scale_factor=scale)
@@ -51,7 +75,7 @@ def final(browser, overlay: str, backend: Backend, size: str,  # noqa: F811
     if level is not None:
         script.append(("load.updated", {"score": 0.5, "level": level, "reason": "test"}))
     backend.script = [*script, ("state.changed", {"state": "waiting"}),
-                      ("step.presented", BOOKING), (AWAIT_RESPONSE, {})]
+                      ("step.presented", step), (AWAIT_RESPONSE, {})]
     backend.responses.clear()
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
@@ -106,13 +130,16 @@ def test_every_detail_shows_at_every_level(browser, overlay: str, backend: Backe
         page.close()
 
 
+@pytest.mark.parametrize("screen", list(SCREENS))
 @pytest.mark.parametrize("size", list(SIZES), ids=list(SIZES))
 def test_the_final_screen_fits(browser, overlay: str, backend: Backend,  # noqa: F811
-                               size: str) -> None:
-    page = final(browser, overlay, backend, size)
+                               size: str, screen: str) -> None:
+    step = SCREENS[screen]
+    page = final(browser, overlay, backend, size, step=step)
     try:
         height = SIZES[size][1]
-        for name in ("Book it", "Don't book it", "What are you doing?"):
+        names = [a["label"] for a in step["actions"]] + ["What are you doing?"]
+        for name in names:
             box = page.get_by_role("button", name=name, exact=True).bounding_box()
             assert box and box["y"] + box["height"] <= height, (size, name, box)
         over = page.evaluate("document.scrollingElement.scrollHeight - innerHeight")

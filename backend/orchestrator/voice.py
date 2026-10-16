@@ -831,3 +831,13 @@ DONT_PAY = "Don't pay"
 PAID_SCOPE = "I paid your bill on the practice site. No card was used."
 OFFERS = (*OFFERS, ASK_PAY)
 
+
+# --- registering, behind the same final screen (2026-10-16) -----------------
+
+REGISTER_IT = "Register"
+DONT_REGISTER = "Don't register"
+
+
+def final_register(course: str) -> str:
+    """The registration's final screen."""
+    return f"I'll register you for {course}, with these details."

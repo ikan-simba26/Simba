@@ -4601,3 +4601,20 @@ port would be refused, and nothing else is served from this machine.
   was taken" with "The site also says".
 - **The fixed bill plan the benchmarks use is unchanged**: it is run without
   a brief, so nothing is offered.
+
+## Registering behind the same final screen
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **The details are the course's own row on the portal's list**, found by
+  its subject and number: title, days, time, teacher, room and credit hours,
+  with the course code. "How much" is the credit hours: the portal states no
+  fee for a course, only the late fee in its notice, which is not this
+  registration's.
+- **The answers are "Register" and "Don't register"**, and the sentence "I'll
+  register you for CS-401, with these details." ("on the portal" wrapped it
+  onto two lines and ran it 14px past a 1280x800 window).
+- **The worked example `REGISTRATION_PLAN`** keeps its steps and what each
+  presses; its timetable line, written into the plan, is now the same
+  details read from the page. Its recorded numbers were measured before the
+  final screen and now include one more screen to answer.
