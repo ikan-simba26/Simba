@@ -704,9 +704,11 @@ function Completed() {
   const said = useRef<HTMLParagraphElement>(null);
   const lines = useLines(said);
   const short = useShortWindow();
+  const screen = useRef<HTMLDivElement>(null);
+  const dropped = useFitByDropping(screen);
 
   return (
-    <div className="flex flex-col gap-8 short:gap-5">
+    <div ref={screen} className="flex flex-col gap-8 short:gap-5">
       {findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
           {/* The sentence, when there is one, in the lead-in's place: it
@@ -733,7 +735,7 @@ function Completed() {
               sentence's second line: with it, nine results put the buttons
               off a 606px window (2026-10-16). */}
           <Findings findings={findings} size={TYPE.hero}
-                    less={Math.max(0, lines - 1)}
+                    less={Math.max(0, lines - 1) + dropped}
                     footer={short && Boolean(completed?.scope || completed?.proof
                                              || completed?.proof_note)} />
           {/* The answer's footer (2026-10-16): the way to see it on the real
@@ -799,6 +801,34 @@ function Completed() {
       <OnwardButton onClick={startOver} />
     </div>
   );
+}
+
+/** The most results the closing screen gives up to fit, one at a time. */
+const MOST_DROPPED = 8;
+
+/**
+ * How many more results the closing screen gives up so it fits the window,
+ * found by measuring it (2026-10-16). The counts in `Findings` and `Tickets`
+ * assume a result is one line; on the live site a train arriving the next day
+ * wraps its ticket onto two, and nine of them put the way on 179px below a
+ * 1280x800 window. Measured from layout (`offsetTop`, `offsetHeight`), which
+ * the screen's entrance transform and the screen fading out beside it do not
+ * move, after every render until it fits.
+ */
+function useFitByDropping(ref: React.RefObject<HTMLElement>): number {
+  const [dropped, setDropped] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null || dropped >= MOST_DROPPED) return;
+    let top = 0;
+    for (let at: HTMLElement | null = element; at; at = at.offsetParent as HTMLElement | null) {
+      top += at.offsetTop;
+    }
+    const canvas = element.closest(".simba-canvas");
+    const padding = canvas ? parseFloat(getComputedStyle(canvas).paddingBottom) || 0 : 0;
+    if (top + element.offsetHeight + padding > window.innerHeight) setDropped(dropped + 1);
+  });
+  return dropped;
 }
 
 /**

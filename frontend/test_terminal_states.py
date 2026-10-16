@@ -82,6 +82,9 @@ PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAh
 PROOF = {"screenshot": PNG, "caption": "What I read is ringed.",
          "rings": [{"x": 728, "y": 143, "w": 118, "h": 17}]}
 
+#: Nine trains, as the live site names them: the tallest train ending.
+TICKET_TRAINS = ["2DN", "14DN", "9UP", "11UP", "13UP", "15UP", "17DN", "19DN", "21UP"]
+
 HELP = ("help.requested", {
     "reason": "could not find 'Check Bill' on the page",
     "suggestion": "I won't do any more on this. You can ask me for something else.",
@@ -158,6 +161,52 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                  "values": ["4 h 30 min", "4 h 45 min", "5 h 20 min", "5 h 45 min",
                             "5 h 30 min", "4 h 25 min", "5 h 10 min", "4 h 15 min"]},
             ],
+        }),
+    ],
+    # The train search's real closing screen (2026-10-16): results as whole
+    # rows, so tickets, nine of them, with the journey above, the sentence,
+    # the last line and the picture. Not checked in the real window until
+    # then; every train ending there was a plain list.
+    "completed with nine trains as tickets": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/", "duration_ms": 1,
+            "steps_taken": 5, "llm_calls": 0, "replayed": False,
+            "heading": "Lahore Cantt to Karachi Cantt, Thursday 15 October",
+            "explanation": ("There are 9 trains. 2DN, 14DN and 9UP are the fastest, "
+                            "all at 22 hours 16 minutes."),
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
+            "findings": [
+                {"label": "Train", "value": "2DN, 14DN, 9UP, 11UP and 5 more",
+                 "values": TICKET_TRAINS,
+                 "rows": [[train, "19:09", "19:25, next day", "22 h 16 min"]
+                          for train in TICKET_TRAINS]},
+                {"label": "Leaves", "value": "19:09", "values": ["19:09"]},
+                {"label": "Arrives", "value": "19:25, next day", "values": ["19:25, next day"]},
+                {"label": "Journey", "value": "22 h 16 min", "values": ["22 h 16 min"]},
+            ],
+        }),
+    ],
+    # A bill whose picture could not be taken: the reason in its place.
+    "completed with an answer and no picture": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/bill", "duration_ms": 1,
+            "steps_taken": 2, "llm_calls": 0, "replayed": False,
+            "explanation": "Your bill is Rs 14,382, due 15 September 2026.",
+            "findings": [{"label": "Your bill", "value": "Rs 14,382"},
+                         {"label": "Due", "value": "15 September 2026"}],
+            "scope": "I only looked at your bill. I did not pay it.",
+            "proof_note": "I couldn't get a picture of the page to show you.",
+        }),
+    ],
+    # The page read again before closing said something else (2026-10-16).
+    "the answer changed": [
+        ("state.changed", {"state": "stuck"}),
+        ("help.requested", {
+            "reason": ("The page changed after I read it, so I can't be sure the answer "
+                       "is right. You can ask me to look again."),
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
+            "unconfirmed": True,
         }),
     ],
     # The backend's summary really is the goal and then the final URL. It was
