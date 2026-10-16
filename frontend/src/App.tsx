@@ -11,11 +11,12 @@
  * the tokens in `index.css` and `design.ts`.
  */
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
+import { FinalCheck } from "./components/FinalCheck";
 import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
@@ -33,7 +34,7 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
@@ -43,6 +44,7 @@ import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
 
+import { watchPresses } from "./pressGuard";
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
 import { useShortWindow } from "./useShortWindow";
@@ -70,6 +72,10 @@ export default function App() {
   // sample goes out on a timer while a step waits (`telemetry.ts`).
   useEffect(() => watchTelemetry(), [watchTelemetry]);
 
+  // Every press logged, and a press on a button that has only just arrived
+  // where it is ignored (2026-10-16, `pressGuard.ts`).
+  useEffect(() => watchPresses(() => useStore.getState().level), []);
+
   return (
     // The bottom padding is the one space on every screen nothing reads:
     // 32px, and 4px in a short window, since the step row and the real page's
@@ -93,8 +99,10 @@ export default function App() {
 
 /** Which of the presence mark's six shapes the current screen means. */
 function usePresenceMode(): PresenceMode {
-  const { state, step, help, completed, failed, stoppedByPerson, task, asking } = useStore();
-  if (stoppedByPerson) return "ready";
+  const { state, step, help, completed, failed, stoppedByPerson, task, asking,
+          declined } = useStore();
+  // The person's own decision, carried out: calm, not stuck.
+  if (stoppedByPerson || declined) return "ready";
   if (help || failed || state === "stuck") return "stuck";
   if (completed) return "done";
   if (state === "acting") return "acting";
@@ -105,10 +113,11 @@ function usePresenceMode(): PresenceMode {
 
 function PresenceBar() {
   const { trustOpen, task, asking, reply, completed, failed, help,
-          stoppedByPerson } = useStore();
+          stoppedByPerson, declined } = useStore();
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
-  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson;
+  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson
+    && !declined;
   // It settles into place once, when SIMBA opens (`entrance.ts`), at the
   // same moment the tiles' entrance is decided — never under reduced motion.
   const reduce = useReducedMotion() ?? false;
@@ -132,7 +141,7 @@ function PresenceBar() {
 
 function Column() {
   const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
-          asking, checklist } = useStore();
+          asking, checklist, declined } = useStore();
   // Put aside while the real page is shown: the trust panel's picture.
   const aside = trustOpen;
 
@@ -143,7 +152,9 @@ function Column() {
   // The person's own stop comes first: once they have pressed it, the
   // backend's `task.failed` that follows is the stop being carried out, not a
   // failure to show them.
-  const screen = stoppedByPerson
+  const screen = declined
+    ? "declined"
+    : stoppedByPerson
     ? "stopped"
     : stuck
     ? "stuck"
@@ -176,28 +187,48 @@ function Column() {
           column blank. */}
       <div className="grid">
         <AnimatePresence initial={false}>
-          <motion.div
-            key={screen}
-            /* No `layout` on this element: reflow is done with `layout` on
-               the blocks inside a step instead. */
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={ARRIVE}
-            className="[grid-area:1/1]"
-          >
+          <ScreenFrame key={screen}>
             {screen === "idle" && <Home />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
-            {screen.startsWith("step-") && <Step />}
+            {screen.startsWith("step-") && <Step index={Number(screen.slice(5))} />}
             {screen === "checklist" && <Checklist />}
             {screen === "completed" && <Completed />}
             {screen === "failed" && <Failed />}
             {screen === "stopped" && <StoppedByPerson />}
+            {screen === "declined" && <NothingChanged />}
             {screen === "stuck" && <Stuck />}
-          </motion.div>
+          </ScreenFrame>
         </AnimatePresence>
       </div>
+    </motion.div>
+  );
+}
+
+/**
+ * One screen of the column, arriving and leaving as a crossfade. A screen on
+ * its way out takes no presses (2026-10-16): while a step faded out beside
+ * the next one, the two copies' buttons sat at different heights, and a
+ * press aimed at "Tomorrow" on the fading copy landed on the arriving
+ * screen's "Stop this" — the stop nobody could explain from the first walk
+ * of 2026-10-16. Found by logging every press (`pressGuard.ts`).
+ */
+function ScreenFrame({ children }: { children: React.ReactNode }) {
+  const present = useIsPresent();
+  return (
+    <motion.div
+      /* No `layout` on this element: reflow is done with `layout` on the
+         blocks inside a step instead. */
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={ARRIVE}
+      className="[grid-area:1/1]"
+      style={{ pointerEvents: present ? "auto" : "none" }}
+      aria-hidden={!present}
+      data-leaving={present ? undefined : "true"}
+    >
+      {children}
     </motion.div>
   );
 }
@@ -549,8 +580,12 @@ function Working() {
 
 /* ----------------------------------------------------------------- step */
 
-function Step() {
-  const { step, state, level, respond, answered } = useStore();
+function Step({ index }: { index: number }) {
+  const { step: current, state, level, respond, answered } = useStore();
+  // Only its own step (2026-10-16). A screen on its way out kept rendering
+  // whatever step was current — the next one — with its old boxes still
+  // folding away, so its buttons stood where the arriving screen's were not.
+  const step = current && current.step_index === index ? current : null;
   const [values, setValues] = useState<Record<string, string>>({});
   const measured = useRef<HTMLDivElement>(null);
 
@@ -577,13 +612,20 @@ function Step() {
   }, [step]);
 
   // A step that will not fit drops a level instead of growing a scrollbar.
-  useOverflowGuard(measured, { level, active: Boolean(step) });
+  // Not on a final screen, which keeps its own layout at every level.
+  useOverflowGuard(measured, { level, active: Boolean(step) && !step?.final });
 
   if (!shown) return null;
 
   return (
     <div ref={measured}>
       <Card className="px-12 py-10 short:py-7">
+        {shown.final ? (
+          // The final screen before a change (2026-10-16): its own layout,
+          // whatever the level, so nothing about what will happen folds away.
+          <FinalCheck step={shown} answered={answered || !step}
+                      onAction={(actionId) => respond(actionId, values)} />
+        ) : (
         <StepView
           level={level}
           step={shown}
@@ -596,6 +638,7 @@ function Step() {
           }
           onAction={(actionId) => respond(actionId, values)}
         />
+        )}
       </Card>
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field
@@ -693,7 +736,7 @@ function Checklist() {
  * to the home screen.
  */
 function Completed() {
-  const { completed, task, startOver } = useStore();
+  const { completed, task, startOver, takeOffer } = useStore();
   const findings = completed?.findings ?? [];
   // One plain sentence saying what the result means, written by the backend
   // from the page's own values (`voice.explain_*`). This screen writes none of
@@ -709,7 +752,11 @@ function Completed() {
 
   return (
     <div ref={screen} className="flex flex-col gap-8 short:gap-5">
-      {findings.length > 0 ? (
+      {completed?.confirmation ? (
+        // A change the site has confirmed (2026-10-16): said done, in the
+        // site's own words, with what it gave back.
+        <ChangeDone />
+      ) : findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
           {/* The sentence, when there is one, in the lead-in's place: it
               says what the lead-in says and more, and both together were the
@@ -777,28 +824,88 @@ function Completed() {
           {completed?.scope && (
             <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
           )}
-          {/* The site's own confirmation, quoted (2026-10-16): a change is
-              only "done" with it on the page. */}
-          {completed?.confirmation && (
-            <p className="border-l-4 border-accent pl-5 text-body text-ink"
-               data-testid="confirmation">
-              {unbroken(completed.confirmation)}
-            </p>
-          )}
-          {/* And what the site says against it, in its own words: never more
-              than the site says (2026-10-16). */}
-          {completed?.caveat && (
-            <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
-              {completed.caveat}
-            </p>
-          )}
           <ProofLine />
         </div>
       )}
 
       {/* One way on (2026-10-16). "I'm done" and "Do something else" sat
-          here side by side and both went home. */}
-      <OnwardButton onClick={startOver} />
+          here side by side and both went home. On our replicas, what can
+          follow the answer — "Book one of these", "Pay this bill" — sits
+          beside it, quieter: someone who wanted only the answer presses
+          nothing more. */}
+      {completed?.offer ? (
+        <div className="flex flex-row gap-3" data-testid="onward">
+          <Button className="flex-1" onClick={startOver}>{STOPPED.again}</Button>
+          <Button className="flex-1" variant="secondary" onClick={takeOffer}
+                  data-testid="offer">
+            {completed.offer.label}
+          </Button>
+        </div>
+      ) : (
+        <OnwardButton onClick={startOver} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The closing screen for a change the site has confirmed (2026-10-16): a
+ * booking, a payment, a registration. "That's done." is said only here, and
+ * only with the site's confirmation on the page (`task.completed.confirmation`,
+ * which the backend sends with nothing less). Then what was done, the site's
+ * own words quoted, what it gave back by its own names — the booking number,
+ * the seat, the receipt — what it says against it, and the page itself.
+ */
+function ChangeDone() {
+  const { completed } = useStore();
+  const receipt = completed?.findings ?? [];
+  // When the site qualifies what it confirmed — "not final until fees are
+  // paid" — the screen does not say "That's done." (2026-10-16). It says what
+  // the site confirmed, and, straight under it, what the site says against
+  // it: "You're registered for CS-401. The portal says it isn't final until
+  // fees are paid." Both are the backend's words (`heading`, `caveat`).
+  const qualified = Boolean(completed?.heading && completed?.caveat);
+  return (
+    <div className="flex flex-col items-start gap-5 short:gap-3" data-testid="change-done">
+      <div className="flex items-center gap-5">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full
+                         bg-tint text-accent" aria-hidden>
+          <CheckIcon size={34} />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink
+                       short:text-heading" data-testid="done-heading">
+          {qualified ? completed?.heading : ENDING.withoutAnswer}
+        </h1>
+      </div>
+      {qualified ? (
+        <p className="text-lead font-medium text-ink" data-testid="caveat">{completed?.caveat}</p>
+      ) : completed?.scope && (
+        <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
+      )}
+      <p className="border-l-4 border-accent pl-5 text-body text-ink" data-testid="confirmation">
+        {unbroken(completed?.confirmation ?? "")}
+      </p>
+      {receipt.length > 0 && (
+        <dl className="grid w-full grid-cols-2 gap-x-8 gap-y-2 rounded-lg bg-tint px-6 py-4
+                       short:gap-y-1 short:py-3" data-testid="receipt">
+          {receipt.map((finding) => (
+            <div key={finding.label} className="flex min-w-0 items-baseline gap-3">
+              <dt className="w-36 shrink-0 text-caption text-soft">{finding.label}</dt>
+              <dd className="min-w-0 text-body font-semibold text-ink tabular-nums">
+                {unbroken(finding.values?.[0] ?? finding.value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {/* What the site says against it, in its own words: never more than
+          the site says (2026-10-16). */}
+      {completed?.caveat && !qualified && (
+        <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
+          {completed.caveat}
+        </p>
+      )}
+      <ProofLine />
     </div>
   );
 }
@@ -1224,6 +1331,30 @@ function StoppedByPerson() {
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
           {STOPPED.byYou}
         </h1>
+      </div>
+      <OnwardButton onClick={startOver} />
+    </div>
+  );
+}
+
+/**
+ * "Don't" on a final screen (2026-10-16): the person decided, nothing was
+ * done, and the screen says so calmly — the stop screen's quiet mark, not the
+ * warm colour of something gone wrong.
+ */
+function NothingChanged() {
+  const { startOver } = useStore();
+  return (
+    <div className="flex flex-col gap-8 short:gap-5" data-testid="nothing-changed">
+      <div className="flex flex-col items-start gap-5">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sunk
+                         text-soft" aria-hidden>
+          <CheckIcon size={34} />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+          {FINAL.notDone}
+        </h1>
+        <p className="text-lead text-ink">{FINAL.nothingChanged}</p>
       </div>
       <OnwardButton onClick={startOver} />
     </div>

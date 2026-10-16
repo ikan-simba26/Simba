@@ -28,6 +28,7 @@ import type {
 } from "@shared/schema";
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
+import { FINAL } from "./copy";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -82,6 +83,12 @@ interface Store {
    * assistant had failed.
    */
   stoppedByPerson: boolean;
+  /**
+   * The person answered "don't" on a final screen (2026-10-16): the task
+   * ends, and nothing was changed. Set on the press, like a stop, and also
+   * from the backend's own `task.failed` saying so.
+   */
+  declined: boolean;
   error: ErrorPayload | null;
   /**
    * The most recent step the run could not do and carried on past. Shown
@@ -155,6 +162,11 @@ interface Store {
   askWhat: () => void;
   closeTrust: () => void;
   openProof: () => void;
+  /**
+   * The closing screen's offer pressed (2026-10-16): the run, kept open for
+   * it, goes on to book or pay. Its id is sent as a `step.response`.
+   */
+  takeOffer: () => void;
   closeProof: () => void;
   /** Stop the checklist before its next move. */
   pause: () => void;
@@ -200,6 +212,12 @@ interface Store {
  */
 const STOP_ID = "cancel";
 
+/** "Don't" on a final screen, and No to a yes-or-no question (`voice.DECLINE_ID`). */
+const DECLINE_ID = "decline";
+
+/** What the backend says when "don't" was the answer: `voice.NOTHING_CHANGED`. */
+const NOTHING_CHANGED = `${FINAL.notDone} ${FINAL.nothingChanged}`;
+
 /** How long "What are you doing?" waits for a picture before saying none
  *  came: the backend's own limit (5s) and a little more. */
 const PICTURE_WAIT_MS = 7000;
@@ -232,6 +250,7 @@ const EMPTY = {
   completed: null,
   failed: null,
   stoppedByPerson: false,
+  declined: false,
   error: null,
   stepFailure: null,
   reply: null,
@@ -357,7 +376,20 @@ export const useStore = create<Store>((set, get) => {
 
     // Clears the finished task but keeps the remembered goals, so "do
     // something else" lands on the home screen rather than an empty box.
-    startOver: () => set({ ...EMPTY }),
+    startOver: () => {
+      // A run still waiting on the closing screen's offer (2026-10-16) is
+      // over: the connection closes, and the next task opens a new one.
+      if (get().completed?.offer) connection.close();
+      set({ ...EMPTY });
+    },
+
+    takeOffer: () => {
+      const offer = get().completed?.offer;
+      if (!offer) return;
+      connection.respondToStep({ step_index: 0, action_id: offer.id, input_values: {} });
+      // Back to "working" until the booking's or the payment's first screen.
+      set({ completed: null, proofOpen: false, firstScreen: false, state: "thinking" });
+    },
 
     setWsUrl: (wsUrl) => set({ wsUrl }),
 
@@ -410,6 +442,11 @@ export const useStore = create<Store>((set, get) => {
       if (sample) connection.sendTelemetry({ ...sample, answered: true });
       tracker.stop();
       connection.respondToStep(response);
+      if (step.final && actionId === DECLINE_ID) {
+        // "Don't" on a final screen: nothing was done, and the task ends.
+        set({ declined: true, step: null, answered: true });
+        return;
+      }
       if (actionId === STOP_ID) {
         // The backend stops on this one answer and nothing else
         // (`loop.is_answer`). Say so now; there is nothing to wait for.
@@ -483,6 +520,10 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         // The picture was of the previous step; it is stale now.
         preview: null,
         trustOpen: false,
+        // A final screen keeps its own layout at every level (2026-10-16):
+        // "I've made this smaller so it fits", carried over from the screen
+        // before, was untrue on it, and hid where the person is.
+        ...((message.payload as StepPresented).final ? { levelNotice: null } : {}),
       }));
       return;
     case "history.offered":
@@ -531,7 +572,12 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
-      set({ failed: message.payload as TaskFailed, step: null });
+      set((current) => ({
+        failed: message.payload as TaskFailed, step: null,
+        // The backend's word that "don't" was the answer, even if the press
+        // itself was not seen here (2026-10-16).
+        declined: current.declined || (message.payload as TaskFailed).reason === NOTHING_CHANGED,
+      }));
       return;
     case "error": {
       const error = message.payload as ErrorPayload;

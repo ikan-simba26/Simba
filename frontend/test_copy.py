@@ -94,6 +94,7 @@ def copy() -> dict:
         f"const c = require({json.dumps(str(emitted))});"
         "process.stdout.write(JSON.stringify({"
         "situations: c.SITUATIONS, leads: c.LEADS, labels: c.LABELS, onward: c.ONWARD,"
+        "final: c.FINAL,"
         "presence: {opening: c.presence('opening'), working: c.presence('working')},"
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
@@ -416,6 +417,26 @@ def backend_sentences() -> dict[str, str]:
     # The window put away during a task (2026-10-06).
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
     sentences["voice.ASK_COOKIES"] = voice.ASK_COOKIES
+    # The final step (2026-10-16).
+    for name in ("FINAL_WAITS", "NOTHING_CHANGED", "NOT_ON_A_REAL_SITE", "NO_FINAL_SCREEN"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["voice.final_press"] = voice.final_press("Register for CS-401")
+    # Booking the train picked, on our replica (2026-10-16).
+    for name in ("ASK_WHICH_TRAIN", "ASK_PASSENGER", "PASSENGER_DETAIL", "NAME_NOT_CAUGHT",
+                 "ASK_CLASS", "CLASS_DETAIL", "NO_CLASSES"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["voice.final_book"] = voice.final_book("7UP")
+    sentences["voice.booked_scope"] = voice.booked_scope("7UP")
+    sentences["booking form instruction"] = voice.DOING_BOOKING_FORM + "."
+    sentences["booking fill instruction"] = voice.doing_booking("AC Standard") + "."
+    # Paying the bill, on our replica (2026-10-16).
+    for name in ("FINAL_PAY", "PAID_SCOPE"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["payment page instruction"] = voice.DOING_PAYMENT_PAGE + "."
+    sentences["voice.final_register"] = voice.final_register("CS-401")
+    # The real site: read, never booked or paid (2026-10-16).
+    for name in ("NOT_ON_REAL_SITE_TIMES", "NOT_ON_REAL_SITE_BILL", "NO_PAYMENT_DETAILS"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
@@ -435,6 +456,12 @@ def backend_sentences() -> dict[str, str]:
         "portal_says": voice.portal_says("Registration Confirmed", "Confirmation number",
                                          "REG-10234-2026"),
         "portal_says, no reference": voice.portal_says("Registration Confirmed"),
+        "registered": voice.registered("CS-401"),
+        "site_qualifies": voice.site_qualifies(
+            "Registration is not final until tuition and fees are paid.",
+            __import__("backend.orchestrator.plan", fromlist=["Confirmation"]).Confirmation(
+                heading="Registration Confirmed", caveat="not final until",
+                caveat_plain="it isn't final until fees are paid")),
         "site_also_says": voice.site_also_says(
             "Registration is not final until tuition and fees are paid or a payment "
             "plan is in place."),
@@ -484,6 +511,19 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    for name in ("BOOK_ONE", "USE_TRAIN", "USE_NAME", "BOOK_IT", "DONT_BOOK", "OPEN_IT",
+                 "FILL_IN", "FIELD_NAME", "FIELD_TRAIN", "BOOK_STAGE", "DOING_BOOKING_FORM"):
+        labels[f"voice.{name}"] = getattr(voice, name)
+    labels["voice.train_choice"] = voice.train_choice("7UP", "07:25")
+    labels["voice.REGISTER_IT"] = voice.REGISTER_IT
+    labels["voice.DONT_REGISTER"] = voice.DONT_REGISTER
+    for name in ("PAY_STAGE", "PAY_THIS_BILL", "DOING_PAYMENT_PAGE", "OPEN_PAYMENT",
+                 "PAY_IT", "DONT_PAY"):
+        labels[f"voice.{name}"] = getattr(voice, name)
+    labels["voice.doing_booking"] = voice.doing_booking("AC Standard")
+    labels["voice.DO_IT"] = voice.DO_IT
+    labels["voice.DONT_DO_IT"] = voice.DONT_DO_IT
+    labels["voice.WHAT_I_PRESS"] = voice.WHAT_I_PRESS
     labels["voice.YES"] = voice.YES
     labels["voice.NO"] = voice.NO
     for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
@@ -607,3 +647,10 @@ def test_the_overlay_knows_which_answer_says_no() -> None:
     (2026-10-16); the overlay finds it by the backend's id."""
     shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
     assert f'export const DECLINE_ID = "{voice.DECLINE_ID}";' in shell
+
+
+def test_nothing_changed_reads_the_same_whichever_side_says_it(copy: dict) -> None:
+    """"Don't" on a final screen (2026-10-16): the overlay's own sentences on
+    the press, the backend's in `task.failed`, and they are the same."""
+    final = copy["final"]
+    assert voice.NOTHING_CHANGED == f"{final['notDone']} {final['nothingChanged']}"

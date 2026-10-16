@@ -25,12 +25,20 @@ Hyderabad Jn to Sukkur, has four trains whose journey times repeat on rows
 that are not next to each other (`search.html`, `SHARED`), for the results
 travelling as whole rows (2026-10-05).
 
-One page. Everything happens in the browser; `/` serves it.
+One page for the search. Everything there happens in the browser; `/`
+serves it.
+
+Since 2026-10-16 each train in the results can be booked: "Book" opens
+`/book`, a form that needs a passenger's name and a class, and sending it
+shows "Booking Confirmed" with a booking number, the train, the date and a
+seat. Nothing is really booked and no money is taken, and the confirmation
+says so. No live site is ever booked on (CLAUDE.md, the final-step rule).
 """
 
 import os
+import zlib
 
-from flask import Flask, render_template
+from flask import Flask, abort, render_template, request
 
 app = Flask(__name__)
 
@@ -56,9 +64,50 @@ STATIONS = [
 NO_SERVICE = "QUETTA"
 
 
+#: The classes a seat can be booked in, the booking form's own choices, and
+#: what each costs on this invented railway.
+CLASSES = [("Economy", "Rs 1,450"), ("AC Standard", "Rs 3,250"), ("AC Business", "Rs 5,100")]
+#: Which coach each class is in.
+COACHES = {"Economy": 6, "AC Standard": 3, "AC Business": 1}
+
+
 @app.route("/")
 def search():
     return render_template("search.html", stations=STATIONS, no_service=NO_SERVICE)
+
+
+def _journey(source) -> dict[str, str]:
+    """The journey a booking is for, as the results page passed it on."""
+    journey = {key: (source.get(key) or "").strip()
+               for key in ("train", "from", "to", "date", "leaves")}
+    if not all(journey.values()):
+        abort(400)
+    return journey
+
+
+@app.route("/book", methods=["GET"])
+def book():
+    journey = _journey(request.args)
+    return render_template("book.html", train=journey["train"], origin=journey["from"],
+                           destination=journey["to"], day=journey["date"],
+                           leaves=journey["leaves"], classes=CLASSES, fares=dict(CLASSES))
+
+
+@app.route("/book", methods=["POST"])
+def booked():
+    journey = _journey(request.form)
+    passenger = (request.form.get("passenger") or "").strip()
+    klass = request.form.get("class") or ""
+    fares = dict(CLASSES)
+    if not passenger or klass not in fares:
+        abort(400)
+    # Invented, and fixed for the same booking so a run reads the same twice.
+    key = zlib.crc32(f"{journey['train']}|{journey['date']}|{passenger}|{klass}".encode())
+    return render_template(
+        "booked.html", booking=f"PR-{key % 1_000_000:06d}", passenger=passenger,
+        train=journey["train"], origin=journey["from"], destination=journey["to"],
+        day=journey["date"], leaves=journey["leaves"], klass=klass,
+        seat=f"Coach {COACHES[klass]}, seat {key % 60 + 1}", fare=fares[klass])
 
 
 if __name__ == "__main__":

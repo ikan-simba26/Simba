@@ -225,6 +225,24 @@ class Expectation:
 
 
 @dataclass(frozen=True)
+class FinalRead:
+    """One detail on a final screen (2026-10-16): its name for the person,
+    and where the page states it — the value beside the page's own label
+    `reads`, or, in a table of many rows, the cell under `reads` in the row
+    whose cells match `row` ((header, value) pairs). Read at the moment the
+    final screen goes up; a detail the page does not state means no final
+    screen and nothing done. `plain` says it in plain words, as `Answer.plain`
+    does. `fixed` is a detail known without reading — the label of the button
+    a model-planned move would press — and is shown as it is."""
+
+    name: str
+    reads: str = ""
+    plain: Callable[[str], str] | None = None
+    row: tuple[tuple[str, str], ...] = ()
+    fixed: str | None = None
+
+
+@dataclass(frozen=True)
 class PlanStep:
     instruction: str
     detail: str
@@ -244,6 +262,12 @@ class PlanStep:
     # never retried a second way — a second press could make the change twice
     # — and "done" only once the site's confirmation is on the page.
     changes: bool = False
+    # What its final screen shows (2026-10-16): only for a step that
+    # `changes`, which is never acted on without one (CLAUDE.md, the final-step
+    # rule). Empty: the final screen names the button it would press.
+    final: tuple[FinalRead, ...] = ()
+    # The final screen's two answers, when the step names them: do it, don't.
+    final_answers: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -260,24 +284,51 @@ class Confirmation:
     # breath, says it is not final until fees are paid. Never said unless the
     # page says it.
     caveat: str | None = None
+    # The caveat in a few plain words, said for it when the page says it —
+    # "it isn't final until fees are paid" — and then the closing screen
+    # does not say "That's done." (2026-10-16). None: the sentence is quoted.
+    caveat_plain: str | None = None
+    # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
+    who: str = "portal"
+
+
+def course_final(course: str) -> tuple[FinalRead, ...]:
+    """What registering for `course` shows on its final screen (2026-10-16):
+    the course's own row on the portal's list — its title, when it meets,
+    who teaches it, where, and its credit hours — found by its subject and
+    number (`CS-401` is subject `CS`, number `401`)."""
+    subject, _, number = course.partition("-")
+    row = (("Subj", subject), ("Crse", number))
+    return (
+        FinalRead("Course", fixed=course),
+        FinalRead("Title", "Title", row=row),
+        FinalRead("Days", "Days", row=row),
+        FinalRead("Time", "Time", row=row),
+        FinalRead("Teacher", "Instructor", row=row),
+        FinalRead("Room", "Room", row=row),
+        FinalRead("Credit hours", "Cr", row=row),
+    )
+
+
+def register_step(course: str, stage: int | None = 2) -> PlanStep:
+    """The step that registers: a change, behind its final screen."""
+    return PlanStep(
+        instruction=voice.final_register(course),
+        detail="This registers you for the course.",
+        actions=actions(f"Register for {course}"),
+        operations=[Operation("click", Target("button", f"Register for {course}"))],
+        expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+        stage=stage,
+        changes=True,
+        final=course_final(course),
+        final_answers=(voice.REGISTER_IT, voice.DONT_REGISTER),
+    )
 
 
 def registration_plan(course: str) -> list[PlanStep]:
     """The registration plan for one course, by its code as the portal prints
     it (`CS-401`). The person says which; nothing here picks one for them."""
-    return [
-        *SIGN_IN_AND_CLEAR,
-        PlanStep(
-            instruction=f"Ready to book your place on {course}.",
-            detail="This registers you for the course.",
-            actions=actions(f"Register for {course}"),
-            operations=[Operation("click", Target("button", f"Register for {course}"))],
-            expect=Expectation(url_contains="/register",
-                               title_contains="Registration Confirmed"),
-            stage=2,
-            changes=True,
-        ),
-    ]
+    return [*SIGN_IN_AND_CLEAR, register_step(course)]
 
 
 SIGN_IN_AND_CLEAR: list[PlanStep] = [
@@ -314,13 +365,9 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
 # course can know; `registration_plan` is what a person's request runs.
 REGISTRATION_PLAN: list[PlanStep] = [
     *SIGN_IN_AND_CLEAR,
-    PlanStep(
-        instruction="Ready to book your place on CS-401.",
-        detail="3 credit hours. MWF 10:00-10:50, Dr. Aslam, SCI 214.",
-        actions=actions("Register for CS-401"),
-        operations=[Operation("click", Target("button", "Register for CS-401"))],
-        expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
-    ),
+    # Registers (2026-10-16): behind its final screen, like every change. Its
+    # timetable line is the final screen's details now, read from the page.
+    register_step("CS-401", stage=None),
 ]
 
 
@@ -347,6 +394,7 @@ class CoursePlanner:
 
     calls_made = 0
     stuck_reason: str | None = None
+    marks_changes = True
 
     def __init__(self, course: str | None) -> None:
         #: What the person named, if anything, as they wrote it.
@@ -383,7 +431,8 @@ class CoursePlanner:
             [step] = registration_plan(self.chosen)[len(SIGN_IN_AND_CLEAR):]
             return Move(instruction=step.instruction, detail=step.detail,
                         operations=step.operations, expect=step.expect, fields=step.fields,
-                        actions=step.actions, stage=step.stage, changes=step.changes)
+                        actions=step.actions, stage=step.stage, changes=step.changes,
+                        final=step.final, final_answers=step.final_answers)
         return None
 
     def _question(self, Move):
@@ -422,7 +471,8 @@ class CoursePlanner:
         if self.chosen is None:
             return task
         return replace(task, about=About(shows=(Shown(reads="Course", says=self.chosen),)),
-                       scope=voice.explain_course(self.chosen))
+                       scope=voice.explain_course(self.chosen),
+                       heading=voice.registered(self.chosen))
 
 
 class HardcodedPlanner:
@@ -430,6 +480,9 @@ class HardcodedPlanner:
 
     calls_made = 0
     stuck_reason: str | None = None
+    #: Its plans say which steps change something (`PlanStep.changes`), so
+    #: the loop does not guess from a button's words (2026-10-16).
+    marks_changes = True
 
     def __init__(self, steps: list[PlanStep]) -> None:
         self._steps = list(steps)
@@ -464,4 +517,6 @@ class HardcodedPlanner:
             safe=step.safe,
             doing=step.doing,
             changes=step.changes,
+            final=step.final,
+            final_answers=step.final_answers,
         )

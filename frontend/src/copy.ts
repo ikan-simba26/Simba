@@ -310,6 +310,17 @@ export const STOPPED = {
   again: ONWARD,
 } as const;
 
+/**
+ * "Don't" on a final screen (2026-10-16): the task ends, calmly, and nothing
+ * on the site was changed — true by construction, since nothing that books,
+ * pays or registers is done before that screen. The backend's
+ * `task.failed.reason` is these two sentences, `voice.NOTHING_CHANGED`.
+ */
+export const FINAL = {
+  notDone: "I didn't do it.",
+  nothingChanged: "Nothing was changed.",
+} as const;
+
 /* -------------------------------------------------------------- notices */
 
 /**
@@ -511,6 +522,8 @@ export const SITUATIONS: Record<string, string> = {
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,
+  "final.notDone": FINAL.notDone,
+  "final.nothingChanged": FINAL.nothingChanged,
   "home.morning": HOME.morning,
   "home.afternoon": HOME.afternoon,
   "home.evening": HOME.evening,

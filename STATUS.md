@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-16 · **1291 passing, 12 skipped, 0 failed** · backend 860 in 736s, frontend 431 in 830s (run as two halves: the two `test_checklist.py` files cannot be collected in one run; the first full run had 1 failure, a test still expecting the bill as "14,382", fixed and the whole suite rerun), on `feat/proof`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), now covering 25 endings and the sign-in screen. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-17 · **1421 passing, 12 skipped, 0 failed** · backend 896 in 1484s, frontend 525 in 1198s (two halves; the backend half has run about twice as long as before since 2026-10-16, not explained), on `feat/finish`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%) on its second run — the first failed once at 100% with the host's page closed, not reproduced. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
 
 ---
 
@@ -119,6 +119,63 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-17: offers as a button, the stop found, honest wording
+
+On `feat/finish`, one commit per item, then **`feat/finish` merged into `main`**
+with everything of 2026-10-16 (last).
+
+- **No question after every answer.** On our replicas the closing screen
+  has a quieter "Book one of these" / "Pay this bill" beside "Back to start";
+  the run stays open for it (`task.completed.offer`). A goal that says book
+  or pay goes straight on. "Which train?" is the booking's first question.
+- **The unexplained stop, found.** Every press is logged (`pressGuard.ts`).
+  40 walks before the fix: 22 ended "I've stopped" — a press aimed at the
+  fading screen's "Tomorrow" landing on the arriving screen's "Stop this",
+  which sat where "Tomorrow" had been. Fixed (a leaving screen takes no
+  presses and keeps its own step) and guarded (a press on a button that
+  moved or appeared in the last 500ms, or where another was, is ignored).
+  40 walks after: 40 reached the trains (EVALUATION.md, 2026-10-16e).
+- **"You're registered for CS-401. The portal says it isn't final until
+  fees are paid."** in place of "That's done." beside the portal's caveat.
+- **Replica benchmarks re-run** on the current flows: 50/50, no model
+  (EVALUATION.md, 2026-10-16d), replacing the old registration numbers.
+- **Demo clips re-recorded**, with a booking through its final screen;
+  DEMO.md walks the new screens and paying a bill.
+- **HANDOVER.md lists what Nahail and Aly must agree.**
+- **Open, flagged:** see the report — chiefly the caveat's plain words
+  dropping "tuition" and "payment plan"; "That's done." beside "no real
+  ticket was booked"; at forced 100% the end-of-task still of the page
+  sometimes fails, which cost the railways clip its proof until recorded at
+  150%; a minimised-window wait seen once while recording.
+
+### Changed on 2026-10-16 (last): SIMBA finishes the task, on our replicas
+
+On `feat/finish`, from `main`; merged on 2026-10-17. One commit per item, and one
+for what the real window found (EVALUATION.md, 2026-10-16c).
+
+- **The final-step rule replaces "never execute an irreversible action"**
+  (CLAUDE.md; Raham's request; **Nahail and Aly to be told**): a change
+  happens only on a replica and only after a final screen — what will
+  happen in plain words, what, how much and when as the page states them,
+  do it / don't, no default, no timer. Held in the loop for every planner.
+- **Trains**: after the results, on our replica, "Would you like to book
+  one of these trains?"; then the name and class the form needs, the final
+  screen, and "Booking Confirmed" quoted with booking number, train, date
+  and seat.
+- **Bill**: "Would you like to pay this bill?"; a pretend payment with no
+  card; the receipt quoted.
+- **Registration**: its register step is the same final screen, with the
+  course's own row.
+- **Live sites**: "I only looked up times. I don't book tickets or pay on
+  the real site." and the one way to see the page; payment details are
+  never typed anywhere.
+- **Honest endings**: "That's done." only with the site's confirmation;
+  "Don't" ends "I didn't do it. Nothing was changed."
+- **Open, flagged:** the offer is made after every replica search and bill
+  (one more press for someone who wanted only the answer); the first walk's
+  unexplained stop; the recorded registration benchmarks predate the final
+  screen; CONTRACT.md's `final` and the rule need the other two owners.
 
 ### Changed on 2026-10-16 (later): finishing proof, and merged
 

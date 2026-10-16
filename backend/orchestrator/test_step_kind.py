@@ -172,7 +172,7 @@ def test_the_bill_and_course_questions_are_the_first_stage() -> None:
     assert BillBrief("g", Understood()).question().stage == 0
     # The course is asked once signed in (2026-10-16), the second stage.
     assert CourseBrief("g", Understood(), hardcoded=False).question().stage == 1
-    assert BillBrief.stages == ["Reference", "Look up", "Your bill"]
+    assert BillBrief("g", Understood()).stages == ["Reference", "Look up", "Your bill"]
     assert CourseBrief.stages == ["Sign in", "Course", "Register", "Done"]
 
 

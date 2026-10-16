@@ -4507,3 +4507,224 @@ in the person's words: a model cannot ask from a page.
 - **A closing screen that does not fit gives up results until it does**,
   measured after layout, at most eight. The fixed counts stay as the first
   guess. The registration's ending puts its mark beside "That's done.".
+
+## The final-step rule replaces "never execute an irreversible action"
+
+**Date:** 2026-10-16 (asked for by Raham; **Nahail and Aly to be told**, as for
+read aloud)
+
+**Decision.** CLAUDE.md's first rule was "Never execute an irreversible
+action … Stop at the confirmation screen." It is replaced by the final-step
+rule: an action that pays, books, registers or changes a record happens only
+(a) on a replica and (b) after a dedicated final screen that says in plain
+words exactly what will happen, shows the key details (what, how much, when),
+and has two buttons, do it / don't, with no default and no timer. Live sites
+stay read-only, and SIMBA never types payment details anywhere.
+
+**How it is held** (not asked for; the details are this file's):
+- **In the loop, for every planner**, not in each plan: `loop.carry_out`
+  checks every move before acting. A move is a change if its planner marks it
+  (`Move.changes`), or — for a planner that does not mark its own, the model
+  and replay — if it presses something whose words say so (register, book,
+  pay, purchase, buy, checkout, place order, submit, confirm). The hardcoded
+  planners declare `marks_changes`, so "Book train 13UP", a link that opens a
+  form, is not taken for a booking.
+- **"A replica" is a page served from this machine** (`127.0.0.1` or
+  `localhost`). Anything else that would change something ends the run with
+  "That would book, pay or change something on the real site, and I don't do
+  that. Nothing was changed.", before anything is shown or pressed.
+- **Every detail on the final screen is read from the page** at that moment
+  (`FinalRead`); one the page does not state means no final screen and
+  nothing done. A change with nothing to read — a model's move — shows the
+  one thing that is known: the button it would press.
+- **The two answers are drawn alike**: same size, colour and weight, side by
+  side, nothing focused on arrival. "Don't" is the only way out (no "Stop
+  this"), ends the task, and says "I didn't do it. Nothing was changed."
+- **A change is never on the checklist**, even if a plan marks it safe, and
+  is tried once (since 2026-10-16).
+- **The final screen ignores the level**: every detail shows at 1, 2 and 3,
+  and the overflow guard does not act on it.
+
+**Alternatives.** Trusting each plan to put its own final screen in front of
+its change: the model plans no screens, and one forgotten plan is one real
+payment. Deciding "replica" by a list of our ports: a test replica on another
+port would be refused, and nothing else is served from this machine.
+
+## Booking a train on our replica: the offer, the form, the confirmation
+
+**Date:** 2026-10-16 (booking was asked for; these details were not)
+
+- **Offered after every search on a replica**, not only when the goal says
+  "book": "Would you like to book one of these trains?" with each train
+  ("7UP, leaves 07:25") and "No, just the times". "No" ends exactly as a
+  search ended before. The cost: one more press for someone who wanted only
+  the times. The alternative — book only when the goal asks — leaves the
+  home screen's "Find train times" tile with no way to the booking at all.
+  **Flagged.** On the live site nothing is offered.
+- **The question comes after the answer is shown**, with the trains still on
+  screen above it, and before anything on the booking form is touched. Then
+  the final screen asks again, with the details: the first is the person's
+  choice of train, the second their decision to book it.
+- **The replica's form needs a name and a class**, and the class is three
+  radio buttons, read from the page as the question's answers. A name is any
+  1–60 characters with a letter in it; anything else is asked again.
+- **Opening the form and filling it in run as checklist lines**: both are
+  safe moves once the person has chosen. Only "Confirm Booking" books.
+- **The form shows what it holds**: the replica's summary table repeats the
+  passenger and class as they are entered, so the final screen's eight
+  details — train, from, to, date, leaves, passenger, class, fare — are all
+  read from the page, none from SIMBA's memory of the answers.
+- **The confirmation is quoted with "The site says"** (`Confirmation.who`),
+  not "The portal says", and its caveat is the page's sentence "No real
+  ticket was booked and no money was taken". The closing screen shows the
+  booking number, train, date and seat by the page's own names, under the
+  confirmation, with the proof.
+- **"7UP, leaves 07:25" and "No, just the times" share a row**, like two or
+  three short choices: stacked, the question ran past a 606px window.
+- **The test helpers answer an offer nobody scripted with "No"**, so every
+  existing search test still ends on its trains.
+
+## Paying the bill on our replica: a pretend payment
+
+**Date:** 2026-10-16 (paying was asked for; these details were not)
+
+- **Offered after the bill is shown, on a replica only**: "Would you like to
+  pay this bill?" — "Yes, pay it" or "No, just the bill", which ends as a
+  bill always did. The same shape as booking, and flagged with it.
+- **The replica's payment page asks for nothing**: no card, no method, no
+  choice. It states the amount, the billing month, the due date and the
+  reference, and says it is a practice payment. So SIMBA asks nothing more,
+  and the final screen shows those four as the page states them, the amount
+  and date in plain words.
+- **The receipt** ("Payment Received", a receipt number, the amount paid,
+  the date paid) is quoted with "The site says", and its sentence "No money
+  was taken" with "The site also says".
+- **The fixed bill plan the benchmarks use is unchanged**: it is run without
+  a brief, so nothing is offered.
+
+## Registering behind the same final screen
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **The details are the course's own row on the portal's list**, found by
+  its subject and number: title, days, time, teacher, room and credit hours,
+  with the course code. "How much" is the credit hours: the portal states no
+  fee for a course, only the late fee in its notice, which is not this
+  registration's.
+- **The answers are "Register" and "Don't register"**, and the sentence "I'll
+  register you for CS-401, with these details." ("on the portal" wrapped it
+  onto two lines and ran it 14px past a 1280x800 window).
+- **The worked example `REGISTRATION_PLAN`** keeps its steps and what each
+  presses; its timetable line, written into the plan, is now the same
+  details read from the page. Its recorded numbers were measured before the
+  final screen and now include one more screen to answer.
+
+## The live site: said plainly, and payment details never typed
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **The closing line on the live site** is "I only looked up times. I don't
+  book tickets or pay on the real site."; on our replica it stays "I only
+  looked up times. I did not book a ticket or pay for anything." The one
+  button is the existing "See it on the real page": the page as the search
+  ended, the trains ringed. No button that opens the live site itself: the
+  site view is covered by design, and a link out of SIMBA is a second way to
+  the page.
+- **"Not ours" is decided by where the page is served from**, the same test
+  as the final-step rule, so the live train site never sees the offer to
+  book.
+- **Payment details are refused by what a box is**, on any site and for any
+  planner: a label or name with card, CVV, CVC, CSC, security code, expiry,
+  IBAN, SWIFT or bank account in it, or an `autocomplete` of `cc-*`. The run
+  ends before anything is shown or typed: "This page asks for card or bank
+  details. I never type those, so I've stopped. Nothing was paid."
+
+## Honest endings for a change
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **"That's done." is said for a change only with the site's confirmation on
+  the page**: the loop sends `confirmation` with nothing less, and the
+  closing screen for a change (`ChangeDone`) is drawn only when it is there.
+  Without it the run ends "It isn't confirmed.", naming the site's own
+  button and who should have confirmed it ("the site", "the portal").
+- **"Don't" ends calmly**: "I didn't do it." and "Nothing was changed.", in
+  the stop screen's quiet style, with "Back to start". Shown on the press,
+  like a stop, and also when only the backend's `task.failed` says so. Its
+  words are the backend's `NOTHING_CHANGED`, held equal by a test. "Nothing
+  was changed" is true by construction: nothing that books, pays or
+  registers is done before the final screen.
+
+## The offer is a quiet button, not a question
+
+**Date:** 2026-10-16 (asked for: "no extra question after every result")
+
+**Decision.** The question after every replica search and bill ("Would you
+like to book one of these trains?") is gone. The closing screen comes as
+always, with "Book one of these" or "Pay this bill" beside "Back to start",
+quieter (outlined, where "Back to start" is filled). A goal that already says
+book or pay goes straight on, with no closing screen between.
+
+**How** (not asked for):
+- **The run stays open after such a closing screen**: the backend sends
+  `task.completed` with `offer` (additive, `TaskOffer`) and waits. Pressed,
+  the overlay sends a `step.response` with the offer's id and the run goes
+  on with the same page, so nothing is searched or looked up again and the
+  cookie question is not asked twice. "Back to start" closes the connection,
+  which ends the waiting run. The alternative — the button starting a new
+  task with the details spelled out — needed no open connection but
+  searched again, read the journey back again and asked about cookies again.
+- **"Which train?" is the booking's first question**, asked from the trains
+  found (buttons up to four, a list past that), and not at all when one
+  train was found. It has no "No" answer: "Stop this" is the way out, and
+  pressing the button was the choice to book.
+- **"Book" and "pay" are read from the goal's words only**: book, booking,
+  reserve, ticket, tickets or seat for trains; pay for a bill ("payment due"
+  is not asking to pay). A model is not asked.
+
+## A registration the portal qualifies is not "That's done."
+
+**Date:** 2026-10-16 (asked for: "You're registered for CS-401. The portal
+says it isn't final until fees are paid.")
+
+- **Said in the task's plain words, only when the page says it.** The
+  registration's confirmation names a phrase ("not final until") and a
+  plain version of it ("it isn't final until fees are paid"). The plain
+  version is said only when the portal's own sentence holding the phrase is
+  on the final page; otherwise nothing is said. The portal's whole sentence
+  is no longer quoted on the screen (it is ringed on the proof picture): two
+  versions of one warning was one too many. This drops "tuition" and "or a
+  payment plan is in place" from what is read on screen. **Flagged.**
+- **The heading is what the portal confirmed** ("You're registered for
+  CS-401."), with the tick, and the plain caveat straight under it; the
+  confirmation quote and the proof follow. "That's done." stays for a change
+  the site does not qualify.
+- **A booking and a payment keep "That's done."** Their caveats ("No real
+  ticket was booked and no money was taken", "No money was taken") are about
+  the practice site, not conditions on the change, and are still quoted.
+  **Flagged**: on a real site they would not exist; on ours, "That's done."
+  beside "no real ticket was booked" may read oddly.
+
+## A press on a button that has just arrived is ignored
+
+**Date:** 2026-10-16 (asked for: "a press on a button that moved or appeared
+in the last 500 ms is ignored, and 'Stop this' never appears where another
+button was a moment before")
+
+- **What counts as moving**: a change of more than 2px in a button's box,
+  read whenever the page changes and frame by frame until nothing moves; not
+  at all at rest. A press's own 1px nudge is not a move.
+- **"Where another button was"** is any other button whose box held that
+  point in the last 500ms, including one that has since gone (the home
+  screen's tile, a step that faded out).
+- **An ignored press does nothing and says nothing.** No notice: the person
+  presses again, and a notice would itself move what is on screen.
+- **A keyboard press** (Enter on a focused button) is held only to its own
+  button's settling, not to what was under the pointer.
+- **Every press is logged** in `window.__simbaPresses` (the last 200) and the
+  console; nothing is sent to the backend or written to disk.
+- **The tests' builds turn the guard off** (`VITE_SIMBA_SETTLE_MS=0`) so
+  their presses count at once; `test_press_guard.py` turns it on, and the
+  host fit test runs the real build, guard on, pressing as a person would.
+- **A screen on its way out takes no presses and shows its own step**: the
+  structural cause, fixed where it was, as well as guarded.

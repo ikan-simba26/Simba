@@ -114,4 +114,5 @@ def test_registering_still_asks(replica: str) -> None:  # noqa: F811
 
     done = go(replica, brief, [])
 
-    assert "Ready to book your place on MATH-210." in done.asked()
+    # On its final screen (2026-10-16).
+    assert voice.final_register("MATH-210") in done.asked()

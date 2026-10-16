@@ -8,7 +8,10 @@ rewritten for what had changed — and brought up to date on 2026-10-06 for
 whole rows, the window waited for and the fastest train named, and on
 2026-10-15 for the interface work of 14 and 15 October (the checklist, named
 stages, the new home screen and colours, the review fixes), merged into
-`main` that day. Section 9 is still the 2026-09-17 capture, and says so.
+`main` that day. Brought up to date again on 2026-10-17 for the
+final-step rule: booking, paying and registering on our replicas behind a
+final screen, the offer as a quiet button, the press guard, and what Nahail
+and Aly must agree (below). Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -45,6 +48,54 @@ fails).
   to listen (DECISIONS.md, *Read aloud is its own telemetry signal; Nahail to
   confirm*).
 
+**For Nahail and Aly (2026-10-16): four things to agree.** Each was settled
+by Raham for the orchestrator's side and is in use on `main`; none is
+ratified. CLAUDE.md puts the contract and its rules with all three owners.
+Disagreeing with any of them means a change, not a revert: each is listed
+with what it would cost to undo.
+
+1. **The final-step rule** (CLAUDE.md, replacing "never execute an
+   irreversible action"; DECISIONS.md, *The final-step rule replaces…*). A
+   payment, booking, registration or other change happens only on a replica
+   (a page served from this machine), only after a final screen that says
+   what will happen and shows what, how much and when as the page states
+   them, with two buttons — do it / don't — no default and no timer. On a
+   live site SIMBA only reads, and it never types card or bank details
+   anywhere. Enforced in `loop.carry_out` for every planner. *To undo:* the
+   booking, the pretend payment and registering all stop at their final
+   screen.
+2. **The contract fields added since 6 October**, every one additive and
+   optional, so a side that ignores one still works:
+   - `StepField.options` (10-06): the site's own list for a box to choose from.
+   - `StepPresented.step_kind` (10-07): the shape beside a step.
+   - `StepPresented.stage` and `TaskStarted.stages` (10-14): named stages in
+     place of "Step X of Y".
+   - `StepPresented.note` (10-14): what was wrong with the last answer.
+   - `requires_confirmation: false` read as a checklist line, its one answer
+     `"pause"`, and `TaskStart.confirm_each` (10-14).
+   - `TaskCompleted.heading` (10-14): what the results are for.
+   - `Telemetry.read_aloud` (10-14).
+   - `StepPresented.coming` (10-15): the checklist lines still to come.
+   - `PastGoal.label` (10-16): a remembered goal in a few words.
+   - `TaskCompleted.scope`, `confirmation`, `caveat`, `proof` (with the new
+     shape `Proof`) and `proof_note`; `HelpRequested.unconfirmed`; the
+     `error` code `PREVIEW_LATE` (10-15 and 10-16): what was and was not
+     done, the site's own confirmation and caveat, and the answer on the
+     real page.
+   - `StepPresented.final` with the new shape `Detail` (10-16): the final
+     screen.
+   - `TaskCompleted.offer` with the new shape `TaskOffer` (10-16): booking
+     or paying as a quiet button; the run stays open for it.
+   *To undo any one:* drop it on both sides; nothing else reads it.
+3. **Read aloud** (CLAUDE.md, approved by Raham on 2026-10-14): a step read
+   in the system's own English voice, only when the button is pressed, off
+   by default, stopped when the step changes; its own telemetry signal.
+   *To undo:* remove the button; `read_aloud` stays 0.
+4. **Saving a password is a box to tick** under the sign-in boxes, not a
+   second "Sign in and save my password" button (Raham's choice, 2026-10-15;
+   CONTRACT.md, *Keeping a password*; no message changed). *To undo:* the
+   overlay draws the backend's `remember` answer as a button again.
+
 **How to read the claims below.** Each "works" claim names its evidence: a
 test file, or a dated entry in EVALUATION.md. A test is evidence for today,
 because the suite was run today. A dated run is evidence for that date only.
@@ -70,8 +121,12 @@ thing about to be touched ringed.
 
 Three hard rules shape everything ([CLAUDE.md](CLAUDE.md)):
 
-- **It never does anything irreversible.** No payments, no submissions that
-  change real records. It stops at the confirmation screen.
+- **It changes something only on our own copies, and only after a final
+  screen** (since 2026-10-16, replacing "never anything irreversible"). A
+  booking, a payment or a registration happens only on a replica, after a
+  screen that says what will happen and shows what, how much and when as the
+  page states them, with "do it" and "don't" and no default. On a live site
+  it only reads, and it never types card or bank details.
 - **The language model never sees a credential**, and **never writes a
   selector**. Perception numbers the page's elements; the model answers
   "click 14"; the backend turns 14 back into something clickable.
@@ -214,7 +269,7 @@ interactive elements, and the readable content.
 | **A credential store beyond the minimum** | One saved password per site, Windows only, forgettable only from a sign-in step during a task. Deleting it from the home screen would need a new contract message |
 | **Voice input** | In the contract, out of scope for now |
 | **Replay tuning** (when to trust a trace over fresh planning) | Not started. Trace memory is off by default |
-| **Anything irreversible** | By design, permanently |
+| **Anything that changes a real record** | By design: on our replicas only, behind a final screen; never on a live site |
 | **CI** | Nobody has set it up. Tests run when someone runs them, and the tests that need the Electron window skip silently without one |
 | **New sites or flows** | Not before asking: CLAUDE.md's October phase forbids them |
 
@@ -607,8 +662,8 @@ options and a recommendation; this is the list.
    is covered. Letting the person finish the step themselves would be a
    feature: reveal the page, then carry on. *Settled for now, 2026-09-17; the
    larger question is open.*
-2. **"I'm done" and "Do something else" do the same thing.** Both go to the
-   home screen. What should "I'm done" do?
+2. *(Settled 2026-10-16: "I'm done" and "Do something else", which did the
+   same thing, are one "Back to start".)*
 3. *(Settled 2026-09-17: pressing "Stop this" now shows "I've stopped, as you
    asked.", not a failure.)*
 4. **The stuck screen shows a technical reason** (`could not find 'Close' on

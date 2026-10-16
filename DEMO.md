@@ -8,12 +8,14 @@ problem SIMBA exists for, and nobody feels it from a description. Then the same
 task, in SIMBA, in one window.
 
 Everything below has been run end to end. The recordings in `demo/` were made
-on 2026-10-05 on our own copy of the train search, and show the closing screen
-as it is now — one line per train with its journey time, the sentence above,
-the two buttons side by side: railways takes 61 seconds at a watchable pace,
-billing 43, a greeting 8. **The live railways run is slower**
-— about 54 seconds of task time against 25 on the copy (EVALUATION.md,
-2026-09-30c), before any pauses for narration.
+on 2026-10-16 on our own copies, and show the overlay as it is now: named
+stages in place of a count, the safe moves running as a checklist, the
+trains as tickets, the answer on the real page ("See it on the real page"),
+and a booking through its final screen to the site's confirmation. At a
+watchable pace: railways 35 seconds, a booking 78, billing 39, a greeting
+8. **The live railways run is slower** — about 55 seconds of task
+time against 26 on the copy (EVALUATION.md, 2026-10-16), before any pauses
+for narration.
 
 ---
 
@@ -42,9 +44,11 @@ much on the day.
 "show them the real website" is still rehearsed on the real page, by looking at
 it, not by searching.
 
-**The recordings show the flow as it is**: the questions, then the steps
-(re-recorded 2026-10-05). They are made on our own copy of the train search, so
-**the live site is never used to make them** — `tools/record_demo.py` asks the
+**The recordings show the flow as it is** (re-recorded 2026-10-16): the
+questions, the read-back, the checklist, the answer and the real page; and,
+in `demo/booking.webm`, a booking on our copy through its final screen.
+They are made on our own copies, so **the live site is never used to make
+them** — `tools/record_demo.py` asks the
 backend where a train goal would run and refuses to record the railways clip
 anywhere but the copy. Re-record whenever the flow changes.
 
@@ -131,32 +135,23 @@ Type, exactly:
 trains to Rawalpindi tomorrow
 ```
 
-Press Start. **Two of the seven screens are questions, not steps** (since
-2026-09-30): that sentence does not say where the journey starts, and "Lahore"
-does not say which of the site's two Lahore stations. Type `Lahore` into the
-box when asked, and press `Lahore Cantt` when asked. The order below is the
-order it came in a live run on 2026-09-30 (EVALUATION.md).
+Press Start. It asks only what the sentence did not say — where from, and
+which of the site's two Lahore stations — then reads the journey back once.
+Type `Lahore` into the box when asked, and press `Lahore Cantt`.
 
 | What is on screen | What to say |
 |---|---|
 | "Let me see what you need." | It is working out what you asked for. Nothing has started yet. |
-| 1 of 6 — "Where are you travelling from?", one box | It read the rest out of the sentence: the destination, and that "tomorrow" is a date. This is the one thing it could not know, so it asks for that and nothing else. |
-| 2 of 6 — "Let me set where you're starting from." | Now it is a step again: it is about to type `Lahore` into the site's own box. |
-| 3 of 6 — "Which Lahore station do you mean?", two buttons | The site came back with two Lahore stations, so it asks rather than picking. Before today it searched whichever one the plan named, whatever you typed. |
-| 4 of 6, one sentence, one big button | One step at a time. It never acts until you press. |
-| The dot above the column | That is the assistant: it breathes while it thinks, circles while it acts, and fills when it is your turn. |
-| **Press "What are you doing?"** | It shows the real page, zoomed to the control it is about to press, ringed. "Show the whole page" if they want to see where that is. Then "Hide the page". |
-| 5 and 6 — the calendar | This is the field that could not be typed. It is picking the date the way the page insists on. |
-| 7 of 7 — "Trains from Lahore Cantt to Rawalpindi on 1 October. Shall I search?" | The last thing it asks for is the search, and it says the whole journey back first. If any of it were wrong, this is where they would stop it. |
-| The ending | The answer, as the biggest thing on the screen: the trains and how long each takes. |
-
-The total goes from 6 to 7 on that last screen. Say so if anyone notices: the
-extra one is the station question, and it could not be counted before the site
-answered with two stations.
+| "Where are you travelling from?", one box | It read the rest out of the sentence: the destination, and that "tomorrow" is a date. This is the one thing it could not know. The row at the top is where you are: From, To, Day, Search, Trains. |
+| "Which Lahore station do you mean?", two buttons | The site's own list has two Lahore stations, so it asks rather than picking. |
+| "Lahore Cantt to Rawalpindi, tomorrow, 17 October. Is that right?" | Said back once, before anything on the site is touched. If any of it were wrong, this is where they would stop it. |
+| **Press "What are you doing?"** on any step | It shows the real page, close up on what it is about to press, ringed; "Show the whole page" inside it. This is the one way to see the page while it works. |
+| "I'm doing what you asked.", a list that ticks off | The person decided; SIMBA clicks. Filling in, the calendar, the search run by themselves, one line each, with one Pause. Anything that is a real choice, or that would book or pay, still asks. |
+| The ending | The answer, as the biggest thing on the screen: each train as a ticket, leaves, arrives, how long, the fastest marked, and what was not done ("I only looked up times…"). |
+| **Press "See it on the real page"** | The page as the search ended, the trains ringed where they are. It was read again before closing; if it had changed, no answer would be shown. |
 
 If someone asks what a goal that says everything looks like, type
-`trains from Rawalpindi to Multan tomorrow` — nothing is asked, and it goes
-straight to the five steps.
+`trains from Rawalpindi to Multan tomorrow` — only the read-back is asked.
 
 ### 2:40 — it only does what you ask (1 minute)
 
@@ -178,14 +173,25 @@ book a flight to Dubai
 
 It says it cannot, in one sentence, and offers what it can.
 
-### 3:40 — a second task, chosen by pressing (1 minute)
+### 3:40 — a second task, finished on our copy (1 minute)
 
-Press the card **"Check my electricity bill"**. The card sends exactly those
-words, and they do not say *which* bill — so the first screen asks for the
-reference number. Type `04141234567890`. Then three steps, on our own replica
-of a utility site: it accepts the cookie banner, types the number you gave it,
-opens the bill. The ending shows **14,382** and the due date **15-09-2026** —
-the page's own figures, in the page's own format.
+Press the card **"Check my electricity bill"**. The card's words do not say
+*which* bill, so the first screen asks for the reference number. Type
+`04141234567890`. It asks about cookies — "This site asks about cookies.
+Shall I say yes?" — press Yes; then it looks the bill up by itself. The
+ending says it plainly: **Rs 14,382, due 15 September 2026**.
+
+Beside "Back to start" there is a quieter button, **"Pay this bill"**. Press
+it. It opens the payment page and shows the **final screen**: what will
+happen, in plain words, the amount, the month, the due date and the
+reference as the page states them, and two buttons that look alike — "Pay
+it" and "Don't pay". Say: *nothing happens until you choose; this is the
+only kind of screen where SIMBA changes anything, and only on our own copy
+of a site — on a real one it only reads.* Press "Pay it". The ending quotes
+the site's own receipt number, and says no card was used.
+
+To show the other way, press "Don't pay" instead: "I didn't do it. Nothing
+was changed."
 
 ### 4:40 — the close
 
@@ -217,8 +223,11 @@ train search: the screens are the same, **the trains in it are invented**. Then 
 - **"Does it work on any website?"** No. Three flows today: a course
   registration, an electricity bill, and train times. Anything else is
   declined rather than attempted.
-- **"Does it pay the bill?"** No. It stops at the confirmation screen and
-  never submits anything irreversible. That is a design constraint, not a gap.
+- **"Does it pay the bill?"** Only on our own copies of a site, and only
+  after a final screen that says exactly what will happen and waits for "Pay
+  it" or "Don't pay". On a real site it reads and never books or pays, and it
+  never types card details anywhere (CLAUDE.md, the final-step rule). The
+  payment on our billing copy is a pretend one: no card, no money.
 - **"Does the model see my password?"** No. Credentials go straight into the
   page; they never enter a prompt or a log.
 - **"What if it clicks the wrong thing?"** After every action it checks the

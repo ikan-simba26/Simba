@@ -128,6 +128,12 @@ export interface StepAction {
   kind: ActionKind;
 }
 
+/** One thing a final screen shows, by name, as the page states it (2026-10-16). */
+export interface Detail {
+  label: string;
+  value: string;
+}
+
 export interface StepPresented {
   step_index: number;
   step_total: number;
@@ -157,6 +163,13 @@ export interface StepPresented {
    * nothing more it knows of.
    */
   coming?: string[];
+  /**
+   * Additive and optional (2026-10-16). The final screen before a move that
+   * books, pays, registers or changes a record: the key details of what will
+   * happen, read from the page. Exactly two actions, do it (`"confirm"`) and
+   * don't (`"decline"`), neither the default. Absent: an ordinary step.
+   */
+  final?: Detail[];
 }
 
 /**
@@ -215,7 +228,18 @@ export interface HelpRequested {
   unconfirmed?: boolean;
 }
 
+/** What can follow an answer, on our replicas (2026-10-16): a quiet second
+ *  button on the closing screen. Pressed, the overlay sends a `step.response`
+ *  whose `action_id` is `id`. */
+export interface TaskOffer {
+  id: string;
+  label: string;
+}
+
 export interface TaskCompleted {
+  /** Additive and optional (2026-10-16). On our replicas, what can follow
+   *  the answer, as a quiet second button beside "Back to start". */
+  offer?: TaskOffer;
   /**
    * Additive and optional (2026-10-16). The closing screen's last line: what
    * was done, and what was not.

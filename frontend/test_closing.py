@@ -491,23 +491,39 @@ def test_a_registration_quotes_the_portals_confirmation(
     assert page.get_by_test_id("caveat").count() == 0
 
 
-def test_a_registration_quotes_the_portals_caveat_under_its_confirmation(
+def test_a_registration_with_a_caveat_is_not_said_done(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
     """The portal confirms, and in the same page says it is not final until
-    fees are paid (2026-10-16): both are quoted, the caveat under."""
+    fees are paid (2026-10-16): no "That's done.", but what the portal
+    confirmed and, straight under it, what it says against it."""
     script = completed(None, [])
     script[-1][1]["scope"] = "You are registered for CS-401 section 001."
+    script[-1][1]["heading"] = "You're registered for CS-401."
     script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
                                      "with confirmation number REG-10234-2026.")
-    script[-1][1]["caveat"] = ("The portal also says “Registration is not final until "
-                               "tuition and fees are paid or a payment plan is in place”.")
+    script[-1][1]["caveat"] = "The portal says it isn't final until fees are paid."
     page = end(browser, overlay, backend, script)
 
+    assert "That's done." not in page.inner_text("body")
+    heading = page.get_by_test_id("done-heading")
     caveat = page.get_by_test_id("caveat")
-    assert caveat.inner_text() == script[-1][1]["caveat"]
-    confirmation = page.get_by_test_id("confirmation").bounding_box()
-    assert caveat.bounding_box()["y"] >= confirmation["y"] + confirmation["height"]
+    assert heading.inner_text() == "You're registered for CS-401."
+    assert caveat.inner_text() == "The portal says it isn't final until fees are paid."
+    assert heading.bounding_box()["y"] < caveat.bounding_box()["y"]
+    assert caveat.bounding_box()["y"] < page.get_by_test_id("confirmation").bounding_box()["y"]
+
+
+def test_a_booking_without_a_qualifying_caveat_is_still_done(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    from frontend.test_terminal_states import TAILS
+
+    script = completed(None, [])
+    script[-1] = TAILS["completed a booking"][0]
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("done-heading").inner_text() == "That's done."
 
 
 def test_a_change_not_confirmed_says_so_first(
@@ -581,3 +597,24 @@ def test_no_picture_is_said_and_no_button_shown(
 
     assert page.get_by_test_id("proof-note").inner_text() == script[-1][1]["proof_note"]
     assert page.get_by_role("button", name="See it on the real page").count() == 0
+
+
+def test_a_booking_says_done_with_the_sites_confirmation_and_receipt(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """A change the site confirmed (2026-10-16): "That's done.", the
+    confirmation quoted, then what the site gave back by its own names."""
+    from frontend.test_terminal_states import TAILS
+
+    script = completed(None, [])
+    script[-1] = TAILS["completed a booking"][0]
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("change-done").is_visible()
+    assert page.get_by_role("heading", level=1).inner_text() == "That's done."
+    receipt = page.get_by_test_id("receipt").inner_text().split()
+    assert " ".join(receipt) == ("Booking number PR-482193 Train 7UP Date 17 October 2026 "
+                                 "Seat Coach 3, seat 23"), receipt
+    confirmation = page.get_by_test_id("confirmation").bounding_box()
+    assert page.get_by_test_id("receipt").bounding_box()["y"] > confirmation["y"]
+    assert page.get_by_role("button", name="See it on the real page").is_visible()

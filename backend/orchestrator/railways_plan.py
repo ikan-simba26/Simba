@@ -314,6 +314,8 @@ class TripPlanner:
     """
 
     calls_made = 0
+    #: Searches only, and says so: nothing it does changes a record.
+    marks_changes = True
 
     # The box each end of the journey goes in, and how its steps are worded.
     _BOX = {"origin": "From", "destination": "To"}

@@ -764,7 +764,8 @@ def test_the_train_card_asks_where_and_when(app_without_quota: str) -> None:
     started = next(m["payload"] for m in received if m["type"] == "task.started")
     assert started["estimated_steps"] == 3 + 1 + TripBrief.plan_steps
     # Where the person is, by name, from the start (2026-10-14).
-    assert started["stages"] == ["From", "To", "Day", "Search", "Trains"]
+    # And on our replica, the booking that can follow (2026-10-16).
+    assert started["stages"] == ["From", "To", "Day", "Search", "Trains", "Book"]
     assert first["stage"] == 0
 
 

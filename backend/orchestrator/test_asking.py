@@ -42,6 +42,10 @@ from backend.orchestrator.loop import (
 )
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.orchestrator.test_orchestrator import REPLICA_URL, replica  # noqa: F401
+from backend.orchestrator import voice
+
+#: What the closing screen's offer sends when pressed (2026-10-16).
+OFFER_IDS = (voice.BOOK_ID, voice.PAY_ID)
 from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, USE_STATION, actions, choices
 from shared.schema import StepAction, StepField
 
@@ -80,7 +84,13 @@ class ScriptedConnection(Connection):
     async def receive(self, message_type: str, step_index: int | None = None,
                       on_other=None) -> dict:  # noqa: ARG002
         self.shown += 1
-        answer = self.answers.pop(0) if self.answers else ("confirm", {})
+        if self.offered():
+            # The closing screen's offer (2026-10-16): taken only when the
+            # test scripted it; otherwise the person goes back to start.
+            answer = (self.answers.pop(0) if self.answers and self.answers[0]
+                      and self.answers[0][0] in OFFER_IDS else ("leave", {}))
+        else:
+            answer = self.answers.pop(0) if self.answers else ("confirm", {})
         if answer is None:
             answer = (CANCEL_ID, {})
         return {
@@ -88,6 +98,11 @@ class ScriptedConnection(Connection):
             "payload": {"step_index": step_index, "action_id": answer[0],
                         "input_values": answer[1]},
         }
+
+    def offered(self) -> bool:
+        """Whether the closing screen is up with an offer on it (2026-10-16)."""
+        last = self.sent[-1] if self.sent else ("", {})
+        return last[0] == "task.completed" and last[1].get("offer") is not None
 
     def types(self) -> list[str]:
         return [message_type for message_type, _ in self.sent]

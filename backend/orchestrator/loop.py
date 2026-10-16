@@ -19,6 +19,7 @@ passes none — most tests — never sends `load.updated` at all.
 import asyncio
 import base64
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -37,6 +38,7 @@ from backend.orchestrator.plan import (
     Confirmation,
     Expectation,
     FieldValue,
+    FinalRead,
     Operation,
     Target,
     part_of,
@@ -52,6 +54,7 @@ from backend.perception.serializer import (
 from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
+    Detail,
     HelpRequested,
     Highlight,
     PagePreview,
@@ -64,6 +67,7 @@ from shared.schema import (
     ErrorPayload,
     StepPresented,
     TaskCompleted,
+    TaskOffer,
     TaskFailed,
     TaskStarted,
     LevelOverride,
@@ -488,8 +492,128 @@ class Move:
     doing: str | None = None
     # What was wrong with the last answer, beside a question asked again.
     note: str | None = None
-    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once.
+    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once, only on a
+    # replica, and only after its final screen (`final`, the details it shows
+    # as the page states them; `final_answers`, its two answers' words).
     changes: bool = False
+    final: tuple[FinalRead, ...] = ()
+    final_answers: tuple[str, str] | None = None
+
+
+# --- the final step (2026-10-16) ---------------------------------------------
+#
+# CLAUDE.md, the final-step rule: an action that pays, books, registers or
+# changes a record happens only on a replica, and only after a final screen
+# that says what will happen, shows what, how much and when as the page
+# states them, and has two answers, neither the default. Enforced here, for
+# every planner, rather than trusted to each one.
+
+#: Where our replicas are served from: this machine, and nowhere else.
+REPLICA_HOSTS = ("127.0.0.1", "localhost")
+
+#: A button or link whose words say it would make a change: for a planner
+#: that does not mark its own changes (the model, replay). Matched on whole
+#: words, ignoring case.
+CHANGE_WORDS = re.compile(
+    r"\b(register|enrol|enroll|book|reserve|pay|purchase|buy|checkout|check out|"
+    r"place order|submit|confirm)\b", re.IGNORECASE)
+
+
+#: What a box for card or bank details is called, by its label or its name.
+PAYMENT_WORDS = re.compile(
+    r"\b(card|cvv|cvc|csc|security code|expiry|expiration|iban|swift|bank account)\b",
+    re.IGNORECASE)
+
+
+async def asks_for_payment(page: Page, elements: list[Element], move: "Move") -> bool:
+    """Whether a move would type into a box for card or bank details: by its
+    label, its name, or what the page says it autocompletes (`cc-number`,
+    `cc-csc`, …). SIMBA never types payment details, anywhere (CLAUDE.md, the
+    final-step rule; 2026-10-16)."""
+    for operation in move.operations:
+        if operation.kind != "fill":
+            continue
+        element_id = (operation.element_id if operation.element_id is not None
+                      else pick(elements, operation.target))
+        element = next((e for e in elements if e.id == element_id), None)
+        words = " ".join(filter(None, [operation.target.label,
+                                       element.label if element else "",
+                                       element.name if element else ""]))
+        if PAYMENT_WORDS.search(words):
+            return True
+        if element is not None:
+            try:
+                filled = await resolve(page, elements, element.id).get_attribute(
+                    "autocomplete", timeout=2000)
+            except PlaywrightError:
+                filled = None
+            if (filled or "").strip().lower().startswith("cc-"):
+                return True
+    return False
+
+
+def on_replica(url: str) -> bool:
+    """Whether a page is one of our replicas: served from this machine."""
+    from urllib.parse import urlparse
+
+    return (urlparse(url).hostname or "") in REPLICA_HOSTS
+
+
+def would_change(move: "Move", planner: object) -> bool:
+    """Whether a move books, pays, registers or changes a record: marked so
+    by a planner that marks its own, or, for one that does not, a press whose
+    words say so."""
+    if move.changes:
+        return True
+    if getattr(planner, "marks_changes", False) or move.question:
+        return False
+    return any(operation.kind == "click" and CHANGE_WORDS.search(operation.target.label or "")
+               for operation in move.operations)
+
+
+def pressed(move: "Move") -> str:
+    """The site's own words on what a move presses: "Confirm Booking"."""
+    return next((o.target.label for o in move.operations if o.kind == "click"
+                 and o.target.label), move.instruction)
+
+
+def read_final(content: Content, read: FinalRead) -> str | None:
+    """One final-screen detail, as the page states it now, or None."""
+    if read.fixed is not None:
+        return read.fixed
+    if read.row:
+        value = None
+        for table in content.tables:
+            for row in table.rows:
+                if all(row.get(header) == wanted for header, wanted in read.row):
+                    value = row.get(read.reads)
+                    break
+            if value:
+                break
+    else:
+        value = content.value_for(read.reads)
+    if not value or not value.strip():
+        return None
+    return read.plain(value.strip()) if read.plain else value.strip()
+
+
+def final_screen(move: "Move", content: Content) -> "tuple[Move, list[Detail]] | None":
+    """The final screen for a move that changes something: its sentence, its
+    details read from the page, and its two answers. None when the page does
+    not state a detail the screen has to show: then nothing is done."""
+    label = pressed(move)
+    reads = move.final or (FinalRead(voice.WHAT_I_PRESS, fixed=label),)
+    details: list[Detail] = []
+    for read in reads:
+        value = read_final(content, read)
+        if value is None:
+            return None
+        details.append(Detail(label=read.name, value=value))
+    instruction = move.instruction if move.final else voice.final_press(label)
+    answers = voice.final_actions(*(move.final_answers or ()))
+    shown = replace(move, instruction=instruction, detail=voice.FINAL_WAITS, fields=[],
+                    actions=answers, changes=True, safe=False, kind="confirm")
+    return shown, details
 
 
 class Planner(Protocol):
@@ -955,6 +1079,7 @@ class _Run:
 
     async def present(
         self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
+        final: list[Detail] | None = None,
     ) -> dict:
         """Put a step or a question on screen and wait for the person.
 
@@ -1000,6 +1125,7 @@ class _Run:
                 step_kind=kind_of(move),
                 stage=move.stage,
                 note=move.note,
+                final=final,
             ),
         )
 
@@ -1116,6 +1242,10 @@ async def run_brief(
     run the way being stuck does, and says why.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    # On a replica a brief may offer to finish the task once its answer is in
+    # (2026-10-16): book the train, pay the bill. Its stages say so.
+    if hasattr(brief, "finishes"):
+        brief.finishes = on_replica(start_url)
     await run.open(brief.goal, brief.estimated_steps, start_url,
                    getattr(brief, "stages", None))
 
@@ -1144,11 +1274,69 @@ async def run_brief(
         return
 
     planner, task = brief.settle()
+    follow_for = getattr(brief, "follow_on", None)
+    completed = await carry_out(run, planner, task, send=follow_for is None)
+    if follow_for is None or completed is None:
+        return
+    await finish(run, completed, follow_for(completed) if on_replica(page.url) else None)
+
+
+@dataclass(frozen=True)
+class FollowOn:
+    """What can follow the answer, on a replica (2026-10-16): booking one of
+    the trains found, paying the bill. Offered as a quiet second button on
+    the closing screen (`id`, `label`), or taken straight away when the goal
+    asked for it (`straight`). `take` gives the planner and the task that
+    finish the job."""
+
+    id: str
+    label: str
+    straight: bool
+    take: Callable[[], "tuple[Planner, Task]"]
+
+
+class LeftTheAnswer(Exception):
+    """The person went on from the closing screen without the follow-on."""
+
+
+async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -> None:
+    """The answer, and the job finished if the person asks for it.
+
+    Asked for in the goal: straight on, no closing screen between. Otherwise
+    the closing screen as always, with one more, quieter button; the run
+    waits for it until the person presses it, goes back to start (which
+    closes the connection), or cancels. Someone who wanted only the answer
+    presses nothing extra (2026-10-16; it was a question after every answer).
+    """
+    if follow is None:
+        await run.connection.send("task.completed", completed)
+        return
+    if not follow.straight:
+        await run.connection.send("task.completed", completed.model_copy(
+            update={"offer": TaskOffer(id=follow.id, label=follow.label)}))
+
+        async def left(message: dict) -> None:
+            if message.get("type") == "task.cancel":
+                raise LeftTheAnswer
+
+        try:
+            response = await run.connection.receive("step.response", on_other=left)
+        except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
+            return
+        if response.get("payload", {}).get("action_id") != follow.id:
+            return  # any other answer: the closing screen was the end
+        await run.set_state("thinking")
+    planner, task = follow.take()
     await carry_out(run, planner, task)
 
 
-async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
-    """The loop itself, from a page that is already open."""
+async def carry_out(run: _Run, planner: Planner, task: Task,
+                    send: bool = True) -> TaskCompleted | None:
+    """The loop itself, from a page that is already open.
+
+    Returns the ending when the task completed, sent unless `send` is False —
+    for a brief that may offer to finish the task once the answer is in
+    (`run_brief`, 2026-10-16) — and None when the run ended any other way."""
     page, connection = run.page, run.connection
     rules = run.rules
     set_state, give_up = run.set_state, run.give_up
@@ -1182,6 +1370,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         await set_state("thinking")
         elements, before, view = await perceive(page)
         findings = findings_in(before, task, found, rows)
+        # A task that changes something has no answer to show on the way: what
+        # it reads is its receipt, from the confirmation, shown at the end.
+        # On the booking form "Here's what I found: 7UP" pushed the name
+        # question past a 1280x800 window (2026-10-16, in the real window).
+        if task.confirms is not None:
+            findings = []
         said_so_far(before, task, seen)
 
         # Durable verification: everything typed so far has to *still* be
@@ -1241,10 +1435,42 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
+
+        # Card or bank details are never typed, on any site (2026-10-16).
+        if await asks_for_payment(page, elements, move):
+            await give_up(voice.NO_PAYMENT_DETAILS)
+            return
+
+        # The final step (2026-10-16): a move that books, pays, registers or
+        # changes a record is done only on a replica, and only after its
+        # final screen is answered "do it". Whichever planner asked.
+        if would_change(move, planner):
+            if not on_replica(page.url):
+                await give_up(voice.NOT_ON_A_REAL_SITE)
+                return
+            screen = final_screen(move, before.content)
+            if screen is None:
+                await give_up(voice.NO_FINAL_SCREEN)
+                return
+            move, details = screen
+            steps_taken += 1
+            payload = await run.present(move, goal=task.goal, findings=findings, view=view,
+                                        final=details)
+            action = payload.get("action_id")
+            if action == voice.DECLINE_ID:
+                # "Don't": the task ends, and nothing was changed.
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.NOTHING_CHANGED, recoverable=True))
+                return
+            if action != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+
         # The checklist: a safe move, run without a press (2026-10-14). Pause
         # is looked for first, so a press lands before the next move rather
-        # than after it.
-        by_itself = run.auto and move.safe and not move.quiet and not ask_next
+        # than after it. Never a move that changes something.
+        by_itself = (run.auto and move.safe and not move.quiet and not ask_next
+                     and not move.changes)
         if by_itself and await run.pause_pressed():
             paused = Move(instruction=voice.PAUSED, detail="", operations=[],
                           expect=Expectation(), fields=[],
@@ -1259,6 +1485,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             # What the planner expects to do by itself next, if it knows.
             ahead = getattr(planner, "coming", None)
             await run.tick(move, findings=findings, coming=ahead() if ahead else [])
+        elif move.changes:
+            pass  # asked above, on its final screen
         elif not move.quiet:
             steps_taken += 1
             # A step that asks for a password uses the saved one if there is
@@ -1321,9 +1549,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             return
 
         if failure is not None and move.changes:
-            # Not done, and not "stuck": tried, and not confirmed. Said so.
-            label = move.actions[0].label if move.actions else move.instruction
-            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            # Not done, and not "stuck": tried, and not confirmed. Said so,
+            # naming the site's own button, not the final screen's answer.
+            label = pressed(move)
+            who = task.confirms.who if task.confirms else "site"
+            await give_up(voice.not_confirmed(label, who), unconfirmed=True)
             return
 
         if failure is not None:
@@ -1404,14 +1634,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         headings = [h.text for h in final.content.headings]
         if not any(task.confirms.heading in text for text in headings):
             changed = next((m for m in reversed(completed) if m.changes), None)
-            label = (changed.actions[0].label if changed and changed.actions
-                     else task.confirms.heading)
-            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            label = pressed(changed) if changed else task.confirms.heading
+            who = task.confirms.who if task.confirms else "site"
+            await give_up(voice.not_confirmed(label, who), unconfirmed=True)
             return
         reference = (final.content.value_for(task.confirms.reads)
                      if task.confirms.reads else None)
         confirmation = voice.portal_says(task.confirms.heading, task.confirms.reads,
-                                         reference)
+                                         reference, task.confirms.who)
         confirmed = (next(text for text in headings if task.confirms.heading in text),
                      reference)
     # And what the site says against it, in its own sentence (2026-10-16):
@@ -1438,9 +1668,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     if remember is not None:
         remember(completed)
 
-    await connection.send(
-        "task.completed",
-        TaskCompleted(
+    completed = TaskCompleted(
             summary=f"{task.goal} {page.url}",
             duration_ms=int((time.monotonic() - run.started) * 1000),
             steps_taken=steps_taken,
@@ -1451,11 +1679,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
-            caveat=voice.site_also_says(caveat_said) if caveat_said else None,
+            caveat=(voice.site_qualifies(caveat_said, task.confirms)
+                    if caveat_said and task.confirms else None),
             proof=proof,
             proof_note=proof_note,
-        ),
     )
+    if send:
+        await connection.send("task.completed", completed)
+    return completed
 
 
 def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") -> bool:

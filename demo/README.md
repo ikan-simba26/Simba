@@ -1,6 +1,6 @@
 # The recordings
 
-Five clips of SIMBA running, kept so a demo survives a dead website, a room
+Six clips of SIMBA running, kept so a demo survives a dead website, a room
 with no internet, or a host that will not start. `DEMO.md` says where each one
 goes in the talk.
 
@@ -9,15 +9,17 @@ re-recorded rather than read. Record them the day before showing anything.
 
 | Clip | Backend | Typed goal | What it shows | Size |
 |---|---|---|---|---|
-| `railways.webm` | real | `trains to Rawalpindi tomorrow` | **Our copy** of the train search. Asked where from, typed "Lahore", chose "Lahore Cantt", five steps. Ends on the closing screen: the sentence, one line per train with its journey time, the two buttons side by side. | 4.9 MB, 61s |
-| `billing.webm` | real | `What do I owe on my electricity bill?` | The billing replica. Asked for the reference, three steps: accept cookies, check the bill, show the breakdown. Ends on 14,382 and 15-09-2026 under "Your bill is 14,382, and it is due on 15-09-2026." | 3.1 MB, 43s |
-| `hello.webm` | real | `hello` | A greeting and the three things SIMBA can do. **No task starts** — this is the clip for "it only does what you ask". | 0.6 MB, 8s |
-| `fold.webm` | mock | `Register for CS-401` | The scripted run, including the fold from one detail level to the next. | 3.1 MB, 34s |
-| `adapt.webm` | real | `What do I owe on my electricity bill 04141234567890?` | The same fold, **not scripted**: the pointer drifts over step 1 without pressing anything, and the backend's provisional rules fold the step to level 3 while it is on screen (7.2s in). Steps 2 and 3 are answered promptly, and the ending returns. | 3.5 MB, 41s |
+| `railways.webm` | real | `trains to Rawalpindi tomorrow` | **Our copy** of the train search. Asked where from (typed "Lahore", chose "Lahore Cantt"), the journey read back, the search as a checklist, the trains as tickets with "Book one of these" beside "Back to start", then "See it on the real page". | 3.4 MB, 35s |
+| `booking.webm` | real | `book a train from Lahore to Karachi tomorrow` | **A booking on our copy.** Which station at each end, the read-back, the checklist, which train, a name, a class, the **final screen** held, "Book it", the site's confirmation quoted with booking number, train, date and seat, and the real page. | 6.1 MB, 78s |
+| `billing.webm` | real | `What do I owe on my electricity bill?` | The billing replica. The reference asked for, cookies asked Yes or No, the lookup as a checklist, "Rs 14,382, due 15 September 2026", "Pay this bill" offered, and the real page. | 3.3 MB, 39s |
+| `hello.webm` | real | `hello` | A greeting and the three things SIMBA can do. **No task starts.** | 0.7 MB, 8s |
+| `fold.webm` | mock | `Register for CS-401` | The scripted run, including the fold from one detail level to the next. | 3.1 MB, 43s |
+| `adapt.webm` | real | `What do I owe on my electricity bill?` | The same fold, **not scripted**: the reference is given, then the pointer drifts over the cookie question without pressing, and the provisional rules fold it to level 3 (8.2s in). No notice is shown on a task's first screen, so the drift is on the second. | 3.1 MB, 46s |
 
-Recorded 2026-10-05 with the stack started by `.\run.ps1 railways-local`: no
-clip touches the live site. The recorder asks the backend where a train goal
-runs and refuses to record railways anywhere but our copy.
+Recorded 2026-10-16/17 with the stack's host forced to 100% (railways at
+150%: at 100% the still of the site view used for "See it on the real page"
+failed to come, the known 100% capture problem, EVALUATION.md 2026-09-27).
+No clip touches the live site.
 
 ## Recording them again
 

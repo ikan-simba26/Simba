@@ -47,13 +47,21 @@ confirms". A person can ask to confirm every move.
 Verification is not optional. After every action, snapshot the page and check
 it changed the way the plan expected. If it didn't: retry once with a different
 strategy, then hand control to the user. Never assume a click worked.
-The one exception: a step that waits for a list to open gets one attempt, not two.
+Two exceptions get one attempt, not two: a step that waits for a list to open,
+and a step that changes something (a second press could make the change twice).
 
 ## Rules
 
-- **Never execute an irreversible action.** No payments, no form submissions
-  that alter real records, no account changes. Stop at the confirmation screen.
-  This is a design constraint, not a limitation.
+- **The final-step rule** (2026-10-16, replacing "never execute an
+  irreversible action"). An action that pays, books, registers or changes a
+  record happens only **(a) on a replica** — a site we wrote, served from this
+  machine — and **(b) after a dedicated final screen** that says in plain
+  words exactly what will happen, shows the key details (what, how much,
+  when) as the page states them, and has two buttons: do it / don't. No
+  default, no timer. "Don't" ends the task and says nothing was changed. On a
+  live site SIMBA reads and never books, pays or changes anything, and it
+  never types payment details anywhere. `loop.carry_out` enforces (a) and (b)
+  whichever planner asks.
 - **The LLM never sees a credential.** The vault injects values directly into
   the DOM. Secrets never enter a prompt or a log.
 - **The LLM never emits a selector.** Perception assigns integer IDs to

@@ -67,8 +67,12 @@ class ScriptedFrontend(Connection):
             self.before = []
             for payload in self.script.get(step_index, []):
                 await on_other({"type": "telemetry", "payload": payload})
+        # "No" to the offer to pay, which has no go-ahead (2026-10-16).
+        shown = [p for kind, p in self.sent if kind == "step.presented"]
+        ids = [a["id"] for a in shown[-1]["actions"]] if shown else ["confirm"]
         return {"type": "step.response",
-                "payload": {"step_index": step_index, "action_id": "confirm",
+                "payload": {"step_index": step_index,
+                            "action_id": "confirm" if "confirm" in ids else "decline",
                             "input_values": {"reference": REFERENCE}}}
 
     def types(self) -> list[str]:
@@ -217,10 +221,13 @@ def converse(url: str, before: list[tuple[str, dict]]) -> list[dict]:
                 received.append(message)
                 if message["type"] == "step.presented":
                     index = message["payload"]["step_index"]
-                    for payload in HESITANT_THEN_CALM[index]:
+                    for payload in HESITANT_THEN_CALM.get(index, []):  # the offer to pay: calm
                         await send("telemetry", payload)
-                    await send("step.response", {"step_index": index, "action_id": "confirm",
-                                                 "input_values": {"reference": REFERENCE}})
+                    ids = [a["id"] for a in message["payload"]["actions"]]
+                    await send("step.response", {
+                        "step_index": index,
+                        "action_id": "confirm" if "confirm" in ids else "decline",
+                        "input_values": {"reference": REFERENCE}})
                 if message["type"] in ("task.completed", "task.failed", "help.requested"):
                     return received
 

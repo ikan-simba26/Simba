@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pay Your Bill | LESCO Consumer Services Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% with crumb = 'Pay Online' %}{% include '_chrome.html' %}{% endwith %}
+
+<h1>Pay Your Bill</h1>
+<p class="lede">
+  Practice payment. No card is needed and no money is taken: this portal is a
+  stand-in for testing.
+</p>
+
+<table class="particulars">
+  <tr><th>Reference No.</th><td>{{ reference }}</td></tr>
+  <tr><th>Consumer name</th><td>{{ bill.name }}</td></tr>
+  <tr><th>Billing month</th><td>{{ bill.month }}</td></tr>
+  <tr><th>Amount payable</th><td>{{ bill.payable_within }}</td></tr>
+  <tr><th>Due date</th><td>{{ bill.due_date }}</td></tr>
+</table>
+
+<form method="post" action="{{ url_for('pay') }}" class="enquiry">
+  <input type="hidden" name="reference" value="{{ reference }}">
+  <button type="submit">Confirm Payment</button>
+</form>
+
+<p class="tiny">
+  Payments made after 16:00 are posted on the next working day. A payment
+  posted after the due date attracts the late payment surcharge shown on the
+  bill. Keep your receipt number until the payment appears on your next bill.
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

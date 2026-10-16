@@ -62,10 +62,10 @@ def test_the_portals_confirmation_is_quoted(replica: str) -> None:  # noqa: F811
         "The portal says “Registration Confirmed”, with confirmation number "
         "REG-10301-2026.")
     assert ending["scope"] == "You are registered for MATH-210 section 001."
-    # And what the portal says against it, its own sentence whole.
-    assert ending["caveat"] == (
-        "The portal also says “Registration is not final until tuition and fees are "
-        "paid or a payment plan is in place”.")
+    # And what the portal says against it, plainly, under what it confirmed
+    # in place of "That's done." (2026-10-16): the page's sentence holds it.
+    assert ending["heading"] == "You're registered for MATH-210."
+    assert ending["caveat"] == "The portal says it isn't final until fees are paid."
     # Ringed where it was read, with the heading and the number's row.
     assert len(ending["proof"]["rings"]) == 3
 
@@ -119,3 +119,21 @@ def test_a_task_that_only_reads_has_no_confirmation(replica: str) -> None:  # no
     done = drive(replica, steps, task)
 
     assert done.of("task.completed")[0]["confirmation"] is None
+
+
+def test_a_qualified_registration_says_what_was_confirmed_not_done(
+    replica: str,  # noqa: F811
+) -> None:
+    """The portal's own sentence must be on the page for the plain words to
+    be said (2026-10-16): with a phrase it does not use, neither is."""
+    steps = [*SIGN_IN_AND_CLEAR, register_step(Expectation(url_contains="/register"))]
+    task = Task(goal="g", estimated_steps=3, about=About(),
+                heading="You're registered for MATH-210.",
+                confirms=Confirmation(heading="Registration Confirmed",
+                                      reads="Confirmation number", caveat="not final until",
+                                      caveat_plain="it isn't final until fees are paid"))
+
+    done = drive(replica, steps, task)
+
+    assert done.of("task.completed")[0]["caveat"] == (
+        "The portal says it isn't final until fees are paid.")

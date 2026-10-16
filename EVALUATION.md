@@ -379,6 +379,10 @@ difference is which planner picks the next move.
 | LLM, overlay ON | 10 | 10/10 | 5 | 5 | 19.1 | 1 |
 | LLM, overlay OFF | 10 | 10/10 | 4 | 4 | 44.5 | 1 |
 
+> **Replaced 2026-10-16** by "the replica benchmarks, re-run on the current
+> flows" (2026-10-16d): the registration now asks which course on the portal
+> and registers behind a final screen.
+>
 > **Corrected 2026-09-17: the Hardcoded row's 5.9s does not reproduce.**
 > Re-run on 2026-09-17 it is **3.0s** — with today's code (3.01s mean), and
 > with this entry's own commit `3968838` checked out and run the same way
@@ -5438,3 +5442,147 @@ whole suite run again (below).
 The whole suite again, after the fix: **1291 passed, 12 skipped, 0 failed**
 (backend 860 in 736s, frontend 431 in 830s). The host window-fit test, 3 of
 3, on the same frontend.
+
+## 2026-10-16c — finishing the task on our replicas, behind a final screen
+
+On `feat/finish`, **not merged**. Real-window figures: the Electron host
+forced to 100%, the three replicas, hardcoded plans, keyword routing,
+`SIMBA_RECORD_STEPS=0`, direction B, light; a script pressing as a person
+would (`.scratch/walk-finish/walk5.py`, not committed). No live site was
+touched.
+
+**Each flow to the end, in the real window** (time from pressing the tile to
+the ending, including the script's own typing and captures):
+
+| flow | screens | longest scroll | final screen: details read from the page | focus on arrival | ending | proof rings | seconds |
+|---|---|---|---|---|---|---|---|
+| trains: book 7UP, AC Standard | 15 | 0px | 8 (train, from, to, date, leaves, passenger, class, fare) | none | "That's done.", booking PR-242128, coach 3 seat 29 | 7 | 33.3 |
+| bill: pay | 7 | 0px | 4 (amount, month, due date, reference) | none | "That's done.", receipt RCPT-614700 | 6 | 16.1 |
+| course: register MATH-210 | 4 | 0px | 7 (course, title, days, time, teacher, room, credit hours) | none | "That's done.", REG-10301-2026 | 3 | 17.4 |
+| trains: "Don't book it" | 14 | 0px | 8 | none | "I didn't do it. Nothing was changed." | — | 28.0 |
+
+**What the walks found** (three walks; the third is the table):
+- **The first walk ended both train runs "I've stopped, as you asked."**
+  between pressing "Tomorrow" and the read-back. Two later walks, which
+  capture each screen before pressing on it, did not reproduce it. **Not
+  explained**: no log line shows which press sent the stop. Suspected, not
+  shown: a level change landing as the day question arrives moves "Stop
+  this" under a press aimed at "Tomorrow".
+- **"Here's what I found: 7UP" on the booking's questions** pushed the name
+  question 16px past 1280x800 even after the guard's step to level 1. Fixed:
+  no findings on the way to a change.
+- **"I've made this smaller so it fits." on the final screen**, carried over
+  from the screen before. Fixed: cleared when a final screen arrives.
+
+**Headless fit**, every final screen and the booking's questions at 1280x800,
+1280x734, 1266x632 and 1266x606: the three final screens, "which train",
+the name and the class all fit with nothing scrolling. The booking's final
+screen first ran 20px past 1280x800 and 31px past 1266x606: its details in
+four narrow columns wrapped "17 October 2026" and a three-word name onto two
+lines; two columns of "name value" lines fixed it. The offer to book, three
+answers stacked, ran past 1266x632; they now share a row.
+
+**The rule, in the loop** (`test_final_step.py`, `test_live_site.py`): on a
+page not served from this machine a change is never shown or pressed; a
+change whose details the page does not state is not done; a change marked
+safe still waits for its final screen; card, CVV, autocomplete `cc-number`
+and IBAN boxes are refused before anything is shown or typed, an ordinary box
+is still typed into.
+
+**The suite**, on the final tree: **1394 passed, 12 skipped, 0 failed**
+(backend 886 in 805s, frontend 508 in 999s, as two halves). The host
+window-fit test, 3 of 3 at 100%, 125% and 150%, now over 32 endings —
+including a booking, a payment, and "don't" pressed on a final screen — and
+the sign-in screen. 103 tests added since 1291 this morning.
+
+## 2026-10-16e — the unexplained stop: found, and guarded against
+
+On `feat/finish`. The Electron host at forced 100% (1280x800) and 150%
+(1266x632), the three replicas, hardcoded plans, keyword routing. The train
+search walked by a script that presses each answer the moment its screen is
+up, as the walk that stopped did (`.scratch/walk-finish/walk_repeat.py`, not
+committed), every press logged by the overlay itself (`pressGuard.ts`:
+which button, the level, ms since that button last moved, ms since anything
+moved).
+
+| build | scale | runs | reached the trains | ended "I've stopped" | other | presses ignored by the guard |
+|---|---|---|---|---|---|---|
+| before: log on, guard off, no fix | 100% | 20 | 5 | **15** | — | — |
+| before | 150% | 20 | 0 | **7** | 13 stalled on a press that hit no button | — |
+| after: leaving screen inert, guard on (500ms) | 100% | 20 | **20** | 0 | — | 80 |
+| after | 150% | 20 | **20** | 0 | — | 69 |
+
+**The cause.** Every one of the 22 stops was a press on "Stop this" 68–183ms
+after that button appeared, at level 2 — no level change was involved. It
+was the crossfade. When an answer moved the run to the next question, the
+outgoing screen re-rendered with the *new* step while its old station box
+was still folding away, so its buttons stood lower than the arriving
+screen's. The script aimed at "Tomorrow" on the fading copy (found first in
+the page); the press went to whatever was on top at that point, which was
+the arriving screen's "Stop this". At 150% the same misalignment more often
+put the press on the gap between buttons, so it did nothing and the run
+waited (the 13 stalls). A person aiming at a screen that is still fading out
+can do the same.
+
+**The fixes.** (1) A screen on its way out shows its own step and takes no
+presses (`ScreenFrame`, `Step({index})`). (2) The guard: a press is ignored
+when its button moved or appeared in the last 500ms, or when a different
+button was under that point in the last 500ms. In the after runs it ignored
+4 presses a run on average — the script presses within milliseconds of a
+button appearing, which a person rarely does — and the script pressed again.
+
+**Found on the way, in the guard itself.** Its first version counted a
+pressed button's own 1px nudge (`active:translate-y-px`) as a move, so every
+press would have been ignored; and it stopped sampling while a button eased
+its last pixel or two, so the look taken at a press read the gap as a fresh
+move. Both fixed before the after runs; `test_press_guard.py` holds the
+behaviour.
+
+**Not explained here:** in the first, stalled before-batch the home tile's
+press sometimes did not register and twice the checklist sat on its first
+line for over a minute at 150%. Neither recurred in the 40 after runs.
+
+## 2026-10-16d — the replica benchmarks, re-run on the current flows
+
+**Replaces the registration numbers of 2026-09-06 and 2026-09-17**
+(`hardcoded_registration_benchmark`: 10/10, 3 steps, 0 calls, 5.9s, then
+3.0s), which were measured on a fixed plan before the person's details were
+asked for, before the checklist, and before the final screen. On `feat/finish`
+at the commit after `1266c7c`, headless Chromium at 1280x800, each replica
+on its own port, hardcoded planners, **no model call in any run**; this
+machine's wall clock carries about ±2x (2026-09-17h).
+
+**Every flow as the app runs it** (`tools/evaluation/replica_flows_benchmark.py`,
+`run_brief`, the checklist on, a person's answers scripted; 10 runs each):
+
+| flow | completed | confirmed by the site | presses the person makes | checklist lines | final screens | seconds, mean (range) |
+|---|---|---|---|---|---|---|
+| register for a course (MATH-210 named) | 10/10 | 10/10 | 2 (sign in; Register) | 1 | 1 | 3.11 (2.9–3.8) |
+| look up a bill (number given) | 10/10 | — | 1 (cookies) | 1 | 0 | 3.02 (1.8–5.2) |
+| pay a bill ("pay" in the goal) | 10/10 | 10/10 | 2 (cookies; Pay it) | 2 | 1 | 3.77 (2.9–4.5) |
+| find trains (journey given) | 10/10 | — | 1 (the read-back) | 5 | 0 | 3.73 (3.5–4.1) |
+| book a train ("book" in the goal) | 10/10 | 10/10 | 5 (read-back; which train; name; class; Book it) | 7 | 1 | 4.67 (3.9–5.5) |
+
+The same answers every run, so every count is the same in all ten. A
+booking or a payment reports the steps of its own half in
+`task.completed.steps_taken` (3 and 2), not the search or the lookup before
+it; presses and checklist lines above count the whole run.
+
+**The fixed registration plan** the old row was measured on, re-run as it is
+now (`hardcoded_registration_benchmark`, every move asked, its register step
+behind the final screen): **10/10, 3 steps, 0 model calls, 3.47s mean
+(3.0–4.8)**. One more screen than before is answered — the final screen
+takes the register step's place, so the count of steps is unchanged.
+
+**The suite on `feat/finish`, 2026-10-17, before merging: 1421 passed, 12
+skipped, 0 failed** (backend 896 in 1484s, frontend 525 in 1198s, as two
+halves). The host window-fit test failed once at 100% —
+`TargetClosedError` from the host's page after 22 minutes, where a passing
+run takes about 7 — and passed 3 of 3 when re-run on the same tree (425s),
+as did a timed run of 100% alone (every one of 34 endings in 2–3s, the
+sign-in screen fitting). Not explained; no code changed between the runs.
+**The backend half has taken 23–25 minutes in every run since
+2026-10-16 afternoon, against 12–13 before.** Its slowest tests are the
+deliberate verification time-outs (50s, 23s, 22s), as before; none waits on
+the offer. Not explained either; this machine's wall clock carries ±2x
+(2026-09-17h), and nothing of the work's was left running.

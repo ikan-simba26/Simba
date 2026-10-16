@@ -32,6 +32,7 @@ import asyncio
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import subprocess
@@ -53,7 +54,7 @@ GREETING = "What can I do for you?"
 AWAIT_RESPONSE = "(await step.response)"
 
 # Which button the person presses on the step, for an ending that has one.
-PRESSES = {"stopped by the person": "Stop this"}
+PRESSES = {"stopped by the person": "Stop this", "don't, on a final screen": "Don't book it"}
 GO_AHEAD = "Check the bill"
 
 A_STEP = {
@@ -64,6 +65,18 @@ A_STEP = {
         {"id": "confirm", "label": "Check the bill", "kind": "primary"},
         {"id": "cancel", "label": "Stop this", "kind": "secondary"},
     ],
+}
+
+
+#: A final screen (2026-10-16), as the backend sends one.
+A_FINAL = {
+    "step_index": 1, "step_total": 3, "step_kind": "confirm",
+    "instruction": "I'll book one seat on 7UP for you, with these details.",
+    "detail": "Nothing happens until you choose.", "fields": [],
+    "requires_confirmation": True, "findings": [],
+    "actions": [{"id": "confirm", "label": "Book it", "kind": "primary"},
+                {"id": "decline", "label": "Don't book it", "kind": "primary"}],
+    "final": [{"label": "Train", "value": "7UP"}, {"label": "Fare", "value": "Rs 3,250"}],
 }
 
 
@@ -187,6 +200,28 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             ],
         }),
     ],
+    # The same trains on our replica, with the quiet offer beside the way on
+    # (2026-10-16): "Book one of these".
+    "completed with trains and an offer to book": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/", "duration_ms": 1,
+            "steps_taken": 5, "llm_calls": 0, "replayed": False,
+            "heading": "Lahore Cantt to Karachi Cantt, Thursday 15 October",
+            "explanation": "There are 2 trains. The fastest is 7UP, at 7 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
+            "offer": {"id": "book", "label": "Book one of these"},
+            "findings": [
+                {"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"],
+                 "rows": [["7UP", "07:25", "14:40", "7 h 15 min"],
+                          ["8DN", "16:35", "00:50, next day", "8 h 15 min"]]},
+                {"label": "Leaves", "value": "07:25, 16:35", "values": ["07:25", "16:35"]},
+                {"label": "Arrives", "value": "14:40, 00:50", "values": ["14:40", "00:50"]},
+                {"label": "Journey", "value": "7 h 15 min, 8 h 15 min",
+                 "values": ["7 h 15 min", "8 h 15 min"]},
+            ],
+        }),
+    ],
     # A bill whose picture could not be taken: the reason in its place.
     "completed with an answer and no picture": [
         ("task.completed", {
@@ -221,10 +256,55 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "confirmation": ("The portal says “Registration Confirmed”, with "
                              "confirmation number REG-10234-2026."),
             # And what it says against it (2026-10-16).
-            "caveat": ("The portal also says “Registration is not final until tuition "
-                       "and fees are paid or a payment plan is in place”."),
+            # Not "That's done." (2026-10-16): what it confirmed, and what it
+            # says against it.
+            "heading": "You're registered for CS-401.",
+            "caveat": "The portal says it isn't final until fees are paid.",
             "proof": PROOF,
         }),
+    ],
+    # A booking the site confirmed (2026-10-16): its confirmation quoted, and
+    # what it gave back by its own names, from the page.
+    "completed a booking": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/book", "duration_ms": 1,
+            "steps_taken": 8, "llm_calls": 0, "replayed": False,
+            "findings": [
+                {"label": "Booking number", "value": "PR-482193", "values": ["PR-482193"]},
+                {"label": "Train", "value": "7UP", "values": ["7UP"]},
+                {"label": "Date", "value": "17 October 2026", "values": ["17 October 2026"]},
+                {"label": "Seat", "value": "Coach 3, seat 23", "values": ["Coach 3, seat 23"]},
+            ],
+            "scope": "I booked one seat on 7UP for you.",
+            "confirmation": ("The site says “Booking Confirmed”, with booking number "
+                             "PR-482193."),
+            "caveat": ("The site also says “No real ticket was booked and no money was "
+                       "taken”."),
+            "proof": PROOF,
+        }),
+    ],
+    # A pretend payment the site confirmed (2026-10-16).
+    "completed a payment": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/bill/pay", "duration_ms": 1,
+            "steps_taken": 4, "llm_calls": 0, "replayed": False,
+            "findings": [
+                {"label": "Receipt number", "value": "RCPT-305114", "values": ["RCPT-305114"]},
+                {"label": "Amount paid", "value": "Rs 14,382", "values": ["Rs 14,382"]},
+                {"label": "Paid on", "value": "16 October 2026", "values": ["16 October 2026"]},
+            ],
+            "scope": "I paid your bill on the practice site. No card was used.",
+            "confirmation": ("The site says “Payment Received”, with receipt number "
+                             "RCPT-305114."),
+            "caveat": "The site also says “No money was taken”.",
+            "proof": PROOF,
+        }),
+    ],
+    # "Don't" on a final screen, said by the backend (2026-10-16): calm, and
+    # nothing was changed — also when the press itself was not seen.
+    "nothing changed": [
+        ("task.failed", {"reason": "I didn't do it. Nothing was changed.",
+                         "recoverable": True}),
     ],
     # A change tried and not confirmed (2026-10-16): never "done".
     "not confirmed": [
@@ -275,6 +355,15 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
     **{f"{name}, after a step": ending(*THROUGH_A_STEP, *tail) for name, tail in TAILS.items()},
     # What the real backend does when the person presses stop: `task.failed`,
     # straight away, then the socket closes. Only exists after a step.
+    # "Don't" pressed on a final screen (2026-10-16): the backend ends the task
+    # saying nothing was changed, and the screen says so calmly.
+    "don't, on a final screen": ending(
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_FINAL),
+        (AWAIT_RESPONSE, {}),
+        ("task.failed", {"reason": "I didn't do it. Nothing was changed.",
+                         "recoverable": True}),
+    ),
     "stopped by the person": ending(
         ("state.changed", {"state": "waiting"}),
         ("step.presented", A_STEP),
@@ -308,6 +397,10 @@ def overlay() -> Iterator[str]:
     built = subprocess.run(
         [npx, "vite", "build", "--outDir", str(BUILD), "--emptyOutDir", "--logLevel", "error"],
         cwd=FRONTEND, capture_output=True, text=True, timeout=300,
+        # Presses count at once in these tests: the guard that ignores a press
+        # on a button that has just arrived (2026-10-16) is tested on its own
+        # (`test_press_guard.py`), which turns it back on.
+        env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0"},
     )
     assert built.returncode == 0 and (BUILD / "index.html").exists(), built.stderr
 
@@ -402,11 +495,17 @@ def reach(page: Page, overlay: str, backend: Backend, name: str) -> list[str]:
     backend.script = ENDINGS[name]
     backend.responses.clear()
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+    # In a build where a press on a button that has just arrived is ignored
+    # (the real host's, 2026-10-16), wait as a person would.
+    settle = page.evaluate("window.__simbaSettle || 0")
+    page.wait_for_timeout(settle + 200 if settle else 0)
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
     if any(message_type == AWAIT_RESPONSE for message_type, _ in backend.script):
         # A step comes first, and the person answers it.
-        page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
+        page.wait_for_selector("[data-testid=step-shell], [data-testid=final-check]",
+                               timeout=15000)
+        page.wait_for_timeout(settle + 600 if settle else 0)
         page.get_by_role("button", name=PRESSES.get(name, GO_AHEAD), exact=True).click()
     # Let the last message land and the crossfade finish.
     page.wait_for_function(
@@ -436,6 +535,11 @@ def test_everything_on_an_ending_leads_somewhere(
     for label in [label for label in reach(page, overlay, backend, name) if label]:
         reach(page, overlay, backend, name)
         page.get_by_role("button", name=label, exact=True).click()
+        if label == "Book one of these":
+            # The run goes on to book (2026-10-16): working, until its first
+            # question comes.
+            page.get_by_text("Give me a moment.").wait_for(timeout=5000)
+            continue
         if label == "See it on the real page":
             page.get_by_test_id("proof-panel").wait_for(timeout=5000)
             page.get_by_role("button", name="Back to the answer").click()
@@ -606,3 +710,35 @@ def test_a_failure_the_person_did_not_choose_still_says_so(
     text = page.inner_text("body")
     assert "I couldn't finish this." in text
     assert "I've stopped, as you asked." not in text
+
+
+@pytest.mark.parametrize("name", ["don't, on a final screen", "nothing changed"])
+def test_dont_ends_calmly_and_says_nothing_was_changed(
+    name: str, page: Page, overlay: str, backend: Backend
+) -> None:
+    labels = reach(page, overlay, backend, name)
+    text = page.inner_text("body")
+
+    assert "I didn't do it." in text and "Nothing was changed." in text
+    assert "I couldn't finish this." not in text
+    assert "That's done." not in text
+    assert labels == ["Back to start"]
+    if name.startswith("don't"):
+        answers = [m for m in backend.responses if m.get("type") == "step.response"]
+        assert answers[-1]["payload"]["action_id"] == "decline"
+
+
+def test_the_offer_sits_beside_the_way_on_and_says_which(
+    page: Page, overlay: str, backend: Backend
+) -> None:
+    """Quieter than "Back to start", beside it, and pressed it sends its own
+    id (2026-10-16). Someone who wanted only the times presses nothing more."""
+    labels = reach(page, overlay, backend, "completed with trains and an offer to book")
+    assert labels[-2:] == ["Back to start", "Book one of these"]
+    on, offer = (page.get_by_role("button", name=name, exact=True).bounding_box()
+                 for name in ("Back to start", "Book one of these"))
+    assert abs(on["y"] - offer["y"]) < 2 and offer["x"] > on["x"]
+    looks = page.evaluate("""() => ['Back to start', 'Book one of these'].map(name =>
+        getComputedStyle([...document.querySelectorAll('button')]
+          .find(b => b.innerText.trim() === name)).backgroundColor)""")
+    assert looks[0] != looks[1], looks  # the way on leads; the offer is quieter

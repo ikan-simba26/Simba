@@ -67,7 +67,8 @@ def test_the_step_says_which_course_it_is_about_to_book(replica: str) -> None:  
 
     last = connection.of("step.presented")[-1]
     assert COURSE in last["instruction"]
-    assert COURSE in last["actions"][0]["label"]
+    # Its final screen (2026-10-16): the course among what will happen.
+    assert any(COURSE in detail["value"] for detail in last["final"])
 
 
 def test_registering_for_another_course_fails_rather_than_completes(
@@ -114,11 +115,13 @@ def test_the_plan_for_a_course_is_the_shared_sign_in_and_that_course() -> None:
 
 def test_the_worked_example_is_still_the_worked_example() -> None:
     """`REGISTRATION_PLAN` is what every recorded registration number was
-    measured on, and its last step carries CS-401's own timetable line — which
-    only a plan written for one course can know. It is not what a typed goal
-    runs any more."""
-    assert "3 credit hours" in REGISTRATION_PLAN[-1].detail
-    assert "3 credit hours" not in registration_plan("CS-401")[-1].detail
+    measured on. Its last step carried CS-401's own timetable line, written
+    into the plan; since 2026-10-16 that line is the final screen's details,
+    read off the portal's own row, the same as for any course. The steps, and
+    what each presses, are as they were."""
+    assert REGISTRATION_PLAN[-1].final == registration_plan("CS-401")[-1].final
+    assert REGISTRATION_PLAN[-1].operations == registration_plan("CS-401")[-1].operations
+    assert REGISTRATION_PLAN[-1].changes
     assert len(REGISTRATION_PLAN) == len(registration_plan("CS-401"))
 
 

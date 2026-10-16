@@ -549,30 +549,31 @@ ANSWER_CHANGED = ("The page changed after I read it, so I can't be sure the answ
                   "right. You can ask me to look again.")
 
 
-def not_confirmed(action: str) -> str:
+def not_confirmed(action: str, who: str = "portal") -> str:
     """When a step that changes something was tried and the site did not
     confirm it (2026-10-16). Plain, and never "done": it may or may not have
     happened, and the person should look."""
-    return (f"I tried to press \u201c{action}\u201d, but the portal has not confirmed it, "
-            f"so I can't tell you it worked. Please check the portal before you rely on it.")
+    return (f"I tried to press \u201c{action}\u201d, but the {who} has not confirmed it, "
+            f"so I can't tell you it worked. Please check the {who} before you rely on it.")
 
 
-def portal_says(heading: str, label: str | None = None, value: str | None = None) -> str:
+def portal_says(heading: str, label: str | None = None, value: str | None = None,
+                who: str = "portal") -> str:
     """The site's own confirmation, quoted (2026-10-16): 'The portal says
     "Registration Confirmed", with confirmation number REG-10234-2026.'"""
     if label and value:
-        return (f"The portal says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
+        return (f"The {who} says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
                 f"{value}.")
-    return f"The portal says \u201c{heading}\u201d."
+    return f"The {who} says \u201c{heading}\u201d."
 
 
-def site_also_says(sentence: str) -> str:
+def site_also_says(sentence: str, who: str = "portal") -> str:
     """The site's own warning about what was confirmed, quoted whole
     (2026-10-16): 'The portal also says "Registration is not final until
     tuition and fees are paid or a payment plan is in place".' Its words,
     never a summary of them: the closing screen never says more than the
     site, nor less."""
-    return f"The portal also says “{sentence.rstrip('.')}”."
+    return f"The {who} also says “{sentence.rstrip('.')}”."
 
 
 def explain_course(course: str):
@@ -713,3 +714,160 @@ def describe(kind: str, label: str) -> str:
     if kind == "select":
         return f"Choose an option in {label}."
     return f"Click {label}."
+
+
+# --- the final step (2026-10-16) ---------------------------------------------
+#
+# A move that books, pays, registers or changes a record happens only on a
+# replica, and only after a final screen: what will happen in plain words,
+# what, how much and when as the page states them, and two answers, neither
+# the default (CLAUDE.md, the final-step rule).
+
+#: Under every final screen's sentence: nothing moves on by itself.
+FINAL_WAITS = "Nothing happens until you choose."
+#: `task.failed.reason` when the person chose "don't" on a final screen.
+NOTHING_CHANGED = "I didn't do it. Nothing was changed."
+#: The two answers of a final screen that names no others.
+DO_IT = "Do it"
+DONT_DO_IT = "Don't do it"
+#: The one detail a final screen can show when the page states none: the
+#: button it would press.
+WHAT_I_PRESS = "What I'll press"
+
+
+def final_actions(do: str = DO_IT, dont: str = DONT_DO_IT) -> list[StepAction]:
+    """The final screen's two answers and nothing else: no default between
+    them, and no third way to stop, because "don't" is it."""
+    return [
+        StepAction(id=CONFIRM_ID, label=do, kind="primary"),
+        StepAction(id=DECLINE_ID, label=dont, kind="primary"),
+    ]
+
+
+def final_press(label: str) -> str:
+    """A final screen with nothing read from the page: what will be pressed."""
+    return f"I'll press “{label}” on the site. This makes a change there."
+
+
+#: `help.requested.reason` when a move that would book, pay or change
+#: something comes up on a site that is not one of ours. Never done.
+NOT_ON_A_REAL_SITE = ("That would book, pay or change something on the real site, and I "
+                      "don't do that. Nothing was changed.")
+#: When the page does not state what its final screen has to show.
+NO_FINAL_SCREEN = ("I couldn't read from the page exactly what would happen, so I haven't "
+                   "done it. Nothing was changed.")
+
+
+# --- booking the train the person picked, on our replica (2026-10-16) --------
+
+#: The stage the booking is in, after the trains are found.
+BOOK_STAGE = "Book"
+#: The quiet second button on a search's closing screen, on a replica only,
+#: and the `step.response` id it sends (2026-10-16). It was a question after
+#: every search, "Would you like to book one of these trains?".
+BOOK_ONE = "Book one of these"
+BOOK_ID = "book"
+#: The booking's first question, from the trains found.
+ASK_WHICH_TRAIN = "Which train would you like to book?"
+#: Finishes choosing a train from a list, when there are too many for buttons.
+USE_TRAIN = "Book this train"
+FIELD_TRAIN = "Train"
+
+
+def train_choice(train: str, leaves: str = "") -> str:
+    """A train as an answer: "13UP, leaves 07:25"."""
+    return f"{train}, leaves {leaves}" if leaves else train
+
+
+DOING_BOOKING_FORM = "Opening the booking form"
+ASK_PASSENGER = "What name should the ticket be in?"
+PASSENGER_DETAIL = "Type it as it is on your ID card."
+FIELD_NAME = "Name"
+USE_NAME = "Use this name"
+NAME_NOT_CAUGHT = "I didn't catch that name."
+ASK_CLASS = "Which class would you like?"
+CLASS_DETAIL = "These are the classes the booking form offers."
+#: `help.requested.reason` when the form offers no class to choose.
+NO_CLASSES = "The booking form didn't offer any class to choose."
+BOOK_IT = "Book it"
+DONT_BOOK = "Don't book it"
+
+
+def doing_booking(klass: str) -> str:
+    """The checklist line that fills in the form: `Filling in the name and AC Standard`."""
+    return f"Filling in the name and {klass}"
+
+
+def final_book(train: str) -> str:
+    """The booking's final screen."""
+    return f"I'll book one seat on {train} for you, with these details."
+
+
+def booked_scope(train: str) -> str:
+    """The closing line once the site has confirmed the booking."""
+    return f"I booked one seat on {train} for you."
+#: The buttons on the booking's safe moves, for a person who asked to be
+#: asked before each thing.
+OPEN_IT = "Open the form"
+FILL_IN = "Fill it in"
+TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
+
+
+# --- paying the bill the person looked up, on our replica (2026-10-16) ------
+
+#: The stage the payment is in, after the bill is found.
+PAY_STAGE = "Pay"
+#: The quiet second button on a bill's closing screen, on a replica only.
+PAY_THIS_BILL = "Pay this bill"
+PAY_ID = "pay"
+DOING_PAYMENT_PAGE = "Opening the payment page"
+OPEN_PAYMENT = "Open the page"
+#: The payment's final screen. It is a practice payment, and says so.
+FINAL_PAY = "I'll pay this bill for you. It is a practice payment, and no card is used."
+PAY_IT = "Pay it"
+DONT_PAY = "Don't pay"
+#: The closing line once the site has confirmed the payment.
+PAID_SCOPE = "I paid your bill on the practice site. No card was used."
+
+
+# --- registering, behind the same final screen (2026-10-16) -----------------
+
+REGISTER_IT = "Register"
+DONT_REGISTER = "Don't register"
+
+
+def final_register(course: str) -> str:
+    """The registration's final screen."""
+    return f"I'll register you for {course}, with these details."
+
+
+# --- the real site: read, never booked or paid (2026-10-16) -----------------
+
+#: The closing line of a search on the live site.
+NOT_ON_REAL_SITE_TIMES = ("I only looked up times. I don't book tickets or pay on the real "
+                          "site.")
+#: The same, for a bill on a site that is not ours.
+NOT_ON_REAL_SITE_BILL = "I only looked at your bill. I don't pay bills on the real site."
+#: `help.requested.reason` when a step would type card or bank details.
+#: Never, on any site.
+NO_PAYMENT_DETAILS = ("This page asks for card or bank details. I never type those, so I've "
+                      "stopped. Nothing was paid.")
+
+
+# --- a change the site qualifies (2026-10-16) --------------------------------
+
+
+def registered(course: str) -> str:
+    """Above a registration the portal confirmed, in place of "That's done."
+    when the portal says it is not final."""
+    return f"You're registered for {course}."
+
+
+def site_qualifies(sentence: str, confirms) -> str:
+    """What the site says against what it confirmed: in the task's plain words
+    when it has them — "The portal says it isn't final until fees are paid."
+    — else its own sentence, quoted. Only ever called when the page says it."""
+    plain = getattr(confirms, "caveat_plain", None)
+    if plain:
+        return f"The {confirms.who} says {plain}."
+    return site_also_says(sentence, confirms.who)

@@ -213,6 +213,29 @@ with every row or value it read ringed, in the screenshot's own pixels
 (1280x800). When it cannot, `proof_note` says why in plain words. Never an
 empty or stale picture.
 
+**`final` is additive and optional** (added 2026-10-16), with a new shape,
+`Detail`: `{ "label": "Fare", "value": "Rs 3,250" }`. A step that carries it
+is the **final screen** before a move that books, pays, registers or changes
+a record (CLAUDE.md, the final-step rule): `instruction` says in plain words
+exactly what will happen, `final` lists what, how much and when as the page
+states them at that moment, and `actions` are exactly two — do it,
+`"id": "confirm"`, and don't, `"id": "decline"` — with neither drawn as the
+default and nothing moving on by itself. "Don't" ends the task:
+`task.failed` with the reason "I didn't do it. Nothing was changed.". The
+backend sends a final screen only on a replica, and acts on such a move only
+after "confirm" on it.
+
+**`task.completed.offer` is additive and optional** (added 2026-10-16),
+with a new shape, `TaskOffer`: `{ "id": "book", "label": "Book one of
+these" }`. On our replicas only, what can follow the answer — booking one of
+the trains found, paying the bill — drawn as a quiet second button beside
+"Back to start". The backend keeps the connection open after such a
+`task.completed`. Pressed, the overlay sends `step.response` with
+`"action_id"` the offer's `id` (and `step_index` 0), and the run goes on
+with ordinary steps and, at the end, a second `task.completed`. Going back
+to start instead closes the connection; `task.cancel` ends it too. A goal
+that already asked to book or pay gets no offer: the run goes straight on.
+
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —
 after "Filling in where you're starting from": `["Filling in where you're

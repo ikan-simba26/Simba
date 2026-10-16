@@ -22,7 +22,7 @@ from backend.orchestrator import voice
 from backend.orchestrator.details import BillBrief, CourseBrief, TripBrief, Understood, understand
 from backend.orchestrator.loop import Move, Task, run_brief, run_task
 from backend.orchestrator.plan import About, Expectation, Operation, Target
-from backend.orchestrator.test_asking import ScriptedConnection
+from backend.orchestrator.test_asking import OFFER_IDS, ScriptedConnection
 from backend.orchestrator.test_billing import billing_replica  # noqa: F401
 from backend.orchestrator.test_orchestrator import replica  # noqa: F401
 from backend.orchestrator.test_trip_answers import railways  # noqa: F401
@@ -36,6 +36,12 @@ class Answers(ScriptedConnection):
 
     async def receive(self, message_type, step_index=None, on_other=None):  # noqa: ARG002
         self.shown += 1
+        if self.offered():
+            # The closing screen's offer: taken only when scripted.
+            answer = (self.answers.pop(0) if self.answers and self.answers[0]
+                      and self.answers[0][0] in OFFER_IDS else ("leave", {}))
+            return {"type": "step.response",
+                    "payload": {"step_index": 0, "action_id": answer[0], "input_values": {}}}
         step = self.of("step.presented")[-1]
         ids = [a["id"] for a in step["actions"]]
         question = any(i.startswith(CHOICE_PREFIX) for i in ids) or any(
@@ -275,7 +281,8 @@ def test_registering_always_asks(replica: str) -> None:  # noqa: F811
     done = run(inner())
 
     assert done.rows() == [voice.DOING_NOTICE]
-    assert done.asked() == ["Let me sign you in first.", "Ready to book your place on CS-401."]
+    assert done.asked() == ["Let me sign you in first.",
+                            voice.final_register("CS-401")]
     assert "task.completed" in done.types()
 
 

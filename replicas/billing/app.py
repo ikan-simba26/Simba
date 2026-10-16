@@ -2,7 +2,9 @@
 
 Modelled on a Pakistani electricity provider. Three pages: enter a reference
 number, read the amount due off a results page, open the detail breakdown.
-No login.
+No login. Since 2026-10-16 the bill can also be paid from its results page,
+as a pretend payment with no card details: a page that states the amount,
+and a receipt that says no money was taken.
 
 Deliberately cluttered in a *different* shape from replicas/registration, so
 perception has to generalise rather than pattern-match one page:
@@ -15,7 +17,9 @@ perception has to generalise rather than pattern-match one page:
   labelled table cells    the payable amount in an unlabelled cell
 """
 
+import datetime
 import os
+import zlib
 
 from flask import Flask, redirect, render_template, request, url_for
 
@@ -96,6 +100,22 @@ def detail():
     return render_template(
         "detail.html", bill=BILL, breakdown=BREAKDOWN, total=total, reference=reference
     )
+
+
+@app.route("/bill/pay", methods=["GET", "POST"])
+def pay():
+    """A pretend payment (2026-10-16): the bill's amount, no card and no
+    choice, and a receipt once confirmed. No money is taken, and the receipt
+    says so."""
+    reference = (request.values.get("reference") or "").strip()
+    if not reference:
+        return redirect(url_for("lookup", error="Enter a reference number to continue."))
+    if request.method == "GET":
+        return render_template("pay.html", bill=BILL, reference=reference)
+    receipt = f"RCPT-{zlib.crc32(reference.encode()) % 1_000_000:06d}"
+    paid_on = datetime.date.today().strftime("%d-%m-%Y")
+    return render_template("receipt.html", bill=BILL, reference=reference, receipt=receipt,
+                           paid_on=paid_on)
 
 
 if __name__ == "__main__":

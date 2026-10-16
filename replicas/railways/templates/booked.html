@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Booking Confirmed | RABTA</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #222; }
+    nav { background: #0b5a3c; padding: 10px 24px; }
+    nav a { color: #fff; margin-right: 18px; text-decoration: none; font-size: 14px; }
+    main { padding: 24px; }
+    h1 { font-size: 24px; letter-spacing: 1px; }
+    .summary { border-collapse: collapse; margin: 12px 0 20px; }
+    .summary th, .summary td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+    .summary th { background: #f2f6f4; font-weight: normal; font-size: 13px; }
+    .fineprint { font-size: 12px; color: #555; max-width: 720px; }
+    footer { padding: 24px; font-size: 12px; color: #666; }
+    footer a { color: #666; margin-right: 12px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/">Home</a>
+  <a href="/">Train Timings</a>
+  <a href="#">Tickets</a>
+  <a href="#">Order</a>
+  <a href="#">My</a>
+</nav>
+
+<main>
+  <h1>Booking Confirmed</h1>
+
+  <table class="summary">
+    <tr><th>Booking number</th><td>{{ booking }}</td></tr>
+    <tr><th>Passenger</th><td>{{ passenger }}</td></tr>
+    <tr><th>Train</th><td>{{ train }}</td></tr>
+    <tr><th>From</th><td>{{ origin }}</td></tr>
+    <tr><th>To</th><td>{{ destination }}</td></tr>
+    <tr><th>Date</th><td>{{ day }}</td></tr>
+    <tr><th>Departs</th><td>{{ leaves }}</td></tr>
+    <tr><th>Class</th><td>{{ klass }}</td></tr>
+    <tr><th>Seat</th><td>{{ seat }}</td></tr>
+    <tr><th>Fare</th><td>{{ fare }}</td></tr>
+  </table>
+
+  <p class="fineprint">
+    This is a practice site. No real ticket was booked and no money was taken.
+    Show your booking number at the reservation office to collect a printed
+    ticket. Boarding closes 10 minutes before departure.
+  </p>
+  <p><a href="/">Search again</a> &middot; <a href="#">Print</a> &middot; <a href="#">Cancel booking</a></p>
+</main>
+
+<footer>
+  <a href="#">Privacy Policy</a>
+  <a href="#">FAQs</a>
+  A local stand-in for a train booking. The trains are invented, and nothing is really booked.
+</footer>
+</body>
+</html>
