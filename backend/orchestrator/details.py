@@ -54,7 +54,7 @@ from backend.orchestrator.plan import (
     HardcodedPlanner,
     Shown,
 )
-from shared.schema import StepField
+from shared.schema import StepAction, StepField
 
 #: Seconds the model gets to read the details before the keywords do. The same
 #: bound routing has, for the same reason: this is a person waiting.
@@ -725,8 +725,55 @@ class TripBrief(_Asking):
     """
 
     plan_steps = 5
-    stages = voice.TRIP_STAGES
     _ENDS = ("origin", "destination")
+    #: On one of our replicas the train found can then be booked (2026-10-16;
+    #: set by `loop.run_brief`). Never on the live site.
+    finishes = False
+
+    @property
+    def stages(self) -> list[str]:
+        return [*voice.TRIP_STAGES, voice.BOOK_STAGE] if self.finishes else voice.TRIP_STAGES
+
+    def offer(self, completed) -> "Offer | None":
+        """Once the trains are found, on a replica: which to book, or none
+        (2026-10-16). From the trains on the closing screen, as they are
+        shown there."""
+        from backend.orchestrator.finish_plan import BookingPlanner, booking_task
+        from backend.orchestrator.loop import Offer
+
+        found = completed.findings[0] if completed.findings else None
+        if found is None or found.label != "Train":
+            return None
+        if found.rows:
+            trains = [(row[0], row[1] if len(row) > 1 else "") for row in found.rows if row[0]]
+        else:
+            trains = [(train, "") for train in found.values or [found.value]]
+        names = [train for train, _ in trains]
+        stage = len(voice.TRIP_STAGES)
+        no = StepAction(id=voice.DECLINE_ID, label=voice.JUST_TIMES, kind="primary")
+        if len(trains) < voice.MAX_CHOICES:
+            buttons = voice.choices([voice.train_choice(t, leaves) for t, leaves in trains])
+            fields = []
+            actions = [*buttons[:-1], no, buttons[-1]]
+        else:
+            fields = [StepField(id="train", label=voice.FIELD_TRAIN, type="choice", value="",
+                                options=names)]
+            actions = [*voice.actions(voice.USE_TRAIN)[:1], no, *voice.actions(voice.USE_TRAIN)[1:]]
+        question = Move(instruction=voice.ASK_BOOK, detail="", operations=[],
+                        expect=Expectation(), fields=fields, actions=actions, question=True,
+                        kind="choose", stage=stage)
+
+        def take(action_id: str, input_values: dict[str, str]):
+            index = action_id.removeprefix(voice.CHOICE_PREFIX)
+            if index.isdigit() and int(index) < len(names):
+                train = names[int(index)]
+            elif action_id == voice.CONFIRM_ID and input_values.get("train") in names:
+                train = input_values["train"]
+            else:
+                return None
+            return BookingPlanner(train, stage), replace(booking_task(train), goal=self.goal)
+
+        return Offer(question=question, take=take)
 
     def __init__(self, goal: str, known: Understood, today: date | None = None,
                  hardcoded: bool = True, provider=None) -> None:

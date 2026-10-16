@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Book a Seat | RABTA</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #222; }
+    nav { background: #0b5a3c; padding: 10px 24px; }
+    nav a { color: #fff; margin-right: 18px; text-decoration: none; font-size: 14px; }
+    main { padding: 24px; }
+    h1 { font-size: 24px; letter-spacing: 1px; }
+    .summary { border-collapse: collapse; margin: 12px 0 20px; }
+    .summary th, .summary td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+    .summary th { background: #f2f6f4; font-weight: normal; font-size: 13px; }
+    form .field { margin: 12px 0; }
+    form label { display: block; font-size: 13px; margin-bottom: 4px; }
+    form input[type=text] { width: 260px; height: 34px; padding: 0 8px; border: 1px solid #bbb; }
+    fieldset { border: 0; padding: 0; }
+    legend { font-size: 13px; margin-bottom: 4px; }
+    label.choice { display: inline-block; margin-right: 18px; font-size: 14px; }
+    .notice { background: #fff8e1; border: 1px solid #f0d98a; padding: 8px 12px; font-size: 12px;
+              max-width: 720px; }
+    .confirm { margin-top: 16px; height: 38px; padding: 0 18px; border: 0; background: #0b5a3c;
+               color: #fff; cursor: pointer; }
+    .terms { font-size: 11px; color: #666; max-width: 720px; }
+    footer { padding: 24px; font-size: 12px; color: #666; }
+    footer a { color: #666; margin-right: 12px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/">Home</a>
+  <a href="/">Train Timings</a>
+  <a href="#">Tickets</a>
+  <a href="#">Order</a>
+  <a href="#">My</a>
+</nav>
+
+<main>
+  <h1>BOOK A SEAT</h1>
+
+  <p class="notice">
+    Seats are held for 10 minutes once this form is opened. Children under 3
+    travel free and do not need a seat. Concession fares are not available
+    online; please visit a reservation office with your concession card.
+  </p>
+
+  <table class="summary">
+    <tr><th>Train</th><td>{{ train }}</td></tr>
+    <tr><th>From</th><td>{{ origin }}</td></tr>
+    <tr><th>To</th><td>{{ destination }}</td></tr>
+    <tr><th>Date</th><td>{{ day }}</td></tr>
+    <tr><th>Departs</th><td>{{ leaves }}</td></tr>
+    <tr><th>Passenger</th><td id="passenger-shown">Not entered</td></tr>
+    <tr><th>Class</th><td id="class-shown">Not chosen</td></tr>
+    <tr><th>Fare</th><td id="fare">Not chosen</td></tr>
+  </table>
+
+  <form method="post" action="/book">
+    <input type="hidden" name="train" value="{{ train }}">
+    <input type="hidden" name="from" value="{{ origin }}">
+    <input type="hidden" name="to" value="{{ destination }}">
+    <input type="hidden" name="date" value="{{ day }}">
+    <input type="hidden" name="leaves" value="{{ leaves }}">
+    <div class="field">
+      <label for="passenger">Passenger Name</label>
+      <input type="text" id="passenger" name="passenger" autocomplete="off" required>
+    </div>
+    <fieldset class="field">
+      <legend>Class</legend>
+      {% for name, fare in classes %}
+      <label class="choice"><input type="radio" name="class" value="{{ name }}" required>
+        {{ name }}</label>
+      {% endfor %}
+    </fieldset>
+    <button type="submit" class="confirm">Confirm Booking</button>
+  </form>
+
+  <p class="terms">
+    By confirming you agree to the conditions of carriage. Tickets are
+    non-transferable. Cancellation charges apply from 24 hours before
+    departure. Please carry your original CNIC while travelling.
+  </p>
+</main>
+
+<footer>
+  <a href="#">Privacy Policy</a>
+  <a href="#">FAQs</a>
+  A local stand-in for a train booking. The trains are invented, and nothing is really booked.
+</footer>
+
+<script>
+  const FARES = {{ fares | tojson }};
+  for (const radio of document.querySelectorAll("input[name=class]")) {
+    radio.addEventListener("change", () => {
+      document.getElementById("class-shown").textContent = radio.value;
+      document.getElementById("fare").textContent = FARES[radio.value];
+    });
+  }
+  document.getElementById("passenger").addEventListener("input", (event) => {
+    document.getElementById("passenger-shown").textContent =
+      event.target.value.trim() || "Not entered";
+  });
+</script>
+</body>
+</html>

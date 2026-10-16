@@ -42,6 +42,7 @@ from backend.orchestrator.loop import (
 )
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.orchestrator.test_orchestrator import REPLICA_URL, replica  # noqa: F401
+from backend.orchestrator import voice
 from backend.orchestrator.voice import CANCEL_ID, CHOICE_PREFIX, USE_STATION, actions, choices
 from shared.schema import StepAction, StepField
 
@@ -80,7 +81,12 @@ class ScriptedConnection(Connection):
     async def receive(self, message_type: str, step_index: int | None = None,
                       on_other=None) -> dict:  # noqa: ARG002
         self.shown += 1
-        answer = self.answers.pop(0) if self.answers else ("confirm", {})
+        if not self.answers and self.offered():
+            # An offer to finish the task, nobody scripted an answer to it:
+            # "no", as most runs here were written before it existed.
+            answer = (voice.DECLINE_ID, {})
+        else:
+            answer = self.answers.pop(0) if self.answers else ("confirm", {})
         if answer is None:
             answer = (CANCEL_ID, {})
         return {
@@ -88,6 +94,11 @@ class ScriptedConnection(Connection):
             "payload": {"step_index": step_index, "action_id": answer[0],
                         "input_values": answer[1]},
         }
+
+    def offered(self) -> bool:
+        """Whether what is on screen offers to finish the task (2026-10-16)."""
+        shown = self.of("step.presented")
+        return bool(shown) and shown[-1]["instruction"] in voice.OFFERS
 
     def types(self) -> list[str]:
         return [message_type for message_type, _ in self.sent]

@@ -226,6 +226,26 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "proof": PROOF,
         }),
     ],
+    # A booking the site confirmed (2026-10-16): its confirmation quoted, and
+    # what it gave back by its own names, from the page.
+    "completed a booking": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/book", "duration_ms": 1,
+            "steps_taken": 8, "llm_calls": 0, "replayed": False,
+            "findings": [
+                {"label": "Booking number", "value": "PR-482193", "values": ["PR-482193"]},
+                {"label": "Train", "value": "7UP", "values": ["7UP"]},
+                {"label": "Date", "value": "17 October 2026", "values": ["17 October 2026"]},
+                {"label": "Seat", "value": "Coach 3, seat 23", "values": ["Coach 3, seat 23"]},
+            ],
+            "scope": "I booked one seat on 7UP for you.",
+            "confirmation": ("The site says “Booking Confirmed”, with booking number "
+                             "PR-482193."),
+            "caveat": ("The site also says “No real ticket was booked and no money was "
+                       "taken”."),
+            "proof": PROOF,
+        }),
+    ],
     # A change tried and not confirmed (2026-10-16): never "done".
     "not confirmed": [
         ("state.changed", {"state": "stuck"}),

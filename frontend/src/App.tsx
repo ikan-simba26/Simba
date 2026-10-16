@@ -718,7 +718,11 @@ function Completed() {
 
   return (
     <div ref={screen} className="flex flex-col gap-8 short:gap-5">
-      {findings.length > 0 ? (
+      {completed?.confirmation ? (
+        // A change the site has confirmed (2026-10-16): said done, in the
+        // site's own words, with what it gave back.
+        <ChangeDone />
+      ) : findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
           {/* The sentence, when there is one, in the lead-in's place: it
               says what the lead-in says and more, and both together were the
@@ -786,21 +790,6 @@ function Completed() {
           {completed?.scope && (
             <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
           )}
-          {/* The site's own confirmation, quoted (2026-10-16): a change is
-              only "done" with it on the page. */}
-          {completed?.confirmation && (
-            <p className="border-l-4 border-accent pl-5 text-body text-ink"
-               data-testid="confirmation">
-              {unbroken(completed.confirmation)}
-            </p>
-          )}
-          {/* And what the site says against it, in its own words: never more
-              than the site says (2026-10-16). */}
-          {completed?.caveat && (
-            <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
-              {completed.caveat}
-            </p>
-          )}
           <ProofLine />
         </div>
       )}
@@ -808,6 +797,60 @@ function Completed() {
       {/* One way on (2026-10-16). "I'm done" and "Do something else" sat
           here side by side and both went home. */}
       <OnwardButton onClick={startOver} />
+    </div>
+  );
+}
+
+/**
+ * The closing screen for a change the site has confirmed (2026-10-16): a
+ * booking, a payment, a registration. "That's done." is said only here, and
+ * only with the site's confirmation on the page (`task.completed.confirmation`,
+ * which the backend sends with nothing less). Then what was done, the site's
+ * own words quoted, what it gave back by its own names — the booking number,
+ * the seat, the receipt — what it says against it, and the page itself.
+ */
+function ChangeDone() {
+  const { completed } = useStore();
+  const receipt = completed?.findings ?? [];
+  return (
+    <div className="flex flex-col items-start gap-5 short:gap-3" data-testid="change-done">
+      <div className="flex items-center gap-5">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full
+                         bg-tint text-accent" aria-hidden>
+          <CheckIcon size={34} />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink
+                       short:text-heading">
+          {ENDING.withoutAnswer}
+        </h1>
+      </div>
+      {completed?.scope && (
+        <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
+      )}
+      <p className="border-l-4 border-accent pl-5 text-body text-ink" data-testid="confirmation">
+        {unbroken(completed?.confirmation ?? "")}
+      </p>
+      {receipt.length > 0 && (
+        <dl className="grid w-full grid-cols-2 gap-x-8 gap-y-2 rounded-lg bg-tint px-6 py-4
+                       short:gap-y-1 short:py-3" data-testid="receipt">
+          {receipt.map((finding) => (
+            <div key={finding.label} className="flex min-w-0 items-baseline gap-3">
+              <dt className="w-36 shrink-0 text-caption text-soft">{finding.label}</dt>
+              <dd className="min-w-0 text-body font-semibold text-ink tabular-nums">
+                {unbroken(finding.values?.[0] ?? finding.value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {/* What the site says against it, in its own words: never more than
+          the site says (2026-10-16). */}
+      {completed?.caveat && (
+        <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
+          {completed.caveat}
+        </p>
+      )}
+      <ProofLine />
     </div>
   );
 }

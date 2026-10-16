@@ -656,7 +656,13 @@ function answersLayout(step: StepPresented): "pair" | "row" | "column" {
   const choices = answers.filter((action) => action.id.startsWith("choice:"));
   const typed = step.fields.some((field) => !field.value);
   if (typed && answers.length === 1) return "pair";
-  if (choices.length >= 2 && choices.length === answers.length && answers.length <= 3 &&
+  // Two or three short choices share a row — and "No" beside them counts as
+  // one (2026-10-16): "7UP, leaves 07:25", "8DN, leaves 16:35", "No, just
+  // the times" stacked put the way to stop past a 606px window.
+  const replies = answers.filter((action) => action.id.startsWith("choice:") ||
+                                             action.id === DECLINE_ID);
+  if (choices.length >= 1 && replies.length >= 2 && replies.length === answers.length &&
+      answers.length <= 3 &&
       answers.every((action) => action.label.length <= SHORT_ANSWER)) return "row";
   // Yes and No about one move (2026-10-16): two answers side by side.
   if (answers.length === 2 && answers.some((action) => action.id === DECLINE_ID)) return "row";

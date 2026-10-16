@@ -557,22 +557,23 @@ def not_confirmed(action: str) -> str:
             f"so I can't tell you it worked. Please check the portal before you rely on it.")
 
 
-def portal_says(heading: str, label: str | None = None, value: str | None = None) -> str:
+def portal_says(heading: str, label: str | None = None, value: str | None = None,
+                who: str = "portal") -> str:
     """The site's own confirmation, quoted (2026-10-16): 'The portal says
     "Registration Confirmed", with confirmation number REG-10234-2026.'"""
     if label and value:
-        return (f"The portal says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
+        return (f"The {who} says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
                 f"{value}.")
-    return f"The portal says \u201c{heading}\u201d."
+    return f"The {who} says \u201c{heading}\u201d."
 
 
-def site_also_says(sentence: str) -> str:
+def site_also_says(sentence: str, who: str = "portal") -> str:
     """The site's own warning about what was confirmed, quoted whole
     (2026-10-16): 'The portal also says "Registration is not final until
     tuition and fees are paid or a payment plan is in place".' Its words,
     never a summary of them: the closing screen never says more than the
     site, nor less."""
-    return f"The portal also says “{sentence.rstrip('.')}”."
+    return f"The {who} also says “{sentence.rstrip('.')}”."
 
 
 def explain_course(course: str):
@@ -755,3 +756,57 @@ NOT_ON_A_REAL_SITE = ("That would book, pay or change something on the real site
 #: When the page does not state what its final screen has to show.
 NO_FINAL_SCREEN = ("I couldn't read from the page exactly what would happen, so I haven't "
                    "done it. Nothing was changed.")
+
+
+# --- booking the train the person picked, on our replica (2026-10-16) --------
+
+#: The stage the booking is in, after the trains are found.
+BOOK_STAGE = "Book"
+#: Asked once the trains are on screen, on a replica only.
+ASK_BOOK = "Would you like to book one of these trains?"
+#: The answer that wants only the times: the closing screen, as before.
+JUST_TIMES = "No, just the times"
+#: Finishes choosing a train from a list, when there are too many for buttons.
+USE_TRAIN = "Book this train"
+FIELD_TRAIN = "Train"
+
+
+def train_choice(train: str, leaves: str = "") -> str:
+    """A train as an answer: "13UP, leaves 07:25"."""
+    return f"{train}, leaves {leaves}" if leaves else train
+
+
+DOING_BOOKING_FORM = "Opening the booking form"
+ASK_PASSENGER = "What name should the ticket be in?"
+PASSENGER_DETAIL = "Type it as it is on your ID card."
+FIELD_NAME = "Name"
+USE_NAME = "Use this name"
+NAME_NOT_CAUGHT = "I didn't catch that name."
+ASK_CLASS = "Which class would you like?"
+CLASS_DETAIL = "These are the classes the booking form offers."
+#: `help.requested.reason` when the form offers no class to choose.
+NO_CLASSES = "The booking form didn't offer any class to choose."
+BOOK_IT = "Book it"
+DONT_BOOK = "Don't book it"
+
+
+def doing_booking(klass: str) -> str:
+    """The checklist line that fills in the form: `Filling in the name and AC Standard`."""
+    return f"Filling in the name and {klass}"
+
+
+def final_book(train: str) -> str:
+    """The booking's final screen."""
+    return f"I'll book one seat on {train} for you, with these details."
+
+
+def booked_scope(train: str) -> str:
+    """The closing line once the site has confirmed the booking."""
+    return f"I booked one seat on {train} for you."
+#: The buttons on the booking's safe moves, for a person who asked to be
+#: asked before each thing.
+OPEN_IT = "Open the form"
+FILL_IN = "Fill it in"
+#: Every question that offers to finish a task once its answer is in.
+OFFERS = (ASK_BOOK,)
+TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)

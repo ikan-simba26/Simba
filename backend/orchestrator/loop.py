@@ -1208,6 +1208,10 @@ async def run_brief(
     run the way being stuck does, and says why.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    # On a replica a brief may offer to finish the task once its answer is in
+    # (2026-10-16): book the train, pay the bill. Its stages say so.
+    if hasattr(brief, "finishes"):
+        brief.finishes = on_replica(start_url)
     await run.open(brief.goal, brief.estimated_steps, start_url,
                    getattr(brief, "stages", None))
 
@@ -1236,11 +1240,54 @@ async def run_brief(
         return
 
     planner, task = brief.settle()
+    offer_for = getattr(brief, "offer", None)
+    completed = await carry_out(run, planner, task, send=offer_for is None)
+    if offer_for is None or completed is None:
+        return
+    await finish(run, brief, completed, offer_for(completed) if on_replica(page.url) else None)
+
+
+@dataclass(frozen=True)
+class Offer:
+    """What a brief offers once its answer is in, on a replica (2026-10-16):
+    one question — which train to book, whether to pay the bill — and what
+    each answer leads to. `take` gives the planner and task that finish the
+    job, or None for the answer that wants only what was found."""
+
+    question: "Move"
+    take: Callable[[str, dict[str, str]], "tuple[Planner, Task] | None"]
+
+
+async def finish(run: _Run, brief: Brief, completed: TaskCompleted,
+                 offer: Offer | None) -> None:
+    """The answer, and, when there is an offer, the job finished if the
+    person asks for it. "No" ends with the answer, exactly as it would have
+    ended without the offer."""
+    if offer is None:
+        await run.connection.send("task.completed", completed)
+        return
+    _, _, view = await perceive(run.page)
+    payload = await run.present(offer.question, goal=brief.goal,
+                                findings=completed.findings, view=view)
+    if not is_answer(offer.question, payload.get("action_id")):
+        await run.stopped()
+        return
+    then = offer.take(payload["action_id"], payload.get("input_values") or {})
+    if then is None:
+        await run.connection.send("task.completed", completed)
+        return
+    await run.set_state("thinking")
+    planner, task = then
     await carry_out(run, planner, task)
 
 
-async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
-    """The loop itself, from a page that is already open."""
+async def carry_out(run: _Run, planner: Planner, task: Task,
+                    send: bool = True) -> TaskCompleted | None:
+    """The loop itself, from a page that is already open.
+
+    Returns the ending when the task completed, sent unless `send` is False —
+    for a brief that may offer to finish the task once the answer is in
+    (`run_brief`, 2026-10-16) — and None when the run ended any other way."""
     page, connection = run.page, run.connection
     rules = run.rules
     set_state, give_up = run.set_state, run.give_up
@@ -1532,7 +1579,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         reference = (final.content.value_for(task.confirms.reads)
                      if task.confirms.reads else None)
         confirmation = voice.portal_says(task.confirms.heading, task.confirms.reads,
-                                         reference)
+                                         reference, task.confirms.who)
         confirmed = (next(text for text in headings if task.confirms.heading in text),
                      reference)
     # And what the site says against it, in its own sentence (2026-10-16):
@@ -1559,9 +1606,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
     if remember is not None:
         remember(completed)
 
-    await connection.send(
-        "task.completed",
-        TaskCompleted(
+    completed = TaskCompleted(
             summary=f"{task.goal} {page.url}",
             duration_ms=int((time.monotonic() - run.started) * 1000),
             steps_taken=steps_taken,
@@ -1572,11 +1617,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             heading=task.heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
-            caveat=voice.site_also_says(caveat_said) if caveat_said else None,
+            caveat=(voice.site_also_says(caveat_said, task.confirms.who)
+                    if caveat_said and task.confirms else None),
             proof=proof,
             proof_note=proof_note,
-        ),
     )
+    if send:
+        await connection.send("task.completed", completed)
+    return completed
 
 
 def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") -> bool:

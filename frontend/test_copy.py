@@ -420,6 +420,14 @@ def backend_sentences() -> dict[str, str]:
     for name in ("FINAL_WAITS", "NOTHING_CHANGED", "NOT_ON_A_REAL_SITE", "NO_FINAL_SCREEN"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["voice.final_press"] = voice.final_press("Register for CS-401")
+    # Booking the train picked, on our replica (2026-10-16).
+    for name in ("ASK_BOOK", "ASK_PASSENGER", "PASSENGER_DETAIL", "NAME_NOT_CAUGHT",
+                 "ASK_CLASS", "CLASS_DETAIL", "NO_CLASSES"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["voice.final_book"] = voice.final_book("7UP")
+    sentences["voice.booked_scope"] = voice.booked_scope("7UP")
+    sentences["booking form instruction"] = voice.DOING_BOOKING_FORM + "."
+    sentences["booking fill instruction"] = voice.doing_booking("AC Standard") + "."
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
@@ -488,6 +496,11 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    for name in ("JUST_TIMES", "USE_TRAIN", "USE_NAME", "BOOK_IT", "DONT_BOOK", "OPEN_IT",
+                 "FILL_IN", "FIELD_NAME", "FIELD_TRAIN", "BOOK_STAGE", "DOING_BOOKING_FORM"):
+        labels[f"voice.{name}"] = getattr(voice, name)
+    labels["voice.train_choice"] = voice.train_choice("7UP", "07:25")
+    labels["voice.doing_booking"] = voice.doing_booking("AC Standard")
     labels["voice.DO_IT"] = voice.DO_IT
     labels["voice.DONT_DO_IT"] = voice.DONT_DO_IT
     labels["voice.WHAT_I_PRESS"] = voice.WHAT_I_PRESS

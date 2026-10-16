@@ -272,7 +272,7 @@
     }
     const table = document.createElement("table");
     table.innerHTML = "<thead><tr><th>Train No.</th><th>From/To</th><th>Time</th>" +
-                      "<th>Duration</th></tr></thead>";
+                      "<th>Duration</th><th>Book</th></tr></thead>";
     const body = document.createElement("tbody");
     for (const train of found) {
       const row = document.createElement("tr");
@@ -288,6 +288,17 @@
         cell.textContent = value;
         row.appendChild(cell);
       }
+      // Each train can be booked (2026-10-16): its own form, for this
+      // journey, on the day searched for, written the way the box shows it.
+      const book = document.createElement("td");
+      const link = document.createElement("a");
+      link.textContent = "Book";
+      link.setAttribute("aria-label", "Book train " + train.number);
+      link.href = "/book?" + new URLSearchParams({
+        train: train.number, from: model.from, to: model.to, date: dateInput.value,
+        leaves: train.time }).toString();
+      book.appendChild(link);
+      row.appendChild(book);
       body.appendChild(row);
     }
     table.appendChild(body);

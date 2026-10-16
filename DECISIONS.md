@@ -4549,3 +4549,37 @@ stay read-only, and SIMBA never types payment details anywhere.
 its change: the model plans no screens, and one forgotten plan is one real
 payment. Deciding "replica" by a list of our ports: a test replica on another
 port would be refused, and nothing else is served from this machine.
+
+## Booking a train on our replica: the offer, the form, the confirmation
+
+**Date:** 2026-10-16 (booking was asked for; these details were not)
+
+- **Offered after every search on a replica**, not only when the goal says
+  "book": "Would you like to book one of these trains?" with each train
+  ("7UP, leaves 07:25") and "No, just the times". "No" ends exactly as a
+  search ended before. The cost: one more press for someone who wanted only
+  the times. The alternative — book only when the goal asks — leaves the
+  home screen's "Find train times" tile with no way to the booking at all.
+  **Flagged.** On the live site nothing is offered.
+- **The question comes after the answer is shown**, with the trains still on
+  screen above it, and before anything on the booking form is touched. Then
+  the final screen asks again, with the details: the first is the person's
+  choice of train, the second their decision to book it.
+- **The replica's form needs a name and a class**, and the class is three
+  radio buttons, read from the page as the question's answers. A name is any
+  1–60 characters with a letter in it; anything else is asked again.
+- **Opening the form and filling it in run as checklist lines**: both are
+  safe moves once the person has chosen. Only "Confirm Booking" books.
+- **The form shows what it holds**: the replica's summary table repeats the
+  passenger and class as they are entered, so the final screen's eight
+  details — train, from, to, date, leaves, passenger, class, fare — are all
+  read from the page, none from SIMBA's memory of the answers.
+- **The confirmation is quoted with "The site says"** (`Confirmation.who`),
+  not "The portal says", and its caveat is the page's sentence "No real
+  ticket was booked and no money was taken". The closing screen shows the
+  booking number, train, date and seat by the page's own names, under the
+  confirmation, with the proof.
+- **"7UP, leaves 07:25" and "No, just the times" share a row**, like two or
+  three short choices: stacked, the question ran past a 606px window.
+- **The test helpers answer an offer nobody scripted with "No"**, so every
+  existing search test still ends on its trains.

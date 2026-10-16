@@ -133,3 +133,39 @@ def test_each_answer_says_which(browser, overlay: str, backend: Backend,  # noqa
         assert sent and sent[-1]["action_id"] == action and sent[-1]["step_index"] == 9
     finally:
         page.close()
+
+
+#: Once the trains are found, on a replica: which to book, or none.
+OFFER = {
+    "step_index": 7, "step_total": 9, "stage": 5, "step_kind": "choose",
+    "instruction": "Would you like to book one of these trains?", "detail": "",
+    "fields": [], "requires_confirmation": True,
+    "findings": [{"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"]}],
+    "actions": [{"id": "choice:0", "label": "7UP, leaves 07:25", "kind": "primary"},
+                {"id": "choice:1", "label": "8DN, leaves 16:35", "kind": "primary"},
+                {"id": "decline", "label": "No, just the times", "kind": "primary"},
+                {"id": "cancel", "label": "Stop this", "kind": "secondary"}],
+}
+
+
+@pytest.mark.parametrize("size", list(SIZES), ids=list(SIZES))
+def test_the_offer_to_book_fits(browser, overlay: str, backend: Backend,  # noqa: F811
+                                size: str) -> None:
+    width, height, scale = SIZES[size]
+    page = browser.new_page(viewport={"width": width, "height": height},
+                            device_scale_factor=scale)
+    backend.script = [("task.started", {"goal": GOAL, "estimated_steps": 9, "stages": STAGES}),
+                      ("state.changed", {"state": "waiting"}), ("step.presented", OFFER),
+                      (AWAIT_RESPONSE, {})]
+    try:
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", GOAL)
+        page.get_by_role("button", name="Start").click()
+        page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
+        page.wait_for_timeout(1800)  # past the guard
+        for action in OFFER["actions"]:
+            box = page.get_by_role("button", name=action["label"], exact=True).bounding_box()
+            assert box and box["y"] + box["height"] <= height, (size, action["label"], box)
+        assert page.evaluate("document.scrollingElement.scrollHeight <= innerHeight"), size
+    finally:
+        page.close()

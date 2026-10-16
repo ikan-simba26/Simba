@@ -43,6 +43,8 @@ class Answers(ScriptedConnection):
         answer = ("confirm", {})
         if question or step["instruction"] == voice.PAUSED:
             answer = (self.answers.pop(0) if self.answers else None) or ("cancel", {})
+        if step["instruction"] in voice.OFFERS and answer == ("cancel", {}):
+            answer = (voice.DECLINE_ID, {})  # unscripted: just the answer
         return {"type": "step.response",
                 "payload": {"step_index": step_index, "action_id": answer[0],
                             "input_values": answer[1]}}
@@ -112,8 +114,10 @@ def a_journey() -> TripBrief:
 def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> None:  # noqa: F811
     done = go(railways, a_journey(), [(f"{CHOICE_PREFIX}0", {})])
 
+    # And, on our replica, the offer to book one (2026-10-16), answered "no".
     assert done.asked() == [voice.read_back("Rawalpindi", "Sukkur",
-                                            voice.when_words(TOMORROW, date.today()))]
+                                            voice.when_words(TOMORROW, date.today())),
+                            voice.ASK_BOOK]
     assert done.rows() == [voice.DOING_FROM, voice.DOING_TO, voice.DOING_CALENDAR,
                            voice.doing_day(voice.day_words(TOMORROW, date.today())),
                            voice.DOING_SEARCH]
@@ -145,7 +149,7 @@ def test_asked_every_time_it_asks_every_time(railways: str) -> None:  # noqa: F8
     done = go(railways, a_journey(), [(f"{CHOICE_PREFIX}0", {})], auto=False)
 
     assert done.rows() == []
-    assert len(done.asked()) == 1 + 5
+    assert len(done.asked()) == 1 + 5 + 1  # and the offer to book, on our replica
     assert "task.completed" in done.types()
 
 

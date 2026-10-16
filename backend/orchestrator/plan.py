@@ -284,6 +284,8 @@ class Confirmation:
     # breath, says it is not final until fees are paid. Never said unless the
     # page says it.
     caveat: str | None = None
+    # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
+    who: str = "portal"
 
 
 def registration_plan(course: str) -> list[PlanStep]:
