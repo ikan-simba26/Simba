@@ -5647,3 +5647,42 @@ the stall needs a page that has gone still, so the walk shows the fix costs
 nothing in the product's path but cannot show the failure. The failure is
 shown by the idle-page captures above, which is how a preview or a proof of a
 page that has sat still is taken.
+
+## 2026-10-17b — "I waited while the window was closed", with the window open
+
+`fix/stability`. The sentence appeared once while the window was open. Where:
+the recording run of 2026-10-16 at 20:11 (`.scratch/walk-finish/clips3.log`,
+not the clips committed). The demo recorder plays the overlay in a browser of
+its own and records that; the backend drives the site view inside a real
+Electron host whose window nobody watches, and before every action reads
+*that* window's state. In that run the "fold" clip took 414s and never
+finished, and the "adapt" clip took 308s — "This site asks about cookies. ->
+Yes | I waited while the window was closed. -> Carry on" — against 43s and
+46s when re-recorded at 00:06. So the host's window was put away for minutes
+during those two clips, and each run waited, as it should for a person
+working in that window. Nothing in the repository minimises it; who or what
+did was not recorded, and is not known.
+
+**The state reads were checked first**, in a host this probe launched,
+driving only its own window by handle (`.scratch/stability/window_probe.py`,
+`window_race_probe.py`), reading what the backend reads:
+
+| What was done to the window | Read | Right? |
+|---|---|---|
+| minimise, restore / show-normal / maximise; maximise first, then minimise and restore; the same by `WM_SYSCOMMAND` as a taskbar click sends | minimised, then shown | yes, all 13 transitions |
+| minimise then `SW_SHOW` (stays minimised) | minimised | yes |
+| 100 minimise-restore cycles, 0–0.3s apart, read 1s after each | stale "minimised" after **0 of 100** | yes |
+| hidden (`SW_HIDE`) | **shown** | no — a hidden window is never noticed |
+
+So no read said "away" while the window was there. The pause was a true
+reading of a window that was not the one being looked at.
+
+**The fix.** The overlay writes `window.__simbaStarted` — false when it
+loads, true once a task is started from it — and the backend counts the
+host's window only when it is true. A run driven from any other overlay is
+never paused by the host's window; the person working in the host's own
+overlay is paused exactly as before. Tests: the state read through a real
+overlay page with the flag false, true and absent
+(`test_window.py::test_a_minimised_host_does_not_pause_a_run_started_from_another_overlay`),
+and the built overlay setting it (`frontend/test_window_started.py`). Every
+pause is now a line in `logs/backend.log`: the state, and how long it lasted.

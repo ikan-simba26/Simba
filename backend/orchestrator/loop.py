@@ -19,6 +19,7 @@ passes none — most tests — never sends `load.updated` at all.
 import asyncio
 import base64
 import json
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -912,6 +913,10 @@ def answers_to_save(move: "Move", input_values: dict[str, str]) -> Credentials |
 #: How often a run waiting on a put-away window looks again, in seconds.
 WINDOW_POLL_S = 0.5
 
+#: What a run did, and how long each part took, in `logs/backend.log`
+#: (`app.log_runs`). Never a value the person typed.
+log = logging.getLogger("simba.run")
+
 
 class StoppedWhileAway(Exception):
     """The person pressed stop on the step that said the window was back."""
@@ -998,11 +1003,17 @@ class _Run:
         that the run waited, and it goes on only when they say so. Raises
         `StoppedWhileAway` if they press stop instead.
         """
-        if self.window is None or await self.window() == "shown":
+        if self.window is None:
             return
+        away = await self.window()
+        if away == "shown":
+            return
+        log.info("window %s: waiting before acting", away)
+        went = time.monotonic()
         was = self.state
         while await self.window() != "shown":
             await asyncio.sleep(WINDOW_POLL_S)
+        log.info("window shown again after %.1fs: asking to carry on", time.monotonic() - went)
         back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
                     expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
                     question=True, kind="confirm")

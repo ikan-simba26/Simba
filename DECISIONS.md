@@ -4758,3 +4758,31 @@ capture puts elements into the site's page, which a site's own script could
 see. Pictures stay the device's size, as before. Several captures may be
 answered for one picture; the extra ones are discarded. Why 100% stalls at
 all is still unexplained.
+
+## The host's window counts only when the task was started in it
+
+**Date:** 2026-10-17 (asked for: "find what triggered it and stop false
+pauses"; how was not specified)
+
+**Decision.** The overlay writes `window.__simbaStarted` (false on load, true
+once a task is started from it); `browser.WINDOW_JS` reads the host's window
+state only when it is true, and "shown" when it is false. Absent — an older
+overlay — keeps the old behaviour.
+
+**Alternatives.** An environment switch on the backend to turn the watch off
+for recordings: has to be remembered by whoever starts the stack, and the
+recorder does not start it. A new websocket message saying which overlay is
+which: cleaner, but a contract change needing all three owners. Debouncing
+the read (two reads 0.5s apart): would not have helped — the window was away
+for minutes.
+
+**Why this.** The pause was right about the window it read and wrong about
+which window mattered; this makes the backend read the window the person is
+working in, without a contract change.
+
+**Cost.** One more global on the overlay page that the backend depends on,
+written by the overlay and read only over CDP. If someone starts a task in
+the host's own overlay and then drives runs from another one, that host
+window counts again until the host's overlay reloads. A hidden window is
+still read as shown (the host is not told when something outside it hides
+the window); nothing in SIMBA hides it.

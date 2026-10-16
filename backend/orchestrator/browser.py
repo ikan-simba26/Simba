@@ -197,7 +197,18 @@ def find_site_page(pages: list[Page], start_url: str) -> Page:
 #: minimised, hidden or brought back (`frontend/electron/main.ts`). Absent —
 #: an older host, or a page not yet told — reads as "shown", which is how a run
 #: behaved before the window was watched at all.
-WINDOW_JS = "() => window.__simbaWindow || 'shown'"
+#:
+#: Only if the person is working in that window (2026-10-17): the overlay says
+#: whether a task has been started from it since it loaded
+#: (`window.__simbaStarted`, `frontend/src/store.ts`). When it says not, the
+#: run is driven from another overlay — the demo recorder's, a script's — and
+#: the host's window being minimised is nothing to wait for. On 2026-10-16 the
+#: recorder's "adapt" clip showed "I waited while the window was closed" with
+#: its own window open the whole time: the host's window, which nobody was
+#: looking at, had been minimised, and the clip before it sat for minutes on
+#: the same thing (EVALUATION.md, 2026-10-17b).
+WINDOW_JS = ("() => window.__simbaStarted === false ? 'shown' "
+             ": (window.__simbaWindow || 'shown')")
 
 
 def is_overlay(url: str) -> bool:
