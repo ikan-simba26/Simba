@@ -136,7 +136,7 @@ def test_a_window_minimised_mid_step_is_waited_for_and_the_run_finishes(
     completed = sent.payload_of("task.completed")
     # The line is not a step the person agreed to.
     assert completed["steps_taken"] == 3
-    assert completed["findings"][0]["value"] == "14,382"
+    assert completed["findings"][0]["value"] == "Rs 14,382"  # in plain words (2026-10-16)
 
 
 def test_it_waits_as_long_as_the_window_is_away(
