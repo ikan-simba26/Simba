@@ -1091,7 +1091,36 @@ class BillBrief(_Asking):
     reports are shown (2026-10-16; `billing_plan.person_billing_plan`)."""
 
     plan_steps = 2
-    stages = voice.BILL_STAGES
+    #: On one of our replicas the bill found can then be paid, as a pretend
+    #: payment (2026-10-16; set by `loop.run_brief`). Never on a live site.
+    finishes = False
+
+    @property
+    def stages(self) -> list[str]:
+        return [*voice.BILL_STAGES, voice.PAY_STAGE] if self.finishes else voice.BILL_STAGES
+
+    def offer(self, completed) -> "Offer | None":
+        """Once the bill is found, on a replica: whether to pay it, or only
+        to know it (2026-10-16)."""
+        from backend.orchestrator.finish_plan import PaymentPlanner, payment_task
+        from backend.orchestrator.loop import Offer
+
+        if not completed.findings:
+            return None
+        stage = len(voice.BILL_STAGES)
+        yes = voice.choices([voice.PAY_YES])
+        question = Move(
+            instruction=voice.ASK_PAY, detail="", operations=[], expect=Expectation(),
+            fields=[], question=True, kind="choose", stage=stage,
+            actions=[yes[0], StepAction(id=voice.DECLINE_ID, label=voice.JUST_THE_BILL,
+                                        kind="primary"), yes[-1]])
+
+        def take(action_id: str, input_values: dict[str, str]):
+            if action_id != yes[0].id:
+                return None
+            return PaymentPlanner(stage), replace(payment_task(self.reference), goal=self.goal)
+
+        return Offer(question=question, take=take)
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
                  provider=None) -> None:

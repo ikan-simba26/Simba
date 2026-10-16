@@ -152,3 +152,74 @@ class BookingPlanner:
         if index.isdigit() and int(index) < len(self.classes):
             self.klass = self.classes[int(index)]
 
+
+# --- the bill the person looked up --------------------------------------------
+
+
+def payment_task(reference: str):
+    """Paying the bill for `reference`, a pretend payment with no card details:
+    done only with the site's receipt on the page, its number quoted."""
+    from backend.orchestrator.loop import Task
+
+    return Task(
+        goal=f"Pay the bill for reference number {reference}.",
+        estimated_steps=2,
+        success=Expectation(title_contains="Payment Received"),
+        about=About(finds=(
+            Answer("Receipt number", reads="Receipt number"),
+            Answer("Amount paid", reads="Amount paid", plain=voice.rupees),
+            Answer("Paid on", reads="Paid on", plain=voice.page_date),
+        )),
+        confirms=Confirmation(heading="Payment Received", reads="Receipt number",
+                              caveat="No money was taken", who="site"),
+        scope=voice.PAID_SCOPE,
+    )
+
+
+class PaymentPlanner:
+    """Pays the bill the person looked up, on the billing replica: opens its
+    payment page (a page to read), then the final screen. Nothing to ask: the
+    page needs no card and no choice. Only "Pay it" presses "Confirm Payment".
+    """
+
+    calls_made = 0
+    stuck_reason: str | None = None
+    #: Marks its own change: only "Confirm Payment" pays.
+    marks_changes = True
+
+    def __init__(self, stage: int) -> None:
+        self.stage = stage
+        self._done: set[str] = set()
+
+    def coming(self) -> list[str]:
+        return []
+
+    async def next_move(self, elements, history, setback):
+        from backend.orchestrator.loop import Move
+
+        if "open" not in self._done:
+            self._done.add("open")
+            return Move(instruction=voice.DOING_PAYMENT_PAGE + ".", detail="",
+                        operations=[Operation("click", Target("link", "Pay this bill"))],
+                        expect=Expectation(title_contains="Pay Your Bill"), fields=[],
+                        actions=voice.actions(voice.OPEN_PAYMENT), safe=True,
+                        doing=voice.DOING_PAYMENT_PAGE, stage=self.stage, kind="read")
+        if "final" not in self._done:
+            self._done.add("final")
+            return Move(
+                instruction=voice.FINAL_PAY, detail=voice.FINAL_WAITS,
+                operations=[Operation("click", Target("button", "Confirm Payment"))],
+                expect=Expectation(title_contains="Payment Received"), fields=[],
+                actions=voice.final_actions(voice.PAY_IT, voice.DONT_PAY),
+                final_answers=(voice.PAY_IT, voice.DONT_PAY),
+                changes=True, stage=self.stage, kind="confirm",
+                final=(
+                    FinalRead("Amount", "Amount payable", plain=voice.rupees),
+                    FinalRead("Bill", "Billing month"),
+                    FinalRead("Due", "Due date", plain=voice.page_date),
+                    FinalRead("Reference number", "Reference No."),
+                ))
+        return None
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        pass

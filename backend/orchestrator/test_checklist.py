@@ -194,7 +194,8 @@ def test_the_bill_asks_about_cookies_then_looks_itself_up(
 
     done = go(billing_replica, brief, [])
 
-    assert done.asked() == [voice.ASK_COOKIES]
+    # And, on our replica, the offer to pay it (2026-10-16), answered "no".
+    assert done.asked() == [voice.ASK_COOKIES, voice.ASK_PAY]
     assert done.rows() == [voice.DOING_LOOKUP]
     assert "task.completed" in done.types()
     lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]

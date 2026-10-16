@@ -79,9 +79,12 @@ class Talk:
             message = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=timeout))
             self.received.append(message)
             if message["type"] == "step.presented":
+                # The go-ahead where there is one; "no" to an offer to finish
+                # the task, which has none (2026-10-16).
+                ids = [a["id"] for a in message["payload"]["actions"]]
                 await self.send("step.response", {
                     "step_index": message["payload"]["step_index"],
-                    "action_id": "confirm",
+                    "action_id": "confirm" if "confirm" in ids else "decline",
                     "input_values": {"reference": REFERENCE},
                 })
             if message["type"] in types:

@@ -246,6 +246,23 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "proof": PROOF,
         }),
     ],
+    # A pretend payment the site confirmed (2026-10-16).
+    "completed a payment": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/bill/pay", "duration_ms": 1,
+            "steps_taken": 4, "llm_calls": 0, "replayed": False,
+            "findings": [
+                {"label": "Receipt number", "value": "RCPT-305114", "values": ["RCPT-305114"]},
+                {"label": "Amount paid", "value": "Rs 14,382", "values": ["Rs 14,382"]},
+                {"label": "Paid on", "value": "16 October 2026", "values": ["16 October 2026"]},
+            ],
+            "scope": "I paid your bill on the practice site. No card was used.",
+            "confirmation": ("The site says “Payment Received”, with receipt number "
+                             "RCPT-305114."),
+            "caveat": "The site also says “No money was taken”.",
+            "proof": PROOF,
+        }),
+    ],
     # A change tried and not confirmed (2026-10-16): never "done".
     "not confirmed": [
         ("state.changed", {"state": "stuck"}),

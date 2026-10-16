@@ -4583,3 +4583,21 @@ port would be refused, and nothing else is served from this machine.
   three short choices: stacked, the question ran past a 606px window.
 - **The test helpers answer an offer nobody scripted with "No"**, so every
   existing search test still ends on its trains.
+
+## Paying the bill on our replica: a pretend payment
+
+**Date:** 2026-10-16 (paying was asked for; these details were not)
+
+- **Offered after the bill is shown, on a replica only**: "Would you like to
+  pay this bill?" — "Yes, pay it" or "No, just the bill", which ends as a
+  bill always did. The same shape as booking, and flagged with it.
+- **The replica's payment page asks for nothing**: no card, no method, no
+  choice. It states the amount, the billing month, the due date and the
+  reference, and says it is a practice payment. So SIMBA asks nothing more,
+  and the final screen shows those four as the page states them, the amount
+  and date in plain words.
+- **The receipt** ("Payment Received", a receipt number, the amount paid,
+  the date paid) is quoted with "The site says", and its sentence "No money
+  was taken" with "The site also says".
+- **The fixed bill plan the benchmarks use is unchanged**: it is run without
+  a brief, so nothing is offered.

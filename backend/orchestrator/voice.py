@@ -810,3 +810,24 @@ FILL_IN = "Fill it in"
 #: Every question that offers to finish a task once its answer is in.
 OFFERS = (ASK_BOOK,)
 TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
+
+
+# --- paying the bill the person looked up, on our replica (2026-10-16) ------
+
+#: The stage the payment is in, after the bill is found.
+PAY_STAGE = "Pay"
+#: Asked once the bill is on screen, on a replica only.
+ASK_PAY = "Would you like to pay this bill?"
+PAY_YES = "Yes, pay it"
+#: The answer that wants only the bill: the closing screen, as before.
+JUST_THE_BILL = "No, just the bill"
+DOING_PAYMENT_PAGE = "Opening the payment page"
+OPEN_PAYMENT = "Open the page"
+#: The payment's final screen. It is a practice payment, and says so.
+FINAL_PAY = "I'll pay this bill for you. It is a practice payment, and no card is used."
+PAY_IT = "Pay it"
+DONT_PAY = "Don't pay"
+#: The closing line once the site has confirmed the payment.
+PAID_SCOPE = "I paid your bill on the practice site. No card was used."
+OFFERS = (*OFFERS, ASK_PAY)
+

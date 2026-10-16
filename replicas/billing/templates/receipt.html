@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Payment Received | LESCO Consumer Services Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% with crumb = 'Receipt' %}{% include '_chrome.html' %}{% endwith %}
+
+<h1>Payment Received</h1>
+
+<table class="particulars">
+  <tr><th>Receipt number</th><td>{{ receipt }}</td></tr>
+  <tr><th>Reference No.</th><td>{{ reference }}</td></tr>
+  <tr><th>Amount paid</th><td>{{ bill.payable_within }}</td></tr>
+  <tr><th>Paid on</th><td>{{ paid_on }}</td></tr>
+  <tr><th>Status</th><td>PAID</td></tr>
+</table>
+
+<p class="tiny">
+  This is a practice site. No money was taken. Keep your receipt number until
+  the payment appears on your next bill.
+</p>
+
+<p class="actions">
+  <a href="#">Download receipt</a> &middot;
+  <a href="{{ url_for('lookup') }}">Search another reference</a>
+</p>
+
+{% include '_footer.html' %}
+</body>
+</html>

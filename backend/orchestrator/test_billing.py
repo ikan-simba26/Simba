@@ -217,9 +217,11 @@ async def _run_flow(ws_url: str) -> list[dict]:
             message = json.loads(await asyncio.wait_for(ws.recv(), timeout=90))
             received.append(message)
             if message["type"] == "step.presented":
+                # "No" to the offer to pay, which has no go-ahead (2026-10-16).
+                ids = [a["id"] for a in message["payload"]["actions"]]
                 await send("step.response", {
                     "step_index": message["payload"]["step_index"],
-                    "action_id": "confirm",
+                    "action_id": "confirm" if "confirm" in ids else "decline",
                     "input_values": {"reference": REFERENCE},
                 })
             elif message["type"] in ("task.completed", "task.failed", "help.requested"):
