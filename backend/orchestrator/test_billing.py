@@ -26,6 +26,7 @@ from backend.orchestrator.billing_plan import (
     REFERENCE,
     bill_task,
     billing_plan,
+    person_billing_plan,
 )
 from backend.orchestrator.details import BillBrief, Understood
 from backend.orchestrator.loop import run_task
@@ -107,8 +108,8 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
     `task.completed` can only have come from remembering them. Until
     2026-09-17 nothing tested that the answer reached the end at all.
 
-    The due date is exactly as the page wrote it. Nothing reformats a found
-    value (STATUS.md).
+    Said in plain words since 2026-10-16 — "Rs 14,382", "15 September
+    2026" — from the page's own figures; nothing else about a value changes.
     """
     connection = drive(HardcodedPlanner(BILLING_PLAN), BILLING_TASK, billing_replica)
 
@@ -118,9 +119,10 @@ def test_the_answer_reaches_the_end_from_a_page_the_run_has_left(billing_replica
         # list the closing screen shows. One value, so they say the same thing.
         # And the bill's one table row whole, on the first finding: the amount
         # and the date due, from the same row (2026-10-05).
-        {"label": "Your bill", "value": "14,382", "values": ["14,382"],
-         "rows": [["14,382", "15-09-2026"]]},
-        {"label": "Due", "value": "15-09-2026", "values": ["15-09-2026"], "rows": []},
+        {"label": "Your bill", "value": "Rs 14,382", "values": ["Rs 14,382"],
+         "rows": [["Rs 14,382", "15 September 2026"]]},
+        {"label": "Due", "value": "15 September 2026", "values": ["15 September 2026"],
+         "rows": []},
     ]
     # And it was shown while the run was still going, from the step it turned up on.
     assert connection.of("step.presented")[-1]["findings"] == completed["findings"]
@@ -233,14 +235,16 @@ def test_the_billing_flow_completes_over_the_websocket(messages: list[dict]) -> 
     completed = [m for m in messages if m["type"] == "task.completed"]
     assert completed, [m["type"] for m in messages]
     assert completed[0]["payload"]["llm_calls"] == 0
-    assert completed[0]["payload"]["steps_taken"] == 3
-    assert "/bill/detail" in completed[0]["payload"]["summary"]
+    # The person's bill ends on its results page since 2026-10-16, where
+    # the amount and the due date are (`billing_plan.person_billing_plan`).
+    assert completed[0]["payload"]["steps_taken"] == 2
+    assert completed[0]["payload"]["summary"].endswith("/bill")
 
 
 def test_the_flow_switch_selects_billing(messages: list[dict]) -> None:
     started = [m for m in messages if m["type"] == "task.started"][0]
     assert "amount due" in started["payload"]["goal"]
-    assert started["payload"]["estimated_steps"] == 3
+    assert started["payload"]["estimated_steps"] == 2
 
 
 # --- trace memory, through the running server --------------------------------
@@ -300,8 +304,10 @@ def test_the_second_run_replays_the_first(two_runs) -> None:
 
 def test_both_runs_reach_the_same_page(two_runs) -> None:
     first, second = two_runs
-    assert "/bill/detail" in _completed(first)["summary"]
-    assert "/bill/detail" in _completed(second)["summary"]
+    # The person's bill ends on its results page since 2026-10-16, where
+    # the amount and the due date are (`billing_plan.person_billing_plan`).
+    assert _completed(first)["summary"].endswith("/bill")
+    assert _completed(second)["summary"].endswith("/bill")
 
 
 def test_replay_is_one_step_per_operation(two_runs) -> None:
@@ -311,8 +317,10 @@ def test_replay_is_one_step_per_operation(two_runs) -> None:
     as one unit, so replaying it takes two steps where planning took one.
     """
     first, second = two_runs
-    assert _completed(first)["steps_taken"] == 3
-    assert _completed(second)["steps_taken"] == 4
+    # The person's bill ends on its results page since 2026-10-16, where
+    # the amount and the due date are (`billing_plan.person_billing_plan`).
+    assert _completed(first)["steps_taken"] == 2
+    assert _completed(second)["steps_taken"] == 3
 
 
 # --- the goal comes from the frontend ----------------------------------------
@@ -377,14 +385,15 @@ OTHER_REFERENCE = "04149999999999"
 
 def look_up(reference: str, start_url: str, task=None) -> FakeConnection:
     brief = BillBrief(f"bill for {reference}", Understood(reference=reference))
-    return drive(HardcodedPlanner(billing_plan(reference)), task or brief.task(), start_url)
+    return drive(HardcodedPlanner(person_billing_plan(reference)), task or brief.task(),
+                 start_url)
 
 
 def test_the_bill_looked_up_is_the_one_the_person_named(billing_replica: str) -> None:
     connection = look_up(OTHER_REFERENCE, billing_replica)
 
     assert "help.requested" not in connection.types(), connection.sent[-1]
-    assert connection.payload_of("task.completed")["steps_taken"] == 3
+    assert connection.payload_of("task.completed")["steps_taken"] == 2
     # Their number, in the step they agreed to and in the field that was typed.
     lookup = connection.of("step.presented")[1]
     assert lookup["fields"][0]["value"] == OTHER_REFERENCE
@@ -412,8 +421,9 @@ def test_the_results_page_echoes_the_number_that_was_searched(
     up, so every bill said it was the one asked about."""
     connection = look_up(OTHER_REFERENCE, billing_replica)
 
-    said = [finding for step in connection.of("step.presented")
-            for finding in step["findings"]]
+    # The run ends on the results page (2026-10-16), so what was read there is
+    # in the ending rather than on a step after it.
+    said = connection.payload_of("task.completed")["findings"]
     assert said, "nothing was read off the results page"
     assert "task.completed" in connection.types()
 

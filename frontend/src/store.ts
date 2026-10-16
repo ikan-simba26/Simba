@@ -48,14 +48,6 @@ interface Store {
   step: StepPresented | null;
   load: LoadUpdated | null;
   preview: PagePreview | null;
-  /**
-   * The real page, for behind the step (2026-10-07). Asked for quietly when
-   * each step arrives, and kept until the task ends — `preview` is the trust
-   * panel's and is cleared when it closes.
-   */
-  backdrop: PagePreview | null;
-  /** Showing the real page clearly, with the step put aside. */
-  peeking: boolean;
   /** The stage the last step was in, for a step that does not say. */
   stageNow: number | null;
   /**
@@ -149,13 +141,21 @@ interface Store {
   debug: boolean;
   /** The trust panel: the user has asked to see the real page. */
   trustOpen: boolean;
+  /** The closing screen's picture of the real page is open (2026-10-16). */
+  proofOpen: boolean;
+  /**
+   * "What are you doing?" was pressed and no picture came: the backend said
+   * it dropped one, or none arrived in `PICTURE_WAIT_MS` (2026-10-16). The
+   * panel says so, rather than the press doing nothing.
+   */
+  noPicture: boolean;
 
   toggleDebug: () => void;
   /** Send trust.requested and open the panel when the preview lands. */
   askWhat: () => void;
   closeTrust: () => void;
-  /** Show the real page clearly, or stop. Not counted as asking for help. */
-  peek: (on: boolean) => void;
+  openProof: () => void;
+  closeProof: () => void;
   /** Stop the checklist before its next move. */
   pause: () => void;
   setAskEachTime: (on: boolean) => void;
@@ -200,6 +200,10 @@ interface Store {
  */
 const STOP_ID = "cancel";
 
+/** How long "What are you doing?" waits for a picture before saying none
+ *  came: the backend's own limit (5s) and a little more. */
+const PICTURE_WAIT_MS = 7000;
+
 /** Where the person's "ask me before each thing" setting is kept. */
 const ASK_EACH_KEY = "simba.askEachTime";
 
@@ -212,14 +216,13 @@ function readAskEachTime(): boolean {
 }
 
 const EMPTY = {
+  proofOpen: false,
   task: null,
   state: null,
   step: null,
   answered: false,
   load: null,
   preview: null,
-  backdrop: null,
-  peeking: false,
   stageNow: null,
   checklist: [],
   coming: [],
@@ -249,16 +252,10 @@ export const useStore = create<Store>((set, get) => {
     },
 
     onMessage: (message: AnyEnvelope) => {
+      // No picture is asked for unless the person asks (2026-10-16): the
+      // one asked for with every step was for the page behind it, which went
+      // with "Show the real page".
       apply(message, set);
-      // Each new step gets a fresh picture of the real page to sit on. Not a
-      // line of the checklist: no backdrop is shown under it, and every one
-      // asked for there waited in the backend and was answered — a
-      // screenshot each — before the next question's answer was read. In
-      // the real window that held "Register for CS-401" for 31s (2026-10-14).
-      if (message.type === "step.presented" &&
-          (message.payload as StepPresented).requires_confirmation !== false) {
-        connection.askForPicture();
-      }
       append({
         seq: message.seq,
         type: message.type,
@@ -280,6 +277,7 @@ export const useStore = create<Store>((set, get) => {
     overflowHopped: false,
     debug: false,
     trustOpen: false,
+    noPicture: false,
     askEachTime: readAskEachTime(),
     ...EMPTY,
 
@@ -288,15 +286,23 @@ export const useStore = create<Store>((set, get) => {
     askWhat: () => {
       // Open immediately; the panel waits for the picture rather than the
       // press feeling like it did nothing.
-      set({ trustOpen: true });
+      set({ trustOpen: true, noPicture: false });
+      // And if no picture comes, it says so (2026-10-16). The backend drops
+      // a picture after 5s and says it did; this is for when even that
+      // does not arrive.
+      window.setTimeout(() => {
+        const now = get();
+        if (now.trustOpen && !now.preview) set({ noPicture: true });
+      }, PICTURE_WAIT_MS);
       // The loudest signal channel B has: they stopped and asked.
       tracker.helpPressed();
       connection.askWhat();
     },
 
-    closeTrust: () => set({ trustOpen: false, preview: null }),
+    closeTrust: () => set({ trustOpen: false, preview: null, noPicture: false }),
 
-    peek: (on) => set({ peeking: on }),
+    openProof: () => set({ proofOpen: true }),
+    closeProof: () => set({ proofOpen: false }),
 
     pause: () => {
       const last = get().checklist[get().checklist.length - 1];
@@ -436,8 +442,6 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         completed: null,
         failed: null,
         asking: null,
-        backdrop: null,
-        peeking: false,
         stageNow: null,
         firstScreen: true,
       });
@@ -512,26 +516,33 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     }
     case "page.preview":
-      set({ preview: message.payload as PagePreview, backdrop: message.payload as PagePreview });
+      set({ preview: message.payload as PagePreview, noPicture: false });
       return;
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
       tracker.stop();
-      set({ help: message.payload as HelpRequested, step: null, peeking: false });
+      set({ help: message.payload as HelpRequested, step: null });
       return;
     case "task.completed":
       tracker.stop();
-      set({ completed: message.payload as TaskCompleted, step: null, peeking: false });
+      set({ completed: message.payload as TaskCompleted, step: null });
       return;
     case "task.failed":
       tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
-      set({ failed: message.payload as TaskFailed, step: null, peeking: false });
+      set({ failed: message.payload as TaskFailed, step: null });
       return;
-    case "error":
-      set({ error: message.payload as ErrorPayload });
+    case "error": {
+      const error = message.payload as ErrorPayload;
+      // A picture that was dropped matters only to someone waiting for it.
+      const lost = error.code.startsWith("PREVIEW_");
+      set((current) => ({
+        error,
+        noPicture: current.noPicture || (lost && current.trustOpen && !current.preview),
+      }));
       return;
+    }
     default:
       // Unknown types are logged and ignored, never fatal (CONTRACT.md).
       console.warn(`[simba] ignoring unknown message type: ${message.type}`);

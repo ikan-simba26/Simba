@@ -12,6 +12,8 @@ detail page was reached, which is where the amount is stated — a proxy for
 the real goal. See EVALUATION.md, 2026-09-06.
 """
 
+from dataclasses import replace
+
 from backend.orchestrator.loop import Task
 from backend.orchestrator.plan import (
     About,
@@ -49,13 +51,16 @@ def bill_task(reference: str) -> Task:
         # back: the bill it shows carries a reference number of its own, and it
         # has to be the one that was asked about. See `Shown`.
         about=About(
+            # Said in plain words (2026-10-16): "Rs 14,382", "15 September
+            # 2026". Read, compared and ringed as the page prints them.
             finds=(
-                Answer("Your bill", reads="P/WITHIN"),
-                Answer("Due", reads="DUE DT"),
+                Answer("Your bill", reads="P/WITHIN", plain=voice.rupees),
+                Answer("Due", reads="DUE DT", plain=voice.page_date),
             ),
             shows=(Shown(reads="REF NO", says=reference),),
         ),
         explain=voice.explain_bill,
+        scope=voice.ONLY_LOOKED_AT_BILL,
     )
 
 
@@ -63,9 +68,11 @@ def billing_plan(reference: str) -> list[PlanStep]:
     """The billing plan for one reference number."""
     return [
         PlanStep(
-            instruction="The site is asking about cookies. I'll say yes.",
-            detail="The site is asking about cookies before anything else.",
-            actions=actions("Accept cookies"),
+            # Asked, Yes or No (2026-10-16): consent on someone else's site
+            # is the person's to give. No leaves the banner as it is.
+            instruction=voice.ASK_COOKIES,
+            detail="",
+            actions=voice.yes_or_no(),
             operations=[Operation("click", Target("button", "Accept all cookies"))],
             expect=Expectation(label_gone="Accept all cookies"),
             stage=1,
@@ -98,6 +105,21 @@ def billing_plan(reference: str) -> list[PlanStep]:
             doing=voice.DOING_FULL_BILL,
         ),
     ]
+
+
+def person_billing_plan(reference: str) -> list[PlanStep]:
+    """A person's bill (2026-10-16): the cookie question and the lookup, and
+    no more. The run used to open the full bill afterwards, a page where
+    neither the amount nor the due date it reports is shown, so nothing could
+    be checked or shown there before closing. It ends on the results page."""
+    return billing_plan(reference)[:2]
+
+
+def person_bill_task(reference: str) -> Task:
+    """The task for `person_billing_plan`: done on the results page."""
+    return replace(bill_task(reference), estimated_steps=2,
+                   success=Expectation(url_contains="/bill",
+                                       title_contains="Bill Enquiry Result"))
 
 
 # The worked example, which every recorded billing number was measured on. A

@@ -4392,3 +4392,118 @@ under `data-palette="a"`, set by `?palette=a` in the overlay's address. The
 contrast test reads both. Supersedes "A stays the default until Raham
 chooses" in *Two colour directions, chosen by an attribute; edges for
 controls* above.
+
+## Proof on the closing screen: what is checked, what is ringed, what is said
+
+**Date:** 2026-10-16 (proof was asked for; these details were not)
+
+**Decision.**
+- **One "See it on the real page" per closing screen**, under the answer,
+  not one per ticket: the picture rings every result at once.
+- **What is ringed:** with several results, each result's table row (found
+  by its first value); with one result — a bill — the values themselves; for
+  a registration, the confirmation heading and the row its number is in.
+  Rings are found in the page by exact text, in the page's own pixels, and
+  drawn exactly round what they mark.
+- **The picture** is of the page as the task closes, scrolled so the first
+  ring is in view and scrolled back after; it opens close up on the rings,
+  the whole page a press away. 8s to take it, or it is given up.
+- **The check before closing:** a value the page now shows differently from
+  what was read means no answer is shown ("The page changed after I read it,
+  so I can't be sure the answer is right."). A value whose label the final
+  page does not have at all is not a difference — it was read on a page since
+  left — and is said instead by there being no picture
+  ("What I read isn't on the page that's open now…").
+- **The person's bill ends on its results page.** It used to open the full
+  bill afterwards, a page showing neither the amount nor the due date, so
+  nothing could be checked or shown there. The fixed plan the benchmarks were
+  measured on (`BILLING_PLAN`) is unchanged, and now ends with that note.
+- **"Not confirmed" and "the answer changed"** both end in `help.requested`
+  with `unconfirmed: true`, which the overlay heads "It isn't confirmed."
+  rather than "I'm stuck".
+- **The answer's footer** is one row: the button and the closing line side
+  by side. In a short window the answer gives up a result for it (two lines
+  of the plain list, one ticket), so every ending fits at every size.
+
+**Alternatives.** A picture per result: more presses, and the same picture.
+Comparing against the run's memory instead of the page: that is what was
+already shown, and proves nothing.
+
+## A change is tried once, and quoted when confirmed
+
+**Date:** 2026-10-16 (item 3; the one-attempt rule was not asked for)
+
+**Decision.** A step marked as changing a record (`PlanStep.changes`: today
+only "Register for …") is tried once and never retried a second way, as the
+step that waits for a list is: a second press could register twice. An
+exception to CLAUDE.md's "retry once with a different strategy", like the
+list one. The registration's sentence "You are registered for X" moved from
+`explanation` to the closing line (`scope`), so it is said once, and the
+portal's confirmation is quoted under it: 'The portal says "Registration
+Confirmed", with confirmation number REG-10301-2026.'
+
+## Which course, from the portal: the details
+
+**Date:** 2026-10-16 (item 4)
+
+**Decision.** The portal's list is read from its "Register for …" buttons,
+so it offers the course codes as the portal writes them, not titles (the
+buttons carry no title). Four or fewer are buttons; more, a list to type
+into and choose from, as the stations are. A course the goal named that is
+on the list is not asked about; one that is not, is asked about with a note.
+Stages are now Sign in, Course, Register, Done, so the registration's first
+screen is signing in. **The model-planned run still asks the course first**,
+in the person's words: a model cannot ask from a page.
+
+## Smaller choices, 2026-10-16
+
+**Date:** 2026-10-16
+
+- **Short labels** for remembered goals are built from the sentences the
+  briefs write ("Trains Lahore Cantt to Rawalpindi", "Bill ending 7890",
+  "Course CS-401"); a journey labelled the same as another is told apart by
+  its day ("1 October").
+- **"I couldn't get a picture just now"**: the backend says when it drops a
+  picture (`error`, `PREVIEW_LATE`); the overlay also says it if nothing at
+  all comes in 7s.
+- **A list question** (stations, courses) waits for one of the site's own
+  names before its main button can be pressed.
+- **A code is written as the site writes it** in a list ("MATH-210"); only a
+  name in capitals is made readable.
+- **A ticket's cells wrap** onto a second line rather than widen the column.
+- **A registration's count** includes the course question only when the goal
+  named no course, whichever planner asks it.
+
+## Finishing proof: the details nobody asked for, 2026-10-16
+
+**Date:** 2026-10-16 (the six items were asked for; these details were not)
+
+- **The portal's caveat is found by a phrase the task names**
+  (`Confirmation.caveat`, "not final until") and quoted as the whole sentence
+  that holds it, exactly as the page writes it, with its full stop moved
+  outside the quotation marks: 'The portal also says "Registration is not
+  final until tuition and fees are paid or a payment plan is in place".' Not
+  said at all when the page does not say it. Its paragraph is ringed on the
+  proof picture. A new optional field, `task.completed.caveat`, rather than a
+  second sentence inside `confirmation`, so the overlay can show it under the
+  confirmation. **"That's done." stays the heading** beside it; flagged.
+- **The cookie question keeps "Stop this"** under Yes and No. The rule that
+  every step offers the same way to stop is older than this item, and Yes and
+  No are both answers that carry on. No (`voice.DECLINE_ID`) leaves the
+  banner as it is; the bill is still looked up behind it. The step's detail
+  line, which said the same thing again, is gone. Yes is the filled button and
+  No the quieter one, as every question's first answer is; flagged.
+- **A bill in plain words**: `Answer.plain` changes only what is shown. "Rs"
+  because the site says all its amounts are in Pakistani Rupees, though it
+  prints none beside them; a date only in the site's own `dd-mm-yyyy`, with
+  the year always said; anything else as the page wrote it. The sentence is
+  now "Your bill is Rs 14,382, due 15 September 2026." The mock says the same.
+- **One way to see the page**: "What are you doing?" is the one button during
+  a step (it was already the one that opens the close-up, and the help signal
+  the estimator reads). The picture asked for with every step went with "Show
+  the real page", since it was only for the page behind the step; the panel
+  now waits for its picture after the press, as it did before 2026-10-07.
+- **"Back to start"** is one full-width button under every ending.
+- **A closing screen that does not fit gives up results until it does**,
+  measured after layout, at most eight. The fixed counts stay as the first
+  guess. The registration's ending puts its mark beside "That's done.".

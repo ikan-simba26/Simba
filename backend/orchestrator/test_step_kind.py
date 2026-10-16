@@ -23,7 +23,7 @@ def plan_kinds(plan) -> list[str]:
 
 
 def test_the_bill_is_agree_type_read() -> None:
-    """Accept cookies, type the reference and look it up, open the full bill."""
+    """Say yes to cookies, type the reference and look it up, open the full bill."""
     assert plan_kinds(BILLING_PLAN) == ["confirm", "type", "read"]
 
 
@@ -115,7 +115,7 @@ def test_the_bill_and_the_course_questions_are_typed() -> None:
     from backend.orchestrator.details import BillBrief, CourseBrief, Understood
 
     assert kind_of(BillBrief("g", Understood()).question()) == "type"
-    assert kind_of(CourseBrief("g", Understood()).question()) == "type"
+    assert kind_of(CourseBrief("g", Understood(), hardcoded=False).question()) == "type"
 
 
 def test_a_station_in_a_steps_detail_is_written_to_be_read() -> None:
@@ -159,7 +159,8 @@ def test_every_question_a_journey_asks_is_in_its_stage() -> None:
 
 def test_the_plans_are_in_their_stages() -> None:
     assert [s.stage for s in BILLING_PLAN] == [1, 1, 1]
-    assert [s.stage for s in REGISTRATION_PLAN[:2]] == [1, 1]
+    # Signing in is the first stage since 2026-10-16.
+    assert [s.stage for s in REGISTRATION_PLAN[:2]] == [0, 0]
     from backend.orchestrator.plan import registration_plan
 
     assert registration_plan("CS-401")[-1].stage == 2
@@ -169,9 +170,10 @@ def test_the_bill_and_course_questions_are_the_first_stage() -> None:
     from backend.orchestrator.details import BillBrief, CourseBrief, Understood
 
     assert BillBrief("g", Understood()).question().stage == 0
-    assert CourseBrief("g", Understood()).question().stage == 0
+    # The course is asked once signed in (2026-10-16), the second stage.
+    assert CourseBrief("g", Understood(), hardcoded=False).question().stage == 1
     assert BillBrief.stages == ["Reference", "Look up", "Your bill"]
-    assert CourseBrief.stages == ["Course", "Sign in", "Register", "Done"]
+    assert CourseBrief.stages == ["Sign in", "Course", "Register", "Done"]
 
 
 def test_the_trip_planners_moves_are_the_search_stage() -> None:

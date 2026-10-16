@@ -66,7 +66,7 @@ def browser(playwright_instance: Playwright) -> Iterator:
 
 
 def end(browser, overlay: str, backend: Backend, script, size=(1280, 800),  # noqa: F811
-        scale: float = 1.0) -> Page:
+        scale: float = 1.0, until: str = "Back to start") -> Page:
     backend.script = script
     backend.responses.clear()
     page = browser.new_page(viewport={"width": size[0], "height": size[1]},
@@ -74,7 +74,7 @@ def end(browser, overlay: str, backend: Backend, script, size=(1280, 800),  # no
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start").click()
-    page.get_by_role("button", name="I'm done").wait_for(timeout=15000)
+    page.get_by_role("button", name=until).wait_for(timeout=15000)
     page.wait_for_timeout(900)
     return page
 
@@ -127,7 +127,7 @@ SIZES = [((1280, 800), 1.0), ((1280, 734), 1.25), ((1266, 606), 1.5)]
 def onward_on_screen(page: Page, height: int) -> list[str]:
     """The buttons of the way onward that are not wholly on screen."""
     off = []
-    for name in ("I'm done", "Do something else"):
+    for name in ("Back to start",):
         box = page.get_by_role("button", name=name, exact=True).bounding_box()
         if box is None or box["y"] + box["height"] > height:
             off.append(name)
@@ -373,17 +373,18 @@ def test_times_that_cannot_be_read_mark_nothing(browser, overlay: str,  # noqa: 
 def test_a_bill_is_a_slip_with_its_amount_and_what_supports_it(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
+    # In plain words, as the backend now sends them (2026-10-16).
     page = end(browser, overlay, backend, completed(
-        "Your bill is 14,382, and it is due on 15-10-2026.", [
-            {"label": "Your bill", "value": "14,382", "values": ["14,382"]},
-            {"label": "Due", "value": "15-10-2026", "values": ["15-10-2026"]},
+        "Your bill is Rs 14,382, due 15 October 2026.", [
+            {"label": "Your bill", "value": "Rs 14,382", "values": ["Rs 14,382"]},
+            {"label": "Due", "value": "15 October 2026", "values": ["15 October 2026"]},
         ]))
 
     found = page.get_by_test_id("findings")
     assert found.get_attribute("data-shape") == "slip"
-    assert page.locator("[data-testid=findings] p").inner_text().split() == ["Due",
-                                                                            "15-10-2026"]
-    assert page.get_by_text("14,382", exact=True).count() == 1
+    assert page.locator("[data-testid=findings] p").inner_text().split() == [
+        "Due", "15", "October", "2026"]
+    assert page.get_by_text("Rs 14,382", exact=True).count() == 1
 
 
 
@@ -413,10 +414,16 @@ def test_each_train_shows_when_it_leaves_and_arrives_and_how_long(
         "14DN | Leaves 19:09 | Arrives 19:25, next day | Journey 24 h 16 min"]
     assert "Train, Journey" not in page.inner_text("body")
     assert "Train, Leaves" not in page.inner_text("body")
-    # Each ticket still one line, nothing to scroll.
-    heights = page.eval_on_selector_all("[data-testid=ticket]",
-                                        "ts => ts.map(t => t.getBoundingClientRect().height)")
-    assert max(heights) < 80, heights
+    # Each ticket inside the answer's card, as wide as the buttons under it
+    # (2026-10-16: on the live site this pair pushed the card 112px wider),
+    # and nothing to scroll.
+    card = page.get_by_test_id("findings").locator("xpath=ancestor::*[contains(@class,'rounded-xl')][1]")
+    right = card.bounding_box()["x"] + card.bounding_box()["width"]
+    done = page.get_by_role("button", name="Back to start").bounding_box()
+    assert abs(right - (done["x"] + done["width"])) < 2, (right, done)
+    for ticket in page.get_by_test_id("ticket").all():
+        box = ticket.bounding_box()
+        assert box["x"] + box["width"] <= right, box
     assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
     # Times in the interface's own face, every figure one width (2026-10-15).
     styles = page.eval_on_selector_all(
@@ -440,3 +447,137 @@ def test_a_page_that_prints_one_time_shows_no_arrival(
     ]))
 
     assert tickets(page)[0] == "7UP | Leaves 07:20 | Journey 7 h 15 min | Fastest"
+
+
+def test_the_last_line_says_what_was_not_done(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """Every closing screen ends with what was and was not done (2026-10-16)."""
+    script = completed("There are 2 trains. The fastest is 7UP, at 7 hours 15 minutes.", [
+        {"label": "Train", "value": "7UP, 8DN", "values": ["7UP", "8DN"],
+         "rows": [["7UP", "07:25", "14:40", "7 h 15 min"],
+                  ["8DN", "16:35", "00:50, next day", "8 h 15 min"]]},
+        {"label": "Leaves", "value": "07:25, 16:35", "values": ["07:25", "16:35"]},
+        {"label": "Arrives", "value": "14:40, 00:50", "values": ["14:40", "00:50"]},
+        {"label": "Journey", "value": "7 h 15 min, 8 h 15 min",
+         "values": ["7 h 15 min", "8 h 15 min"]},
+    ])
+    script[-1][1]["scope"] = ("I only looked up times. I did not book a ticket or pay "
+                              "for anything.")
+    page = end(browser, overlay, backend, script)
+
+    scope = page.get_by_test_id("scope")
+    assert scope.inner_text() == script[-1][1]["scope"]
+    # The last thing in the answer, under the tickets.
+    tickets = page.get_by_test_id("ticket").last.bounding_box()
+    assert scope.bounding_box()["y"] > tickets["y"] + tickets["height"]
+
+
+def test_a_registration_quotes_the_portals_confirmation(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """What changed, and the site's own word for it (2026-10-16)."""
+    script = completed(None, [])
+    script[-1][1]["scope"] = "You are registered for CS-401 section 001."
+    script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
+                                     "with confirmation number REG-10234-2026.")
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("scope").inner_text() == script[-1][1]["scope"]
+    assert page.get_by_test_id("confirmation").inner_text() == script[-1][1]["confirmation"]
+    # The goal is not repeated where the line says what changed.
+    assert GOAL not in page.inner_text("body")
+    # No caveat sent, none shown.
+    assert page.get_by_test_id("caveat").count() == 0
+
+
+def test_a_registration_quotes_the_portals_caveat_under_its_confirmation(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The portal confirms, and in the same page says it is not final until
+    fees are paid (2026-10-16): both are quoted, the caveat under."""
+    script = completed(None, [])
+    script[-1][1]["scope"] = "You are registered for CS-401 section 001."
+    script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
+                                     "with confirmation number REG-10234-2026.")
+    script[-1][1]["caveat"] = ("The portal also says “Registration is not final until "
+                               "tuition and fees are paid or a payment plan is in place”.")
+    page = end(browser, overlay, backend, script)
+
+    caveat = page.get_by_test_id("caveat")
+    assert caveat.inner_text() == script[-1][1]["caveat"]
+    confirmation = page.get_by_test_id("confirmation").bounding_box()
+    assert caveat.bounding_box()["y"] >= confirmation["y"] + confirmation["height"]
+
+
+def test_a_change_not_confirmed_says_so_first(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    from frontend.test_terminal_states import ENDINGS
+
+    page = end(browser, overlay, backend, ENDINGS["not confirmed"], until="Back to start")
+
+    assert page.get_by_role("heading", level=1).inner_text() == "It isn't confirmed."
+    assert "I'm stuck" not in page.inner_text("body")
+    assert page.get_by_test_id("unconfirmed").inner_text().startswith(
+        "I tried to press “Register for CS-401”")
+
+
+def test_the_answer_can_be_seen_on_the_real_page(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    """The still the backend took as it finished, with what it read ringed,
+    where it read it (2026-10-16): close up on the rings first, the whole page
+    a press away."""
+    from frontend.test_terminal_states import PROOF
+
+    rings = [{"x": 728, "y": 143, "w": 118, "h": 17}, {"x": 949, "y": 143, "w": 118, "h": 17}]
+    script = completed("Your bill is Rs 14,382, due 15 September 2026.", [
+        {"label": "Your bill", "value": "Rs 14,382"},
+        {"label": "Due", "value": "15 September 2026"}])
+    script[-1][1]["proof"] = {**PROOF, "rings": rings}
+    page = end(browser, overlay, backend, script)
+
+    page.get_by_role("button", name="See it on the real page").click()
+    panel = page.get_by_test_id("proof-panel")
+    panel.wait_for(timeout=5000)
+    page.wait_for_timeout(900)
+    assert "What I read is ringed." in panel.inner_text()
+
+    def where() -> tuple[dict, dict, list[dict]]:
+        window = panel.locator("[data-testid=proof-page]").locator("xpath=..").bounding_box()
+        whole = panel.get_by_test_id("proof-page").bounding_box()
+        return window, whole, [r.bounding_box() for r in panel.get_by_test_id("proof-ring").all()]
+
+    window, whole, boxes = where()
+    assert len(boxes) == 2
+    # Each ring where the backend found it, on the page as drawn.
+    for ring, box in zip(rings, boxes):
+        assert abs((box["x"] - whole["x"]) / whole["width"] - ring["x"] / 1280) < 0.005
+        assert abs((box["y"] - whole["y"]) / whole["height"] - ring["y"] / 800) < 0.005
+    # Close up: the page drawn more than twice the window onto it, and both
+    # rings inside that window.
+    assert whole["width"] > 2 * window["width"]
+    for box in boxes:
+        assert window["x"] <= box["x"] and box["x"] + box["width"] <= window["x"] + window["width"]
+
+    page.get_by_role("button", name="Show the whole page").click()
+    page.wait_for_timeout(900)
+    window, whole, boxes = where()
+    assert abs(whole["width"] - window["width"]) <= 4  # the window's 2px border, each side
+
+    page.get_by_role("button", name="Back to the answer").click()
+    page.wait_for_timeout(800)
+    assert page.get_by_test_id("proof-panel").count() == 0
+    assert page.get_by_role("button", name="Back to start").is_visible()
+
+
+def test_no_picture_is_said_and_no_button_shown(
+    browser, overlay: str, backend: Backend  # noqa: F811
+) -> None:
+    script = completed(None, [{"label": "Your bill", "value": "14,382"}])
+    script[-1][1]["proof_note"] = "I couldn't get a picture of the page to show you."
+    page = end(browser, overlay, backend, script)
+
+    assert page.get_by_test_id("proof-note").inner_text() == script[-1][1]["proof_note"]
+    assert page.get_by_role("button", name="See it on the real page").count() == 0

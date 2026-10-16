@@ -123,6 +123,11 @@ class Answer:
     # (EVALUATION.md, 2026-09-07). None: the whole cell. A cell without that
     # many values gives nothing, never a value worked out from the others.
     part: int | None = None
+    # How a value is said on screen, in plain words (2026-10-16): the bill's
+    # `14,382` as "Rs 14,382", its `15-09-2026` as "15 September 2026". Only
+    # what is shown: what is checked, compared and ringed is the page's own
+    # text. None: as the page wrote it.
+    plain: Callable[[str], str] | None = None
 
 
 def part_of(cell: str, part: int | None) -> str:
@@ -235,6 +240,26 @@ class PlanStep:
     # the person to type or choose. `doing` is its line on the checklist.
     safe: bool = False
     doing: str | None = None
+    # Changes a record (2026-10-16): registers, books, submits. Tried once and
+    # never retried a second way — a second press could make the change twice
+    # — and "done" only once the site's confirmation is on the page.
+    changes: bool = False
+
+
+@dataclass(frozen=True)
+class Confirmation:
+    """What the site shows when a change it was asked to make has been made:
+    a heading, and the reference it gives, by the page's own label. Read from
+    the final page and quoted on the closing screen (2026-10-16)."""
+
+    heading: str
+    reads: str | None = None
+    # A few words of the site's own warning about what was done — "not final
+    # until" — whose whole sentence is quoted beside the confirmation
+    # (2026-10-16): the portal confirms a registration and, in the same
+    # breath, says it is not final until fees are paid. Never said unless the
+    # page says it.
+    caveat: str | None = None
 
 
 def registration_plan(course: str) -> list[PlanStep]:
@@ -250,6 +275,7 @@ def registration_plan(course: str) -> list[PlanStep]:
             expect=Expectation(url_contains="/register",
                                title_contains="Registration Confirmed"),
             stage=2,
+            changes=True,
         ),
     ]
 
@@ -269,7 +295,7 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
             Operation("click", Target("button", "Sign In")),
         ],
         expect=Expectation(url_contains="/courses"),
-        stage=1,
+        stage=0,
     ),
     PlanStep(
         instruction="The portal opened a notice. I'll close it.",
@@ -277,7 +303,7 @@ SIGN_IN_AND_CLEAR: list[PlanStep] = [
         actions=actions("Close it"),
         operations=[Operation("click", Target("button", "Close"))],
         expect=Expectation(label_gone="Close"),
-        stage=1,
+        stage=0,
         safe=True,
         doing=voice.DOING_NOTICE,
     ),
@@ -296,6 +322,107 @@ REGISTRATION_PLAN: list[PlanStep] = [
         expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
     ),
 ]
+
+
+#: How a course's button names it, on the portal's list: "Register for CS-401".
+REGISTER_FOR = "Register for "
+
+
+def _plain_code(code: str) -> str:
+    """A course code for comparing: "cs 401", "CS401" and "CS-401" alike."""
+    return "".join(ch for ch in code.upper() if ch.isalnum())
+
+
+class CoursePlanner:
+    """Registers for a course the portal offers (2026-10-16).
+
+    Signs in and clears the portal's notice, as the fixed plan does. Then it
+    reads the courses the portal lists — the "Register for CS-401" buttons —
+    and asks which one, from those: a course that is not offered is caught at
+    the question, not at the button. A course the person named that is on the
+    list is not asked about again; one that is not is asked about, with a
+    note saying so. Registering always asks: it is the step that changes a
+    record.
+    """
+
+    calls_made = 0
+    stuck_reason: str | None = None
+
+    def __init__(self, course: str | None) -> None:
+        #: What the person named, if anything, as they wrote it.
+        self.named = course
+        #: The course chosen from the portal's list, as the portal writes it.
+        self.chosen: str | None = None
+        #: The portal's own list, read once signed in.
+        self.offered: list[str] = []
+        self._signing_in = HardcodedPlanner(list(SIGN_IN_AND_CLEAR))
+        self._asked = False
+        self._note: str | None = None
+        self._registered = False
+
+    async def next_move(self, elements, history, setback):
+        from backend.orchestrator.loop import Move
+
+        if self._signing_in._index < len(self._signing_in._steps):
+            return await self._signing_in.next_move(elements, history, setback)
+        if self.chosen is None:
+            self.offered = [e.label[len(REGISTER_FOR):] for e in elements
+                            if e.role == "button" and e.label.startswith(REGISTER_FOR)]
+            if not self.offered:
+                self.stuck_reason = voice.NO_COURSES
+                return None
+            if self.named and not self._asked:
+                self.chosen = self._find(self.named)
+                if self.chosen is None:
+                    self._note = voice.course_not_offered(self.named)
+            if self.chosen is None:
+                self._asked = True
+                return self._question(Move)
+        if not self._registered:
+            self._registered = True
+            [step] = registration_plan(self.chosen)[len(SIGN_IN_AND_CLEAR):]
+            return Move(instruction=step.instruction, detail=step.detail,
+                        operations=step.operations, expect=step.expect, fields=step.fields,
+                        actions=step.actions, stage=step.stage, changes=step.changes)
+        return None
+
+    def _question(self, Move):
+        if len(self.offered) <= voice.MAX_CHOICES:
+            fields, answers = [], voice.choices(self.offered)
+        else:
+            fields = [StepField(id="course", label=voice.FIELD_COURSE, type="choice",
+                                value="", options=list(self.offered))]
+            answers = voice.actions(voice.USE_COURSE)
+        note, self._note = self._note, None
+        return Move(instruction=voice.ASK_COURSE, detail=voice.COURSES_OFFERED,
+                    operations=[], expect=Expectation(), fields=fields, actions=answers,
+                    question=True, kind="type", stage=1, note=note)
+
+    def _find(self, words: str) -> str | None:
+        wanted = _plain_code(words)
+        return next((code for code in self.offered if _plain_code(code) == wanted), None)
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        """The person's answer to which course: a button, or the list."""
+        index = action_id.removeprefix(voice.CHOICE_PREFIX)
+        if index.isdigit() and int(index) < len(self.offered):
+            self.chosen = self.offered[int(index)]
+            return
+        typed = (input_values.get("course") or "").strip()
+        self.chosen = self._find(typed)
+        if self.chosen is None:
+            self._note = (voice.course_not_offered(typed) if typed
+                          else voice.COURSE_NOT_CAUGHT)
+
+    def settled(self, task):
+        """The task, with the course the person chose in it: what the
+        confirmation has to name, and the sentence that says so."""
+        from dataclasses import replace
+
+        if self.chosen is None:
+            return task
+        return replace(task, about=About(shows=(Shown(reads="Course", says=self.chosen),)),
+                       scope=voice.explain_course(self.chosen))
 
 
 class HardcodedPlanner:
@@ -336,4 +463,5 @@ class HardcodedPlanner:
             stage=step.stage,
             safe=step.safe,
             doing=step.doing,
+            changes=step.changes,
         )

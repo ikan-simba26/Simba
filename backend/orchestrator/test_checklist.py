@@ -125,6 +125,8 @@ def test_after_the_readback_the_search_runs_as_a_checklist(railways: str) -> Non
     ending = done.of("task.completed")[0]
     assert ending["heading"] == voice.route_heading("Rawalpindi", "Sukkur", TOMORROW,
                                                     date.today())
+    # The last line: nothing was booked or paid (2026-10-16).
+    assert ending["scope"] == voice.ONLY_LOOKED_UP_TIMES
     rows = ending["findings"][0]["rows"]
     labels = [f["label"] for f in ending["findings"]]
     assert labels == ["Train", "Leaves", "Arrives", "Journey"]
@@ -182,16 +184,65 @@ def test_the_bill_asks_about_cookies_then_looks_itself_up(
     billing_replica: str,  # noqa: F811
 ) -> None:
     """Accepting cookies is consent on someone else's site: it asks. Looking
-    up the number the person gave, and opening the full bill, do not."""
+    up the number the person gave does not. (Opening the full bill afterwards
+    was a second line until 2026-10-16; the run now ends on the results.)"""
     brief = BillBrief("check my bill 04141234567890", Understood(reference="04141234567890"))
 
     done = go(billing_replica, brief, [])
 
-    assert done.asked() == ["The site is asking about cookies. I'll say yes."]
-    assert done.rows() == [voice.DOING_LOOKUP, voice.DOING_FULL_BILL]
+    assert done.asked() == [voice.ASK_COOKIES]
+    assert done.rows() == [voice.DOING_LOOKUP]
     assert "task.completed" in done.types()
     lines = [p for p in done.of("step.presented") if not p["requires_confirmation"]]
-    assert [p["coming"] for p in lines] == [[voice.DOING_FULL_BILL], []]
+    assert [p["coming"] for p in lines] == [[]]
+
+
+def test_the_cookie_question_is_yes_or_no(billing_replica: str) -> None:  # noqa: F811
+    """Asked, never told (2026-10-16): Yes, No, and the way to stop."""
+    brief = BillBrief("check my bill 04141234567890", Understood(reference="04141234567890"))
+
+    done = go(billing_replica, brief, [])
+
+    cookies = done.of("step.presented")[0]
+    assert cookies["instruction"] == "This site asks about cookies. Shall I say yes?"
+    assert [(a["id"], a["label"]) for a in cookies["actions"]] == [
+        ("confirm", "Yes"), (voice.DECLINE_ID, "No"), ("cancel", "Stop this")]
+
+
+def test_no_to_cookies_leaves_them_and_still_finds_the_bill(
+    billing_replica: str,  # noqa: F811
+) -> None:
+    """No is an answer, not a stop: the banner is left as it is, and the
+    bill is still looked up."""
+
+    class SaysNo(Answers):
+        async def receive(self, message_type, step_index=None, on_other=None):
+            step = self.of("step.presented")[-1]
+            if step["instruction"] == voice.ASK_COOKIES:
+                self.shown += 1
+                return {"type": "step.response", "payload": {
+                    "step_index": step_index, "action_id": voice.DECLINE_ID,
+                    "input_values": {}}}
+            return await super().receive(message_type, step_index, on_other)
+
+    async def inner() -> SaysNo:
+        connection = SaysNo([])
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            try:
+                brief = BillBrief("b", Understood(reference="04141234567890"))
+                await run_brief(page, connection, brief, billing_replica, auto=True)
+                connection.searched = await page.locator("#cookie-bar").is_visible()
+            finally:
+                await browser.close()
+        return connection
+
+    done = run(inner())
+
+    assert "task.failed" not in done.types()
+    assert done.of("task.completed")[0]["findings"][0]["values"] == ["Rs 14,382"]
+    assert done.searched is True  # the banner was never accepted
 
 
 def test_registering_always_asks(replica: str) -> None:  # noqa: F811

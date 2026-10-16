@@ -54,9 +54,11 @@ import type { FlowName, Level } from "@shared/schema";
  * One name, because it is one destination. The closing screen and the two
  * screens that end without finishing used to call it "Do something else" and
  * "Start again", and "Start again" also suggested it would retry the same
- * task, which it never did.
+ * task, which it never did. The closing screen also had "I'm done" beside it,
+ * which went to the same place: two buttons for one way on. Since 2026-10-16
+ * there is one, everywhere, and it says where it goes.
  */
-export const ONWARD = "Do something else";
+export const ONWARD = "Back to start";
 
 /* ------------------------------------------------------------------ home */
 
@@ -74,6 +76,11 @@ export const HOME = {
   /** Beside a remembered bill, when two would otherwise look the same: the
    *  reference number's last four digits (2026-10-15). */
   ending: (digits: string) => `ending ${digits}`,
+  /** Beside one of two remembered journeys labelled alike: its day, as
+   *  people say it ("1 October"). */
+  onDay: (day: number, month: number) =>
+    `${day} ${["January", "February", "March", "April", "May", "June", "July", "August",
+               "September", "October", "November", "December"][month - 1]}`,
   /** The name of the row of tiles, for a screen reader: the three things
    *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
    *  themselves. */
@@ -244,9 +251,8 @@ export const ENDING = {
   withAnswer: FOUND.heading,
   /** When it did not. Nothing was being looked for; something was done. */
   withoutAnswer: "That's done.",
-  /** Ends the task. */
-  finish: "I'm done",
-  /** Starts another. */
+  /** The one way on (2026-10-16): "I'm done" and "Do something else" both
+   *  led home, and are one button now. */
   again: ONWARD,
   /**
    * Under a list of results cut short. The same words `voice.found` uses on
@@ -277,6 +283,9 @@ export const STOPPED = {
    * is the worst thing this screen could say to this audience.
    */
   heading: "I'm stuck, so I've stopped.",
+  /** Instead, when a change was tried and the site did not confirm it
+   *  (2026-10-16): not stuck, and never "done". */
+  unconfirmed: "It isn't confirmed.",
   /**
    * What happens now: nothing more, and they can choose something else.
    *
@@ -380,6 +389,26 @@ export const TRUST = {
   /** And back in to the thing about to be touched. */
   closeUp: "Show it close up",
   close: "Close",
+  /** Asked, and no picture came in time (2026-10-16). The backend says the
+   *  same words, `voice.NO_PICTURE`. */
+  noPicture: "I couldn't get a picture just now.",
+  /** Under it: what to do next. */
+  tryAgain: "You can ask again in a moment.",
+} as const;
+
+/**
+ * The answer on the real page (2026-10-16): a still of the page as the task
+ * closed, with what was read ringed. The caption, and why there is no
+ * picture when there is none, come from the backend (`voice.PROOF_CAPTION`,
+ * `voice.NO_PROOF_PICTURE`).
+ */
+export const PROOF = {
+  /** Under the answer. */
+  see: "See it on the real page",
+  /** Back from the picture. */
+  back: "Back to the answer",
+  /** The picture, for a screen reader. */
+  picture: "The real page as I finished, with what I read ringed",
 } as const;
 
 /* ------------------------------------------------------------ the checklist */
@@ -437,23 +466,6 @@ export const SPEAK = {
       : `You can press ${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}.`,
 } as const;
 
-/* --------------------------------------------------------- the real page */
-
-/**
- * The real page, shown clear only while the person asks (2026-10-07; the
- * 1.6s reveal when a task started went on 2026-10-14, and the softened page
- * behind every step on 2026-10-15). Pressing and holding the button shows it
- * for as long as it is held; a quick press keeps it showing until the other
- * button is pressed. Password boxes are painted over before
- * the picture ever leaves the backend.
- */
-export const REVEAL = {
-  show: "Show the real page",
-  hide: "Hide the real page",
-  /** The picture of the page while it is shown, for a screen reader. */
-  picture: "The real page",
-} as const;
-
 /* --------------------------------------------------- a list to choose from */
 
 /**
@@ -484,6 +496,8 @@ export const CHOOSE = {
  * if two situations that should read the same have drifted apart.
  */
 export const SITUATIONS: Record<string, string> = {
+  "trust.noPicture": TRUST.noPicture,
+  "trust.tryAgain": TRUST.tryAgain,
   "presence.opening": presence("opening"),
   "presence.working": presence("working"),
   "presence.reading": presence("reading"),
@@ -493,6 +507,7 @@ export const SITUATIONS: Record<string, string> = {
   "notice.skipped": NOTICE.skipped,
   "ending.withoutAnswer": ENDING.withoutAnswer,
   "stopped.heading": STOPPED.heading,
+  "stopped.unconfirmed": STOPPED.unconfirmed,
   "stopped.suggestion": STOPPED.suggestion,
   "stopped.failedHeading": STOPPED.failedHeading,
   "stopped.byYou": STOPPED.byYou,
@@ -526,7 +541,6 @@ export const LABELS: Record<string, string> = {
   onward: ONWARD,
   "home.somethingElse": HOME.somethingElse,
   "home.start": HOME.start,
-  "ending.finish": ENDING.finish,
   "notice.dismiss": NOTICE.dismiss,
   "level.unlock": LEVEL.unlock,
   "level.choose1": LEVEL.choose(1),
@@ -536,8 +550,6 @@ export const LABELS: Record<string, string> = {
   "trust.close": TRUST.close,
   "trust.whole": TRUST.whole,
   "trust.closeUp": TRUST.closeUp,
-  "reveal.show": REVEAL.show,
-  "reveal.hide": REVEAL.hide,
   "speak.read": SPEAK.read,
   "checklist.pause": CHECKLIST.pause,
   "checklist.pausing": CHECKLIST.pausing,
@@ -545,7 +557,10 @@ export const LABELS: Record<string, string> = {
   "checklist.now": CHECKLIST.now,
   "checklist.next": CHECKLIST.next,
   "signIn.save": SIGN_IN.save,
+  "proof.see": PROOF.see,
+  "proof.back": PROOF.back,
   "home.ending": HOME.ending("7890"),
+  "home.onDay": HOME.onDay(1, 10),
   "settings.askEach": SETTINGS.askEach,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,

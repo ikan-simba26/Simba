@@ -51,6 +51,11 @@ socket opens**, before any task.
   ]
 }
 ```
+**`label` is additive and optional** (added 2026-10-16): the goal in a few
+words for the home screen's one line, `"Bill ending 7890"`, `"Trains Lahore
+Cantt to Rawalpindi"`, `"Course CS-401"`. Absent, the goal's own words are
+shown.
+
 What the home screen offers instead of an empty text box. Read from the same
 SQLite trace store that replay uses, newest first, capped at three — so the
 cards are exactly the goals that would replay, rather than a second list that
@@ -173,6 +178,40 @@ beside its own. The overlay draws that offer as a box to tick ("Save my
 password for next time") rather than as a button, and its one sign-in button
 sends `remember` when the box is ticked and its own id when it is not. A
 backend that offers nothing to keep gets no box.
+
+**`task.completed.scope` is additive and optional** (added 2026-10-16). The
+closing screen's last line, saying what was done and what was not: "I only
+looked up times. I did not book a ticket or pay for anything." For a task
+that changed something, what changed: "You are registered for CS-401 section
+001." Written in `voice.py` for each flow; absent for a model-planned task.
+
+**`task.completed.confirmation` is additive and optional** (added
+2026-10-16). For a task that changed something, the site's own confirmation,
+quoted from the final page: 'The portal says "Registration Confirmed", with
+confirmation number REG-10234-2026.' A task that changes something is
+completed only when that confirmation is on the page; otherwise it ends in
+`help.requested`, saying plainly that it is not confirmed, with
+`"unconfirmed": true` (additive and optional) so the overlay leads with that
+rather than with being stuck. The step that
+makes the change is tried once, never again a second way: a second press
+could make the change twice.
+
+**`task.completed.caveat` is additive and optional** (added 2026-10-16). What
+the site says against its own confirmation, its sentence quoted whole from
+the final page: 'The portal also says "Registration is not final until
+tuition and fees are paid or a payment plan is in place".' Sent only when
+the page says it; the closing screen shows it under the confirmation, so it
+never says more than the site does.
+
+**`task.completed.proof` and `proof_note` are additive and optional**
+(added 2026-10-16), with a new shape, `Proof`: `{ "screenshot": "<base64
+png>", "rings": [Highlight, ...], "caption": "What I read is ringed." }`.
+Before closing, the backend reads the page again and compares it with what
+it is about to show; if they differ it shows no answer and says so
+(`help.requested`, `"unconfirmed": true`). Then it takes a still of the page
+with every row or value it read ringed, in the screenshot's own pixels
+(1280x800). When it cannot, `proof_note` says why in plain words. Never an
+empty or stale picture.
 
 **`coming` is additive and optional** (added 2026-10-15). On a checklist
 line, the lines the backend expects to run by itself after it, in order —

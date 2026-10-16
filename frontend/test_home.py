@@ -120,7 +120,9 @@ def tile_goal(goal: str) -> bool:
 def home(browser, overlay: str, history: History, goals: list[str], size: str,  # noqa: F811
          pages: dict, before=None) -> Page:
     width, height, scale = SIZES[size]
-    history.goals = [{"goal": goal, "site": "127.0.0.1"} for goal in goals]
+    # A goal, or a goal with the backend's short label (2026-10-16).
+    history.goals = [goal if isinstance(goal, dict) else {"goal": goal, "site": "127.0.0.1"}
+                     for goal in goals]
     page = browser.new_page(viewport={"width": width, "height": height},
                             device_scale_factor=scale)
     pages[size] = page
@@ -130,7 +132,7 @@ def home(browser, overlay: str, history: History, goals: list[str], size: str,  
     page.get_by_role("textbox", name=BOX).wait_for(timeout=15000)
     # History arrives after the socket opens. A goal a tile already offers
     # changes nothing on screen, so for that there is nothing to wait for.
-    if any(not tile_goal(goal) for goal in goals):
+    if any(not tile_goal(goal["goal"] if isinstance(goal, dict) else goal) for goal in goals):
         page.get_by_test_id("remembered").first.wait_for(timeout=10000)
     page.wait_for_timeout(1600)  # past the entrance
     return page
@@ -319,6 +321,44 @@ def test_two_journeys_say_where_they_part(
     tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
 
     assert tags == ["Rawalpindi", "Multan"]
+
+
+def labelled(goal: str, label: str) -> dict:
+    return {"goal": goal, "site": "127.0.0.1", "label": label}
+
+
+def test_a_remembered_goal_says_what_it_is_in_a_few_words(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
+) -> None:
+    """The backend's short label, not the start of the sentence cut off
+    (2026-10-16): at 150% a bill read "Find the... ending 7890"."""
+    page = home(browser, overlay, history, [
+        labelled(BILLS[0], "Bill ending 7890"), labelled(BILLS[1], "Bill ending 9999")],
+        "150%", at)
+
+    assert remembered_on(page) == ["Bill ending 7890", "Bill ending 9999"]
+    assert page.get_by_test_id("apart").count() == 0
+    # The whole goal is still there, to hover over, and is what is asked for.
+    assert page.get_by_test_id("remembered").first.get_attribute("title") == BILLS[0]
+    history.received.clear()
+    page.get_by_test_id("remembered").first.click()
+    page.wait_for_timeout(800)
+    starts = [m["payload"] for m in history.received if m.get("type") == "task.start"]
+    assert starts and starts[0]["goal"] == BILLS[0]
+
+
+def test_two_journeys_labelled_alike_say_their_day(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
+) -> None:
+    page = home(browser, overlay, history, [
+        labelled("Find trains from Lahore Cantt to Rawalpindi on 2026-10-01.",
+                 "Trains Lahore Cantt to Rawalpindi"),
+        labelled("Find trains from Lahore Cantt to Rawalpindi on 2026-10-02.",
+                 "Trains Lahore Cantt to Rawalpindi")], "150%", at)
+
+    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
+
+    assert tags == ["1 October", "2 October"]
 
 
 def test_goals_that_look_different_get_no_tag(

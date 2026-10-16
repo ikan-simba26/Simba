@@ -94,14 +94,14 @@ def test_a_card_after_hello_runs_that_flow(page: Page, overlay: str, mock: str) 
     page.get_by_role("button", name="Check my electricity bill").click()
 
     page.wait_for_selector("[data-testid=step-shell]", timeout=10000)
-    assert page.get_by_role("button", name="Accept cookies").is_visible()
+    assert page.get_by_role("button", name="Yes", exact=True).is_visible()
 
 
 def test_pay_my_bill_goes_straight_to_the_bill(page: Page, overlay: str, mock: str) -> None:  # noqa: F811
     ask(page, overlay, mock, "pay my bill")
 
     page.wait_for_selector("[data-testid=step-shell]", timeout=10000)
-    assert page.get_by_role("button", name="Accept cookies").is_visible()
+    assert page.get_by_role("button", name="Yes", exact=True).is_visible()
 
 
 def test_trains_to_karachi_goes_straight_to_the_trains(
@@ -133,7 +133,7 @@ def test_something_ambiguous_asks_and_the_answer_runs(
     page.get_by_role("button", name="The electricity bill").click()
 
     page.wait_for_selector("[data-testid=step-shell]", timeout=10000)
-    assert page.get_by_role("button", name="Accept cookies").is_visible()
+    assert page.get_by_role("button", name="Yes", exact=True).is_visible()
 
 
 # --- every reply fits (2026-10-14) ----------------------------------------------

@@ -76,6 +76,15 @@ def ending(*messages: tuple[str, dict]) -> list[tuple[str, dict]]:
     ]
 
 
+# A picture of the real page with what was read ringed (2026-10-16): the
+# smallest real PNG, which the panel scales to the page's shape.
+PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+PROOF = {"screenshot": PNG, "caption": "What I read is ringed.",
+         "rings": [{"x": 728, "y": 143, "w": 118, "h": 17}]}
+
+#: Nine trains, as the live site names them: the tallest train ending.
+TICKET_TRAINS = ["2DN", "14DN", "9UP", "11UP", "13UP", "15UP", "17DN", "19DN", "21UP"]
+
 HELP = ("help.requested", {
     "reason": "could not find 'Check Bill' on the page",
     "suggestion": "I won't do any more on this. You can ask me for something else.",
@@ -89,6 +98,10 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "findings": [{"label": "Your bill", "value": "14,382"},
                          {"label": "Due", "value": "15-09-2026"}],
+            # What was not done, the last line, and the answer on the real
+            # page (2026-10-16).
+            "scope": "I only looked at your bill. I did not pay it.",
+            "proof": PROOF,
         }),
     ],
     # A search that returned several results. The closing screen is the
@@ -114,6 +127,8 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -135,6 +150,8 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "summary": f"{GOAL} http://127.0.0.1:5200/results", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False,
             "explanation": "There are 9 trains. The fastest takes 4 hours 15 minutes.",
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
             "findings": [
                 {"label": "Train", "value": "105UP, 101UP, 13UP, 39UP and 5 more",
                  "values": ["105UP", "101UP", "13UP", "39UP", "7UP", "5UP", "103UP",
@@ -146,12 +163,78 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             ],
         }),
     ],
+    # The train search's real closing screen (2026-10-16): results as whole
+    # rows, so tickets, nine of them, with the journey above, the sentence,
+    # the last line and the picture. Not checked in the real window until
+    # then; every train ending there was a plain list.
+    "completed with nine trains as tickets": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5200/", "duration_ms": 1,
+            "steps_taken": 5, "llm_calls": 0, "replayed": False,
+            "heading": "Lahore Cantt to Karachi Cantt, Thursday 15 October",
+            "explanation": ("There are 9 trains. 2DN, 14DN and 9UP are the fastest, "
+                            "all at 22 hours 16 minutes."),
+            "scope": "I only looked up times. I did not book a ticket or pay for anything.",
+            "proof": PROOF,
+            "findings": [
+                {"label": "Train", "value": "2DN, 14DN, 9UP, 11UP and 5 more",
+                 "values": TICKET_TRAINS,
+                 "rows": [[train, "19:09", "19:25, next day", "22 h 16 min"]
+                          for train in TICKET_TRAINS]},
+                {"label": "Leaves", "value": "19:09", "values": ["19:09"]},
+                {"label": "Arrives", "value": "19:25, next day", "values": ["19:25, next day"]},
+                {"label": "Journey", "value": "22 h 16 min", "values": ["22 h 16 min"]},
+            ],
+        }),
+    ],
+    # A bill whose picture could not be taken: the reason in its place.
+    "completed with an answer and no picture": [
+        ("task.completed", {
+            "summary": f"{GOAL} http://127.0.0.1:5100/bill", "duration_ms": 1,
+            "steps_taken": 2, "llm_calls": 0, "replayed": False,
+            "explanation": "Your bill is Rs 14,382, due 15 September 2026.",
+            "findings": [{"label": "Your bill", "value": "Rs 14,382"},
+                         {"label": "Due", "value": "15 September 2026"}],
+            "scope": "I only looked at your bill. I did not pay it.",
+            "proof_note": "I couldn't get a picture of the page to show you.",
+        }),
+    ],
+    # The page read again before closing said something else (2026-10-16).
+    "the answer changed": [
+        ("state.changed", {"state": "stuck"}),
+        ("help.requested", {
+            "reason": ("The page changed after I read it, so I can't be sure the answer "
+                       "is right. You can ask me to look again."),
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
+            "unconfirmed": True,
+        }),
+    ],
     # The backend's summary really is the goal and then the final URL. It was
     # rendered here in 26px type until 2026-09-17.
     "completed without an answer": [
         ("task.completed", {
             "summary": f"{GOAL} http://127.0.0.1:5000/register", "duration_ms": 1,
             "steps_taken": 3, "llm_calls": 0, "replayed": False, "findings": [],
+            # What changed, the last line, and the portal's own word for it
+            # (2026-10-16).
+            "scope": "You are registered for CS-401 section 001.",
+            "confirmation": ("The portal says “Registration Confirmed”, with "
+                             "confirmation number REG-10234-2026."),
+            # And what it says against it (2026-10-16).
+            "caveat": ("The portal also says “Registration is not final until tuition "
+                       "and fees are paid or a payment plan is in place”."),
+            "proof": PROOF,
+        }),
+    ],
+    # A change tried and not confirmed (2026-10-16): never "done".
+    "not confirmed": [
+        ("state.changed", {"state": "stuck"}),
+        ("help.requested", {
+            "reason": ("I tried to press “Register for CS-401”, but the portal has "
+                       "not confirmed it, so I can't tell you it worked. Please check the "
+                       "portal before you rely on it."),
+            "suggestion": "I won't do any more on this. You can ask me for something else.",
+            "unconfirmed": True,
         }),
     ],
     # The backend ending a task on its own account. `loop.py` has no such path
@@ -348,10 +431,16 @@ def test_every_ending_has_something_to_press(
 def test_everything_on_an_ending_leads_somewhere(
     name: str, page: Page, overlay: str, backend: Backend
 ) -> None:
-    """A button that does nothing is not a way onward."""
+    """A button that does nothing is not a way onward. "See it on the real
+    page" (2026-10-16) leads to the picture, and back from it."""
     for label in [label for label in reach(page, overlay, backend, name) if label]:
         reach(page, overlay, backend, name)
         page.get_by_role("button", name=label, exact=True).click()
+        if label == "See it on the real page":
+            page.get_by_test_id("proof-panel").wait_for(timeout=5000)
+            page.get_by_role("button", name="Back to the answer").click()
+            page.get_by_role("button", name="Back to start").wait_for(timeout=5000)
+            continue
         page.wait_for_function(
             f"() => document.body.innerText.includes({json.dumps(GREETING)})", timeout=5000
         )
@@ -363,8 +452,8 @@ def test_back_home_after_a_task_there_is_no_entrance(
     """The tiles rise in once, when SIMBA opens (2026-10-14). Coming back to
     them after a task, they are simply there."""
     name = next(iter(ENDINGS))
-    label = next(label for label in reach(page, overlay, backend, name) if label)
-    page.get_by_role("button", name=label, exact=True).click()
+    reach(page, overlay, backend, name)
+    page.get_by_role("button", name="Back to start", exact=True).click()
     page.get_by_test_id("tile").first.wait_for(state="attached", timeout=5000)
     assert page.evaluate(
         "() => +getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"
@@ -483,7 +572,7 @@ def test_the_stuck_screen_says_what_happens_and_offers_a_way_on(
     assert "I won't do any more on this. You can ask me for something else." in text
     for promise in ("carry on", "Can you", "help with"):
         assert promise not in text, promise
-    assert "Do something else" in labels
+    assert "Back to start" in labels
 
 
 def test_stopping_is_not_reported_as_a_failure(
@@ -506,7 +595,7 @@ def test_stopping_is_not_reported_as_a_failure(
     assert "I've stopped, as you asked." in text
     assert "I couldn't finish this." not in text
     assert "You asked me to stop." not in text
-    assert "Do something else" in labels
+    assert "Back to start" in labels
 
 
 def test_a_failure_the_person_did_not_choose_still_says_so(

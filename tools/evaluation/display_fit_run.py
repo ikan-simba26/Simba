@@ -21,6 +21,9 @@ display scale, and measures from outside it, over CDP:
   button on it must be wholly inside the window with nothing to scroll. Until
   2026-10-05 only the home screen was measured, and the closing screen had put
   its way onward below the window with three results or more, at every scale;
+- **the sign-in screen** (2026-10-16), the registration's first: its
+  buttons and boxes inside the window, nothing to scroll, and the level it
+  settled at;
 - **the site view**: its CSS viewport, which must be exactly 1280x800, and 20
   screenshots of it in a row, the capture `page.preview` depends on.
 
@@ -205,6 +208,36 @@ def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
     return measured
 
 
+def read_sign_in(overlay: Page, scale: str) -> dict:
+    """The registration's first screen, signing in (2026-10-16), played into
+    the real window as the backend sends it: where its buttons are, whether
+    anything scrolls, and the level it settled at once the overflow guard had
+    had its one move. Measured headless only until 2026-10-16, where Electron
+    lays text out wider (EVALUATION.md, 2026-10-16)."""
+    from frontend.test_first_screen import level_on_screen
+    from frontend.test_sign_in import SIGN_IN, STAGES
+    from frontend.test_terminal_states import AWAIT_RESPONSE, Backend, onward
+
+    backend = Backend()
+    backend.script = [
+        ("task.started", {"goal": "course", "estimated_steps": 4, "stages": STAGES}),
+        ("state.changed", {"state": "waiting"}), ("step.presented", SIGN_IN),
+        (AWAIT_RESPONSE, {}),
+    ]
+    overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{backend.port}")
+    overlay.fill("input[aria-label='What would you like me to do?']", "course")
+    overlay.get_by_role("button", name="Start").click()
+    overlay.get_by_text("Let me sign you in first.").first.wait_for(timeout=15000)
+    overlay.wait_for_timeout(1800)  # past the guard
+    measured = onward(overlay)
+    measured["level"] = level_on_screen(overlay)
+    measured["fields_on_screen"] = overlay.evaluate("""() => [...document.querySelectorAll(
+        '[data-testid=step-shell] input')].filter(i => i.offsetParent).every(
+        i => i.getBoundingClientRect().bottom <= innerHeight)""")
+    capture_view(overlay, OUT / f"sign-in-{scale}.png")
+    return measured
+
+
 def launch(scale: str) -> tuple[subprocess.Popen, Path]:
     electron = FRONTEND / "node_modules" / ".bin" / ("electron.cmd" if os.name == "nt" else "electron")
     log = OUT / f"host-{scale}.log"
@@ -318,6 +351,7 @@ def measure(scale: str) -> dict:
             capture_view(overlay, OUT / f"home-{scale}-history.png")
 
             endings = read_endings(overlay, scale)
+            sign_in = read_sign_in(overlay, scale)
             browser.close()
     finally:
         stop(proc)
@@ -332,6 +366,7 @@ def measure(scale: str) -> dict:
         "overlay": view,
         "overlay_with_history": with_history,
         "endings": endings,
+        "sign_in": sign_in,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
     }

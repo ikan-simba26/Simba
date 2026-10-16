@@ -80,8 +80,6 @@ export const MOTION = {
   breath: 3.2,
   /** One slow orbit of the presence mark while acting. */
   orbit: 2.8,
-  /** The real page appearing for a peek, and going again. */
-  veil: 0.9,
 } as const;
 
 /** A screen arriving or leaving: a fade and a short, slow rise. */

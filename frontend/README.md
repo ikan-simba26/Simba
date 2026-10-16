@@ -34,7 +34,7 @@ One column, one thing at a time (`src/App.tsx`):
   screenshot of the real page with the target ringed
   (`components/TrustPanel.tsx`).
 - **Five endings** — found an answer, done, failed, stuck, and stopped because
-  the person pressed stop. Every one offers "Do something else".
+  the person pressed stop. Every one offers "Back to start".
 - **Notices** — a level change the person did not make, and a step that
   failed and was carried past.
 

@@ -64,6 +64,11 @@ class PastGoal(BaseModel):
 
     goal: str
     site: str
+    # Additive and optional (2026-10-16). The goal in a few words, for the home
+    # screen's one line — "Bill ending 7890", "Trains Lahore Cantt to
+    # Rawalpindi" — built by the backend from what the goal spells out
+    # (`voice.short_label`). Absent: the goal's own words are shown.
+    label: Optional[str] = None
 
 
 class HistoryOffered(BaseModel):
@@ -211,9 +216,22 @@ class PagePreview(BaseModel):
     caption: str
 
 
+class Proof(BaseModel):
+    """A still of the real page at the end of a task, with what was read
+    ringed (2026-10-16): the closing screen's "See it on the real page"."""
+
+    screenshot: str
+    rings: List[Highlight]
+    caption: str
+
+
 class HelpRequested(BaseModel):
     reason: str
     suggestion: str
+    # Additive and optional (2026-10-16). Set when a step that changes
+    # something was tried and the site did not confirm it: not "stuck", and
+    # the reason is the one thing the person must read.
+    unconfirmed: bool = False
 
 
 class TaskCompleted(BaseModel):
@@ -234,6 +252,27 @@ class TaskCompleted(BaseModel):
     # "Lahore Cantt to Karachi Cantt, Thursday 15 October". From what the
     # person asked and agreed, never from the page. Absent: no heading.
     heading: Optional[str] = None
+    # Additive and optional (2026-10-16). The closing screen's last line: what
+    # was done, and what was not — "I only looked up times. I did not book a
+    # ticket or pay for anything." From `voice.py`, never from a model.
+    scope: Optional[str] = None
+    # Additive and optional (2026-10-16). For a task that changed something:
+    # the site's own confirmation, quoted — 'The portal says "Registration
+    # Confirmed", with confirmation number REG-10234-2026.' Sent only when the
+    # confirmation is on the page; without it the task is not completed.
+    confirmation: Optional[str] = None
+    # Additive and optional (2026-10-16). What the site says against that
+    # confirmation, its own sentence quoted whole — 'The portal also says
+    # "Registration is not final until tuition and fees are paid or a payment
+    # plan is in place".' Only when the final page says it.
+    caveat: Optional[str] = None
+    # Additive and optional (2026-10-16). The real page as it was when the
+    # task closed, with every row or value the closing screen shows ringed —
+    # taken after the page was read again and found to agree.
+    proof: Optional[Proof] = None
+    # Additive and optional (2026-10-16). Why there is no `proof`, in plain
+    # words, when there is none: never an empty or stale picture instead.
+    proof_note: Optional[str] = None
 
 
 class TaskFailed(BaseModel):

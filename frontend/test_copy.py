@@ -246,11 +246,11 @@ def test_apostrophes_are_straight(copy: dict) -> None:
         assert "’" not in text and "‘" not in text, f"{name}: {text!r}"
 
 
-def test_the_closing_screen_offers_a_way_out_and_a_way_on(copy: dict) -> None:
-    """Never a dead end: a task that has ended has two things to press."""
-    assert copy["ending"]["finish"].strip()
-    assert copy["ending"]["again"].strip()
-    assert copy["ending"]["finish"] != copy["ending"]["again"]
+def test_the_closing_screen_offers_one_way_on(copy: dict) -> None:
+    """Never a dead end, and never two buttons to one place (2026-10-16):
+    "I'm done" and "Do something else" both went home."""
+    assert copy["ending"]["again"] == copy["onward"] == "Back to start"
+    assert "finish" not in copy["ending"]
 
 
 def test_a_list_cut_short_reads_the_same_on_both_screens(copy: dict) -> None:
@@ -270,7 +270,7 @@ def test_one_place_onwards_has_one_name(copy: dict) -> None:
 
 def test_the_wording_asked_for(copy: dict) -> None:
     """The 2026-09-17 wording, pinned so a later change is a deliberate one."""
-    assert copy["ending"]["finish"] == "I'm done"
+    assert copy["onward"] == "Back to start"
     assert copy["home"]["somethingElse"] == "Ask for something new"
     assert copy["found"]["heading"] == "Here's what I found"
     assert copy["stopped"]["heading"] == "I'm stuck, so I've stopped."
@@ -415,17 +415,29 @@ def backend_sentences() -> dict[str, str]:
     sentences["voice.FORGOTTEN"] = voice.FORGOTTEN
     # The window put away during a task (2026-10-06).
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
+    sentences["voice.ASK_COOKIES"] = voice.ASK_COOKIES
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
                  "ASK_CLOSEST", "NOT_CAUGHT", "DAY_NOT_CAUGHT", "ASK_CHANGE", "READY_TO_SEARCH",
                  "ASK_REFERENCE", "REFERENCE_DETAIL", "REFERENCE_NOT_RIGHT", "ASK_COURSE",
-                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "NOT_UNDERSTOOD", "NO_TRAINS",
+                 "COURSE_DETAIL", "COURSE_NOT_CAUGHT", "COURSES_OFFERED", "NO_COURSES",
+                 "ONLY_LOOKED_UP_TIMES", "ONLY_LOOKED_AT_BILL", "PROOF_CAPTION",
+                 "NO_PROOF_PICTURE", "NOT_ON_THIS_PAGE", "ANSWER_CHANGED", "NO_PICTURE",
+                 "NOT_UNDERSTOOD", "NO_TRAINS",
                  "WRONG_MONTH", "FORM_CHANGED", "PAUSED"):
         sentences[f"voice.{name}"] = getattr(voice, name)
     for where, text in {
         "read_back": voice.read_back("Lahore Cantt", "Karachi Cantt", "tomorrow, 7 October"),
         "day_gone": voice.day_gone("5 October"),
+        "course_not_offered": voice.course_not_offered("CS-999"),
+        "not_confirmed": voice.not_confirmed("Register for CS-401"),
+        "portal_says": voice.portal_says("Registration Confirmed", "Confirmation number",
+                                         "REG-10234-2026"),
+        "portal_says, no reference": voice.portal_says("Registration Confirmed"),
+        "site_also_says": voice.site_also_says(
+            "Registration is not final until tuition and fees are paid or a payment "
+            "plan is in place."),
         "day_too_far": voice.day_too_far("7 October 2027"),
         "no_such_day": voice.no_such_day("31 February"),
         "not_a_station": voice.not_a_station("Karachy"),
@@ -472,6 +484,8 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    labels["voice.YES"] = voice.YES
+    labels["voice.NO"] = voice.NO
     for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
                  "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
@@ -506,7 +520,9 @@ def test_every_step_stops_in_the_same_words() -> None:
         secondary = [a for a in actions if a.kind == "secondary"]
         assert [(a.id, a.label) for a in secondary] == [(voice.CANCEL_ID, voice.STOP)], where
         primary = [a for a in actions if a.kind == "primary"]
-        assert [a.id for a in primary] == [voice.CONFIRM_ID], where
+        # A yes-or-no question about one move (2026-10-16) also offers No.
+        assert [a.id for a in primary] in ([voice.CONFIRM_ID],
+                                           [voice.CONFIRM_ID, voice.DECLINE_ID]), where
 
 
 def test_the_backend_uses_no_word_the_reader_would_have_to_be_taught() -> None:
@@ -584,3 +600,10 @@ def test_the_overlay_knows_which_answer_keeps_the_password() -> None:
     tick, found by its id (2026-10-15). The two must agree on it."""
     shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
     assert f'export const SAVE_ID = "{voice.REMEMBER_ID}";' in shell
+
+
+def test_the_overlay_knows_which_answer_says_no() -> None:
+    """No to a yes-or-no question lays the two answers side by side
+    (2026-10-16); the overlay finds it by the backend's id."""
+    shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
+    assert f'export const DECLINE_ID = "{voice.DECLINE_ID}";' in shell

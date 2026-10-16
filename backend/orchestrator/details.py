@@ -48,10 +48,11 @@ from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
 from backend.orchestrator.plan import (
     About,
+    Confirmation,
+    CoursePlanner,
     Expectation,
     HardcodedPlanner,
     Shown,
-    registration_plan,
 )
 from shared.schema import StepField
 
@@ -1037,9 +1038,12 @@ def _coming_day_of_month(day: int, today: date) -> date | None:
 
 
 class BillBrief(_Asking):
-    """A bill to look up: the reference number printed on it."""
+    """A bill to look up: the reference number printed on it.
 
-    plan_steps = 3
+    The run ends on the results page, where the amount and the due date it
+    reports are shown (2026-10-16; `billing_plan.person_billing_plan`)."""
+
+    plan_steps = 2
     stages = voice.BILL_STAGES
 
     def __init__(self, goal: str, known: Understood, hardcoded: bool = True,
@@ -1068,12 +1072,12 @@ class BillBrief(_Asking):
         return f"Find the amount due for reference number {self.reference}."
 
     def task(self) -> Task:
-        from backend.orchestrator.billing_plan import bill_task
+        from backend.orchestrator.billing_plan import person_bill_task as bill_task
 
         return replace(bill_task(self.reference), goal=self.goal)
 
     def _plan(self) -> tuple[Planner, Task]:
-        from backend.orchestrator.billing_plan import billing_plan
+        from backend.orchestrator.billing_plan import person_billing_plan as billing_plan
 
         task = self.task()
         if self._hardcoded:
@@ -1084,7 +1088,12 @@ class BillBrief(_Asking):
 
 
 class CourseBrief(_Asking):
-    """A course to register for: its code."""
+    """A course to register for: its code.
+
+    Since 2026-10-16 the hardcoded run asks which course on the portal itself,
+    once signed in, from the courses it lists (`plan.CoursePlanner`): nothing
+    is asked before the site is touched. The model-planned run cannot ask
+    from a page, so it still asks first, in the person's own words."""
 
     plan_steps = 3
     stages = voice.COURSE_STAGES
@@ -1097,13 +1106,15 @@ class CourseBrief(_Asking):
         self._provider = provider
 
     def _missing(self) -> list[str]:
+        # Counted whoever asks it: the hardcoded run asks on the portal, once
+        # signed in, and only when the goal named no course.
         return [] if self.course else ["course"]
 
     def question(self) -> Move | None:
-        if self.gave_up is not None or self.course:
+        if self.gave_up is not None or self.course or self._hardcoded:
             return None
         return self._ask(_typed(voice.ASK_COURSE, voice.COURSE_DETAIL, "course",
-                                voice.FIELD_COURSE, voice.USE_COURSE),
+                                voice.FIELD_COURSE, voice.USE_COURSE), stage=1,
                          note=voice.COURSE_NOT_CAUGHT if self._tried("course") else None)
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:
@@ -1122,15 +1133,25 @@ class CourseBrief(_Asking):
                                 title_contains="Registration Confirmed"),
             # The course is chosen by pressing its button, so it is in no
             # field to check afterwards. The confirmation says which course
-            # was registered, and that is what has to name this one.
-            about=About(shows=(Shown(reads="Course", says=self.course),)),
-            explain=voice.explain_course(self.course),
+            # was registered, and that is what has to name this one. Not yet
+            # known when it is asked on the portal: `CoursePlanner.settled`
+            # puts it in once chosen.
+            about=About(shows=(Shown(reads="Course", says=self.course),)
+                        if self.course else ()),
+            # What changed, from what the portal confirmed: the closing
+            # screen's last line (2026-10-16), and so not said twice.
+            scope=voice.explain_course(self.course) if self.course else None,
+            # Registering changes a record: done only with the portal's own
+            # confirmation on the page, which is quoted.
+            confirms=Confirmation(heading="Registration Confirmed",
+                                  reads="Confirmation number",
+                                  caveat="not final until"),
         )
 
     def _plan(self) -> tuple[Planner, Task]:
         task = self.task()
         if self._hardcoded:
-            return HardcodedPlanner(registration_plan(self.course)), task
+            return CoursePlanner(self.course), task
         from backend.orchestrator.llm_loop import LLMPlanner
 
         return LLMPlanner(self._provider, replace(task, goal=self.sentence())), task

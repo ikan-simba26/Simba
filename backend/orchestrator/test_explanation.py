@@ -77,11 +77,23 @@ def test_a_journey_in_words(page: str, said: str) -> None:
 # --- a bill and a course ------------------------------------------------------
 
 
-def test_a_bill_in_the_pages_own_figures() -> None:
-    """No currency is added: the page did not print one."""
+def test_a_bill_in_plain_words_from_the_pages_own_figures() -> None:
+    """Rs, which the page says all its amounts are in, and the date as
+    people say it (2026-10-16). The figures are the page's."""
     assert explain_bill({"Your bill": ["14,382"], "Due": ["15-09-2026"]}, {}) == (
-        "Your bill is 14,382, and it is due on 15-09-2026.")
-    assert explain_bill({"Your bill": ["14,382"]}, {}) == "Your bill is 14,382."
+        "Your bill is Rs 14,382, due 15 September 2026.")
+    assert explain_bill({"Your bill": ["14,382"]}, {}) == "Your bill is Rs 14,382."
+
+
+def test_a_value_not_in_a_shape_it_can_read_is_as_the_page_wrote_it() -> None:
+    from backend.orchestrator.voice import page_date, rupees
+
+    assert rupees("14,382") == "Rs 14,382" and rupees("14,382.50") == "Rs 14,382.50"
+    assert rupees("PKR 14,382") == "PKR 14,382" and rupees("n/a") == "n/a"
+    assert page_date("15-09-2026") == "15 September 2026"
+    assert page_date("01-09-2026") == "1 September 2026"
+    assert page_date("31-02-2026") == "31-02-2026"  # not a day
+    assert page_date("2026-09-15") == "2026-09-15"
 
 
 def test_two_amounts_is_not_a_bill_it_can_explain() -> None:
@@ -256,15 +268,20 @@ def test_the_bill_ends_with_its_sentence(billing_replica: str) -> None:  # noqa:
     completed = drive(HardcodedPlanner(BILLING_PLAN), BILLING_TASK, billing_replica)\
         .payload_of("task.completed")
 
-    assert completed["explanation"] == "Your bill is 14,382, and it is due on 15-09-2026."
+    assert completed["explanation"] == "Your bill is Rs 14,382, due 15 September 2026."
+    # And the last line, what was not done (2026-10-16).
+    assert completed["scope"] == "I only looked at your bill. I did not pay it."
 
 
 def test_a_registration_ends_with_its_sentence(replica: str) -> None:  # noqa: F811
+    """Since 2026-10-16 it is the closing screen's last line, what changed,
+    and is said once."""
     from backend.orchestrator.test_course import register
 
     completed = register("MATH-210", replica).payload_of("task.completed")
 
-    assert completed["explanation"] == "You are registered for MATH-210 section 001."
+    assert completed["scope"] == "You are registered for MATH-210 section 001."
+    assert completed["explanation"] is None
 
 
 def test_a_task_with_nothing_to_explain_sends_none(replica: str) -> None:  # noqa: F811

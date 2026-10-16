@@ -252,7 +252,11 @@ def test_a_goal_with_no_course_code_asks_for_one() -> None:
     known = read("registration", "I want to register for a course")
 
     assert known.course is None
-    question = brief_for("registration", "g", known).question()
+    # Since 2026-10-16 the hardcoded run asks on the portal, from the courses
+    # it lists, once signed in (`test_course_from_list.py`): nothing first.
+    assert brief_for("registration", "g", known).question() is None
+    # The model-planned run cannot ask from a page, so it still asks first.
+    question = brief_for("registration", "g", known, hardcoded=False).question()
     assert question is not None and question.instruction == voice.ASK_COURSE
 
 
@@ -507,7 +511,7 @@ def test_the_second_ask_says_what_was_wrong_with_the_first_answer() -> None:
 
 
 def test_a_course_question_says_what_a_course_code_looks_like() -> None:
-    brief = CourseBrief("register me for a course", Understood())
+    brief = CourseBrief("register me for a course", Understood(), hardcoded=False)
 
     question = brief.question()
 
@@ -519,7 +523,8 @@ def test_a_course_question_says_what_a_course_code_looks_like() -> None:
 
 def test_a_question_asks_for_one_thing_and_offers_a_way_to_stop() -> None:
     """Every question, whichever brief asked it."""
-    for brief in (trip(), BillBrief("g", Understood()), CourseBrief("g", Understood())):
+    for brief in (trip(), BillBrief("g", Understood()),
+                  CourseBrief("g", Understood(), hardcoded=False)):
         question = brief.question()
         assert question is not None
         assert len(question.fields) <= 1

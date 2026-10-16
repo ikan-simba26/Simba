@@ -45,7 +45,7 @@ GOAL = "What do I owe on my electricity bill?"
 
 SIMPLER = "I'm showing less for a moment."
 FULLER = "I'm showing a bit more now."
-ENDED = ("I'm done", "I'm stuck, so I've stopped.", "I couldn't finish this.")
+ENDED = ("Back to start", "I'm stuck, so I've stopped.", "I couldn't finish this.")
 LEVELS = {"Show more": 1, "Show the usual amount": 2, "Show less": 3}
 
 #: Give up waiting for the fold after this long. The rules' own threshold for

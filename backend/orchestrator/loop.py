@@ -32,7 +32,15 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
-from backend.orchestrator.plan import About, Expectation, FieldValue, Operation, Target, part_of
+from backend.orchestrator.plan import (
+    About,
+    Confirmation,
+    Expectation,
+    FieldValue,
+    Operation,
+    Target,
+    part_of,
+)
 from backend.orchestrator.vault import Credentials, Vault
 from backend.perception.content import Content
 from backend.perception.serializer import (
@@ -47,6 +55,7 @@ from shared.schema import (
     HelpRequested,
     Highlight,
     PagePreview,
+    Proof,
     StateChanged,
     Finding,
     StepAction,
@@ -391,11 +400,19 @@ def findings_in(
                        for row in read]
             if task.about.per_row is not None:
                 rows[:] = [task.about.per_row(row) for row in rows]
-    findings = [Finding(label=answer.name, value=voice.found(known[answer.name]),
-                        values=known[answer.name])
+    # Said in plain words where the task says how (`Answer.plain`,
+    # 2026-10-16); `known` keeps the page's own text, which is what is
+    # compared and ringed.
+    def shown(answer, values: list[str]) -> list[str]:
+        return [answer.plain(v) for v in values] if answer.plain else list(values)
+
+    findings = [Finding(label=answer.name, value=voice.found(shown(answer, known[answer.name])),
+                        values=shown(answer, known[answer.name]))
                 for answer in task.about.finds if answer.name in known]
     if rows and findings and findings[0].label == task.about.finds[0].name:
-        findings[0].rows = [[row.get(finding.label, "") for finding in findings]
+        plain = {answer.name: answer.plain for answer in task.about.finds}
+        findings[0].rows = [[(plain[f.label] or str)(row[f.label]) if row.get(f.label) else ""
+                             for f in findings]
                             for row in rows]
     return findings
 
@@ -471,6 +488,8 @@ class Move:
     doing: str | None = None
     # What was wrong with the last answer, beside a question asked again.
     note: str | None = None
+    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once.
+    changes: bool = False
 
 
 class Planner(Protocol):
@@ -508,6 +527,15 @@ class Task:
     # Above the results on the closing screen: what they are for, from what
     # the person asked and agreed (2026-10-14). None: no heading.
     heading: str | None = field(default=None, kw_only=True)
+    # The closing screen's last line: what was done and what was not
+    # (2026-10-16). A sentence, or built like `explain` from what the site
+    # said back — "You are registered for CS-401 section 001." None: no line.
+    scope: ("str | Callable[[dict[str, list[str]], dict[str, list[str]], "
+            "list[dict[str, str]]], str | None] | None") = field(default=None, kw_only=True)
+    # For a task that changes something: what the site shows once it has
+    # (2026-10-16). The task is completed only with it on the page, and it is
+    # quoted on the closing screen. None: a task that only reads.
+    confirms: "Confirmation | None" = field(default=None, kw_only=True)
 
 
 class Brief(Protocol):
@@ -591,9 +619,53 @@ PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
 MASK_COLOUR = "#8c7a66"
 
 
+#: The longest the closing picture may take before it is given up on.
+PROOF_DEADLINE_S = 8.0
+
+#: Where on the page each thing read is: the smallest element whose whole
+#: text is the value, or its table row, in the page's own coordinates. A
+#: sentence quoted from a paragraph (`within`) is the smallest element that
+#: holds it.
+RINGS_JS = """(targets) => {
+  const shown = [...document.querySelectorAll('body *')].filter(e => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
+  });
+  const text = (e) => (e.innerText || '').trim().replace(/\\s+/g, ' ');
+  return targets.map(([want, row, within]) => {
+    const has = (e) => within ? text(e).includes(want) : text(e) === want;
+    const exact = shown.filter(e => has(e) && ![...e.children].some(has));
+    const el = exact[0];
+    if (!el) return null;
+    const box = (row && el.closest('tr')) || el;
+    const r = box.getBoundingClientRect();
+    return {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
+  });
+}"""
+
+
+#: Every sentence of the page's visible text, as the page writes it.
+SENTENCES_JS = """() => (document.body.innerText || '')
+  .split(/\\n+/).flatMap(line => line.split(/(?<=[.!?])\\s+/))
+  .map(s => s.trim().replace(/\\s+/g, ' ')).filter(Boolean)"""
+
+
+async def site_sentence(page: Page, words: str) -> str | None:
+    """The page's own sentence holding these words, exactly as it wrote it,
+    or None when the page does not say them (2026-10-16)."""
+    try:
+        sentences = await page.evaluate(SENTENCES_JS)
+    except PlaywrightError:
+        return None
+    wanted = words.casefold()
+    return next((s for s in sentences if wanted in s.casefold()), None)
+
+
 #: The longest a picture of the page may take before it is dropped
 #: (2026-10-15). The picture is optional; the person's answer is not.
 PREVIEW_DEADLINE_S = 5.0
+#: The `error` code for a picture that was dropped, late or failed.
+PREVIEW_LATE = "PREVIEW_LATE"
 
 
 async def send_preview(page: Page, connection: Connection, move: "Move | None") -> None:
@@ -628,8 +700,8 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
 
     try:
         # Every password box is painted over before the picture leaves the
-        # backend (2026-10-07). The overlay shows this picture behind every
-        # step and in "Show the real page", and a password is never on it —
+        # backend (2026-10-07). The overlay shows this picture when the
+        # person asks "What are you doing?", and a password is never on it —
         # not as dots, whose count says its length, and not as text if a site
         # has a "show password" switch that turns the box into an ordinary
         # one: those are matched by what they autocomplete.
@@ -854,13 +926,14 @@ class _Run:
                 self.held.append(message)
         return paused
 
-    async def give_up(self, reason: str) -> None:
+    async def give_up(self, reason: str, unconfirmed: bool = False) -> None:
         await self.set_state("stuck")
         await self.connection.send(
             "help.requested",
             HelpRequested(
                 reason=reason,
                 suggestion=voice.HELP_SUGGESTION,
+                unconfirmed=unconfirmed,
             ),
         )
 
@@ -977,7 +1050,13 @@ class _Run:
             except asyncio.CancelledError:
                 raise
             except Exception:  # noqa: BLE001 - late, failed or closed: dropped
-                return
+                # Said, so "What are you doing?" can say it too, rather than
+                # doing nothing (2026-10-16). Nothing more is tried.
+                try:
+                    await self.connection.send("error", ErrorPayload(
+                        code=PREVIEW_LATE, message=voice.NO_PICTURE))
+                except Exception:  # noqa: BLE001 - the socket may be gone
+                    return
 
         task = asyncio.create_task(take())
         self.previews.add(task)
@@ -1198,6 +1277,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                 payload = await run.present(shown, goal=task.goal, findings=findings,
                                             view=view)
             action = payload.get("action_id")
+            if action == voice.DECLINE_ID and any(a.id == voice.DECLINE_ID
+                                                  for a in shown.actions):
+                # No, to a yes-or-no question about one move (2026-10-16):
+                # it is left undone, and the task goes on without it.
+                history.append(f"Not done, as asked: {move.instruction}")
+                continue
             if action not in (voice.CONFIRM_ID, voice.REMEMBER_ID):
                 await run.stopped()
                 return
@@ -1218,7 +1303,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         # place took 31.5s to be reported. The longer wait is that step's
         # second chance. An exception to CLAUDE.md's "retry once with a
         # different strategy"; DECISIONS.md.
-        strategies = 1 if move.expect.list_opens else 2
+        # And a step that changes something gets one attempt, too
+        # (2026-10-16): a second press, a different way, could make the change
+        # twice. Its check is that the site confirmed it.
+        strategies = 1 if move.expect.list_opens or move.changes else 2
         # Before every action, the window has to be there (`_Run.ready`).
         ready = (lambda: run.ready(goal=task.goal, findings=findings, view=view))
         try:
@@ -1230,6 +1318,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                                              ready=ready)
         except StoppedWhileAway:
             await run.stopped()
+            return
+
+        if failure is not None and move.changes:
+            # Not done, and not "stuck": tried, and not confirmed. Said so.
+            label = move.actions[0].label if move.actions else move.instruction
+            await give_up(voice.not_confirmed(label), unconfirmed=True)
             return
 
         if failure is not None:
@@ -1273,6 +1367,15 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         filled = [f for f in filled if f.url == page.url]
         filled += await record_fills(page, move)
 
+    # A planner that settled something the task could not know at the
+    # start — which course, chosen on the portal — says so before the end
+    # is checked (`plan.CoursePlanner.settled`, 2026-10-16).
+    settle = getattr(planner, "settled", None)
+    if settle is not None:
+        task = settle(task)
+
+    # What was read before this last look, to compare it with (2026-10-16).
+    read_before = {name: list(values) for name, values in found.items()}
     _, final, _ = await perceive(page)
     findings = findings_in(final, task, found, rows)
     # A task with named values is checked here even without a success
@@ -1287,6 +1390,43 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         # "ran out of steps", which says nothing a user could act on.
         await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
         return
+
+    # Read again before closing (2026-10-16): the page has to still say what
+    # is about to be shown, or no answer is shown.
+    if answer_changed(read_before, final, task):
+        await give_up(voice.ANSWER_CHANGED, unconfirmed=True)
+        return
+
+    # A change is done only when the site says so, on the page (2026-10-16).
+    confirmation: str | None = None
+    confirmed: tuple[str, str | None] | None = None
+    if task.confirms is not None:
+        headings = [h.text for h in final.content.headings]
+        if not any(task.confirms.heading in text for text in headings):
+            changed = next((m for m in reversed(completed) if m.changes), None)
+            label = (changed.actions[0].label if changed and changed.actions
+                     else task.confirms.heading)
+            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            return
+        reference = (final.content.value_for(task.confirms.reads)
+                     if task.confirms.reads else None)
+        confirmation = voice.portal_says(task.confirms.heading, task.confirms.reads,
+                                         reference)
+        confirmed = (next(text for text in headings if task.confirms.heading in text),
+                     reference)
+    # And what the site says against it, in its own sentence (2026-10-16):
+    # "not final until tuition and fees are paid". Only if it says it.
+    caveat_said = (await site_sentence(page, task.confirms.caveat)
+                   if task.confirms is not None and task.confirms.caveat else None)
+
+    # The proof: a still of the page as it is now, what was read ringed.
+    try:
+        proof, proof_note = await asyncio.wait_for(
+            take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said,
+                                           found)),
+            PROOF_DEADLINE_S)
+    except asyncio.TimeoutError:
+        proof, proof_note = None, voice.NO_PROOF_PICTURE
 
     # A return that was due when the last step was answered has no next step
     # to arrive with, so it goes out before the ending.
@@ -1309,8 +1449,98 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
             heading=task.heading,
+            scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
+            confirmation=confirmation,
+            caveat=voice.site_also_says(caveat_said) if caveat_said else None,
+            proof=proof,
+            proof_note=proof_note,
         ),
     )
+
+
+def answer_changed(before: dict[str, list[str]], after: Snapshot, task: "Task") -> bool:
+    """Whether the page, read again before closing, says something other than
+    what the run read earlier and is about to show (2026-10-16). A label the
+    page no longer has is not a difference — the value was read on a page
+    since left — and is said instead by there being no picture of it."""
+    for answer in task.about.finds:
+        earlier = before.get(answer.name)
+        now = [v for v in (part_of(value, answer.part)
+                           for value in after.content.values_for(answer.reads)) if v]
+        if earlier and now and set(earlier) != set(now):
+            return True
+    return False
+
+
+def proof_targets(task: "Task", findings: list[Finding], rows: list[dict[str, str]],
+                  confirmation: tuple[str, str | None] | None,
+                  caveat: str | None = None, found: dict[str, list[str]] | None = None,
+                  ) -> list[tuple[str, bool] | tuple[str, bool, bool]]:
+    """What to ring on the closing picture: each result's row, by its first
+    value, when there are several; otherwise each value shown, on its own; a
+    change's confirmation heading, the row its reference is in, and the
+    paragraph its caveat is quoted from."""
+    targets: list[tuple[str, bool] | tuple[str, bool, bool]] = []
+    # Several results: each one's row. One result — a bill — its values
+    # themselves, so the ring is round the amount, not round the whole line.
+    # Found by the page's own text, not the plain words they are shown in.
+    if len(rows) > 1 and findings:
+        targets += [(row[findings[0].label], True) for row in rows
+                    if row.get(findings[0].label)]
+    else:
+        targets += [(value, False) for finding in findings
+                    for value in (found or {}).get(finding.label, finding.values)]
+    if confirmation is not None:
+        heading, reference = confirmation
+        targets.append((heading, False))
+        if reference:
+            targets.append((reference, True))
+    if caveat:
+        targets.append((caveat, False, True))
+    seen: set[tuple] = set()
+    return [t for t in targets if not (t in seen or seen.add(t))]
+
+
+async def take_proof(page: Page, targets: list[tuple[str, bool] | tuple[str, bool, bool]]
+                     ) -> tuple[Proof | None, str | None]:
+    """A still of the page with every target ringed, or why there is none.
+
+    The page is scrolled so the first ring is in view, captured at the frozen
+    viewport, and scrolled back. Password boxes are painted over, as for every
+    picture of the page (`send_preview`)."""
+    if not targets:
+        return None, None
+    try:
+        found = await page.evaluate(RINGS_JS, [list(t) for t in targets])
+    except PlaywrightError:
+        return None, voice.NO_PROOF_PICTURE
+    boxes = [b for b in found if b]
+    if not boxes:
+        return None, voice.NOT_ON_THIS_PAGE
+    before = await page.evaluate("[scrollX, scrollY]")
+    top = min(b["y"] for b in boxes)
+    await page.evaluate(f"window.scrollTo(0, {max(0, int(top) - 40)})")
+    try:
+        at = await page.evaluate("[scrollX, scrollY]")
+        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
+                                     mask_color=MASK_COLOUR)
+    except PlaywrightError:
+        return None, voice.NO_PROOF_PICTURE
+    finally:
+        try:
+            await page.evaluate(f"window.scrollTo({before[0]}, {before[1]})")
+        except PlaywrightError:
+            pass
+    rings = []
+    for b in boxes:
+        x, y = int(b["x"] - at[0]), int(b["y"] - at[1])
+        if y + b["h"] <= 0 or y >= 800:
+            continue
+        rings.append(Highlight(x=x, y=y, w=int(b["w"]), h=int(b["h"])))
+    if not rings:
+        return None, voice.NOT_ON_THIS_PAGE
+    return Proof(screenshot=base64.b64encode(shot).decode("ascii"), rings=rings,
+                 caption=voice.PROOF_CAPTION), None
 
 
 async def follow_override(

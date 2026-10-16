@@ -69,6 +69,13 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
         assert ending["buttons"], (name, ending)
         assert ending["off_screen"] == [], (name, ending)
         assert not ending["scrolls"], (name, ending)
+    # And the sign-in screen, the registration's first (2026-10-16): measured
+    # headless only until then, where Electron lays text out wider.
+    sign_in = result["sign_in"]
+    assert sign_in["buttons"], sign_in
+    assert sign_in["off_screen"] == [], sign_in
+    assert sign_in["fields_on_screen"], sign_in
+    assert not sign_in["scrolls"], sign_in
     # Perception's page is exactly what it was.
     assert result["site_view"]["inner"] == [1280, 800], result["site_view"]
     # And a page that scrolls lays out at the full 1280px, inner scroll boxes

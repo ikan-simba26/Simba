@@ -163,8 +163,13 @@ def test_the_bill_is_what_the_replica_says_character_for_character(mock: str) ->
     received = converse(mock, {"goal": "pay my bill"})
     found = {f["label"]: f["values"] for f in completed(received)["findings"]}
 
-    assert found["Your bill"] == [replica.BILL["payable_within"]]
-    assert found["Due"] == [replica.BILL["due_date"]]
+    # In the plain words the real backend says them in (2026-10-16), from
+    # the replica's own figures.
+    from backend.orchestrator import voice
+
+    assert found["Your bill"] == [voice.rupees(replica.BILL["payable_within"])]
+    assert found["Due"] == [voice.page_date(replica.BILL["due_date"])]
+    assert found["Due"] == ["15 September 2026"]
 
 
 def test_registration_changes_something_and_finds_nothing(mock: str) -> None:

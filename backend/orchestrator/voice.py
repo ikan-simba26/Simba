@@ -28,6 +28,7 @@ Imports nothing but the schema, so a plan, the mock backend and a test can
 all use it without pulling in a browser.
 """
 
+import datetime
 import re
 
 from shared.schema import StepAction
@@ -55,6 +56,34 @@ def actions(label: str) -> list[StepAction]:
     ]
 
 
+# --- a yes-or-no question about one move (2026-10-16) ------------------------
+#
+# Some moves are the person's to choose and are not the task: a site asking
+# about cookies. They are asked as a question, "Shall I say yes?", with Yes
+# and No. Yes does the move; No leaves it undone and the task goes on. Never
+# "I'll say yes" with a button to agree to it.
+
+YES = "Yes"
+NO = "No"
+#: The `step.response` action id for No: the move is not done, and the task
+#: carries on. Not a way to stop.
+DECLINE_ID = "decline"
+
+
+def yes_or_no() -> list[StepAction]:
+    """Yes, No, and the one way to stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=YES, kind="primary"),
+        StepAction(id=DECLINE_ID, label=NO, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]
+
+
+#: The cookie question (2026-10-16). It used to say "I'll say yes." and offer
+#: a button to agree to that: the decision made for the person, then shown.
+ASK_COOKIES = "This site asks about cookies. Shall I say yes?"
+
+
 # --- a question, and its answers ---------------------------------------------
 #
 # When something the task needs was not said, the person is asked — one thing
@@ -66,6 +95,10 @@ def actions(label: str) -> list[StepAction]:
 #: one id that stops is `CANCEL_ID`; anything else a question offers is an
 #: answer, and the overlay carries on rather than showing its stop screen.
 CHOICE_PREFIX = "choice:"
+
+#: Said when a picture of the page could not be had in time (2026-10-16).
+#: `copy.ts` has the same words, `TRUST.noPicture`, for when nothing came.
+NO_PICTURE = "I couldn't get a picture just now."
 
 #: Each finishes a typed answer, and says what it does with it (2026-10-15).
 #: Until then all four were "That's it", which says nothing about what
@@ -121,7 +154,9 @@ PAUSE_ID = "pause"
 # Labels: no full stop, and never the word the rules forbid.
 TRIP_STAGES = ["From", "To", "Day", "Search", "Trains"]
 BILL_STAGES = ["Reference", "Look up", "Your bill"]
-COURSE_STAGES = ["Course", "Sign in", "Register", "Done"]
+# Signing in first since 2026-10-16: which course is asked from the
+# portal's own list, which is only there once signed in.
+COURSE_STAGES = ["Sign in", "Course", "Register", "Done"]
 
 ASK_FROM = "Where are you travelling from?"
 ASK_TO = "Where are you travelling to?"
@@ -164,6 +199,26 @@ def station_name(name: str) -> str:
     in capitals is harder to read, so it is shown as `Lahore Cantt`. A name
     already in mixed case is left as the site wrote it."""
     return name.title() if name.isupper() else name
+
+
+_TRIP_GOAL = re.compile(r"Find trains from (.+?) to (.+?) on \d{4}-\d{2}-\d{2}\.?")
+_BILL_GOAL = re.compile(r"Find the amount due for reference number (\d{4,})\.?")
+_COURSE_GOAL = re.compile(r"Register for the course (\S+?)\.?")
+
+
+def short_label(goal: str) -> str | None:
+    """A remembered goal in a few words, for the home screen's one line
+    (2026-10-16): "Trains Lahore Cantt to Rawalpindi", "Bill ending 7890",
+    "Course CS-401". Built from the sentences the briefs write
+    (`details.*Brief.sentence`), which are what is remembered; anything else
+    has no label and is shown in its own words."""
+    if (trip := _TRIP_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Trains {station_name(trip[1])} to {station_name(trip[2])}"
+    if (bill := _BILL_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Bill ending {bill[1][-4:]}"
+    if (course := _COURSE_GOAL.fullmatch(goal.strip())) is not None:
+        return f"Course {course[1]}"
+    return None
 
 
 def when_words(day, today) -> str:
@@ -224,6 +279,16 @@ REFERENCE_NOT_RIGHT = "That doesn't look like a 14-digit reference number."
 ASK_COURSE = "Which course would you like to register for?"
 COURSE_DETAIL = "A course code looks like CS-401."
 COURSE_NOT_CAUGHT = "I didn't catch that course."
+#: Above the portal's own list of courses, once signed in (2026-10-16).
+COURSES_OFFERED = "These are the courses the portal offers. Type the first few letters."
+#: `help.requested.reason` when the portal lists no course to register for.
+NO_COURSES = "The portal didn't show any courses to register for."
+
+
+def course_not_offered(course: str) -> str:
+    """The note beside the course question, when the one named is not on the
+    portal's list (2026-10-16): caught at the question, not at the button."""
+    return f"The portal doesn't offer {course}."
 
 #: The label beside the box a typed answer goes in.
 FIELD_FROM = "From"
@@ -421,15 +486,93 @@ def explain_trains(found: dict[str, list[str]], seen: dict[str, list[str]],
     return f"{count} {'It takes' if len(trains) == 1 else 'The fastest takes'} {fastest}."
 
 
+_AMOUNT = re.compile(r"\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?")
+_PAGE_DATE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
+_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"]
+
+
+def rupees(amount: str) -> str:
+    """An amount the billing site prints bare, `14,382`, as `Rs 14,382`
+    (2026-10-16). The site says all its amounts are in Pakistani Rupees; it
+    puts no sign beside them. The figures are the page's own; anything that
+    is not a plain amount is as the page wrote it."""
+    text = amount.strip()
+    return f"Rs {text}" if _AMOUNT.fullmatch(text) else amount
+
+
+def page_date(text: str) -> str:
+    """A date the billing site writes `15-09-2026`, day first, as `15
+    September 2026` (2026-10-16). Anything else, or a day that is not in the
+    calendar, as the page wrote it."""
+    match = _PAGE_DATE.fullmatch(text.strip())
+    if match is None:
+        return text
+    day, month, year = int(match[1]), int(match[2]), int(match[3])
+    try:
+        datetime.date(year, month, day)
+    except ValueError:
+        return text
+    return f"{day} {_MONTHS[month - 1]} {year}"
+
+
 def explain_bill(found: dict[str, list[str]], seen: dict[str, list[str]],
                  rows: list[dict[str, str]] | None = None) -> str | None:
-    """The amount and the date it is due, in the page's own figures."""
+    """The amount and the date it is due, in plain words from the page's own
+    figures: "Your bill is Rs 14,382, due 15 September 2026." """
     amount, due = found.get("Your bill") or [], found.get("Due") or []
     if len(amount) != 1 or not _readable(*amount):
         return None
     if len(due) == 1 and _readable(*due):
-        return f"Your bill is {amount[0]}, and it is due on {due[0]}."
-    return f"Your bill is {amount[0]}."
+        return f"Your bill is {rupees(amount[0])}, due {page_date(due[0])}."
+    return f"Your bill is {rupees(amount[0])}."
+
+
+#: The closing screen's last line, for a search: what was done and what was
+#: not (2026-10-16). Nothing in this project books or pays, and the person
+#: should not have to wonder.
+ONLY_LOOKED_UP_TIMES = "I only looked up times. I did not book a ticket or pay for anything."
+#: The same, for a bill.
+ONLY_LOOKED_AT_BILL = "I only looked at your bill. I did not pay it."
+
+
+#: The proof picture's caption (2026-10-16).
+PROOF_CAPTION = "What I read is ringed."
+#: When no picture of the page could be had at the end.
+NO_PROOF_PICTURE = "I couldn't get a picture of the page to show you."
+#: When what was read is not on the page that is open at the end.
+NOT_ON_THIS_PAGE = ("What I read isn't on the page that's open now, so I have no "
+                    "picture of it.")
+#: `help.requested.reason` when the page, read again before closing, says
+#: something other than what was about to be shown (2026-10-16).
+ANSWER_CHANGED = ("The page changed after I read it, so I can't be sure the answer is "
+                  "right. You can ask me to look again.")
+
+
+def not_confirmed(action: str) -> str:
+    """When a step that changes something was tried and the site did not
+    confirm it (2026-10-16). Plain, and never "done": it may or may not have
+    happened, and the person should look."""
+    return (f"I tried to press \u201c{action}\u201d, but the portal has not confirmed it, "
+            f"so I can't tell you it worked. Please check the portal before you rely on it.")
+
+
+def portal_says(heading: str, label: str | None = None, value: str | None = None) -> str:
+    """The site's own confirmation, quoted (2026-10-16): 'The portal says
+    "Registration Confirmed", with confirmation number REG-10234-2026.'"""
+    if label and value:
+        return (f"The portal says \u201c{heading}\u201d, with {label[0].lower()}{label[1:]} "
+                f"{value}.")
+    return f"The portal says \u201c{heading}\u201d."
+
+
+def site_also_says(sentence: str) -> str:
+    """The site's own warning about what was confirmed, quoted whole
+    (2026-10-16): 'The portal also says "Registration is not final until
+    tuition and fees are paid or a payment plan is in place".' Its words,
+    never a summary of them: the closing screen never says more than the
+    site, nor less."""
+    return f"The portal also says “{sentence.rstrip('.')}”."
 
 
 def explain_course(course: str):

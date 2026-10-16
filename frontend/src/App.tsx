@@ -14,9 +14,9 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { Backdrop, PeekBack, PeekButton } from "./components/Backdrop";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
+import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
 import {
@@ -27,12 +27,13 @@ import {
   ChoiceCard,
   FlowIcon,
   AlertIcon,
+  PageIcon,
   PauseIcon,
   Presence,
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FLOWS, HOME, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+import { CHECKLIST, ENDING, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
@@ -75,8 +76,6 @@ export default function App() {
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
-      {/* The real page, behind everything else, while it is asked for (`Backdrop`). */}
-      <Backdrop />
       <PresenceBar />
       {/* Most of the window, not a third of it: 880 of 1280. The first
           column was 680, which at this type size left the person reading
@@ -85,8 +84,8 @@ export default function App() {
         <NoticeTimers />
         <Column />
       </div>
-      <PeekBack />
       <TrustPanel />
+      <ProofPanel />
       <DebugPanel />
     </div>
   );
@@ -105,7 +104,7 @@ function usePresenceMode(): PresenceMode {
 }
 
 function PresenceBar() {
-  const { trustOpen, peeking, task, asking, reply, completed, failed, help,
+  const { trustOpen, task, asking, reply, completed, failed, help,
           stoppedByPerson } = useStore();
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
@@ -114,10 +113,10 @@ function PresenceBar() {
   // same moment the tiles' entrance is decided — never under reduced motion.
   const reduce = useReducedMotion() ?? false;
   const [settle] = useState(() => !reduce && !entrancePlayed());
-  const aside = trustOpen || peeking;
+  const aside = trustOpen;
   return (
-    // Above the real page behind it (`Backdrop`), and out of the way while
-    // that page is being shown. Nothing else is in this row: since
+    // Out of the way while the real page is being shown. Nothing else is in
+    // this row: since
     // 2026-10-14 notices and "Read this aloud" are in the card's first line.
     <motion.div className="relative z-[1] flex w-full justify-center"
                 style={{ maxWidth: COLUMN, pointerEvents: aside ? "none" : "auto" }}
@@ -132,11 +131,10 @@ function PresenceBar() {
 }
 
 function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, peeking, reply, state,
+  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
           asking, checklist } = useStore();
-  // Put aside while the real page is shown: the trust panel's picture, or
-  // the page itself behind the step (`Backdrop`).
-  const aside = trustOpen || peeking;
+  // Put aside while the real page is shown: the trust panel's picture.
+  const aside = trustOpen;
 
   const stuck = state === "stuck" || Boolean(help);
 
@@ -226,7 +224,10 @@ function Home() {
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
   const remembered = rememberedGoals(history);
-  const apart = tellApart(remembered);
+  // The goal in a few words when the backend could say it (2026-10-16): the
+  // start of a long sentence, cut off, said little.
+  const shown = remembered.map((past) => past.label ?? past.goal);
+  const apart = tellApart(shown, remembered.map((past) => past.goal));
 
   return (
     <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
@@ -274,14 +275,14 @@ function Home() {
         {remembered.length > 0 && (
           <section className="flex items-center gap-3" aria-label={HOME.again}>
             <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
-            {remembered.map((goal, index) => (
+            {remembered.map(({ goal }, index) => (
               <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
                       data-testid="remembered"
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
                                  border-edge bg-surface px-4 py-2 text-left text-body text-ink
                                  shadow-press hover:border-accent/50">
                 <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
-                <span className="line-clamp-1 flex-1">{goal}</span>
+                <span className="line-clamp-1 flex-1">{shown[index]}</span>
                 {/* What tells it from the other, never cut off (2026-10-15).
                     Hidden from a screen reader: the goal is read whole. */}
                 {apart[index] && (
@@ -313,12 +314,12 @@ const REMEMBERED = 2;
  * Goals asked for before, most recent first, each once, and never one a tile
  * already offers — whatever its case, spacing or full stop.
  */
-export function rememberedGoals(history: PastGoal[]): string[] {
-  const out: string[] = [];
+export function rememberedGoals(history: PastGoal[]): PastGoal[] {
+  const out: PastGoal[] = [];
   for (const past of history) {
     if (ALL_FLOWS.some((flow) => sameGoal(FLOWS[flow], past.goal))) continue;
-    if (out.some((goal) => sameGoal(goal, past.goal))) continue;
-    if (out.length < REMEMBERED) out.push(past.goal);
+    if (out.some((kept) => sameGoal(kept.goal, past.goal))) continue;
+    if (out.length < REMEMBERED) out.push(past);
   }
   return out;
 }
@@ -334,23 +335,35 @@ const REFERENCE = /\d{10,}/;
  * What tells each remembered goal from the others, when they would look the
  * same on one line (2026-10-15): two bills both read "Find the amount due
  * for…". For a bill, its reference's last four digits ("ending 7890");
- * otherwise the first word where the two part ("Multan"). Null for a goal
+ * otherwise the first word where the two part ("Multan"), or, where what is
+ * shown is the same word for word — two journeys labelled alike, a day
+ * apart — the first word where the goals themselves part. Null for a goal
  * that already looks like itself.
  */
-export function tellApart(goals: string[]): (string | null)[] {
-  return goals.map((goal, index) => {
-    const twin = goals.find((other, at) =>
-      at !== index && commonStart(goal, other).length >= LOOKS_SAME);
-    if (twin === undefined) return null;
-    const reference = goal.match(REFERENCE);
-    if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
-      return HOME.ending(reference[0].slice(-4));
-    }
-    const words = goal.split(/\s+/);
-    const others = twin.split(/\s+/);
-    const differs = words.findIndex((word, at) => word !== others[at]);
-    return differs >= 0 ? words[differs].replace(/[.,!?]+$/, "") : null;
+export function tellApart(shown: string[], goals: string[] = shown): (string | null)[] {
+  return shown.map((words, index) => {
+    const twin = shown.findIndex((other, at) =>
+      at !== index && commonStart(words, other).length >= LOOKS_SAME);
+    if (twin < 0) return null;
+    if (shown[twin] === words) return firstDifference(goals[index], goals[twin]);
+    return firstDifference(words, shown[twin]);
   });
+}
+
+/** What tells one goal from another, in a word or two. */
+function firstDifference(goal: string, twin: string): string | null {
+  const reference = goal.match(REFERENCE);
+  if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
+    return HOME.ending(reference[0].slice(-4));
+  }
+  const words = goal.split(/\s+/);
+  const others = twin.split(/\s+/);
+  const differs = words.findIndex((word, at) => word !== others[at]);
+  if (differs < 0) return null;
+  const word = words[differs].replace(/[.,!?]+$/, "");
+  // A day the goal spells as 2026-10-01 is said as people say it.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(word);
+  return day ? HOME.onDay(Number(day[3]), Number(day[2])) : word;
 }
 
 /** The words two goals start with, whole words only. */
@@ -549,7 +562,7 @@ function Step() {
   // point. The exiting element then emptied mid-exit, Framer never finished
   // removing it, and it stayed in the column's grid cell at opacity 0 on top
   // of the ending, swallowing every click. Measured on 2026-09-17: after any
-  // step, "I'm done", "Do something else" and every other ending's button
+  // step, every ending's button
   // could not be pressed, and had not been since at least `cc4704f`. Keeping
   // the last step rendered lets the exit run to completion.
   const leaving = useRef(step);
@@ -586,12 +599,12 @@ function Step() {
       </Card>
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field
-          past the bottom of the window. */}
+          past the bottom of the window. "What are you doing?" is the one way
+          to see the page during a task (2026-10-16): it opens the close-up,
+          with the whole page inside it. "Show the real page" beside it was a
+          second way to the same page, and went. */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <TrustControl />
-          <PeekButton />
-        </div>
+        <TrustControl />
         <LevelControl />
       </div>
     </div>
@@ -675,8 +688,9 @@ function Checklist() {
  * read to see where a run ended — and which put an address like
  * `http://127.0.0.1:5000/register` on this screen in 26px type.
  *
- * Two actions, always in the same order and the same place: finish, or ask
- * for something else. Both currently lead to the home screen; see STATUS.md.
+ * One action, the same on every ending: "Back to start" (2026-10-16). Until
+ * then there were two here, "I'm done" and "Do something else", and both led
+ * to the home screen.
  */
 function Completed() {
   const { completed, task, startOver } = useStore();
@@ -689,9 +703,12 @@ function Completed() {
   const explanation = completed?.explanation ?? null;
   const said = useRef<HTMLParagraphElement>(null);
   const lines = useLines(said);
+  const short = useShortWindow();
+  const screen = useRef<HTMLDivElement>(null);
+  const dropped = useFitByDropping(screen);
 
   return (
-    <div className="flex flex-col gap-8 short:gap-5">
+    <div ref={screen} className="flex flex-col gap-8 short:gap-5">
       {findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
           {/* The sentence, when there is one, in the lead-in's place: it
@@ -714,36 +731,139 @@ function Completed() {
           ) : (
             <p className="mb-6 text-small font-medium text-soft short:mb-4">{ENDING.withAnswer}</p>
           )}
-          <Findings findings={findings} size={TYPE.hero} less={Math.max(0, lines - 1)} />
+          {/* One result fewer in a short window for the last line, as for a
+              sentence's second line: with it, nine results put the buttons
+              off a 606px window (2026-10-16). */}
+          <Findings findings={findings} size={TYPE.hero}
+                    less={Math.max(0, lines - 1) + dropped}
+                    footer={short && Boolean(completed?.scope || completed?.proof
+                                             || completed?.proof_note)} />
+          {/* The answer's footer (2026-10-16): the way to see it on the real
+              page, and what was done and what was not — one row, so nine
+              results still leave the way onward on a 606px window. */}
+          {(completed?.scope || completed?.proof || completed?.proof_note) && (
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 short:mt-4">
+              <ProofLine />
+              {completed?.scope && (
+                <p className="min-w-0 flex-1 basis-80 text-body text-soft" data-testid="scope">
+                  {completed.scope}
+                </p>
+              )}
+            </div>
+          )}
         </Card>
       ) : (
-        <div className="flex flex-col items-start gap-5">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint
-                           text-accent" aria-hidden>
-            <CheckIcon size={34} />
-          </span>
-          <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
-            {ENDING.withoutAnswer}
-          </h1>
-          {/* What happened, when the page said; otherwise what was asked for. */}
-          <p className="text-lead text-soft" data-testid={explanation ? "explanation" : undefined}>
-            {explanation ?? task?.goal}
-          </p>
+        <div className="flex flex-col items-start gap-5 short:gap-3">
+          {/* The mark beside the heading, not above it (2026-10-16): with the
+              portal's caveat quoted under its confirmation, the stacked
+              screen scrolled a 606px window. */}
+          <div className="flex items-center gap-5">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full
+                             bg-tint text-accent" aria-hidden>
+              <CheckIcon size={34} />
+            </span>
+            <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+              {ENDING.withoutAnswer}
+            </h1>
+          </div>
+          {/* What happened, when the page said; otherwise what was asked for
+              — unless the last line says what changed. */}
+          {(explanation || !completed?.scope) && (
+            <p className="text-lead text-soft"
+               data-testid={explanation ? "explanation" : undefined}>
+              {explanation ?? task?.goal}
+            </p>
+          )}
+          {completed?.scope && (
+            <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
+          )}
+          {/* The site's own confirmation, quoted (2026-10-16): a change is
+              only "done" with it on the page. */}
+          {completed?.confirmation && (
+            <p className="border-l-4 border-accent pl-5 text-body text-ink"
+               data-testid="confirmation">
+              {unbroken(completed.confirmation)}
+            </p>
+          )}
+          {/* And what the site says against it, in its own words: never more
+              than the site says (2026-10-16). */}
+          {completed?.caveat && (
+            <p className="border-l-4 border-line pl-5 text-body text-ink" data-testid="caveat">
+              {completed.caveat}
+            </p>
+          )}
+          <ProofLine />
         </div>
       )}
 
-      {/* Side by side, in the same order, finish first. Stacked, the pair is
-          140px at 150% and 172px at 100%: at 150% that is what put six results
-          and both buttons out of reach of a 606px window, and at 100% it left
-          nine results 0px from a scrollbar (2026-10-05). */}
-      <div className="flex flex-row gap-3">
-        <Button className="flex-1" onClick={startOver}>{ENDING.finish}</Button>
-        <Button className="flex-1" variant="secondary" onClick={startOver}>
-          {ENDING.again}
-        </Button>
-      </div>
+      {/* One way on (2026-10-16). "I'm done" and "Do something else" sat
+          here side by side and both went home. */}
+      <OnwardButton onClick={startOver} />
     </div>
   );
+}
+
+/** The most results the closing screen gives up to fit, one at a time. */
+const MOST_DROPPED = 8;
+
+/**
+ * How many more results the closing screen gives up so it fits the window,
+ * found by measuring it (2026-10-16). The counts in `Findings` and `Tickets`
+ * assume a result is one line; on the live site a train arriving the next day
+ * wraps its ticket onto two, and nine of them put the way on 179px below a
+ * 1280x800 window. Measured from layout (`offsetTop`, `offsetHeight`), which
+ * the screen's entrance transform and the screen fading out beside it do not
+ * move, after every render until it fits.
+ */
+function useFitByDropping(ref: React.RefObject<HTMLElement>): number {
+  const [dropped, setDropped] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null || dropped >= MOST_DROPPED) return;
+    let top = 0;
+    for (let at: HTMLElement | null = element; at; at = at.offsetParent as HTMLElement | null) {
+      top += at.offsetTop;
+    }
+    const canvas = element.closest(".simba-canvas");
+    const padding = canvas ? parseFloat(getComputedStyle(canvas).paddingBottom) || 0 : 0;
+    if (top + element.offsetHeight + padding > window.innerHeight) setDropped(dropped + 1);
+  });
+  return dropped;
+}
+
+/**
+ * A sentence with every code in it — a word with a digit, REG-10301-2026 —
+ * kept on one line (2026-10-16): broken at its hyphen, a confirmation number
+ * read as two.
+ */
+function unbroken(sentence: string) {
+  return sentence.split(/(\S*\d\S*)/).map((part, index) =>
+    index % 2 ? <span key={index} className="whitespace-nowrap">{part}</span> : part);
+}
+
+/**
+ * The way to see the answer on the real page (2026-10-16), or, when the
+ * backend could not take that picture, why not — in its words. Never a
+ * picture from earlier in the task in its place.
+ */
+function ProofLine() {
+  const { completed, openProof } = useStore();
+  if (completed?.proof) {
+    return (
+      <Button variant="secondary" size="md" wide={false} onClick={openProof}>
+        <PageIcon />
+        {PROOF.see}
+      </Button>
+    );
+  }
+  if (completed?.proof_note) {
+    return (
+      <p className="text-body text-soft" data-testid="proof-note">
+        {completed.proof_note}
+      </p>
+    );
+  }
+  return null;
 }
 
 /**
@@ -784,8 +904,12 @@ function Completed() {
  * closing screen must fit, buttons and all, at 150% with nine results, with a
  * sentence above them or without (`test_closing.py`).
  */
-export function Findings({ findings, size, less = 0 }: {
+export function Findings({ findings, size, less = 0, footer = false }: {
   findings: Finding[]; size: number; less?: number;
+  /** A footer under the answer in a short window (2026-10-16): the way to
+   *  see it on the real page, and what was not done. It costs a list two
+   *  of its lines, and the tickets one. */
+  footer?: boolean;
 }) {
   const lists = findings.map((finding) =>
     finding.values?.length ? finding.values : [finding.value]);
@@ -836,7 +960,7 @@ export function Findings({ findings, size, less = 0 }: {
   // And each line the sentence above takes past its first gives up one too
   // (`less`): a sentence that names a tie of three trains wraps at 150%, and
   // the page then scrolled by 10px (2026-10-06).
-  const shown = Math.max(1, Math.min(count, LISTED - apart.length - less));
+  const shown = Math.max(1, Math.min(count, LISTED - apart.length - less - (footer ? 2 : 0)));
   const rows = Array.from({ length: shown }, (_, row) =>
     findings.flatMap((_, index) => !onLine(index) ? []
       : [byRows ? sent[row][index] ?? "" : lists[index][row]])
@@ -847,7 +971,8 @@ export function Findings({ findings, size, less = 0 }: {
 
   if (byRows) {
     return (
-      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart} less={less} />
+      <Tickets findings={findings} rows={sent} onLine={onLine} apart={apart}
+               less={less + (footer ? 1 : 0)} />
     );
   }
 
@@ -943,15 +1068,20 @@ function Tickets({ findings, rows, onLine, apart, less }: {
             <li key={index}
                 data-testid="ticket"
                 data-fastest={quickest ? "true" : undefined}
-                className={`flex items-center gap-6 rounded-lg border-2 bg-canvas px-5 py-2
-                            short:py-1.5 ${quickest ? "border-accent" : "border-line"}`}>
+                // Its cells wrap onto a second line rather than run past the
+                // column (2026-10-16): on the live site "06:20, next day", a
+                // 22-hour journey and "Fastest" pushed the card 112px wider
+                // than the buttons under it.
+                className={`flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border-2
+                            bg-canvas px-5 py-2 short:py-1.5
+                            ${quickest ? "border-accent" : "border-line"}`}>
               <span className="w-28 shrink-0 font-semibold leading-[1.1] tracking-[-0.02em]
                                text-ink" style={{ fontSize: TYPE.title }}>
                 {first}
               </span>
               {named.map((cell) => (
                 // One line, the name quietly before its value: under it, each
-                // ticket was 70px and six put "I'm done" off a 800px window.
+                // ticket was 70px and six put the way on off a 800px window.
                 <span key={cell.name} className="flex items-baseline gap-2 whitespace-nowrap"
                       data-testid="ticket-cell">
                   <span className="text-caption text-soft">{cell.name}</span>
@@ -1067,7 +1197,8 @@ function Stuck() {
   return (
     <div className="flex flex-col gap-8 short:gap-5">
       <Card tone="stuck" className="px-12 py-10 short:py-7">
-        <StuckNote reason={help?.reason} suggestion={help?.suggestion} />
+        <StuckNote reason={help?.reason} suggestion={help?.suggestion}
+                   unconfirmed={help?.unconfirmed ?? false} />
       </Card>
       <OnwardButton onClick={startOver} />
     </div>

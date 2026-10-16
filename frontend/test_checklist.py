@@ -137,13 +137,13 @@ def test_no_telemetry_is_about_a_checklist_line(page: Page, overlay: str,  # noq
     assert all(s["step_index"] not in (1, 2, 3) for s in samples), samples
 
 
-def test_a_checklist_line_asks_for_no_picture_and_a_question_does(
+def test_no_picture_is_asked_for_on_a_checklist_line_or_a_question(
     page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """No backdrop sits under a checklist line, so no picture is asked for.
-    Each one asked for was answered — a screenshot each — before the next
-    question's answer was read, and in the real window that held "Register
-    for CS-401" for 31s (2026-10-14)."""
+    """Each picture asked for was answered — a screenshot each — before the
+    next question's answer was read, and in the real window that held
+    "Register for CS-401" for 31s (2026-10-14). Since 2026-10-16 none is asked
+    for at all unless the person asks: the page behind a step is gone."""
     begin(page, overlay, backend)
     page.get_by_role("button", name="Pause").click()
     page.wait_for_selector("text=I've paused. Carry on when you're ready.", timeout=10000)
@@ -153,8 +153,7 @@ def test_a_checklist_line_asks_for_no_picture_and_a_question_does(
     said = [m.get("type") for m in backend.responses]
     pause_at = said.index("step.response")
     assert "trust.requested" not in said[:pause_at], said
-    # The paused question is one, and it gets its picture.
-    assert said[pause_at + 1:].count("trust.requested") == 1, said
+    assert "trust.requested" not in said[pause_at + 1:], said
 
 
 def test_the_setting_to_be_asked_every_time_is_sent_and_kept(page: Page, overlay: str,  # noqa: F811

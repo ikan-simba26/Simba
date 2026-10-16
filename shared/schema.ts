@@ -57,6 +57,11 @@ export interface StateChanged {
 export interface PastGoal {
   goal: string;
   site: string;
+  /**
+   * Additive and optional (2026-10-16). The goal in a few words, for the home
+   * screen's one line: "Bill ending 7890". Absent: the goal's own words.
+   */
+  label?: string;
 }
 
 /**
@@ -190,12 +195,49 @@ export interface PagePreview {
   caption: string;
 }
 
+/**
+ * A still of the real page at the end of a task, with what was read ringed
+ * (2026-10-16).
+ */
+export interface Proof {
+  screenshot: string;
+  rings: Highlight[];
+  caption: string;
+}
+
 export interface HelpRequested {
   reason: string;
   suggestion: string;
+  /**
+   * Additive and optional (2026-10-16). A change was tried and the site did
+   * not confirm it: not "stuck", and the reason is what must be read.
+   */
+  unconfirmed?: boolean;
 }
 
 export interface TaskCompleted {
+  /**
+   * Additive and optional (2026-10-16). The closing screen's last line: what
+   * was done, and what was not.
+   */
+  scope?: string;
+  /**
+   * Additive and optional (2026-10-16). For a task that changed something,
+   * the site's own confirmation, quoted. Only when it is on the page.
+   */
+  confirmation?: string;
+  /**
+   * Additive and optional (2026-10-16). What the site says against that
+   * confirmation, its own sentence quoted whole. Only when the page says it.
+   */
+  caveat?: string;
+  /**
+   * Additive and optional (2026-10-16). The real page when the task closed,
+   * with every row or value shown ringed.
+   */
+  proof?: Proof;
+  /** Additive and optional (2026-10-16). Why there is no `proof`. */
+  proof_note?: string;
   /** Additive and optional (2026-10-14). What the results are for, above them:
    *  "Lahore Cantt to Karachi Cantt, Thursday 15 October". */
   heading?: string;
