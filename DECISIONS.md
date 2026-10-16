@@ -4728,3 +4728,33 @@ button was a moment before")
   host fit test runs the real build, guard on, pressing as a person would.
 - **A screen on its way out takes no presses and shows its own step**: the
   structural cause, fixed where it was, as well as guarded.
+
+## A picture of the page is asked for raw, and asked for again while it waits
+
+**Date:** 2026-10-17 (asked for: "find the cause and fix it" — the
+end-of-task picture failing at 100%; how was not specified)
+
+**Decision.** `browser.capture_site` takes every picture of the site view —
+the end-of-task proof and the preview behind each step. It sends CDP's
+`Page.captureScreenshot` itself and, while that waits, sends the identical
+request again every 0.15s (`NUDGE_S`), up to 4s in all
+(`CAPTURE_TIMEOUT_S`, under the preview's 5s deadline). Password boxes are
+painted over by solid boxes added to the page for the capture and removed
+after, not by Playwright's `mask`; the text cursor is hidden for the capture,
+as Playwright did. The 2026-09-30 repaint pixel is not used.
+
+**Alternatives.** Playwright's screenshot retried after a timeout: reliable
+but every capture at 100% took ~3.2s, whatever the timeout. A raw request
+sent alongside Playwright's: up to 3.7s, and a smaller one returned the wrong
+picture. Keeping the page drawing: measured to make no difference.
+
+**Why this.** It is what the stall waits for — a second request — sent as
+soon as it can help: 20/20 at 100%, 110%, 125% and 150%, median ~0.35s
+(EVALUATION.md, 2026-10-17).
+
+**Cost.** The mask is ours now: it covers the top document only (Playwright's
+also reached into frames; no replica has one) and for the instant of the
+capture puts elements into the site's page, which a site's own script could
+see. Pictures stay the device's size, as before. Several captures may be
+answered for one picture; the extra ones are discarded. Why 100% stalls at
+all is still unexplained.

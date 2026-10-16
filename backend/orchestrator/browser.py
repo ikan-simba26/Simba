@@ -20,12 +20,15 @@ targets show up as `devtools:`. `about:blank` is deliberately *not* excluded,
 since that is what the site view looks like before it navigates.
 """
 
+import asyncio
+import base64
 import os
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page, async_playwright
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 # 1280x800 is frozen — see CLAUDE.md's architecture constraints.
 VIEWPORT = {"width": 1280, "height": 800}
@@ -33,6 +36,98 @@ DEFAULT_CDP_URL = "http://127.0.0.1:9222"
 
 # Schemes the site view is never served from. The overlay is one of these.
 NOT_A_WEBSITE = ("data:", "file:", "devtools:", "chrome:", "chrome-extension:")
+
+
+# --- photographing the site view (2026-10-17) ----------------------------------
+#
+# A capture waits for the site view to draw a fresh frame after it is asked
+# for. At a display scale of 100% (and a forced 110%) every capture but the
+# first on an idle page stalled — still unanswered after 60s — until a second
+# capture request was sent, and then both were answered within about 0.1s
+# (EVALUATION.md, 2026-10-17). At 125% and above it never happened. What in
+# Chromium makes the scale matter is not established; ruled out by
+# measurement: the overlay's opacity, its bounds covering the site view, a
+# window one pixel narrower or shorter, background throttling, native window
+# occlusion, and the page itself (visible, focused, ~60 frames a second at
+# every scale). Keeping the page drawing while it is photographed (the
+# 2026-09-30 approach) made no difference.
+#
+# So a capture is asked for directly over CDP and, while it waits, asked for
+# again, with identical settings: Chromium answers pending captures with the
+# settings of whichever it serves, and a smaller second request (1x1) came
+# back as a 1x1 picture in place of the real one. Playwright's own screenshot
+# is not used, because its capture is the last of several steps and a second
+# request sent alongside it mostly arrived too early to help (up to 3.7s).
+# For the same reason the password boxes are painted over in the page, not
+# with Playwright's `mask`.
+
+#: How long a capture waits before the same request is sent alongside it.
+NUDGE_S = 0.15
+#: The longest a capture may take, every request together. Under
+#: `loop.PREVIEW_DEADLINE_S`, so a capture that fails says why.
+CAPTURE_TIMEOUT_S = 4.0
+
+#: Before a capture: solid boxes over every element `selector` matches, drawn
+#: above the page, and the text cursor hidden, as Playwright's own screenshot
+#: does (a blinking cursor in a box just typed into made two captures of one
+#: page differ). Inside the site view only: the person never sees it, and the
+#: boxes take no clicks.
+PREPARE_JS = """([selector, colour]) => {
+  const style = document.createElement('style');
+  style.setAttribute('data-simba-mask', '');
+  style.textContent = '*, *::before, *::after { caret-color: transparent !important; }';
+  document.documentElement.appendChild(style);
+  if (!selector) return;
+  for (const element of document.querySelectorAll(selector)) {
+    const r = element.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const box = document.createElement('div');
+    box.setAttribute('data-simba-mask', '');
+    box.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;'
+      + `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`
+      + `background:${colour}`;
+    document.documentElement.appendChild(box);
+  }
+}"""
+#: After it: the page as it was.
+CLEAN_JS = "() => document.querySelectorAll('[data-simba-mask]').forEach(e => e.remove())"
+
+
+async def capture_site(page: Page, mask: str | None = None,
+                       mask_colour: str = "#000000") -> bytes:
+    """The site view as it looks now, as PNG bytes, with every element `mask`
+    matches painted over in `mask_colour`. Raises a Playwright error if it
+    cannot be had within `CAPTURE_TIMEOUT_S`."""
+    session = await page.context.new_cdp_session(page)
+    asked: list[asyncio.Future] = []
+    try:
+        await page.evaluate(PREPARE_JS, [mask or "", mask_colour])
+        clock = asyncio.get_running_loop()
+        deadline = clock.time() + CAPTURE_TIMEOUT_S
+        while True:
+            left = deadline - clock.time()
+            if left <= 0:
+                raise PlaywrightTimeoutError(
+                    f"capture_site: no picture of the page within {CAPTURE_TIMEOUT_S}s "
+                    f"({len(asked)} requests)")
+            asked.append(asyncio.ensure_future(
+                session.send("Page.captureScreenshot", {"format": "png"})))
+            done, _ = await asyncio.wait(asked, timeout=min(NUDGE_S, left),
+                                         return_when=asyncio.FIRST_COMPLETED)
+            for request in done:
+                return base64.b64decode(request.result()["data"])  # or raises
+    finally:
+        for request in asked:
+            request.cancel()
+        await asyncio.gather(*asked, return_exceptions=True)
+        try:
+            await page.evaluate(CLEAN_JS)
+        except PlaywrightError:
+            pass  # navigated while photographed: the boxes went with the page
+        try:
+            await session.detach()
+        except PlaywrightError:
+            pass  # the page closed
 
 
 def browser_source() -> str:

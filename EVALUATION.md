@@ -5586,3 +5586,64 @@ sign-in screen fitting). Not explained; no code changed between the runs.
 deliberate verification time-outs (50s, 23s, 22s), as before; none waits on
 the offer. Not explained either; this machine's wall clock carries ±2x
 (2026-09-17h), and nothing of the work's was left running.
+
+## 2026-10-17 — the 100% capture: what it waits for, and the fix
+
+`fix/stability`. The end-of-task picture (`take_proof`) and the picture
+behind every step (`send_preview`) failed about every other time at a display
+scale of 100%, known since 2026-09-27. All runs below are the real host,
+launched by the probe at a forced scale (`--force-device-scale-factor`), with
+an idle page in the site view; forced 100% matched a real 100% on 2026-09-27.
+Probes are in `.scratch/stability/` (not committed).
+
+**What a stalled capture waits for.** Raw CDP `Page.captureScreenshot`, 20
+captures at forced 100%, each sent 0.3s apart: a capture that stalls is never
+answered on its own (still waiting after 60s, measured earlier today). Sent
+again with identical settings while the first waits, **both are answered
+within ~0.1s: 20/20, slowest 0.46s**. Playwright's own screenshot, 5s timeout:
+11/20, 10/20 and 4/20 in three passes at 100%, 10–11/20 at 110%, and — new
+today — 9/20 at 125% in one pass (20/20 in every earlier pass at 125%); 20/20
+at 150%.
+
+**Ruled out, each 20 captures at forced 100%:** the overlay at opacity 0.999
+(no change); `backgroundThrottling: false` (12/20); Chromium's native window
+occlusion off (12/20); the window 1px narrower (14/20) or 1px shorter
+(13/20); the page hidden or throttled — it reports `visible`, has focus, and
+draws 55–63 frames a second at 100%, 110%, 125% and 150% alike. Why the scale
+matters inside Chromium is still not known.
+
+**Fixes tried, 20 captures each:**
+
+| Approach | 100% | 110% | 150% |
+|---|---|---|---|
+| Playwright, page kept drawing (a 1px rAF pixel, 2026-09-30's idea) and retried after 2.5s | 20/20, every one ~2.9–3.3s | 20/20, ~3.3s | 20/20, 0.3s |
+| the same without the pixel | 20/20, ~3.3s — the pixel made no difference | 20/20 | 20/20 |
+| retried after 0.8s or 1.5s instead of 2.5s | 20/20, still ~3.2s each | — | — |
+| Playwright with a raw capture sent alongside every 0.3s | 20/20, 0.2–3.7s, up to 11 extra requests | — | 20/20 |
+| the same, the extra request clipped to 1x1 | **wrong picture**: Playwright's capture came back 1x1 | — | — |
+| **raw capture, the same request again every 0.15s while it waits, password boxes painted in the page (`browser.capture_site`)** | **20/20, median 0.34s, slowest 2.03s** | **20/20, median 0.41s, slowest 2.43s** | **20/20, median 0.35s, slowest 0.47s** |
+
+At 125% the final version was also 20/20 (median 0.40s, slowest 2.71s). Every
+picture was the right size (1280x800 at 100%, 1408x880 at 110%, 1600x1000 at
+125%, 1920x1200 at 150%) and left nothing behind on the page.
+
+Two defects found along the way. The 1x1 extra request: Chromium answered
+Playwright's pending capture with the extra request's clip, so the extra
+request has to be identical to the real one — and so the capture is made raw,
+not through Playwright. And the raw capture showed the text cursor blinking in
+a box just typed into, which Playwright hides: `test_an_ordinary_box_is_left_as_it_is`
+failed on it; the cursor is now hidden for the capture.
+
+With the mask, at a 0.3s interval half the captures needed five requests
+(~1.5–2s, against two and ~0.5s without the mask); waiting two frames for the
+mask to be drawn first changed nothing; at 0.15s the median is 0.34s.
+
+**In the product.** Twenty train searches walked in the real window at
+forced 100% (`walk_proof.py`, the closing screen read after each):
+**20/20 ended with the picture**, every run reaching the answer (30.5s mean).
+The same walk with the old capture put back: **10/10 with the picture too** —
+in this flow the picture is taken just after the results page has drawn, and
+the stall needs a page that has gone still, so the walk shows the fix costs
+nothing in the product's path but cannot show the failure. The failure is
+shown by the idle-page captures above, which is how a preview or a proof of a
+page that has sat still is taken.

@@ -33,6 +33,7 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
+from backend.orchestrator.browser import capture_site
 from backend.orchestrator.plan import (
     About,
     Confirmation,
@@ -829,8 +830,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
         # not as dots, whose count says its length, and not as text if a site
         # has a "show password" switch that turns the box into an ordinary
         # one: those are matched by what they autocomplete.
-        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
-                                     mask_color=MASK_COLOUR)
+        shot = await capture_site(page, mask=PASSWORD_BOXES, mask_colour=MASK_COLOUR)
     except PlaywrightError as error:
         await connection.send(
             "error",
@@ -1753,8 +1753,7 @@ async def take_proof(page: Page, targets: list[tuple[str, bool] | tuple[str, boo
     await page.evaluate(f"window.scrollTo(0, {max(0, int(top) - 40)})")
     try:
         at = await page.evaluate("[scrollX, scrollY]")
-        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
-                                     mask_color=MASK_COLOUR)
+        shot = await capture_site(page, mask=PASSWORD_BOXES, mask_colour=MASK_COLOUR)
     except PlaywrightError:
         return None, voice.NO_PROOF_PICTURE
     finally:
