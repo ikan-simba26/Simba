@@ -1530,7 +1530,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             # Not done, and not "stuck": tried, and not confirmed. Said so,
             # naming the site's own button, not the final screen's answer.
             label = pressed(move)
-            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            who = task.confirms.who if task.confirms else "site"
+            await give_up(voice.not_confirmed(label, who), unconfirmed=True)
             return
 
         if failure is not None:
@@ -1612,7 +1613,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         if not any(task.confirms.heading in text for text in headings):
             changed = next((m for m in reversed(completed) if m.changes), None)
             label = pressed(changed) if changed else task.confirms.heading
-            await give_up(voice.not_confirmed(label), unconfirmed=True)
+            who = task.confirms.who if task.confirms else "site"
+            await give_up(voice.not_confirmed(label, who), unconfirmed=True)
             return
         reference = (final.content.value_for(task.confirms.reads)
                      if task.confirms.reads else None)

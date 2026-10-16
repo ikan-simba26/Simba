@@ -53,7 +53,7 @@ GREETING = "What can I do for you?"
 AWAIT_RESPONSE = "(await step.response)"
 
 # Which button the person presses on the step, for an ending that has one.
-PRESSES = {"stopped by the person": "Stop this"}
+PRESSES = {"stopped by the person": "Stop this", "don't, on a final screen": "Don't book it"}
 GO_AHEAD = "Check the bill"
 
 A_STEP = {
@@ -64,6 +64,18 @@ A_STEP = {
         {"id": "confirm", "label": "Check the bill", "kind": "primary"},
         {"id": "cancel", "label": "Stop this", "kind": "secondary"},
     ],
+}
+
+
+#: A final screen (2026-10-16), as the backend sends one.
+A_FINAL = {
+    "step_index": 1, "step_total": 3, "step_kind": "confirm",
+    "instruction": "I'll book one seat on 7UP for you, with these details.",
+    "detail": "Nothing happens until you choose.", "fields": [],
+    "requires_confirmation": True, "findings": [],
+    "actions": [{"id": "confirm", "label": "Book it", "kind": "primary"},
+                {"id": "decline", "label": "Don't book it", "kind": "primary"}],
+    "final": [{"label": "Train", "value": "7UP"}, {"label": "Fare", "value": "Rs 3,250"}],
 }
 
 
@@ -263,6 +275,12 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             "proof": PROOF,
         }),
     ],
+    # "Don't" on a final screen, said by the backend (2026-10-16): calm, and
+    # nothing was changed — also when the press itself was not seen.
+    "nothing changed": [
+        ("task.failed", {"reason": "I didn't do it. Nothing was changed.",
+                         "recoverable": True}),
+    ],
     # A change tried and not confirmed (2026-10-16): never "done".
     "not confirmed": [
         ("state.changed", {"state": "stuck"}),
@@ -312,6 +330,15 @@ ENDINGS: dict[str, list[tuple[str, dict]]] = {
     **{f"{name}, after a step": ending(*THROUGH_A_STEP, *tail) for name, tail in TAILS.items()},
     # What the real backend does when the person presses stop: `task.failed`,
     # straight away, then the socket closes. Only exists after a step.
+    # "Don't" pressed on a final screen (2026-10-16): the backend ends the task
+    # saying nothing was changed, and the screen says so calmly.
+    "don't, on a final screen": ending(
+        ("state.changed", {"state": "waiting"}),
+        ("step.presented", A_FINAL),
+        (AWAIT_RESPONSE, {}),
+        ("task.failed", {"reason": "I didn't do it. Nothing was changed.",
+                         "recoverable": True}),
+    ),
     "stopped by the person": ending(
         ("state.changed", {"state": "waiting"}),
         ("step.presented", A_STEP),
@@ -443,7 +470,8 @@ def reach(page: Page, overlay: str, backend: Backend, name: str) -> list[str]:
     page.get_by_role("button", name="Start").click()
     if any(message_type == AWAIT_RESPONSE for message_type, _ in backend.script):
         # A step comes first, and the person answers it.
-        page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
+        page.wait_for_selector("[data-testid=step-shell], [data-testid=final-check]",
+                               timeout=15000)
         page.get_by_role("button", name=PRESSES.get(name, GO_AHEAD), exact=True).click()
     # Let the last message land and the crossfade finish.
     page.wait_for_function(
@@ -643,3 +671,19 @@ def test_a_failure_the_person_did_not_choose_still_says_so(
     text = page.inner_text("body")
     assert "I couldn't finish this." in text
     assert "I've stopped, as you asked." not in text
+
+
+@pytest.mark.parametrize("name", ["don't, on a final screen", "nothing changed"])
+def test_dont_ends_calmly_and_says_nothing_was_changed(
+    name: str, page: Page, overlay: str, backend: Backend
+) -> None:
+    labels = reach(page, overlay, backend, name)
+    text = page.inner_text("body")
+
+    assert "I didn't do it." in text and "Nothing was changed." in text
+    assert "I couldn't finish this." not in text
+    assert "That's done." not in text
+    assert labels == ["Back to start"]
+    if name.startswith("don't"):
+        answers = [m for m in backend.responses if m.get("type") == "step.response"]
+        assert answers[-1]["payload"]["action_id"] == "decline"

@@ -549,12 +549,12 @@ ANSWER_CHANGED = ("The page changed after I read it, so I can't be sure the answ
                   "right. You can ask me to look again.")
 
 
-def not_confirmed(action: str) -> str:
+def not_confirmed(action: str, who: str = "portal") -> str:
     """When a step that changes something was tried and the site did not
     confirm it (2026-10-16). Plain, and never "done": it may or may not have
     happened, and the person should look."""
-    return (f"I tried to press \u201c{action}\u201d, but the portal has not confirmed it, "
-            f"so I can't tell you it worked. Please check the portal before you rely on it.")
+    return (f"I tried to press \u201c{action}\u201d, but the {who} has not confirmed it, "
+            f"so I can't tell you it worked. Please check the {who} before you rely on it.")
 
 
 def portal_says(heading: str, label: str | None = None, value: str | None = None,

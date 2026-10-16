@@ -88,3 +88,25 @@ def test_dont_pay_pays_nothing(billing_replica: str) -> None:  # noqa: F811
 
     assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
     assert "task.completed" not in done.types()
+
+
+def test_a_payment_the_site_does_not_confirm_is_not_done(
+    billing_replica: str, monkeypatch,  # noqa: F811
+) -> None:
+    from dataclasses import replace
+
+    import backend.orchestrator.finish_plan as finish_plan
+
+    real = finish_plan.payment_task
+
+    def unconfirmed(reference: str):
+        task = real(reference)
+        return replace(task, confirms=replace(task.confirms, heading="Payment Settled"))
+
+    monkeypatch.setattr(finish_plan, "payment_task", unconfirmed)
+    done = go(billing_replica, a_bill(), [("choice:0", {})])
+
+    assert "task.completed" not in done.types()
+    help = done.of("help.requested")[0]
+    assert help["unconfirmed"] is True
+    assert help["reason"] == voice.not_confirmed("Confirm Payment", "site")

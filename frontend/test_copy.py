@@ -94,6 +94,7 @@ def copy() -> dict:
         f"const c = require({json.dumps(str(emitted))});"
         "process.stdout.write(JSON.stringify({"
         "situations: c.SITUATIONS, leads: c.LEADS, labels: c.LABELS, onward: c.ONWARD,"
+        "final: c.FINAL,"
         "presence: {opening: c.presence('opening'), working: c.presence('working')},"
         "levelUp: c.levelNotice(2, 3), levelDown: c.levelNotice(3, 2),"
         "levelUp2: c.levelNotice(1, 2), levelDown2: c.levelNotice(2, 1),"
@@ -640,3 +641,10 @@ def test_the_overlay_knows_which_answer_says_no() -> None:
     (2026-10-16); the overlay finds it by the backend's id."""
     shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
     assert f'export const DECLINE_ID = "{voice.DECLINE_ID}";' in shell
+
+
+def test_nothing_changed_reads_the_same_whichever_side_says_it(copy: dict) -> None:
+    """"Don't" on a final screen (2026-10-16): the overlay's own sentences on
+    the press, the backend's in `task.failed`, and they are the same."""
+    final = copy["final"]
+    assert voice.NOTHING_CHANGED == f"{final['notDone']} {final['nothingChanged']}"

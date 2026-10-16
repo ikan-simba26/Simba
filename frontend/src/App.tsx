@@ -34,7 +34,7 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
@@ -94,8 +94,10 @@ export default function App() {
 
 /** Which of the presence mark's six shapes the current screen means. */
 function usePresenceMode(): PresenceMode {
-  const { state, step, help, completed, failed, stoppedByPerson, task, asking } = useStore();
-  if (stoppedByPerson) return "ready";
+  const { state, step, help, completed, failed, stoppedByPerson, task, asking,
+          declined } = useStore();
+  // The person's own decision, carried out: calm, not stuck.
+  if (stoppedByPerson || declined) return "ready";
   if (help || failed || state === "stuck") return "stuck";
   if (completed) return "done";
   if (state === "acting") return "acting";
@@ -106,10 +108,11 @@ function usePresenceMode(): PresenceMode {
 
 function PresenceBar() {
   const { trustOpen, task, asking, reply, completed, failed, help,
-          stoppedByPerson } = useStore();
+          stoppedByPerson, declined } = useStore();
   const mode = usePresenceMode();
   // Large on the home screen, the first thing seen; small everywhere else.
-  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson;
+  const home = !task && !asking && !reply && !completed && !failed && !help && !stoppedByPerson
+    && !declined;
   // It settles into place once, when SIMBA opens (`entrance.ts`), at the
   // same moment the tiles' entrance is decided — never under reduced motion.
   const reduce = useReducedMotion() ?? false;
@@ -133,7 +136,7 @@ function PresenceBar() {
 
 function Column() {
   const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
-          asking, checklist } = useStore();
+          asking, checklist, declined } = useStore();
   // Put aside while the real page is shown: the trust panel's picture.
   const aside = trustOpen;
 
@@ -144,7 +147,9 @@ function Column() {
   // The person's own stop comes first: once they have pressed it, the
   // backend's `task.failed` that follows is the stop being carried out, not a
   // failure to show them.
-  const screen = stoppedByPerson
+  const screen = declined
+    ? "declined"
+    : stoppedByPerson
     ? "stopped"
     : stuck
     ? "stuck"
@@ -195,6 +200,7 @@ function Column() {
             {screen === "completed" && <Completed />}
             {screen === "failed" && <Failed />}
             {screen === "stopped" && <StoppedByPerson />}
+            {screen === "declined" && <NothingChanged />}
             {screen === "stuck" && <Stuck />}
           </motion.div>
         </AnimatePresence>
@@ -1276,6 +1282,30 @@ function StoppedByPerson() {
         <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
           {STOPPED.byYou}
         </h1>
+      </div>
+      <OnwardButton onClick={startOver} />
+    </div>
+  );
+}
+
+/**
+ * "Don't" on a final screen (2026-10-16): the person decided, nothing was
+ * done, and the screen says so calmly — the stop screen's quiet mark, not the
+ * warm colour of something gone wrong.
+ */
+function NothingChanged() {
+  const { startOver } = useStore();
+  return (
+    <div className="flex flex-col gap-8 short:gap-5" data-testid="nothing-changed">
+      <div className="flex flex-col items-start gap-5">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sunk
+                         text-soft" aria-hidden>
+          <CheckIcon size={34} />
+        </span>
+        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
+          {FINAL.notDone}
+        </h1>
+        <p className="text-lead text-ink">{FINAL.nothingChanged}</p>
       </div>
       <OnwardButton onClick={startOver} />
     </div>

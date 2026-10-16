@@ -28,6 +28,7 @@ import type {
 } from "@shared/schema";
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
+import { FINAL } from "./copy";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -82,6 +83,12 @@ interface Store {
    * assistant had failed.
    */
   stoppedByPerson: boolean;
+  /**
+   * The person answered "don't" on a final screen (2026-10-16): the task
+   * ends, and nothing was changed. Set on the press, like a stop, and also
+   * from the backend's own `task.failed` saying so.
+   */
+  declined: boolean;
   error: ErrorPayload | null;
   /**
    * The most recent step the run could not do and carried on past. Shown
@@ -200,6 +207,12 @@ interface Store {
  */
 const STOP_ID = "cancel";
 
+/** "Don't" on a final screen, and No to a yes-or-no question (`voice.DECLINE_ID`). */
+const DECLINE_ID = "decline";
+
+/** What the backend says when "don't" was the answer: `voice.NOTHING_CHANGED`. */
+const NOTHING_CHANGED = `${FINAL.notDone} ${FINAL.nothingChanged}`;
+
 /** How long "What are you doing?" waits for a picture before saying none
  *  came: the backend's own limit (5s) and a little more. */
 const PICTURE_WAIT_MS = 7000;
@@ -232,6 +245,7 @@ const EMPTY = {
   completed: null,
   failed: null,
   stoppedByPerson: false,
+  declined: false,
   error: null,
   stepFailure: null,
   reply: null,
@@ -410,6 +424,11 @@ export const useStore = create<Store>((set, get) => {
       if (sample) connection.sendTelemetry({ ...sample, answered: true });
       tracker.stop();
       connection.respondToStep(response);
+      if (step.final && actionId === DECLINE_ID) {
+        // "Don't" on a final screen: nothing was done, and the task ends.
+        set({ declined: true, step: null, answered: true });
+        return;
+      }
       if (actionId === STOP_ID) {
         // The backend stops on this one answer and nothing else
         // (`loop.is_answer`). Say so now; there is nothing to wait for.
@@ -531,7 +550,12 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       tracker.stop();
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
-      set({ failed: message.payload as TaskFailed, step: null });
+      set((current) => ({
+        failed: message.payload as TaskFailed, step: null,
+        // The backend's word that "don't" was the answer, even if the press
+        // itself was not seen here (2026-10-16).
+        declined: current.declined || (message.payload as TaskFailed).reason === NOTHING_CHANGED,
+      }));
       return;
     case "error": {
       const error = message.payload as ErrorPayload;

@@ -116,3 +116,27 @@ def test_a_name_that_is_not_a_name_is_asked_again(railways: str) -> None:  # noq
     asked = [p for p in done.of("step.presented") if p["instruction"] == voice.ASK_PASSENGER]
     assert len(asked) == 2 and asked[1]["note"] == voice.NAME_NOT_CAUGHT
     assert "task.completed" in done.types()
+
+
+def test_a_booking_the_site_does_not_confirm_is_not_done(
+    railways: str, monkeypatch,  # noqa: F811
+) -> None:
+    """The press lands and the page moves on, but its confirmation is not
+    the one the task waits for: never "done", and said plainly (2026-10-16)."""
+    from dataclasses import replace
+
+    import backend.orchestrator.finish_plan as finish_plan
+
+    real = finish_plan.booking_task
+
+    def unconfirmed(train: str):
+        task = real(train)
+        return replace(task, confirms=replace(task.confirms, heading="Ticket Issued"))
+
+    monkeypatch.setattr(finish_plan, "booking_task", unconfirmed)
+    done = go(railways, journey(), list(BOOK_FIRST))
+
+    assert "task.completed" not in done.types()
+    help = done.of("help.requested")[0]
+    assert help["unconfirmed"] is True
+    assert help["reason"] == voice.not_confirmed("Confirm Booking", "site")

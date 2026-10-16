@@ -4638,3 +4638,19 @@ port would be refused, and nothing else is served from this machine.
   IBAN, SWIFT or bank account in it, or an `autocomplete` of `cc-*`. The run
   ends before anything is shown or typed: "This page asks for card or bank
   details. I never type those, so I've stopped. Nothing was paid."
+
+## Honest endings for a change
+
+**Date:** 2026-10-16 (asked for; the details were not)
+
+- **"That's done." is said for a change only with the site's confirmation on
+  the page**: the loop sends `confirmation` with nothing less, and the
+  closing screen for a change (`ChangeDone`) is drawn only when it is there.
+  Without it the run ends "It isn't confirmed.", naming the site's own
+  button and who should have confirmed it ("the site", "the portal").
+- **"Don't" ends calmly**: "I didn't do it." and "Nothing was changed.", in
+  the stop screen's quiet style, with "Back to start". Shown on the press,
+  like a stop, and also when only the backend's `task.failed` says so. Its
+  words are the backend's `NOTHING_CHANGED`, held equal by a test. "Nothing
+  was changed" is true by construction: nothing that books, pays or
+  registers is done before the final screen.
