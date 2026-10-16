@@ -379,6 +379,10 @@ difference is which planner picks the next move.
 | LLM, overlay ON | 10 | 10/10 | 5 | 5 | 19.1 | 1 |
 | LLM, overlay OFF | 10 | 10/10 | 4 | 4 | 44.5 | 1 |
 
+> **Replaced 2026-10-16** by "the replica benchmarks, re-run on the current
+> flows" (2026-10-16d): the registration now asks which course on the portal
+> and registers behind a final screen.
+>
 > **Corrected 2026-09-17: the Hardcoded row's 5.9s does not reproduce.**
 > Re-run on 2026-09-17 it is **3.0s** — with today's code (3.01s mean), and
 > with this entry's own commit `3968838` checked out and run the same way
@@ -5537,3 +5541,35 @@ behaviour.
 **Not explained here:** in the first, stalled before-batch the home tile's
 press sometimes did not register and twice the checklist sat on its first
 line for over a minute at 150%. Neither recurred in the 40 after runs.
+
+## 2026-10-16d — the replica benchmarks, re-run on the current flows
+
+**Replaces the registration numbers of 2026-09-06 and 2026-09-17**
+(`hardcoded_registration_benchmark`: 10/10, 3 steps, 0 calls, 5.9s, then
+3.0s), which were measured on a fixed plan before the person's details were
+asked for, before the checklist, and before the final screen. On `feat/finish`
+at the commit after `1266c7c`, headless Chromium at 1280x800, each replica
+on its own port, hardcoded planners, **no model call in any run**; this
+machine's wall clock carries about ±2x (2026-09-17h).
+
+**Every flow as the app runs it** (`tools/evaluation/replica_flows_benchmark.py`,
+`run_brief`, the checklist on, a person's answers scripted; 10 runs each):
+
+| flow | completed | confirmed by the site | presses the person makes | checklist lines | final screens | seconds, mean (range) |
+|---|---|---|---|---|---|---|
+| register for a course (MATH-210 named) | 10/10 | 10/10 | 2 (sign in; Register) | 1 | 1 | 3.11 (2.9–3.8) |
+| look up a bill (number given) | 10/10 | — | 1 (cookies) | 1 | 0 | 3.02 (1.8–5.2) |
+| pay a bill ("pay" in the goal) | 10/10 | 10/10 | 2 (cookies; Pay it) | 2 | 1 | 3.77 (2.9–4.5) |
+| find trains (journey given) | 10/10 | — | 1 (the read-back) | 5 | 0 | 3.73 (3.5–4.1) |
+| book a train ("book" in the goal) | 10/10 | 10/10 | 5 (read-back; which train; name; class; Book it) | 7 | 1 | 4.67 (3.9–5.5) |
+
+The same answers every run, so every count is the same in all ten. A
+booking or a payment reports the steps of its own half in
+`task.completed.steps_taken` (3 and 2), not the search or the lookup before
+it; presses and checklist lines above count the whole run.
+
+**The fixed registration plan** the old row was measured on, re-run as it is
+now (`hardcoded_registration_benchmark`, every move asked, its register step
+behind the final screen): **10/10, 3 steps, 0 model calls, 3.47s mean
+(3.0–4.8)**. One more screen than before is answered — the final screen
+takes the register step's place, so the count of steps is unchanged.
