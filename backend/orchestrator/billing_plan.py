@@ -66,9 +66,11 @@ def billing_plan(reference: str) -> list[PlanStep]:
     """The billing plan for one reference number."""
     return [
         PlanStep(
-            instruction="The site is asking about cookies. I'll say yes.",
-            detail="The site is asking about cookies before anything else.",
-            actions=actions("Accept cookies"),
+            # Asked, Yes or No (2026-10-16): consent on someone else's site
+            # is the person's to give. No leaves the banner as it is.
+            instruction=voice.ASK_COOKIES,
+            detail="",
+            actions=voice.yes_or_no(),
             operations=[Operation("click", Target("button", "Accept all cookies"))],
             expect=Expectation(label_gone="Accept all cookies"),
             stage=1,

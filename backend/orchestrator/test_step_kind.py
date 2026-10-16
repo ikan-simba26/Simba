@@ -23,7 +23,7 @@ def plan_kinds(plan) -> list[str]:
 
 
 def test_the_bill_is_agree_type_read() -> None:
-    """Accept cookies, type the reference and look it up, open the full bill."""
+    """Say yes to cookies, type the reference and look it up, open the full bill."""
     assert plan_kinds(BILLING_PLAN) == ["confirm", "type", "read"]
 
 

@@ -125,7 +125,7 @@ def test_a_window_minimised_mid_step_is_waited_for_and_the_run_finishes(
     # When it came back: the one calm line, between the step that was under
     # way and the next one, and then the run carried on to the bill.
     assert instructions(sent) == [
-        "The site is asking about cookies. I'll say yes.",
+        voice.ASK_COOKIES,
         "Let me look up your bill.",
         voice.WINDOW_BACK,
         "Now I'll open the full bill.",
@@ -161,7 +161,7 @@ def test_a_hidden_window_is_waited_for_like_a_minimised_one(
     sent, acted_while = drive(billing_replica, window, monkeypatch=monkeypatch)
 
     assert "hidden" not in acted_while
-    assert instructions(sent)[:2] == ["The site is asking about cookies. I'll say yes.",
+    assert instructions(sent)[:2] == [voice.ASK_COOKIES,
                                       voice.WINDOW_BACK]
     assert "task.completed" in sent.types()
 

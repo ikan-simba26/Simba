@@ -415,6 +415,7 @@ def backend_sentences() -> dict[str, str]:
     sentences["voice.FORGOTTEN"] = voice.FORGOTTEN
     # The window put away during a task (2026-10-06).
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
+    sentences["voice.ASK_COOKIES"] = voice.ASK_COOKIES
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
@@ -483,6 +484,8 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    labels["voice.YES"] = voice.YES
+    labels["voice.NO"] = voice.NO
     for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",
                  "READ_BACK_YES", "READ_BACK_NO", "CHANGE_FROM", "CHANGE_TO", "CHANGE_DAY"):
         labels[f"voice.{name}"] = getattr(voice, name)
@@ -517,7 +520,9 @@ def test_every_step_stops_in_the_same_words() -> None:
         secondary = [a for a in actions if a.kind == "secondary"]
         assert [(a.id, a.label) for a in secondary] == [(voice.CANCEL_ID, voice.STOP)], where
         primary = [a for a in actions if a.kind == "primary"]
-        assert [a.id for a in primary] == [voice.CONFIRM_ID], where
+        # A yes-or-no question about one move (2026-10-16) also offers No.
+        assert [a.id for a in primary] in ([voice.CONFIRM_ID],
+                                           [voice.CONFIRM_ID, voice.DECLINE_ID]), where
 
 
 def test_the_backend_uses_no_word_the_reader_would_have_to_be_taught() -> None:
@@ -595,3 +600,10 @@ def test_the_overlay_knows_which_answer_keeps_the_password() -> None:
     tick, found by its id (2026-10-15). The two must agree on it."""
     shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
     assert f'export const SAVE_ID = "{voice.REMEMBER_ID}";' in shell
+
+
+def test_the_overlay_knows_which_answer_says_no() -> None:
+    """No to a yes-or-no question lays the two answers side by side
+    (2026-10-16); the overlay finds it by the backend's id."""
+    shell = (SOURCE / "components" / "StepShell.tsx").read_text(encoding="utf-8")
+    assert f'export const DECLINE_ID = "{voice.DECLINE_ID}";' in shell

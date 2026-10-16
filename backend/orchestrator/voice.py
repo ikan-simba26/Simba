@@ -55,6 +55,34 @@ def actions(label: str) -> list[StepAction]:
     ]
 
 
+# --- a yes-or-no question about one move (2026-10-16) ------------------------
+#
+# Some moves are the person's to choose and are not the task: a site asking
+# about cookies. They are asked as a question, "Shall I say yes?", with Yes
+# and No. Yes does the move; No leaves it undone and the task goes on. Never
+# "I'll say yes" with a button to agree to it.
+
+YES = "Yes"
+NO = "No"
+#: The `step.response` action id for No: the move is not done, and the task
+#: carries on. Not a way to stop.
+DECLINE_ID = "decline"
+
+
+def yes_or_no() -> list[StepAction]:
+    """Yes, No, and the one way to stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=YES, kind="primary"),
+        StepAction(id=DECLINE_ID, label=NO, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]
+
+
+#: The cookie question (2026-10-16). It used to say "I'll say yes." and offer
+#: a button to agree to that: the decision made for the person, then shown.
+ASK_COOKIES = "This site asks about cookies. Shall I say yes?"
+
+
 # --- a question, and its answers ---------------------------------------------
 #
 # When something the task needs was not said, the person is asked — one thing

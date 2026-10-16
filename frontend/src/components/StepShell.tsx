@@ -634,6 +634,10 @@ function ActionButton({
  *  shown as a box to tick rather than as a button. */
 export const SAVE_ID = "remember";
 
+/** No, to a yes-or-no question about one move (`voice.DECLINE_ID`): the move
+ *  is left undone and the task goes on. An answer, not a way to stop. */
+export const DECLINE_ID = "decline";
+
 /** Answers this long or shorter share a row; longer ones keep the column. */
 const SHORT_ANSWER = 22;
 
@@ -654,6 +658,8 @@ function answersLayout(step: StepPresented): "pair" | "row" | "column" {
   if (typed && answers.length === 1) return "pair";
   if (choices.length >= 2 && choices.length === answers.length && answers.length <= 3 &&
       answers.every((action) => action.label.length <= SHORT_ANSWER)) return "row";
+  // Yes and No about one move (2026-10-16): two answers side by side.
+  if (answers.length === 2 && answers.some((action) => action.id === DECLINE_ID)) return "row";
   return "column";
 }
 

@@ -1269,6 +1269,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
                 payload = await run.present(shown, goal=task.goal, findings=findings,
                                             view=view)
             action = payload.get("action_id")
+            if action == voice.DECLINE_ID and any(a.id == voice.DECLINE_ID
+                                                  for a in shown.actions):
+                # No, to a yes-or-no question about one move (2026-10-16):
+                # it is left undone, and the task goes on without it.
+                history.append(f"Not done, as asked: {move.instruction}")
+                continue
             if action not in (voice.CONFIRM_ID, voice.REMEMBER_ID):
                 await run.stopped()
                 return
