@@ -277,10 +277,11 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                 {"label": "Seat", "value": "Coach 3, seat 23", "values": ["Coach 3, seat 23"]},
             ],
             "scope": "I booked one seat on 7UP for you.",
-            "confirmation": ("The site says “Booking Confirmed”, with booking number "
-                             "PR-482193."),
-            "caveat": ("The site also says “No real ticket was booked and no money was "
-                       "taken”."),
+            # Said plainly, not "That's done." (2026-10-17).
+            "heading": "Booked on the practice site.",
+            "confirmation": "The site says “Booking Confirmed”.",
+            "caveat": ("Booking number PR-482193. This was a practice copy, so no real "
+                       "ticket was booked and no money was taken."),
             "proof": PROOF,
         }),
     ],
@@ -295,9 +296,9 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                 {"label": "Paid on", "value": "16 October 2026", "values": ["16 October 2026"]},
             ],
             "scope": "I paid your bill on the practice site. No card was used.",
-            "confirmation": ("The site says “Payment Received”, with receipt number "
-                             "RCPT-305114."),
-            "caveat": "The site also says “No money was taken”.",
+            "heading": "Paid on the practice site.",
+            "confirmation": "The site says “Payment Received”.",
+            "caveat": "Receipt number RCPT-305114. This was a practice copy, so no money was taken.",
             "proof": PROOF,
         }),
     ],

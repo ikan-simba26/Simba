@@ -427,6 +427,13 @@ def backend_sentences() -> dict[str, str]:
         sentences[f"voice.{name}"] = getattr(voice, name)
     sentences["voice.final_book"] = voice.final_book("7UP")
     sentences["voice.booked_scope"] = voice.booked_scope("7UP")
+    # Said plainly, not "That's done." (2026-10-17).
+    for name in ("BOOKED_PRACTICE", "PAID_PRACTICE"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["voice.practice_copy booked"] = voice.practice_copy(
+        "Booking number", "PR-482193", voice.NO_REAL_TICKET)
+    sentences["voice.practice_copy paid"] = voice.practice_copy(
+        "Receipt number", "RCPT-305114", voice.NO_REAL_MONEY)
     sentences["booking form instruction"] = voice.DOING_BOOKING_FORM + "."
     sentences["booking fill instruction"] = voice.doing_booking("AC Standard") + "."
     # Paying the bill, on our replica (2026-10-16).

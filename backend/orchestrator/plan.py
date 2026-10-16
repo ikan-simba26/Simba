@@ -292,6 +292,15 @@ class Confirmation:
     caveat_plain: str | None = None
     # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
     who: str = "portal"
+    # A change made on a practice copy, said plainly in place of "That's
+    # done." (2026-10-17): `done` heads the closing screen — "Booked on the
+    # practice site." — and under it the reference the site gave, by its own
+    # label, then `practice`, what the copy did not do: "Booking number
+    # PR-482193. This was a practice copy, so no real ticket was booked and no
+    # money was taken." Ours to say, not quoted: a change is only ever made on
+    # a replica (`loop.carry_out`). None: "That's done.", as before.
+    done: str | None = None
+    practice: str | None = None
 
 
 def course_final(course: str) -> tuple[FinalRead, ...]:

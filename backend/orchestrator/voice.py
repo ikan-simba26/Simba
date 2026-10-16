@@ -806,6 +806,13 @@ def final_book(train: str) -> str:
 def booked_scope(train: str) -> str:
     """The closing line once the site has confirmed the booking."""
     return f"I booked one seat on {train} for you."
+
+
+#: The closing screen's heading once the site has confirmed the booking, in
+#: place of "That's done." (2026-10-17).
+BOOKED_PRACTICE = "Booked on the practice site."
+#: Under it, after the booking number: what the practice copy did not do.
+NO_REAL_TICKET = "This was a practice copy, so no real ticket was booked and no money was taken."
 #: The buttons on the booking's safe moves, for a person who asked to be
 #: asked before each thing.
 OPEN_IT = "Open the form"
@@ -828,6 +835,11 @@ PAY_IT = "Pay it"
 DONT_PAY = "Don't pay"
 #: The closing line once the site has confirmed the payment.
 PAID_SCOPE = "I paid your bill on the practice site. No card was used."
+#: The closing screen's heading once the site has confirmed the payment, in
+#: place of "That's done." (2026-10-17).
+PAID_PRACTICE = "Paid on the practice site."
+#: Under it, after the receipt number: what the practice copy did not do.
+NO_REAL_MONEY = "This was a practice copy, so no money was taken."
 
 
 # --- registering, behind the same final screen (2026-10-16) -----------------
@@ -861,6 +873,16 @@ def registered(course: str) -> str:
     """Above a registration the portal confirmed, in place of "That's done."
     when the portal says it is not final."""
     return f"You're registered for {course}."
+
+
+def practice_copy(label: str | None, reference: str | None, said: str) -> str:
+    """Under a change made on a practice copy (2026-10-17): the reference the
+    site gave, by its own label, then what the copy did not do — "Booking
+    number PR-482193. This was a practice copy, so no real ticket was booked
+    and no money was taken." Without a reference, the second sentence alone."""
+    if label and reference:
+        return f"{label[0].upper()}{label[1:]} {reference}. {said}"
+    return said
 
 
 def site_qualifies(sentence: str, confirms) -> str:

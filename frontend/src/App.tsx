@@ -863,7 +863,11 @@ function ChangeDone() {
   // paid" — the screen does not say "That's done." (2026-10-16). It says what
   // the site confirmed, and, straight under it, what the site says against
   // it: "You're registered for CS-401. The portal says it isn't final until
-  // fees are paid." Both are the backend's words (`heading`, `caveat`).
+  // tuition and fees are paid, or a payment plan is in place." A booking or a
+  // payment on a practice copy is said the same way (2026-10-17): "Booked on
+  // the practice site." over "Booking number PR-482193. This was a practice
+  // copy, so no real ticket was booked and no money was taken." Both are the
+  // backend's words (`heading`, `caveat`).
   const qualified = Boolean(completed?.heading && completed?.caveat);
   return (
     <div className="flex flex-col items-start gap-5 short:gap-3" data-testid="change-done">

@@ -5700,3 +5700,19 @@ line still fits — `frontend/test_terminal_states.py`, `test_closing.py` and
 them, at the window's size at 100%, 125% and 150% with every button wholly on
 screen and nothing scrolling; the host fit test checks it in the real window
 at the end of this branch.
+
+## 2026-10-17d — a booking and a payment end in plain practice words
+
+`fix/stability`. On our copies, a confirmed booking now ends "Booked on the
+practice site." over "Booking number PR-482193. This was a practice copy, so
+no real ticket was booked and no money was taken.", and a payment "Paid on
+the practice site." over "Receipt number RCPT-305114. This was a practice
+copy, so no money was taken." — in place of "That's done." Then the site's
+own words without the number ('The site says "Booking Confirmed".'), the
+receipt by the site's labels, and the picture. Measured on the replicas in
+headless Chromium, the real loop: `test_booking.py`, `test_paying.py` and
+`test_confirmation.py`, **18 passed** — the heading, the line under it with
+the replica's own booking or receipt number, and the shortened quote checked
+on the real run; and the closing-screen tests, `test_closing.py`, `test_copy.py` and `test_terminal_states.py`, **288 passed**, the booking
+and the payment among the endings measured at the window's size at 100%,
+125% and 150%.

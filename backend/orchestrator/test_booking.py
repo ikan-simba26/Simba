@@ -96,10 +96,13 @@ def test_a_picked_train_is_booked_after_its_final_screen(railways: str) -> None:
     assert found["Train"] == "7UP"
     assert found["Date"] == voice.page_date(TOMORROW.strftime("%d-%m-%Y"))
     assert found["Seat"].startswith("Coach 3, seat ")
-    assert end["confirmation"] == (f"The site says “Booking Confirmed”, with booking "
-                                   f"number {found['Booking number']}.")
-    assert end["caveat"] == ("The site also says “No real ticket was booked and no money "
-                             "was taken”.")
+    # Said plainly, not "That's done." (2026-10-17): where, the number, and
+    # what the practice copy did not do. The site's words are still quoted,
+    # without the number said just above them.
+    assert end["heading"] == "Booked on the practice site."
+    assert end["caveat"] == (f"Booking number {found['Booking number']}. This was a practice "
+                             f"copy, so no real ticket was booked and no money was taken.")
+    assert end["confirmation"] == "The site says “Booking Confirmed”."
     assert end["scope"] == voice.booked_scope("7UP")
     assert end["proof"] and len(end["proof"]["rings"]) >= 3
 

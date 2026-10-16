@@ -4786,3 +4786,34 @@ the host's own overlay and then drives runs from another one, that host
 window counts again until the host's overlay reloads. A hidden window is
 still read as shown (the host is not told when something outside it hides
 the window); nothing in SIMBA hides it.
+
+## A booking or a payment on our copy ends in plain practice words
+
+**Date:** 2026-10-17 (asked for: replace "That's done." with plain practice
+wording, e.g. "Booked on the practice site. Booking number X. This was a
+practice copy, so no real ticket was booked and no money was taken.")
+
+**Decision.** The closing screen's heading is "Booked on the practice site."
+or "Paid on the practice site."; under it, in the place a registration's
+caveat takes, "Booking number PR-482193. This was a practice copy, so no real
+ticket was booked and no money was taken." or "Receipt number RCPT-305114.
+This was a practice copy, so no money was taken." (`Confirmation.done` and
+`.practice`, `voice.practice_copy`). Not asked for, and settled here:
+
+- **The payment's words** follow the booking's example; the payment never
+  involves a ticket, so it says only that no money was taken.
+- **The site's own words are still quoted** under it, without the number,
+  which is said just above: 'The site says "Booking Confirmed".' The receipt
+  below still lists the number under the site's own label, so it is on
+  screen twice, as it was before (it was three times with the quote).
+- **"This was a practice copy" is ours, not quoted**, and is said whether or
+  not the page says it: a change is only ever made on a replica
+  (`loop.carry_out`, the final-step rule). The page's own "No real ticket…"
+  sentence is still found and ringed on the picture, but no longer quoted on
+  the screen, where it would say the same thing twice.
+- **The registration is unchanged** ("You're registered for CS-401." and the
+  portal's caveat): it was not part of the request, though it too is made on
+  a practice copy. Flagged.
+
+**Cost.** `demo/booking.webm` still shows "That's done." until it is
+re-recorded.

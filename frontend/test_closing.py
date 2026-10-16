@@ -520,13 +520,18 @@ def test_a_registration_with_a_caveat_is_not_said_done(
     assert caveat.bounding_box()["y"] < page.get_by_test_id("confirmation").bounding_box()["y"]
 
 
-def test_a_booking_without_a_qualifying_caveat_is_still_done(
+def test_a_confirmed_change_with_no_words_of_its_own_is_still_done(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
+    """A change the site confirmed, sent with no heading of its own — a
+    backend from before 2026-10-17 — still ends "That's done.", the site's
+    caveat quoted under the receipt."""
     from frontend.test_terminal_states import TAILS
 
     script = completed(None, [])
-    script[-1] = TAILS["completed a booking"][0]
+    kind, payload = TAILS["completed a booking"][0]
+    script[-1] = (kind, {**payload, "heading": None, "caveat": (
+        "The site also says “No real ticket was booked and no money was taken”.")})
     page = end(browser, overlay, backend, script)
 
     assert page.get_by_test_id("done-heading").inner_text() == "That's done."
@@ -605,11 +610,13 @@ def test_no_picture_is_said_and_no_button_shown(
     assert page.get_by_role("button", name="See it on the real page").count() == 0
 
 
-def test_a_booking_says_done_with_the_sites_confirmation_and_receipt(
+def test_a_booking_says_where_it_was_booked_and_what_was_not(
     browser, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
-    """A change the site confirmed (2026-10-16): "That's done.", the
-    confirmation quoted, then what the site gave back by its own names."""
+    """A booking the site confirmed, said plainly (2026-10-17): "Booked on
+    the practice site.", and under it the booking number and that no real
+    ticket was booked and no money taken; then the site's own words, then
+    what it gave back by its own names."""
     from frontend.test_terminal_states import TAILS
 
     script = completed(None, [])
@@ -617,7 +624,12 @@ def test_a_booking_says_done_with_the_sites_confirmation_and_receipt(
     page = end(browser, overlay, backend, script)
 
     assert page.get_by_test_id("change-done").is_visible()
-    assert page.get_by_role("heading", level=1).inner_text() == "That's done."
+    assert "That's done." not in page.inner_text("body")
+    assert page.get_by_role("heading", level=1).inner_text() == "Booked on the practice site."
+    said = page.get_by_test_id("caveat")
+    assert said.inner_text() == ("Booking number PR-482193. This was a practice copy, so no "
+                                 "real ticket was booked and no money was taken.")
+    assert said.bounding_box()["y"] < page.get_by_test_id("confirmation").bounding_box()["y"]
     receipt = page.get_by_test_id("receipt").inner_text().split()
     assert " ".join(receipt) == ("Booking number PR-482193 Train 7UP Date 17 October 2026 "
                                  "Seat Coach 3, seat 23"), receipt

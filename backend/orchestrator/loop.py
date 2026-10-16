@@ -1659,6 +1659,20 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     # "not final until tuition and fees are paid". Only if it says it.
     caveat_said = (await site_sentence(page, task.confirms.caveat)
                    if task.confirms is not None and task.confirms.caveat else None)
+    heading = task.heading
+    caveat = (voice.site_qualifies(caveat_said, task.confirms)
+              if caveat_said and task.confirms else None)
+    # A change made on a practice copy, said plainly in place of "That's
+    # done." (2026-10-17): "Booked on the practice site.", then "Booking
+    # number PR-482193. This was a practice copy, so no real ticket was booked
+    # and no money was taken." Ours to say: a change is only ever made on a
+    # replica (above). The number is said there, so the site's own words are
+    # quoted without it.
+    if task.confirms is not None and task.confirms.done and confirmed is not None:
+        heading = task.confirms.done
+        caveat = voice.practice_copy(task.confirms.reads, confirmed[1],
+                                     task.confirms.practice or "")
+        confirmation = voice.portal_says(task.confirms.heading, who=task.confirms.who)
 
     # The proof: a still of the page as it is now, what was read ringed.
     try:
@@ -1687,11 +1701,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
-            heading=task.heading,
+            heading=heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
-            caveat=(voice.site_qualifies(caveat_said, task.confirms)
-                    if caveat_said and task.confirms else None),
+            caveat=caveat,
             proof=proof,
             proof_note=proof_note,
     )
