@@ -4507,3 +4507,45 @@ in the person's words: a model cannot ask from a page.
 - **A closing screen that does not fit gives up results until it does**,
   measured after layout, at most eight. The fixed counts stay as the first
   guess. The registration's ending puts its mark beside "That's done.".
+
+## The final-step rule replaces "never execute an irreversible action"
+
+**Date:** 2026-10-16 (asked for by Raham; **Nahail and Aly to be told**, as for
+read aloud)
+
+**Decision.** CLAUDE.md's first rule was "Never execute an irreversible
+action … Stop at the confirmation screen." It is replaced by the final-step
+rule: an action that pays, books, registers or changes a record happens only
+(a) on a replica and (b) after a dedicated final screen that says in plain
+words exactly what will happen, shows the key details (what, how much, when),
+and has two buttons, do it / don't, with no default and no timer. Live sites
+stay read-only, and SIMBA never types payment details anywhere.
+
+**How it is held** (not asked for; the details are this file's):
+- **In the loop, for every planner**, not in each plan: `loop.carry_out`
+  checks every move before acting. A move is a change if its planner marks it
+  (`Move.changes`), or — for a planner that does not mark its own, the model
+  and replay — if it presses something whose words say so (register, book,
+  pay, purchase, buy, checkout, place order, submit, confirm). The hardcoded
+  planners declare `marks_changes`, so "Book train 13UP", a link that opens a
+  form, is not taken for a booking.
+- **"A replica" is a page served from this machine** (`127.0.0.1` or
+  `localhost`). Anything else that would change something ends the run with
+  "That would book, pay or change something on the real site, and I don't do
+  that. Nothing was changed.", before anything is shown or pressed.
+- **Every detail on the final screen is read from the page** at that moment
+  (`FinalRead`); one the page does not state means no final screen and
+  nothing done. A change with nothing to read — a model's move — shows the
+  one thing that is known: the button it would press.
+- **The two answers are drawn alike**: same size, colour and weight, side by
+  side, nothing focused on arrival. "Don't" is the only way out (no "Stop
+  this"), ends the task, and says "I didn't do it. Nothing was changed."
+- **A change is never on the checklist**, even if a plan marks it safe, and
+  is tried once (since 2026-10-16).
+- **The final screen ignores the level**: every detail shows at 1, 2 and 3,
+  and the overflow guard does not act on it.
+
+**Alternatives.** Trusting each plan to put its own final screen in front of
+its change: the model plans no screens, and one forgotten plan is one real
+payment. Deciding "replica" by a list of our ports: a test replica on another
+port would be refused, and nothing else is served from this machine.

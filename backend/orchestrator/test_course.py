@@ -67,7 +67,8 @@ def test_the_step_says_which_course_it_is_about_to_book(replica: str) -> None:  
 
     last = connection.of("step.presented")[-1]
     assert COURSE in last["instruction"]
-    assert COURSE in last["actions"][0]["label"]
+    # Its final screen (2026-10-16): the course among what will happen.
+    assert any(COURSE in detail["value"] for detail in last["final"])
 
 
 def test_registering_for_another_course_fails_rather_than_completes(

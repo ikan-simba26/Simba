@@ -16,6 +16,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
+import { FinalCheck } from "./components/FinalCheck";
 import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
@@ -577,13 +578,20 @@ function Step() {
   }, [step]);
 
   // A step that will not fit drops a level instead of growing a scrollbar.
-  useOverflowGuard(measured, { level, active: Boolean(step) });
+  // Not on a final screen, which keeps its own layout at every level.
+  useOverflowGuard(measured, { level, active: Boolean(step) && !step?.final });
 
   if (!shown) return null;
 
   return (
     <div ref={measured}>
       <Card className="px-12 py-10 short:py-7">
+        {shown.final ? (
+          // The final screen before a change (2026-10-16): its own layout,
+          // whatever the level, so nothing about what will happen folds away.
+          <FinalCheck step={shown} answered={answered || !step}
+                      onAction={(actionId) => respond(actionId, values)} />
+        ) : (
         <StepView
           level={level}
           step={shown}
@@ -596,6 +604,7 @@ function Step() {
           }
           onAction={(actionId) => respond(actionId, values)}
         />
+        )}
       </Card>
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field

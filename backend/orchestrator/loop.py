@@ -19,6 +19,7 @@ passes none — most tests — never sends `load.updated` at all.
 import asyncio
 import base64
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -37,6 +38,7 @@ from backend.orchestrator.plan import (
     Confirmation,
     Expectation,
     FieldValue,
+    FinalRead,
     Operation,
     Target,
     part_of,
@@ -52,6 +54,7 @@ from backend.perception.serializer import (
 from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
+    Detail,
     HelpRequested,
     Highlight,
     PagePreview,
@@ -488,8 +491,95 @@ class Move:
     doing: str | None = None
     # What was wrong with the last answer, beside a question asked again.
     note: str | None = None
-    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once.
+    # Changes a record (`PlanStep.changes`, 2026-10-16): tried once, only on a
+    # replica, and only after its final screen (`final`, the details it shows
+    # as the page states them; `final_answers`, its two answers' words).
     changes: bool = False
+    final: tuple[FinalRead, ...] = ()
+    final_answers: tuple[str, str] | None = None
+
+
+# --- the final step (2026-10-16) ---------------------------------------------
+#
+# CLAUDE.md, the final-step rule: an action that pays, books, registers or
+# changes a record happens only on a replica, and only after a final screen
+# that says what will happen, shows what, how much and when as the page
+# states them, and has two answers, neither the default. Enforced here, for
+# every planner, rather than trusted to each one.
+
+#: Where our replicas are served from: this machine, and nowhere else.
+REPLICA_HOSTS = ("127.0.0.1", "localhost")
+
+#: A button or link whose words say it would make a change: for a planner
+#: that does not mark its own changes (the model, replay). Matched on whole
+#: words, ignoring case.
+CHANGE_WORDS = re.compile(
+    r"\b(register|enrol|enroll|book|reserve|pay|purchase|buy|checkout|check out|"
+    r"place order|submit|confirm)\b", re.IGNORECASE)
+
+
+def on_replica(url: str) -> bool:
+    """Whether a page is one of our replicas: served from this machine."""
+    from urllib.parse import urlparse
+
+    return (urlparse(url).hostname or "") in REPLICA_HOSTS
+
+
+def would_change(move: "Move", planner: object) -> bool:
+    """Whether a move books, pays, registers or changes a record: marked so
+    by a planner that marks its own, or, for one that does not, a press whose
+    words say so."""
+    if move.changes:
+        return True
+    if getattr(planner, "marks_changes", False) or move.question:
+        return False
+    return any(operation.kind == "click" and CHANGE_WORDS.search(operation.target.label or "")
+               for operation in move.operations)
+
+
+def pressed(move: "Move") -> str:
+    """The site's own words on what a move presses: "Confirm Booking"."""
+    return next((o.target.label for o in move.operations if o.kind == "click"
+                 and o.target.label), move.instruction)
+
+
+def read_final(content: Content, read: FinalRead) -> str | None:
+    """One final-screen detail, as the page states it now, or None."""
+    if read.fixed is not None:
+        return read.fixed
+    if read.row:
+        value = None
+        for table in content.tables:
+            for row in table.rows:
+                if all(row.get(header) == wanted for header, wanted in read.row):
+                    value = row.get(read.reads)
+                    break
+            if value:
+                break
+    else:
+        value = content.value_for(read.reads)
+    if not value or not value.strip():
+        return None
+    return read.plain(value.strip()) if read.plain else value.strip()
+
+
+def final_screen(move: "Move", content: Content) -> "tuple[Move, list[Detail]] | None":
+    """The final screen for a move that changes something: its sentence, its
+    details read from the page, and its two answers. None when the page does
+    not state a detail the screen has to show: then nothing is done."""
+    label = pressed(move)
+    reads = move.final or (FinalRead(voice.WHAT_I_PRESS, fixed=label),)
+    details: list[Detail] = []
+    for read in reads:
+        value = read_final(content, read)
+        if value is None:
+            return None
+        details.append(Detail(label=read.name, value=value))
+    instruction = move.instruction if move.final else voice.final_press(label)
+    answers = voice.final_actions(*(move.final_answers or ()))
+    shown = replace(move, instruction=instruction, detail=voice.FINAL_WAITS, fields=[],
+                    actions=answers, changes=True, safe=False, kind="confirm")
+    return shown, details
 
 
 class Planner(Protocol):
@@ -955,6 +1045,7 @@ class _Run:
 
     async def present(
         self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
+        final: list[Detail] | None = None,
     ) -> dict:
         """Put a step or a question on screen and wait for the person.
 
@@ -1000,6 +1091,7 @@ class _Run:
                 step_kind=kind_of(move),
                 stage=move.stage,
                 note=move.note,
+                final=final,
             ),
         )
 
@@ -1241,10 +1333,37 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
 
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
+
+        # The final step (2026-10-16): a move that books, pays, registers or
+        # changes a record is done only on a replica, and only after its
+        # final screen is answered "do it". Whichever planner asked.
+        if would_change(move, planner):
+            if not on_replica(page.url):
+                await give_up(voice.NOT_ON_A_REAL_SITE)
+                return
+            screen = final_screen(move, before.content)
+            if screen is None:
+                await give_up(voice.NO_FINAL_SCREEN)
+                return
+            move, details = screen
+            steps_taken += 1
+            payload = await run.present(move, goal=task.goal, findings=findings, view=view,
+                                        final=details)
+            action = payload.get("action_id")
+            if action == voice.DECLINE_ID:
+                # "Don't": the task ends, and nothing was changed.
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.NOTHING_CHANGED, recoverable=True))
+                return
+            if action != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+
         # The checklist: a safe move, run without a press (2026-10-14). Pause
         # is looked for first, so a press lands before the next move rather
-        # than after it.
-        by_itself = run.auto and move.safe and not move.quiet and not ask_next
+        # than after it. Never a move that changes something.
+        by_itself = (run.auto and move.safe and not move.quiet and not ask_next
+                     and not move.changes)
         if by_itself and await run.pause_pressed():
             paused = Move(instruction=voice.PAUSED, detail="", operations=[],
                           expect=Expectation(), fields=[],
@@ -1259,6 +1378,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             # What the planner expects to do by itself next, if it knows.
             ahead = getattr(planner, "coming", None)
             await run.tick(move, findings=findings, coming=ahead() if ahead else [])
+        elif move.changes:
+            pass  # asked above, on its final screen
         elif not move.quiet:
             steps_taken += 1
             # A step that asks for a password uses the saved one if there is
@@ -1321,8 +1442,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
             return
 
         if failure is not None and move.changes:
-            # Not done, and not "stuck": tried, and not confirmed. Said so.
-            label = move.actions[0].label if move.actions else move.instruction
+            # Not done, and not "stuck": tried, and not confirmed. Said so,
+            # naming the site's own button, not the final screen's answer.
+            label = pressed(move)
             await give_up(voice.not_confirmed(label), unconfirmed=True)
             return
 
@@ -1404,8 +1526,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task) -> None:
         headings = [h.text for h in final.content.headings]
         if not any(task.confirms.heading in text for text in headings):
             changed = next((m for m in reversed(completed) if m.changes), None)
-            label = (changed.actions[0].label if changed and changed.actions
-                     else task.confirms.heading)
+            label = pressed(changed) if changed else task.confirms.heading
             await give_up(voice.not_confirmed(label), unconfirmed=True)
             return
         reference = (final.content.value_for(task.confirms.reads)

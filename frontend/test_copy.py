@@ -416,6 +416,10 @@ def backend_sentences() -> dict[str, str]:
     # The window put away during a task (2026-10-06).
     sentences["voice.WINDOW_BACK"] = voice.WINDOW_BACK
     sentences["voice.ASK_COOKIES"] = voice.ASK_COOKIES
+    # The final step (2026-10-16).
+    for name in ("FINAL_WAITS", "NOTHING_CHANGED", "NOT_ON_A_REAL_SITE", "NO_FINAL_SCREEN"):
+        sentences[f"voice.{name}"] = getattr(voice, name)
+    sentences["voice.final_press"] = voice.final_press("Register for CS-401")
     # Every question a journey asks, and every way an answer is asked again
     # (2026-10-06). The questions predate this, and nothing held them before.
     for name in ("ASK_FROM", "ASK_TO", "ASK_DAY", "ASK_WHICH_DAY", "ASK_TRAVEL_DAY",
@@ -484,6 +488,9 @@ def backend_labels() -> dict[str, str]:
     labels["voice.remember(Sign in)"] = voice.remember("Sign in")
     labels["voice.remember(GO_AHEAD)"] = voice.remember(voice.GO_AHEAD)
     labels["voice.CARRY_ON"] = voice.CARRY_ON
+    labels["voice.DO_IT"] = voice.DO_IT
+    labels["voice.DONT_DO_IT"] = voice.DONT_DO_IT
+    labels["voice.WHAT_I_PRESS"] = voice.WHAT_I_PRESS
     labels["voice.YES"] = voice.YES
     labels["voice.NO"] = voice.NO
     for name in ("USE_STATION", "USE_DAY", "USE_NUMBER", "USE_COURSE", "DAY_TODAY", "DAY_TOMORROW", "DAY_PICK", "NONE_OF_THESE",

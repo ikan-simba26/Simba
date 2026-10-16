@@ -225,6 +225,24 @@ class Expectation:
 
 
 @dataclass(frozen=True)
+class FinalRead:
+    """One detail on a final screen (2026-10-16): its name for the person,
+    and where the page states it — the value beside the page's own label
+    `reads`, or, in a table of many rows, the cell under `reads` in the row
+    whose cells match `row` ((header, value) pairs). Read at the moment the
+    final screen goes up; a detail the page does not state means no final
+    screen and nothing done. `plain` says it in plain words, as `Answer.plain`
+    does. `fixed` is a detail known without reading — the label of the button
+    a model-planned move would press — and is shown as it is."""
+
+    name: str
+    reads: str = ""
+    plain: Callable[[str], str] | None = None
+    row: tuple[tuple[str, str], ...] = ()
+    fixed: str | None = None
+
+
+@dataclass(frozen=True)
 class PlanStep:
     instruction: str
     detail: str
@@ -244,6 +262,12 @@ class PlanStep:
     # never retried a second way — a second press could make the change twice
     # — and "done" only once the site's confirmation is on the page.
     changes: bool = False
+    # What its final screen shows (2026-10-16): only for a step that
+    # `changes`, which is never acted on without one (CLAUDE.md, the final-step
+    # rule). Empty: the final screen names the button it would press.
+    final: tuple[FinalRead, ...] = ()
+    # The final screen's two answers, when the step names them: do it, don't.
+    final_answers: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -320,6 +344,8 @@ REGISTRATION_PLAN: list[PlanStep] = [
         actions=actions("Register for CS-401"),
         operations=[Operation("click", Target("button", "Register for CS-401"))],
         expect=Expectation(url_contains="/register", title_contains="Registration Confirmed"),
+        # Registers (2026-10-16): behind a final screen, like every change.
+        changes=True,
     ),
 ]
 
@@ -347,6 +373,7 @@ class CoursePlanner:
 
     calls_made = 0
     stuck_reason: str | None = None
+    marks_changes = True
 
     def __init__(self, course: str | None) -> None:
         #: What the person named, if anything, as they wrote it.
@@ -383,7 +410,8 @@ class CoursePlanner:
             [step] = registration_plan(self.chosen)[len(SIGN_IN_AND_CLEAR):]
             return Move(instruction=step.instruction, detail=step.detail,
                         operations=step.operations, expect=step.expect, fields=step.fields,
-                        actions=step.actions, stage=step.stage, changes=step.changes)
+                        actions=step.actions, stage=step.stage, changes=step.changes,
+                        final=step.final, final_answers=step.final_answers)
         return None
 
     def _question(self, Move):
@@ -430,6 +458,9 @@ class HardcodedPlanner:
 
     calls_made = 0
     stuck_reason: str | None = None
+    #: Its plans say which steps change something (`PlanStep.changes`), so
+    #: the loop does not guess from a button's words (2026-10-16).
+    marks_changes = True
 
     def __init__(self, steps: list[PlanStep]) -> None:
         self._steps = list(steps)
@@ -464,4 +495,6 @@ class HardcodedPlanner:
             safe=step.safe,
             doing=step.doing,
             changes=step.changes,
+            final=step.final,
+            final_answers=step.final_answers,
         )

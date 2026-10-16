@@ -128,6 +128,12 @@ export interface StepAction {
   kind: ActionKind;
 }
 
+/** One thing a final screen shows, by name, as the page states it (2026-10-16). */
+export interface Detail {
+  label: string;
+  value: string;
+}
+
 export interface StepPresented {
   step_index: number;
   step_total: number;
@@ -157,6 +163,13 @@ export interface StepPresented {
    * nothing more it knows of.
    */
   coming?: string[];
+  /**
+   * Additive and optional (2026-10-16). The final screen before a move that
+   * books, pays, registers or changes a record: the key details of what will
+   * happen, read from the page. Exactly two actions, do it (`"confirm"`) and
+   * don't (`"decline"`), neither the default. Absent: an ordinary step.
+   */
+  final?: Detail[];
 }
 
 /**

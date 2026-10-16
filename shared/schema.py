@@ -148,6 +148,14 @@ class StepAction(BaseModel):
     kind: ActionKind
 
 
+class Detail(BaseModel):
+    """One thing a final screen shows, by name, as the page states it
+    (2026-10-16): `{"label": "Fare", "value": "Rs 3,250"}`."""
+
+    label: str
+    value: str
+
+
 class StepPresented(BaseModel):
     step_index: int
     step_total: int
@@ -175,6 +183,13 @@ class StepPresented(BaseModel):
     # after this one, in order, so the person can see what is next. Empty:
     # nothing more it knows of, or not a checklist line.
     coming: List[str] = []
+    # Additive and optional (2026-10-16). Set on the final screen before a
+    # move that books, pays, registers or changes a record: the key details
+    # of what will happen, read from the page at that moment. The instruction
+    # says it in plain words; the actions are exactly two, do it
+    # (`"confirm"`) and don't (`"decline"`), neither the default. Absent: an
+    # ordinary step.
+    final: Optional[List[Detail]] = None
 
 
 class StepFailed(BaseModel):

@@ -713,3 +713,45 @@ def describe(kind: str, label: str) -> str:
     if kind == "select":
         return f"Choose an option in {label}."
     return f"Click {label}."
+
+
+# --- the final step (2026-10-16) ---------------------------------------------
+#
+# A move that books, pays, registers or changes a record happens only on a
+# replica, and only after a final screen: what will happen in plain words,
+# what, how much and when as the page states them, and two answers, neither
+# the default (CLAUDE.md, the final-step rule).
+
+#: Under every final screen's sentence: nothing moves on by itself.
+FINAL_WAITS = "Nothing happens until you choose."
+#: `task.failed.reason` when the person chose "don't" on a final screen.
+NOTHING_CHANGED = "I didn't do it. Nothing was changed."
+#: The two answers of a final screen that names no others.
+DO_IT = "Do it"
+DONT_DO_IT = "Don't do it"
+#: The one detail a final screen can show when the page states none: the
+#: button it would press.
+WHAT_I_PRESS = "What I'll press"
+
+
+def final_actions(do: str = DO_IT, dont: str = DONT_DO_IT) -> list[StepAction]:
+    """The final screen's two answers and nothing else: no default between
+    them, and no third way to stop, because "don't" is it."""
+    return [
+        StepAction(id=CONFIRM_ID, label=do, kind="primary"),
+        StepAction(id=DECLINE_ID, label=dont, kind="primary"),
+    ]
+
+
+def final_press(label: str) -> str:
+    """A final screen with nothing read from the page: what will be pressed."""
+    return f"I'll press “{label}” on the site. This makes a change there."
+
+
+#: `help.requested.reason` when a move that would book, pay or change
+#: something comes up on a site that is not one of ours. Never done.
+NOT_ON_A_REAL_SITE = ("That would book, pay or change something on the real site, and I "
+                      "don't do that. Nothing was changed.")
+#: When the page does not state what its final screen has to show.
+NO_FINAL_SCREEN = ("I couldn't read from the page exactly what would happen, so I haven't "
+                   "done it. Nothing was changed.")
