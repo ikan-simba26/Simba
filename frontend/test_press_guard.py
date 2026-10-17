@@ -17,6 +17,7 @@ from collections.abc import Iterator
 
 import pytest
 from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from frontend.test_terminal_states import AWAIT_RESPONSE, Backend, overlay  # noqa: F401
 
@@ -58,6 +59,7 @@ def start(page: Page, overlay: str, backend: Backend, script) -> None:  # noqa: 
     page.wait_for_timeout(700)
     page.fill("input[aria-label='What would you like me to do?']", GOAL)
     page.get_by_role("button", name="Start", exact=True).click()
+
 
 
 def answers(backend: Backend) -> list[str]:
@@ -113,7 +115,14 @@ def test_a_screen_on_its_way_out_takes_no_presses_and_keeps_its_own_step(
         }).observe(document.body, {subtree: true, childList: true, attributes: true});
     }""")
     page.get_by_role("button", name="Tomorrow").click()
-    page.wait_for_function("() => window.__leaving !== null", timeout=5000)
+    try:
+        page.wait_for_function("() => window.__leaving !== null", timeout=5000)
+    except PlaywrightTimeoutError:
+        # Said, not just timed out (2026-10-17): it failed this way on a
+        # fresh clone, and the press log is what tells why.
+        pytest.fail(f"no screen left after the press. Presses: "
+                    f"{page.evaluate('window.__simbaPresses')}; the backend received: "
+                    f"{backend.responses}")
     leaving = page.evaluate("window.__leaving")
     assert leaving["events"] == "none"
     # Its own question, not the arriving one.
@@ -156,3 +165,39 @@ def test_a_press_where_another_button_just_was_is_ignored(
     page.mouse.click(200, 430)
     page.wait_for_timeout(200)
     assert page.evaluate("window.__pressed") == ["Stop this"]
+
+
+def test_a_button_that_eased_to_rest_takes_a_press_with_its_own_nudge(
+    page: Page, overlay: str  # noqa: F811
+) -> None:
+    """A button easing in is counted as moving until its last 2px. Until
+    2026-10-17 the guard kept the place it was last counted at, so once it
+    came to rest that gap plus a press's own 1px nudge (`active:translate-y-px`)
+    came to 3px — and a press seconds later was read as a move made that
+    instant and ignored. Found on a fresh clone's suite: "Tomorrow" ignored
+    2.1s after it arrived, in about one run in two; the likeliest cause of the
+    tile press that did not register at 150% (2026-10-17)."""
+    page.goto(overlay)
+    page.wait_for_timeout(700)
+    page.evaluate("""() => {
+        window.__pressed = [];
+        const b = document.createElement('button');
+        b.textContent = 'Eased';
+        Object.assign(b.style, {position: 'fixed', left: '100px', top: '400px',
+                                width: '200px', height: '60px', zIndex: 50});
+        b.onclick = () => window.__pressed.push('Eased');
+        document.body.appendChild(b);
+        window.__eased = b;
+    }""")
+    page.wait_for_timeout(900)
+    page.evaluate("() => { window.__eased.style.top = '403px'; }")  # a move
+    page.wait_for_timeout(100)
+    page.evaluate("() => { window.__eased.style.top = '405px'; }")  # its last 2px
+    page.wait_for_timeout(900)  # at rest, long past the guard's 500ms
+    page.evaluate("() => { window.__eased.style.top = '406px'; }")  # the press's nudge
+    page.mouse.click(200, 436)
+    page.wait_for_timeout(200)
+
+    assert page.evaluate("window.__pressed") == ["Eased"]
+    log = page.evaluate("window.__simbaPresses")
+    assert log[-1]["label"] == "Eased" and log[-1]["ignored"] is False

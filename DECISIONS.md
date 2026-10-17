@@ -4969,3 +4969,20 @@ branch, so the deletion is local only. The commits stay reachable from this
 machine's reflog for a while by that hash.
 
 **Cost.** Those three scripts' numbers cannot be re-run from `main`.
+
+## The press guard takes a button's resting place as its place
+
+**Date:** 2026-10-17 (not asked for; found by the fresh clone's suite)
+
+**Decision.** When nothing on the overlay is moving any more, the guard sets
+each button's reference place (`key`) to where it actually stopped
+(`exact`), keeping the time of its last move. Before, a button that eased
+in kept the place it was last counted at, up to 2px short, and a press with
+its own 1px nudge read as a fresh 3px move and was ignored.
+
+**Alternatives.** Allow 3px instead of 2: hides this case, and lets a
+slightly larger real move through. Follow `exact` on every frame: a slow
+crawl of 1px a frame would never count as moving.
+
+**Cost.** None found; a button still moving is not at rest, so a move made
+after rest still counts from where it stopped.
