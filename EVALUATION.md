@@ -5878,3 +5878,35 @@ host's log said nothing was wrong: no renderer gone, no window closed.
 connection of its own. Every one of the 20 runs after it saved the overlay's
 picture and finished. If a capture ever fails now, the test fails at once
 and says where, rather than sitting for 22 minutes.
+
+**Addendum, the same day: the battery, after all.** The final backend half on
+this branch, run later with the laptop **on mains** and about the same free
+memory (1294 MB, printed by the new header), took **879s** for 901 tests —
+against 1435s and 1537s on battery that morning for 886 and 899. Same
+machine, same memory pressure, more tests, 40% less time. So memory was not
+the cause, and power was: the under-load reading above (143–189% of rated
+speed) was a one-second sample, which catches a burst of turbo and not the
+speed the processor can hold on battery. The suite's 12-to-25-minute jump on
+2026-10-16 matches the laptop going on battery that afternoon; that it did
+then is inferred, not recorded — which is what the new header is for.
+
+## 2026-10-17i — the suite, before merging `fix/stability`
+
+**Backend half: 901 passed, 9 skipped, 0 failed, 879s** (on mains).
+**Frontend half: 527 passed, 3 skipped, 0 failed, 1059s.**
+**Host window fit (`SIMBA_HOST_TESTS=1`): 3 passed** — 100%, 125%, 150%, 396s.
+In all, **1428 passed, 12 skipped, 0 failed**; the 12 skips as before.
+
+The frontend half failed twice before that: the two press-guard tests (both
+runs) and once a level test. All three passed alone, and the press-guard pair
+failed the same way on `main` (`1a3579a`) when run after
+`test_overflow_guard.py` and `test_levels.py` — an order effect that was
+already there, not this branch's doing. Each assumed Playwright acts within a
+fixed time: the "just arrived" test that its click lands inside the guard's
+500ms; the "on its way out" test that it can catch a screen that lives only
+for its exit; the level test that the level is back within 800ms. With
+earlier modules' servers still running in the process, none of those held.
+Now the first widens the guard's window to 3s after Start, the second has the
+page record the leaving screen the moment it is marked, and the third waits
+up to 5s for the level. The pair then passed 3 of 3 in the order that failed,
+and the whole half passed.
