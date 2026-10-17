@@ -155,6 +155,38 @@ def test_change_my_settings_opens_it_again_with_the_answers_marked(
     assert saved(page)["askEach"] is True
 
 
+DRAWN_INSIDE = """() => [...document.querySelectorAll('[data-testid=welcome-level]')]
+  .map(card => {
+    const c = card.getBoundingClientRect();
+    const step = card.querySelector('[data-testid=step-shell]').getBoundingClientRect();
+    const frame = card.querySelector('[data-testid=welcome-example]').getBoundingClientRect();
+    return {level: card.dataset.level,
+            frameInCard: frame.left >= c.left - 1 && frame.right <= c.right + 1,
+            stepNarrower: step.width < c.width,
+            scale: step.width / 880};
+  })"""
+
+
+@pytest.mark.parametrize("size", list(SIZES))
+def test_each_example_is_drawn_small_inside_its_own_card(
+    size: str, browser, overlay: str, history: History, pages: list  # noqa: F811
+) -> None:
+    """Seen in the real window on 2026-10-18: each example drawn larger than
+    life across its neighbours, because its frame grew to the example's width.
+    Nothing else here measured the examples themselves."""
+    page = first_open(browser, overlay, history.port, pages, size)
+    page.get_by_test_id("welcome-skip").click()
+    page.get_by_test_id("welcome-level").first.wait_for()
+    page.wait_for_timeout(600)
+
+    drawn = page.evaluate(DRAWN_INSIDE)
+
+    assert [d["level"] for d in drawn] == ["1", "2", "3"]
+    for example in drawn:
+        assert example["frameInCard"] and example["stepNarrower"], (size, drawn)
+        assert 0.2 < example["scale"] < 0.6, (size, drawn)
+
+
 FITS = """() => {
   const scrolls = document.scrollingElement.scrollHeight > innerHeight;
   const off = [...document.querySelectorAll('[data-testid=welcome] button')]

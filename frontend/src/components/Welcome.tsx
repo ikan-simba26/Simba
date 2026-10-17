@@ -211,7 +211,7 @@ function LevelQuestion({ chosen, onPick, onSkip }: {
           <button key={level} type="button" onClick={() => onPick(level)}
                   aria-pressed={chosen === level} data-testid="welcome-level"
                   data-level={level}
-                  className={`flex flex-col gap-3 rounded-xl border bg-surface p-3 text-left
+                  className={`flex min-w-0 flex-col gap-3 rounded-xl border bg-surface p-3 text-left
                               shadow-card transition-[box-shadow,border-color] duration-200
                               hover:border-accent/50 hover:shadow-lift active:translate-y-px
                               short:gap-2 short:p-2 ${chosen === level
@@ -244,9 +244,16 @@ function Example({ level }: { level: Level }) {
     return () => observer.disconnect();
   }, []);
   return (
-    <div ref={frame} aria-hidden
-         className="pointer-events-none h-56 overflow-hidden rounded-lg bg-canvas short:h-36">
-      <div style={{ width: EXAMPLE_WIDTH, transform: `scale(${scale})`,
+    // The frame takes the card's width; the example is laid out inside it,
+    // out of the flow, so its own width cannot widen the frame. Until
+    // 2026-10-18 it was in the flow: the frame grew to the example's width,
+    // measured itself at more than the example, and drew it larger than life
+    // across its neighbours — seen in the real window.
+    <div ref={frame} aria-hidden data-testid="welcome-example"
+         className="pointer-events-none relative h-56 w-full min-w-0 overflow-hidden rounded-lg
+                    bg-canvas short:h-36">
+      <div className="absolute top-0 left-0"
+           style={{ width: EXAMPLE_WIDTH, transform: `scale(${scale})`,
                     transformOrigin: "top left", padding: "40px 48px" }}>
         <StepShell step={SAMPLE} values={{}} onChange={() => undefined}
                    onAction={() => undefined} waiting answered={false} level={level} />

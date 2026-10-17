@@ -6101,3 +6101,20 @@ the offer to keep among them; the sign-in screen.
 
 **The suite, on mains: 1500 passed, 12 skipped, 0 failed** — backend 928 in
 859s, frontend 572 in 1190s, as two halves.
+
+## 2026-10-18f — the welcome's examples, drawn larger than life
+
+Seen by Raham in the real window at 150%, and in the 100% picture already
+copied for review without being looked at: each of the three examples was
+drawn at more than full size, across its neighbours. Each example's frame
+took its width from the example inside it, laid out at the column's 880px,
+so it measured itself at about 976px and drew the example at 1.1 instead of
+about 0.45. The tests passed — they checked that nothing scrolled and that the
+welcome's own buttons were in the window, and the examples' overflow was
+hidden; and the headless pictures looked at earlier were taken before the
+examples' width was changed to the column's. Now the frame takes the card's
+width and the example sits inside it out of the flow. A new test,
+`test_each_example_is_drawn_small_inside_its_own_card`, fails on the old
+component at all four sizes and passes on the new (the welcome's tests: **12
+passed**); the real host at forced 150% shows the three side by side, each in
+its card.
