@@ -11,7 +11,11 @@ stages, the new home screen and colours, the review fixes), merged into
 `main` that day. Brought up to date again on 2026-10-17 for the
 final-step rule: booking, paying and registering on our replicas behind a
 final screen, the offer as a quiet button, the press guard, and what Nahail
-and Aly must agree (below). Section 9 is still the 2026-09-17 capture, and says so.
+and Aly must agree (below). And once more on 2026-10-17 for `fix/stability`:
+the 100% picture fixed (`browser.capture_site`), the false window pause, the
+practice-copy endings, the full registration caveat, an offer that closes
+after ten minutes, the backend's run log (`logs/backend.log`), the host fit
+test's hang, and README checked against a fresh clone — STATUS.md has each. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -176,7 +180,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-10-15: **1209 passed, 12 skipped, 0 failed** (backend 833 in 752s, frontend 376 in 790s, as two halves). The 12 skips are
+The full suite was last run on 2026-10-17: **1428 passed, 12 skipped, 0 failed** (backend 901 in 879s, frontend 527 in 1059s, as two halves), and the host fit test 3/3. The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, last run separately on
@@ -246,7 +250,7 @@ interactive elements, and the readable content.
 | Three detail levels that fold into each other; level 3 is never the tallest | `test_levels.py` measures rendered heights (tests whatever is in `frontend/dist/`) |
 | The level adapts in a real run, by provisional rules: a heavy page starts simpler, hesitation folds the step, calm steps bring it back, a lock holds | `backend/estimator/rules.py`; live on billing (EVALUATION.md, 2026-09-25) |
 | Every word the overlay writes is in one file, `copy.ts`, and the backend's words obey the same rules | `test_copy.py`; 8 deliberate breakages tried on 2026-09-17, all caught |
-| "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test. At 100% the capture behind it succeeds about half the time (EVALUATION.md, 2026-09-27) |
+| "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test. The capture behind it is 20/20 at 100%, 110%, 125% and 150% since 2026-10-17 (`browser.capture_site`; it was about half at 100%) |
 | Telemetry — hesitation, pointer path, backtracks, re-reads, help presses — sent on every answer and on a 3s timer | `frontend/src/telemetry.ts`, `test_telemetry.py`; no keystrokes, field values or coordinates leave the window |
 
 ### Estimator — `backend/estimator/` (Nahail)
@@ -394,9 +398,17 @@ The variables are `SIMBA_LLM_PROVIDER` (`anthropic` or `openai`),
 ### Mode 1 — the tests
 
 ```powershell
-backend\venv\Scripts\python -m pytest                     # everything; ~25 minutes
-backend\venv\Scripts\python -m pytest frontend\test_copy.py   # one file
+backend\venv\Scripts\python -m pytest backend tools test_basetemp.py   # the backend half
+backend\venv\Scripts\python -m pytest frontend                         # the frontend half
+backend\venv\Scripts\python -m pytest frontend\test_copy.py            # one file
 ```
+
+Two halves, never one `python -m pytest` over everything: two test files are
+both called `test_checklist.py`, and a single run stops at collection
+(checked on a fresh clone, 2026-10-17). Each half takes 20–25 minutes here;
+the first lines of a run say whether the machine was on battery and how much
+memory was free, because the same commit has taken 805s one day and 1435s
+the next.
 
 The tests start the replicas they need. Two groups skip unless asked for:
 
@@ -638,7 +650,6 @@ blocked on quota, days after the quota had reset.
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
 | **Benchmarks re-run on current perception** | Runs | Every model-behaviour figure predates the perception work it would now measure |
 | **A durability check that tells reformatting from undoing, on undeclared fields** | A design choice — Raham's | Declared fields were fixed on 2026-09-17. Undeclared fields still false-stop, and that is where the LLM planner works |
-| **"What are you doing?" at 100%** | A fix to the site-view capture | It succeeds about half the time on a 100% screen; a page that repaints every frame captures 20/20. `feat/orchestrator-preview-capture` keeps the view repainting and is deliberately unmerged until measured (EVALUATION.md, 2026-09-27) |
 | **Trace memory against a real model** | One run with `SIMBA_TRACE_MEMORY=1` | Replay itself is tested |
 | **The demo clips on a fresh clone** | Recording, on a machine with the stack up | Re-recorded 2026-10-05 on our copy and showing the current closing screen, but not committed, so a fresh clone has none. Do not minimise the SIMBA window while recording |
 
@@ -715,6 +726,16 @@ options and a recommendation; this is the list.
 14. **When to allow continuing past a disappearing value again.** Reverted
     because it produced a wrong answer; the stated condition for revisiting is
     a success check that can catch a wrong answer, and that is not yet met.
+14b. **How long a run waits on its closing screen's offer** (2026-10-17):
+    ten minutes, then it closes and the offer goes (`loop.OFFER_IDLE_S`).
+    Chosen without anyone using it; a person who decides later has to search
+    again.
+14c. **A registration is also made on a practice copy**, but its ending
+    does not say so the way a booking's and a payment's now do (2026-10-17).
+    Say it the same way?
+14d. **The host's window counts only for a task started in it**
+    (`window.__simbaStarted`, 2026-10-17), and a window hidden by something
+    else is never noticed. Nothing in SIMBA hides it today.
 
 **The contract**
 

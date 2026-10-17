@@ -110,9 +110,11 @@ def power() -> dict[str, Any]:
 
     Added 2026-10-17: the backend suite took 805s on a commit on 2026-10-16
     and 1435s on the same commit a day later, and nothing recorded what the
-    machine was doing either time. That day it was on battery with 1.2 GB of
-    7.9 GB free; under load its processor still ran above rated speed, so the
-    battery alone did not explain it. Every wall clock depends on these."""
+    machine was doing either time. It was the battery: the same day, with the
+    same free memory, the backend half took 1537s on battery and 879s on
+    mains (EVALUATION.md, 2026-10-17e). The processor speed here is a
+    one-second sample, which can catch a burst of turbo; the power source is
+    the line to read. Every wall clock depends on these."""
     found: dict[str, Any] = {"on_battery": None, "charge_percent": None,
                              "cpu_performance_percent": None, "free_memory_mb": None}
     if platform.system() != "Windows":
