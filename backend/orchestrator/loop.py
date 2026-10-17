@@ -1310,14 +1310,23 @@ class LeftTheAnswer(Exception):
     """The person went on from the closing screen without the follow-on."""
 
 
+#: How long a run waits on its closing screen's offer before it closes itself
+#: (2026-10-17). Until then it waited for as long as the connection lasted.
+#: Ten minutes is long enough to read an answer and decide; the overlay takes
+#: the offer away when the run has gone (`App.tsx`), and "Back to start" works
+#: as before.
+OFFER_IDLE_S = 600.0
+
+
 async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -> None:
     """The answer, and the job finished if the person asks for it.
 
     Asked for in the goal: straight on, no closing screen between. Otherwise
     the closing screen as always, with one more, quieter button; the run
     waits for it until the person presses it, goes back to start (which
-    closes the connection), or cancels. Someone who wanted only the answer
-    presses nothing extra (2026-10-16; it was a question after every answer).
+    closes the connection), cancels, or leaves it for `OFFER_IDLE_S`.
+    Someone who wanted only the answer presses nothing extra (2026-10-16; it
+    was a question after every answer).
     """
     if follow is None:
         await run.connection.send("task.completed", completed)
@@ -1331,7 +1340,11 @@ async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -
                 raise LeftTheAnswer
 
         try:
-            response = await run.connection.receive("step.response", on_other=left)
+            response = await asyncio.wait_for(
+                run.connection.receive("step.response", on_other=left), OFFER_IDLE_S)
+        except asyncio.TimeoutError:
+            log.info("offer %r left for %.0fs: closing the run", follow.id, OFFER_IDLE_S)
+            return
         except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
             return
         if response.get("payload", {}).get("action_id") != follow.id:

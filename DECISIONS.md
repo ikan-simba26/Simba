@@ -4817,3 +4817,37 @@ This was a practice copy, so no money was taken." (`Confirmation.done` and
 
 **Cost.** `demo/booking.webm` still shows "That's done." until it is
 re-recorded.
+
+## A run kept open for an offer closes itself after ten minutes
+
+**Date:** 2026-10-17 (asked for: "make an open run close itself after a
+sensible idle time"; the time, and what the screen does then, were not
+specified)
+
+**Decision.** `loop.OFFER_IDLE_S = 600`: ten minutes on the closing screen
+with neither the offer nor "Back to start" pressed, and the run ends, having
+changed nothing; the backend closes the socket as after any ending. The
+overlay shows the offer only while its connection is open, so it disappears
+then; the answer, the picture and "Back to start" stay.
+
+**Alternatives.** Two minutes: a person reading nine trains and deciding
+whether to book could lose the offer mid-thought. Keeping the offer and
+reconnecting on a press: the run that knew the trains is gone, so a press
+would have to start the search again — a new feature. An hour: a forgotten
+run would hold the host's page that long.
+
+**Cost.** After ten minutes the person who does decide to book has to search
+again. Not measured with anyone.
+
+## Every run says what the machine was doing
+
+**Date:** 2026-10-17 (not asked for; found while measuring the slower
+suite)
+
+**Decision.** `tools/evaluation/conditions.py` records the power source,
+the processor's speed at that instant against its rated speed, and the free
+memory; the evaluation banner prints them, and so does the top of every
+pytest run. The same commit took 805s one day and 1435s the next, and
+nothing said why.
+
+**Cost.** One PowerShell call (~1–2s) per banner and per pytest run.

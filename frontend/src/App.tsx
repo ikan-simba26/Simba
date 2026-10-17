@@ -736,7 +736,11 @@ function Checklist() {
  * to the home screen.
  */
 function Completed() {
-  const { completed, task, startOver, takeOffer } = useStore();
+  const { completed, task, startOver, takeOffer, status } = useStore();
+  // The offer is there only while the run waiting for it is (2026-10-17): a
+  // run left on its closing screen closes itself after a while
+  // (`loop.OFFER_IDLE_S`), and a press then would go nowhere.
+  const offer = status === "open" ? completed?.offer : null;
   const findings = completed?.findings ?? [];
   // One plain sentence saying what the result means, written by the backend
   // from the page's own values (`voice.explain_*`). This screen writes none of
@@ -833,12 +837,12 @@ function Completed() {
           follow the answer — "Book one of these", "Pay this bill" — sits
           beside it, quieter: someone who wanted only the answer presses
           nothing more. */}
-      {completed?.offer ? (
+      {offer ? (
         <div className="flex flex-row gap-3" data-testid="onward">
           <Button className="flex-1" onClick={startOver}>{STOPPED.again}</Button>
           <Button className="flex-1" variant="secondary" onClick={takeOffer}
                   data-testid="offer">
-            {completed.offer.label}
+            {offer.label}
           </Button>
         </div>
       ) : (

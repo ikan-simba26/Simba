@@ -92,6 +92,17 @@ def test_the_banner_says_what_it_could_not_read(monkeypatch: pytest.MonkeyPatch)
     assert "load unknown" in module.banner()
 
 
+def test_the_banner_says_what_the_machine_was_doing() -> None:
+    """2026-10-17: the same commit's suite took 805s one day and 1435s the
+    next, and nothing recorded the machine's state either time."""
+    line = module.power_line({"on_battery": True, "charge_percent": 40,
+                              "cpu_performance_percent": 48, "free_memory_mb": 1200})
+    assert line == ("power       ON BATTERY (40%), processor at 48% of rated speed, "
+                    "1200 MB memory free")
+    assert module.power_line({"on_battery": False}) == "power       on mains"
+    assert module.power_line({}) == "power       unknown power source"
+
+
 def test_the_banner_warns_about_a_dirty_tree(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(module, "git_state", lambda: {"commit": "abc123", "branch": "x", "dirty": True})
     assert "DIRTY TREE" in module.banner()

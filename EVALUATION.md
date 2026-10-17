@@ -5716,3 +5716,49 @@ the replica's own booking or receipt number, and the shortened quote checked
 on the real run; and the closing-screen tests, `test_closing.py`, `test_copy.py` and `test_terminal_states.py`, **288 passed**, the booking
 and the payment among the endings measured at the window's size at 100%,
 125% and 150%.
+
+## 2026-10-17e — the slower backend suite, and runs kept open for an offer
+
+`fix/stability`. The backend half went from 12–13 minutes (752s, 805s on
+2026-10-15/16) to 23–25 minutes from the afternoon of 2026-10-16, when the
+closing screen's offer began to keep runs open (`610cde5`). Were runs left
+waiting for the offer until a timeout?
+
+**In the tests: no.** Every test that reaches an offer answers it: the
+scripted connections answer "leave" (`test_asking.ScriptedConnection`,
+`test_checklist.Answers`), and the websocket tests close their socket on
+`task.completed`, which ends the waiting run at once. Measured: the backend
+half, every test timed (`--durations=0`), at `67359d1` — the commit *before*
+the offer — and at this branch's `09d2577`, each in a clean worktree, one
+after the other, nothing else running:
+
+| | tests | wall clock | the 410 test phases in both |
+|---|---|---|---|
+| `67359d1`, before the offer | 886 passed, 9 skipped | **1435s** | 1409s |
+| `09d2577`, this branch | 899 passed, 9 skipped | **1537s** | 1466s |
+
+The same commit took **805s on 2026-10-16 and 1435s today**. So the code did
+not double the time: the machine did. The +100s on this branch is spread
+over the tests that now take the end-of-task picture and finish a booking or
+a payment (the four offer tests: 4.7–8.9s each, no wait in any), and 13 more
+tests. Nothing in either run waits on an offer.
+
+**What the machine was doing** (read-only, today): on battery (38–40%,
+discharging), Balanced plan; 1.0–1.2 GB of 7.9 GB memory free, 43–260 pages
+paged a second; the user's Chrome ~1.1 GB, two Claude processes, VS Code.
+The processor read 48% of rated speed idle but **143–189% under load**, so
+the battery is not slowing the processor. Memory pressure on a suite that
+launches a browser per test is the likelier cause, and is **not proven**: no
+earlier run recorded memory. Every evaluation banner and every pytest run now
+prints the power source, the processor's speed at that instant and the free
+memory (`conditions.power`, `conftest.pytest_report_header`).
+
+**In real use: yes.** A run kept open for "Book one of these" or "Pay this
+bill" waited for as long as the connection lasted — a person who read the
+answer and walked away left a run, its Playwright connection to the host and
+its page waiting indefinitely. It now closes itself after **10 minutes**
+(`loop.OFFER_IDLE_S`), and the overlay takes the offer away once the run has
+gone, so a press cannot go nowhere; "Back to start" is unchanged. Tests: a
+run whose offer nobody answers ends by itself (`test_booking.py`, with the
+idle time shortened), and an offer whose run has closed is not shown
+(`frontend/test_terminal_states.py`, 15 offer tests passed).

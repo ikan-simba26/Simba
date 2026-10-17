@@ -103,6 +103,58 @@ def load_percent() -> int | None:
     return None
 
 
+def power() -> dict[str, Any]:
+    """Whether the machine is on battery, its processor's speed at this
+    instant as a percentage of its rated speed, and its free memory in MB —
+    each None if it cannot be read.
+
+    Added 2026-10-17: the backend suite took 805s on a commit on 2026-10-16
+    and 1435s on the same commit a day later, and nothing recorded what the
+    machine was doing either time. That day it was on battery with 1.2 GB of
+    7.9 GB free; under load its processor still ran above rated speed, so the
+    battery alone did not explain it. Every wall clock depends on these."""
+    found: dict[str, Any] = {"on_battery": None, "charge_percent": None,
+                             "cpu_performance_percent": None, "free_memory_mb": None}
+    if platform.system() != "Windows":
+        return found
+    said = _run(
+        "powershell", "-NoProfile", "-NonInteractive", "-Command",
+        "$b = Get-CimInstance Win32_Battery | Select-Object -First 1; "
+        "$c = (Get-Counter '\\Processor Information(_Total)\\% Processor Performance' "
+        "-SampleInterval 1 -MaxSamples 1).CounterSamples[0].CookedValue; "
+        "$m = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory; "
+        "'{0}|{1}|{2}|{3}' -f $(if ($b) { $b.BatteryStatus } else { '' }), "
+        "$(if ($b) { $b.EstimatedChargeRemaining } else { '' }), [int]$c, [int]($m / 1024)",
+    )
+    if not said or said.count("|") != 3:
+        return found
+    status, charge, performance, free = (part.strip() for part in said.strip().split("|"))
+    # Win32_Battery.BatteryStatus: 1 is discharging; 2 and above are on mains
+    # (charging, charged, or the like). No battery at all: on mains.
+    found["on_battery"] = status == "1" if status else False
+    found["charge_percent"] = int(charge) if charge.isdigit() else None
+    found["cpu_performance_percent"] = int(performance) if performance.isdigit() else None
+    found["free_memory_mb"] = int(free) if free.isdigit() else None
+    return found
+
+
+def power_line(machine_power: dict[str, Any]) -> str:
+    """`on battery (40%), processor at 48% of rated speed, 1200 MB free`, or
+    what could not be read."""
+    battery = machine_power.get("on_battery")
+    parts = ["unknown power source" if battery is None else
+             "ON BATTERY" + (f" ({machine_power['charge_percent']}%)"
+                             if machine_power.get("charge_percent") is not None else "")
+             if battery else "on mains"]
+    speed = machine_power.get("cpu_performance_percent")
+    if speed is not None:
+        parts.append(f"processor at {speed}% of rated speed")
+    free = machine_power.get("free_memory_mb")
+    if free is not None:
+        parts.append(f"{free} MB memory free")
+    return "power       " + ", ".join(parts)
+
+
 #: Read from `.env` when not in the environment, because that is where the
 #: provider and model are configured and the scripts load it themselves later.
 #: Only these names are ever read out of `.env` — never a key, and no value
@@ -165,6 +217,7 @@ def conditions(**extra: Any) -> dict[str, Any]:
             "platform": platform.platform(),
             "cpus": os.cpu_count(),
             "load_percent": load_percent(),
+            "power": power(),
         },
         **extra,
     }
@@ -191,6 +244,7 @@ def banner(recorded: dict[str, Any] | None = None) -> str:
         + (f" (from {recorded['model_from']})" if recorded.get("model_from") else ""),
         f"machine     {machine['platform']}, {machine['cpus']} cpus, load "
         + (f"{load}%" if load is not None else "unknown"),
+        power_line(machine.get("power") or {}),
         f"switches    {switches or 'none set'}",
         "=" * 72,
     ]

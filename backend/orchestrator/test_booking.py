@@ -9,11 +9,15 @@ quotes the site's confirmation and its booking number, train, date and seat,
 with the proof. Real loop, real Chromium, the real replica.
 """
 
+import asyncio
 from datetime import date, timedelta
 
-from backend.orchestrator import voice
+from playwright.async_api import async_playwright
+
+from backend.orchestrator import loop, voice
 from backend.orchestrator.details import TripBrief, Understood
-from backend.orchestrator.test_checklist import Answers, go
+from backend.orchestrator.loop import run_brief
+from backend.orchestrator.test_checklist import Answers, go, run
 from backend.orchestrator.test_trip_answers import railways  # noqa: F401
 
 TOMORROW = date.today() + timedelta(days=1)
@@ -176,3 +180,42 @@ def test_nothing_is_shown_as_found_on_the_way_to_a_booking(railways: str) -> Non
         assert shown(done, instruction)["findings"] == [], instruction
     # Which train, too: the trains are named on its buttons.
     assert shown(done, voice.ASK_WHICH_TRAIN)["findings"] == []
+
+
+class LeavesTheOfferOpen(Answers):
+    """Answers the journey's questions, then presses nothing on the closing
+    screen, ever: a person who read the answer and walked away."""
+
+    async def receive(self, message_type, step_index=None, on_other=None):
+        if self.offered():
+            await asyncio.Event().wait()
+        return await super().receive(message_type, step_index, on_other)
+
+
+def test_an_offer_nobody_answers_closes_the_run_by_itself(
+    railways: str, monkeypatch  # noqa: F811
+) -> None:
+    """A run kept open for "Book one of these" waited for as long as the
+    connection lasted (2026-10-16). It now closes itself after
+    `loop.OFFER_IDLE_S` (2026-10-17) — shortened here — having changed
+    nothing."""
+    monkeypatch.setattr(loop, "OFFER_IDLE_S", 0.5)
+
+    async def inner() -> LeavesTheOfferOpen:
+        connection = LeavesTheOfferOpen([("choice:0", {})])
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            try:
+                # Bounded, so a run that never closes fails here, not hangs.
+                await asyncio.wait_for(run_brief(page, connection, journey(), railways,
+                                                 auto=True), 60)
+            finally:
+                await browser.close()
+        return connection
+
+    done = run(inner())
+
+    assert done.types()[-1] == "task.completed"
+    assert done.of("task.completed")[0]["offer"]["id"] == voice.BOOK_ID
+    assert voice.ASK_WHICH_TRAIN not in done.instructions()
