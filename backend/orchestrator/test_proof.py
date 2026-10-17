@@ -70,7 +70,10 @@ def test_a_registration_rings_the_portals_confirmation(replica: str) -> None:  #
 
     end = ending(go_signed_in(replica, brief, []))
 
-    assert end["confirmation"].endswith("confirmation number REG-10301-2026.")
+    # The number is said under the heading since 2026-10-17, as a booking's
+    # is; the portal's words are quoted without it.
+    assert end["caveat"].startswith("Confirmation number REG-10301-2026.")
+    assert end["confirmation"] == "The portal says “Registration Confirmed”."
     # The heading, the number's row, and the caveat's paragraph.
     assert len(end["proof"]["rings"]) == 3
 
