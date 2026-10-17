@@ -1712,6 +1712,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         heading = task.confirms.done
         caveat = voice.practice_copy(task.confirms.reads, confirmed[1],
                                      task.confirms.practice or "")
+        # And what the site says against it, kept (2026-10-17): a
+        # registration on our copy is still not final until fees are paid.
+        # Only a caveat with plain words of its own; a booking's "No real
+        # ticket" is what the practice line has just said.
+        if caveat_said and task.confirms.caveat_plain:
+            caveat = f"{caveat} {voice.site_qualifies(caveat_said, task.confirms)}"
         confirmation = voice.portal_says(task.confirms.heading, who=task.confirms.who)
 
     # The proof: a still of the page as it is now, what was read ringed.

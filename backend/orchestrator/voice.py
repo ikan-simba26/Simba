@@ -869,6 +869,19 @@ NO_PAYMENT_DETAILS = ("This page asks for card or bank details. I never type tho
 # --- a change the site qualifies (2026-10-16) --------------------------------
 
 
+def registered_practice(course: str | None) -> str:
+    """The closing screen's heading once the portal has confirmed a
+    registration on our copy (2026-10-17), as a booking's and a payment's
+    are: "Registered for CS-401 on the practice site." """
+    return (f"Registered for {course} on the practice site." if course
+            else "Registered on the practice site.")
+
+
+#: Under it, after the confirmation number: what the practice copy did not do.
+#: The portal's own caveat follows it, in plain words, when the page says it.
+NO_REAL_REGISTRATION = "This was a practice copy, so no real registration was made."
+
+
 def registered(course: str) -> str:
     """Above a registration the portal confirmed, in place of "That's done."
     when the portal says it is not final."""

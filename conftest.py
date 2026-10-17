@@ -28,8 +28,13 @@ def pytest_configure(config: pytest.Config) -> None:
     """`--basetemp` is `.scratch/pytest` unless the command line says otherwise.
 
     First, because pytest's own temp-path factory reads the option when it is
-    configured, and a value set after that is never seen."""
+    configured, and a value set after that is never seen.
+
+    `.scratch/` itself is made here if it is not there (2026-10-17): it is
+    ignored, so a fresh clone has none, and pytest makes only the last folder
+    of the path — on a fresh clone every test that used `tmp_path` errored."""
     if not config.option.basetemp:
+        BASETEMP.parent.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(BASETEMP)
 
 

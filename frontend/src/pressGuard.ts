@@ -151,7 +151,17 @@ export function watchPresses(level: () => Level): () => void {
     const { moved, easing } = scan();
     stillFrames = moved || easing ? 0 : stillFrames + 1;
     // Keep looking while things move, and two frames after.
-    if (stillFrames < 2) frame = requestAnimationFrame(settle);
+    if (stillFrames < 2) {
+      frame = requestAnimationFrame(settle);
+      return;
+    }
+    // At rest: each button's place is where it stopped, not where it last
+    // counted as moving (2026-10-17). A button easing in is counted as moving
+    // until its last 2px, which only `exact` follows; left behind, that gap
+    // plus a press's own 1px nudge came to 3px, and the press was read as a
+    // move made that instant and ignored — "Tomorrow", two seconds after it
+    // arrived, in about one test run in two. When it last moved is unchanged.
+    for (const was of seen.values()) was.key = was.exact;
   };
   const changed = () => {
     stillFrames = 0;

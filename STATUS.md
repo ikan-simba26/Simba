@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-17 · **1428 passing, 12 skipped, 0 failed** · backend 901 in 879s (on mains; the same half took 1435–1537s on battery the same day), frontend 527 in 1059s, as two halves, on `fix/stability`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), with 20 of 20 more runs at 100% after the fix to its overlay picture. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines now say whether the machine was on battery and how much memory was free; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
+**Last updated:** 2026-10-17 · **1430 passing, 12 skipped, 0 failed** · backend 902 in 952s, frontend 528 in 1036s, as two halves, on mains, on `fix/final-touches`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%). The same suite on a fresh clone set up from README and RUNNING alone: 901 + 528 passed, one failure in a test since fixed (EVALUATION.md, 2026-10-17k). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
 
 ---
 
@@ -119,6 +119,31 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-17 (last): final touches — `fix/final-touches`
+
+- **A registration on our copy ends in practice words**, as a booking and a
+  payment do: "Registered for CS-401 on the practice site." over the
+  confirmation number, "This was a practice copy, so no real registration
+  was made.", and the portal's caveat, kept (EVALUATION.md, 2026-10-17j).
+- **Every dependency is pinned** to the versions the suite passes with: all
+  48 Python packages in the two requirement files, exact versions in
+  `package.json`, the lock for the rest; install with `pip install -r` and
+  `npm ci` (RUNNING.md, *Installing the exact versions*). The first lock
+  written was not in step, and `npm ci` on a fresh clone refused it: fixed.
+- **A fresh clone runs the whole suite**: the first run there found 66 errors
+  (no `.scratch/` folder — the conftest now makes it), a proof test this
+  branch had left behind, and **a real press-guard bug**: a button that eased
+  to rest could have its first press ignored, the gap the guard kept plus the
+  press's own 1px nudge reading as a fresh move. Fixed; very likely the tile
+  press seen once at 150%. Rerun: 901 + 528 passed, one failure in a new test,
+  since fixed (2026-10-17k).
+- **`demo/booking.webm` re-recorded** with the new ending, checked on its last
+  frame; no other clip shows changed wording (2026-10-17l).
+- **`feat/orchestrator-preview-capture` deleted** — superseded; it was never on
+  GitHub. Three evaluation scripts only it held went with it (DECISIONS.md).
+- **The suite before merging, on mains**: 1430 passed, 12 skipped, 0 failed
+  (backend 902 in 952s, frontend 528 in 1036s); the host fit test 3/3 (415s).
 
 ### Changed on 2026-10-17 (later): stability — `fix/stability`, no new features
 

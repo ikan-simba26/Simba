@@ -5910,3 +5910,83 @@ Now the first widens the guard's window to 3s after Start, the second has the
 page record the leaving screen the moment it is marked, and the third waits
 up to 5s for the level. The pair then passed 3 of 3 in the order that failed,
 and the whole half passed.
+
+## 2026-10-17j — a registration ends in practice words too
+
+`fix/final-touches`. A registration the portal confirmed on our copy now ends
+as a booking and a payment do: "Registered for CS-401 on the practice site."
+over "Confirmation number REG-10234-2026. This was a practice copy, so no real
+registration was made. The portal says it isn't final until tuition and fees
+are paid, or a payment plan is in place." — the portal's caveat kept, in
+plain words, and only when the page says it. Measured: the registration
+tests on the replica (`test_confirmation.py`, `test_final_step.py`,
+`test_course.py`), **24 passed**, the heading and the line with the replica's
+own number checked on the real run; the closing-screen, copy and fit tests,
+**289 passed**, the longer line fitting at 100%, 125% and 150% with every
+button on screen.
+
+## 2026-10-17k — a fresh clone's suite, and the press the guard wrongly ignored
+
+`fix/final-touches`. A fresh clone of this branch from GitHub
+(`9787fdc`, then `436085d`), set up from README and RUNNING only — pinned
+installs, `npm ci` — and the whole suite run once in its two halves, on
+battery (55% → 45%):
+
+| Half | Result | Time |
+|---|---|---|
+| backend | **833 passed, 9 skipped, 2 failed, 66 errors** | 1301s |
+| frontend | **526 passed, 3 skipped, 1 failed** | 1251s |
+
+Three causes, all fixed on this branch:
+
+1. **66 errors and 1 failure: no `.scratch/` folder.** The root conftest puts
+   pytest's temporary folder at `.scratch/pytest`; `.scratch/` is ignored, so
+   a fresh clone has none, and pytest makes only the last folder of the path.
+   Every test using `tmp_path` errored. The conftest now makes the folder
+   (`test_basetemp.py` has a test for it). This machine always had one.
+2. **1 failure: `test_proof.py`** expected the registration's number inside
+   the quoted confirmation; since 2026-10-17j it is said under the heading.
+   The commit that moved it had not run this file.
+3. **1 failure: the press guard ignored a press it should have taken.** In
+   `test_press_guard.py`, "Tomorrow" pressed 2.1s after it arrived was logged
+   ignored, `sinceButtonMs` 2–5, with no change to the page at all — 3 runs
+   in 6 when run after `test_overflow_guard.py` and `test_levels.py`. Tracked
+   frame by frame: the button eased in and came to rest at y 292.3; under
+   the press it read 293.3 (its own `active:translate-y-px`); and the guard
+   still held y 290, the last place it had *counted* the button as moving —
+   it follows the last 2px of an ease only in `exact`. 290 to 293 is 3px,
+   over the 2px it allows, so the press was a "move made that instant".
+   Whether a run fails depends on where the ease happens to stop. The guard
+   now takes each button's resting place as its place once things stop
+   moving; when it last moved is unchanged. A new test reproduces it
+   exactly (a 3px move, 2px of easing, rest, a 1px nudge): it fails without
+   the fix and passes with it, and the order that failed 3 in 6 passed 6 in
+   6. Tiles ease in the same way, so this is the likeliest cause of the tile
+   press that did not register at 150% (2026-10-17f could not reproduce it:
+   its walk always pressed 5s or more after the tiles arrived, by which time
+   another scan had caught up). Two theories tried first and dropped: a
+   move the guard could not see (an animation the browser runs itself) —
+   a 200ms re-check changed nothing; and the typeface arriving late —
+   waiting for it changed nothing.
+
+## 2026-10-17l — the booking clip, re-recorded
+
+`fix/final-touches`. `demo/booking.webm` re-recorded with the stack up
+(`run.ps1 railways-local`, our copy, on mains): **56s, 5.3 MB**, every screen
+answered — both stations, the read-back, 7UP, the name, AC Standard, the final
+screen held and "Book it", the real page shown. Its closing frame, looked at
+(not just its log): "Booked on the practice site." / "Booking number
+PR-452048. This was a practice copy, so no real ticket was booked and no money
+was taken." / 'The site says "Booking Confirmed".' / the receipt. The other
+five clips were checked against today's wording and left: the bill, trains
+and hello clips end on screens that have not changed, and `fold.webm` is the
+scripted mock, with no final screen and no confirmation.
+
+## 2026-10-17m — the suite, before merging `fix/final-touches`
+
+On mains (printed by each run). **Backend half: 902 passed, 9 skipped, 0
+failed, 952s. Frontend half: 528 passed, 3 skipped, 0 failed, 1036s. Host
+window fit: 3 passed** (100%, 125%, 150%, 415s). In all **1430 passed, 12
+skipped, 0 failed**. The fresh clone's second run, before the last test fix:
+901 passed and 1 failed (that test, since passing in the clone too), 528
+passed.

@@ -102,12 +102,15 @@ python -c "import fastapi, playwright, pytest; print('backend ok')"
 
 ```powershell
 cd frontend
-npm install
+npm ci
 cd ..
 ```
 
 This pulls Electron (~100 MB) as well as React, Tailwind and Vite. It takes a
-few minutes on a first run and nothing after that.
+few minutes on a first run and nothing after that. `npm ci` installs exactly
+the versions in `package-lock.json` — every Python and Node dependency is
+pinned to the versions the suite passes with (RUNNING.md, *Installing the
+exact versions*).
 
 **Check it:**
 

@@ -4907,3 +4907,82 @@ fail instead of hang, but still fail about one time in twelve at 100%.
 
 **Cost.** The evaluation now depends on a backend module, and opens a second
 CDP connection to the host for each overlay picture.
+
+## A registration on our copy is said as a practice copy, the caveat kept
+
+**Date:** 2026-10-17 (asked for: "says 'practice copy' the same way bookings
+and payments do, keeping the portal's caveat"; the words were not given)
+
+**Decision.** "Registered for CS-401 on the practice site." / "Confirmation
+number X. This was a practice copy, so no real registration was made." then
+the portal's caveat in plain words. The heading names the course, where a
+booking's names no train: the registration's heading did before, and the
+course is what a person checks. A caveat is appended to the practice line
+only when it has plain words of its own (`caveat_plain`); a booking's "No
+real ticket" is what the practice line already says.
+
+**Cost.** The line under the heading is three sentences; it fits at every
+scale measured.
+
+## Every dependency is pinned to the versions the suite passes with
+
+**Date:** 2026-10-17 (asked for: pin every Python and Node dependency, and
+say how to install them)
+
+**Decision.** `backend/requirements.txt` and `requirements-dev.txt` pin all
+48 packages in this venv with `==` — the 8 the backend names, the 3 the tests
+name, and the 37 they pull in, listed under their own comment.
+`frontend/package.json` names the exact installed version of each of its 14
+packages, and `package-lock.json` (already committed) holds everything below
+them; README and RUNNING install with `npm ci`. Not asked, and settled here:
+
+- **Transitive Python packages are pinned in the same files**, not in a
+  separate lock file: one `pip install -r` gets the exact set, with no new
+  tool.
+- **`uvloop` is not pinned**: `uvicorn[standard]` brings it on macOS and
+  Linux only, and it was never installed here, so there is no tested version.
+- **README's step 3 is `npm ci`**, to match RUNNING: `npm install` could
+  rewrite the lock.
+
+**Cost.** Moving any version is now deliberate: edit, install, run the whole
+suite. Security fixes do not arrive by themselves.
+
+## `feat/orchestrator-preview-capture` is deleted, not merged
+
+**Date:** 2026-10-17 (asked for)
+
+**Decision.** The branch is deleted. It kept the site view repainting while
+it was photographed (2026-09-30), and was left unmerged until the 100%
+capture rate was measured for real. Measured on 2026-10-17, repainting made
+no difference — every capture at 100% still stalled until it was asked for
+again — and `browser.capture_site`, on `main` since then, asks again
+instead: 20/20 at every scale (EVALUATION.md, 2026-10-17). Nothing on the
+branch is needed.
+
+**What went with it.** Two commits, the last `0e42753` (2026-09-30): the
+repainting capture and its tests, a HANDOVER/STATUS refresh long since
+overtaken, and three evaluation scripts that were never on `main` and are
+cited nowhere on it — `tools/evaluation/flow_screens_run.py`,
+`preview_stack_run.py` and `remembered_home_run.py` — with the 2026-09-30
+EVALUATION entries they produced. It was never pushed: GitHub had no such
+branch, so the deletion is local only. The commits stay reachable from this
+machine's reflog for a while by that hash.
+
+**Cost.** Those three scripts' numbers cannot be re-run from `main`.
+
+## The press guard takes a button's resting place as its place
+
+**Date:** 2026-10-17 (not asked for; found by the fresh clone's suite)
+
+**Decision.** When nothing on the overlay is moving any more, the guard sets
+each button's reference place (`key`) to where it actually stopped
+(`exact`), keeping the time of its last move. Before, a button that eased
+in kept the place it was last counted at, up to 2px short, and a press with
+its own 1px nudge read as a fresh 3px move and was ignored.
+
+**Alternatives.** Allow 3px instead of 2: hides this case, and lets a
+slightly larger real move through. Follow `exact` on every frame: a slow
+crawl of 1px a frame would never count as moving.
+
+**Cost.** None found; a button still moving is not at rest, so a move made
+after rest still counts from where it stopped.

@@ -464,6 +464,8 @@ def backend_sentences() -> dict[str, str]:
                                          "REG-10234-2026"),
         "portal_says, no reference": voice.portal_says("Registration Confirmed"),
         "registered": voice.registered("CS-401"),
+        "registered_practice": voice.registered_practice("CS-401"),
+        "NO_REAL_REGISTRATION": voice.NO_REAL_REGISTRATION,
         "site_qualifies": voice.site_qualifies(
             "Registration is not final until tuition and fees are paid.",
             __import__("backend.orchestrator.plan", fromlist=["Confirmation"]).Confirmation(
