@@ -208,7 +208,8 @@ class LevelRules:
         """The person's own level, from `task.start.start_level` (2026-10-18):
         the task starts there, unless the page is heavy, and calm steps come
         back to it. None, or anything but 1 to 3, leaves 2."""
-        if level in (1, 2, 3) and not self.started:
+        whole = isinstance(level, int) and not isinstance(level, bool)
+        if whole and level in (1, 2, 3) and not self.started:
             self.baseline = level
             self.level = level
 

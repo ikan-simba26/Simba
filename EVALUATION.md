@@ -6052,3 +6052,14 @@ always also made the screen with three goals asked before scroll by 16px at
 every size (`test_terminal_states.py`), and the home, copy, welcome, ending
 and first-screen tests: **404 run, all passing after those fixes**. The
 backend's websocket and flow tests: **127 passed**.
+
+## 2026-10-18c — the starting level, written down as its own signal
+
+`feat/personal`. `backend/estimator/test_pairing.py`, 3 new, **12 passed**:
+a `start_level` row once per task, and the level on every telemetry row after
+it; anything but a whole 1, 2 or 3 — none, 0, 4, "2", 2.0 — written as
+`null`, not chosen, never as 2 (the first version took 2.0 as a choice:
+`2.0 in (1, 2, 3)` is true in Python; fixed here and in `LevelRules.
+start_from`); and through the app, the `task.start` of a person with a
+profile leaving its `start_level` row first. The rules, with floats and
+booleans added to what is not a level: **34 passed**.

@@ -5080,3 +5080,49 @@ reference. Both predate tiles.
 
 **Cost.** Three new contract fields and one message type for the other
 owners to agree. Tiles are per Windows account and per machine.
+
+## The starting level is a signal of its own (for Nahail)
+
+**Date:** 2026-10-18 (asked for: record the starting level chosen in the
+welcome as its own signal, and note how it relates to the estimator)
+
+**What is recorded.** `data/steps.jsonl` gains a third kind of row,
+`start_level`, once per task as it starts: `{"kind": "start_level",
+"task_id", "start_level": 1 | 2 | 3 | null, "chosen": true | false}`. Every
+telemetry row after it carries the same `start_level`, so a training row
+stands alone. `null` means the person did not choose — skipped the question,
+or a frontend from before 2026-10-18 — and is never written as 2, which would
+claim a choice nobody made. Rows written before 2026-10-18 have no
+`start_level` at all: unknown, not "not chosen". (`pairing.Recorder.
+note_start_level`; `test_pairing.py`.)
+
+**How it relates to the estimator — Nahail to confirm or change:**
+
+1. **It is the person's report, not a measurement.** One choice, made once,
+   before any task, looking at three drawings of one sample question. Every
+   other input — page features, hesitation, the pointer — is measured on the
+   step itself. It belongs beside them as context, not mixed in as one more
+   reading.
+2. **The provisional rules already use it**, as their baseline
+   (`LevelRules.start_from`): a task starts at it, a heavy page still starts
+   at 3, and calm steps come back to it rather than to 2. A trained model that
+   replaces the rules has to decide whether to keep doing so; the rules'
+   decision rows record which baseline they used (`reason`: "the person's own
+   level, 1").
+3. **It confounds what the person does.** The level a step is shown at
+   changes how long it takes to read and answer, and since today the level
+   shown depends on the level chosen. Telemetry from people who started at 1
+   and at 3 should not be pooled as if it came from the same screen: condition
+   on the level shown (in the decision rows), or on `start_level`.
+4. **It cannot be a feature of the model being trained now.** That model is
+   trained on raters' scores of corpus pages (`tools/rating`), which have no
+   person-in-a-task attached. It could become one in a person-aware model, or
+   serve as the prior when the model is unsure — a choice for Nahail.
+5. **It is a check on the estimator.** People who chose 3 might be expected
+   to show more hesitation on the same pages than people who chose 1; if they
+   do not, either the welcome's question or the signals are not measuring what
+   they seem to.
+
+**Cost.** One more row kind, and one field on every telemetry row; readers
+that filter by `kind` are unaffected (`adaptation_stack_run`,
+`record_demo`).

@@ -311,6 +311,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)),
         )
 
+    # The person's own starting level, written down beside what they then do
+    # (2026-10-18): a signal for the estimator of its own.
+    if recorder is not None:
+        recorder.note_start_level(payload.get("start_level"))
+
     name, task, plan, replica_url = flow_setup(decided.flow)
 
     if name in BRIEFS:

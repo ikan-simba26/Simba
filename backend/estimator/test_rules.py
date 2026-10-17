@@ -458,7 +458,7 @@ def test_a_person_who_chose_the_simplest_is_never_brought_back_to_2() -> None:
 
 
 def test_no_level_or_a_level_out_of_range_starts_at_2() -> None:
-    for level in (None, 0, 4, "2"):
+    for level in (None, 0, 4, "2", 2.0, True):
         run = started_at(level)  # type: ignore[arg-type]
         run.step(1, calm_step(1))
         assert run.levels[1] == 2
