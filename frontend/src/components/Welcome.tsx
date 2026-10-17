@@ -47,22 +47,52 @@ const SAMPLE: StepPresented = {
 const EXAMPLE_WIDTH = COLUMN;
 
 export function Welcome() {
-  const { profile, updateProfile, finishWelcome } = useStore();
+  const { profile, updateProfile, finishWelcome, forgetEverything } = useStore();
   const [at, setAt] = useState(0);
+  // Opened again from "Change my settings", rather than a first open: only
+  // then is there anything to forget (2026-10-18).
+  const [reopened, setReopened] = useState(profile.welcomed);
+  const [forgetting, setForgetting] = useState(false);
+  // A new round after forgetting: every question starts empty again.
+  const [round, setRound] = useState(0);
   const question: Question = QUESTIONS[at];
   const next = () => (at + 1 < QUESTIONS.length ? setAt(at + 1) : finishWelcome());
+
+  if (forgetting) {
+    return (
+      <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-7
+                      short:min-h-[calc(100dvh-92px)] short:gap-4" data-testid="welcome"
+           data-question="forget">
+        <Heading ask={WELCOME.forgetAsk} detail={WELCOME.forgetDetail} />
+        <div className="grid grid-cols-2 gap-4 short:gap-3">
+          <Button variant="secondary" data-testid="forget-yes" onClick={() => {
+            forgetEverything();
+            setForgetting(false);
+            setReopened(false);
+            setAt(0);
+            setRound(round + 1);
+          }}>
+            {WELCOME.forgetYes}
+          </Button>
+          <Button data-testid="forget-no" onClick={() => setForgetting(false)}>
+            {WELCOME.forgetNo}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-7
                     short:min-h-[calc(100dvh-92px)] short:gap-4" data-testid="welcome"
          data-question={question}>
-      <motion.div key={question} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      <motion.div key={`${question}-${round}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   transition={ARRIVE} className="flex flex-col gap-7 short:gap-4">
         <p className="text-small font-medium text-soft">{WELCOME.lead}</p>
         {question === "name" && <NameQuestion name={profile.name ?? ""} onDone={(name) => {
           updateProfile({ name: cleanName(name) || undefined });
           next();
-        }} onSkip={next} />}
+        }} onSkip={next} onForget={reopened ? () => setForgetting(true) : undefined} />}
         {question === "level" && <LevelQuestion chosen={profile.level} onPick={(level) => {
           updateProfile({ level });
           next();
@@ -112,8 +142,8 @@ function Footer({ onSkip, children }: { onSkip: () => void; children?: React.Rea
   );
 }
 
-function NameQuestion({ name, onDone, onSkip }: {
-  name: string; onDone: (name: string) => void; onSkip: () => void;
+function NameQuestion({ name, onDone, onSkip, onForget }: {
+  name: string; onDone: (name: string) => void; onSkip: () => void; onForget?: () => void;
 }) {
   const [typed, setTyped] = useState(name);
   return (
@@ -126,9 +156,18 @@ function NameQuestion({ name, onDone, onSkip }: {
              className="simba-field-frame rounded-xl px-6 py-4 text-lead text-ink shadow-card
                         outline-none placeholder:text-soft short:py-3" />
       <Footer onSkip={onSkip}>
-        <Button size="md" wide={false} disabled={!cleanName(typed)} onClick={() => onDone(typed)}>
-          {WELCOME.next}
-        </Button>
+        <div className="flex items-center gap-4">
+          {onForget && (
+            <Button variant="quiet" size="md" wide={false} onClick={onForget}
+                    data-testid="forget">
+              {WELCOME.forget}
+            </Button>
+          )}
+          <Button size="md" wide={false} disabled={!cleanName(typed)}
+                  onClick={() => onDone(typed)}>
+            {WELCOME.next}
+          </Button>
+        </div>
       </Footer>
     </>
   );

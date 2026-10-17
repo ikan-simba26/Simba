@@ -163,6 +163,13 @@ export const WELCOME = {
   justDo: "Just do it and show me",
   next: "Next",
   skip: "Skip this",
+  /** In "Change my settings" only (2026-10-18): for the next person to use
+   *  this computer, or the next session of a study. */
+  forget: "Forget me and start again",
+  forgetAsk: "Shall I forget everything about you?",
+  forgetDetail: "Your name, your settings and your own tiles go from this computer. Then I start again, as if you had just opened me.",
+  forgetYes: "Yes, forget it all",
+  forgetNo: "No, keep it",
   /** The example shown three ways: a question every journey asks. */
   sample: {
     instruction: "What day are you travelling?",
@@ -608,6 +615,8 @@ export const SITUATIONS: Record<string, string> = {
   "welcome.readDetail": WELCOME.readDetail,
   "welcome.askAsk": WELCOME.askAsk,
   "welcome.askDetail": WELCOME.askDetail,
+  "welcome.forgetAsk": WELCOME.forgetAsk,
+  "welcome.forgetDetail": WELCOME.forgetDetail,
   "tiles.keepAsk": TILES.keepAsk("My bill"),
   "tiles.kept": TILES.kept("My bill"),
   "tiles.editDetail": TILES.editDetail,
@@ -671,6 +680,9 @@ export const LABELS: Record<string, string> = {
   "welcome.justDo": WELCOME.justDo,
   "welcome.next": WELCOME.next,
   "welcome.skip": WELCOME.skip,
+  "welcome.forget": WELCOME.forget,
+  "welcome.forgetYes": WELCOME.forgetYes,
+  "welcome.forgetNo": WELCOME.forgetNo,
   "tiles.change": TILES.change,
   "tiles.keep": TILES.keep,
   "tiles.notNow": TILES.notNow,

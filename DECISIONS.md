@@ -5126,3 +5126,39 @@ note_start_level`; `test_pairing.py`.)
 **Cost.** One more row kind, and one field on every telemetry row; readers
 that filter by `kind` are unaffected (`adaptation_stack_run`,
 `record_demo`).
+
+## Forgetting the person: where the reset is, and what it does not clear
+
+**Date:** 2026-10-18 (asked for: a reset that clears the profile and the
+personal tiles, for the user study and for handing the laptop to someone new)
+
+**Decision.** "Forget me and start again", a quiet button on the first
+question of the welcome when it is opened from "Change my settings" — never
+on a first open, where there is nothing to forget. One plain question,
+"Shall I forget everything about you?", with "Yes, forget it all" and "No,
+keep it", no default. Yes clears the profile in the overlay, sends
+`tile.change` `clear` (the backend deletes `data/tiles.json`), and opens the
+welcome as on a first open; the read-aloud button and checklist are back to
+their defaults for the next person.
+
+**Not cleared, and flagged for review — the question is whether a study
+needs them gone between participants:**
+
+- **"You asked before"** — the last goals run on this machine, read from the
+  replay trace store (`data/traces.db`). The next person sees the previous
+  one's last two goals, and a bill's spelled-out goal holds its reference
+  number. Options: (a) leave them; (b) clear the trace store too, which also
+  deletes the replay memory the evaluation measures; (c) have the reset hide
+  only goals from before it (a timestamp in the profile, and the backend
+  sending each goal's time — one more optional field). **Recommendation:
+  (c)**, about an hour's work; until then, run the study with
+  `SIMBA_TRACE_DB` pointed at a fresh file per participant.
+- **Saved passwords** (`data/vault.json`) — the request named only the
+  profile and the tiles. For the study's replicas they are throwaway.
+- **`data/steps.jsonl`** and `logs/backend.log` — the study's own record; not
+  the person's to clear.
+
+**Cost.** The overlay forgets at once; the tiles are cleared by the backend.
+With the home screen's connection closed, the `clear` waits for a new one to
+open and is sent then. If the backend is not running at all, the profile is
+gone but the tiles stay until a reset is done with it running.

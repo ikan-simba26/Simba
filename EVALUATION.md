@@ -6063,3 +6063,14 @@ it; anything but a whole 1, 2 or 3 — none, 0, 4, "2", 2.0 — written as
 start_from`); and through the app, the `task.start` of a person with a
 profile leaving its `start_level` row first. The rules, with floats and
 booleans added to what is not a level: **34 passed**.
+
+## 2026-10-18d — forgetting the person
+
+`feat/personal`. `frontend/test_reset.py`, **3 passed**: "No, keep it" changes
+nothing (profile kept, no `tile.change` sent); "Yes, forget it all" sends
+`clear`, removes the profile from the overlay's storage, opens the welcome on
+an empty name question with nothing left to forget, and after it the home
+screen greets no one by name and has no tiles of its own; a first open shows
+no button to forget. Through the app (`test_tiles.py`, **15 passed**): `clear`
+answers with no tiles and the file they were kept in is gone. The welcome
+and copy tests, with the new words: **40 passed**.

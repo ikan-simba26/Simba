@@ -331,6 +331,18 @@ def test_a_tile_changed_on_the_home_screen_is_answered_with_the_tiles_as_they_st
                                    {"origin": "Lahore Cantt", "destination": "Karachi Cantt"})
 
 
+def test_clearing_them_all_leaves_nothing_behind(app: dict) -> None:
+    """The reset (2026-10-18): `clear` empties the home screen's tiles and
+    deletes the file they were kept in."""
+    answers = changes([{"action": "clear"}])
+
+    assert answers == [[]]
+    assert not app["tiles"].path.exists()
+    app["bill"] = app["tiles"].add("My bill", "billing", {"reference": REFERENCE})
+    app["trip"] = app["tiles"].add("Trains to Karachi", "railways",
+                                   {"origin": "Lahore Cantt", "destination": "Karachi Cantt"})
+
+
 def test_the_log_never_holds_what_a_tile_kept(app: dict) -> None:
     talk([("task.start", {"goal": "", "input_mode": "text", "tile": app["bill"].id})])
 

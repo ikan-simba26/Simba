@@ -31,7 +31,9 @@ import type {
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
 import { FINAL } from "./copy";
-import { type Profile, loadProfile, saveProfile, welcomeEnabled } from "./profile";
+import {
+  type Profile, NEW_PROFILE, clearProfile, loadProfile, saveProfile, welcomeEnabled,
+} from "./profile";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -204,6 +206,12 @@ interface Store {
   /** Rename, move or remove one of their own tiles, or clear them all. */
   changeTile: (change: TileChange) => void;
   setTilesOpen: (open: boolean) => void;
+  /**
+   * Forget the person (2026-10-18): their profile, and their own tiles in the
+   * backend. Then the welcome, as on a first open. For the next person to use
+   * this computer, and between sessions of a study.
+   */
+  forgetEverything: () => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -424,6 +432,22 @@ export const useStore = create<Store>((set, get) => {
     },
 
     setTilesOpen: (open) => set({ tilesOpen: open }),
+
+    forgetEverything: () => {
+      clearProfile();
+      get().changeTile({ action: "clear" });
+      set({
+        profile: { ...NEW_PROFILE },
+        askEachTime: NEW_PROFILE.askEach,
+        tiles: [],
+        tilesOpen: false,
+        level: 2,
+        chosenLevel: 2,
+        levelLocked: false,
+        levelNotice: null,
+        welcomeOpen: welcomeEnabled(),
+      });
+    },
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
