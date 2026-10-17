@@ -44,9 +44,11 @@ much on the day.
 "show them the real website" is still rehearsed on the real page, by looking at
 it, not by searching.
 
-**The recordings show the flow as it is** (re-recorded 2026-10-16): the
-questions, the read-back, the checklist, the answer and the real page; and,
-in `demo/booking.webm`, a booking on our copy through its final screen.
+**The recordings show the flow as it is** (re-recorded 2026-10-16; the
+booking again on 2026-10-17): the questions, the read-back, the checklist,
+the answer and the real page; and, in `demo/booking.webm`, a booking on our
+copy through its final screen, ending "Booked on the practice site." with
+the booking number and that no real ticket was booked and no money taken.
 They are made on our own copies, so **the live site is never used to make
 them** — `tools/record_demo.py` asks the
 backend where a train goal would run and refuses to record the railways clip

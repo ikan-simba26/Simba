@@ -5968,3 +5968,16 @@ Three causes, all fixed on this branch:
    move the guard could not see (an animation the browser runs itself) —
    a 200ms re-check changed nothing; and the typeface arriving late —
    waiting for it changed nothing.
+
+## 2026-10-17l — the booking clip, re-recorded
+
+`fix/final-touches`. `demo/booking.webm` re-recorded with the stack up
+(`run.ps1 railways-local`, our copy, on mains): **56s, 5.3 MB**, every screen
+answered — both stations, the read-back, 7UP, the name, AC Standard, the final
+screen held and "Book it", the real page shown. Its closing frame, looked at
+(not just its log): "Booked on the practice site." / "Booking number
+PR-452048. This was a practice copy, so no real ticket was booked and no money
+was taken." / 'The site says "Booking Confirmed".' / the receipt. The other
+five clips were checked against today's wording and left: the bill, trains
+and hello clips end on screens that have not changed, and `fold.webm` is the
+scripted mock, with no final screen and no confirmation.

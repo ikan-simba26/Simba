@@ -10,7 +10,7 @@ re-recorded rather than read. Record them the day before showing anything.
 | Clip | Backend | Typed goal | What it shows | Size |
 |---|---|---|---|---|
 | `railways.webm` | real | `trains to Rawalpindi tomorrow` | **Our copy** of the train search. Asked where from (typed "Lahore", chose "Lahore Cantt"), the journey read back, the search as a checklist, the trains as tickets with "Book one of these" beside "Back to start", then "See it on the real page". | 3.4 MB, 35s |
-| `booking.webm` | real | `book a train from Lahore to Karachi tomorrow` | **A booking on our copy.** Which station at each end, the read-back, the checklist, which train, a name, a class, the **final screen** held, "Book it", the site's confirmation quoted with booking number, train, date and seat, and the real page. | 6.1 MB, 78s |
+| `booking.webm` | real | `book a train from Lahore to Karachi tomorrow` | **A booking on our copy.** Which station at each end, the read-back, the checklist, which train, a name, a class, the **final screen** held, "Book it", then the ending in plain words — "Booked on the practice site." over the booking number and "This was a practice copy, so no real ticket was booked and no money was taken." — the site's own words, the booking number, train, date and seat, and the real page. Re-recorded 2026-10-17 for that wording. | 5.3 MB, 56s |
 | `billing.webm` | real | `What do I owe on my electricity bill?` | The billing replica. The reference asked for, cookies asked Yes or No, the lookup as a checklist, "Rs 14,382, due 15 September 2026", "Pay this bill" offered, and the real page. | 3.3 MB, 39s |
 | `hello.webm` | real | `hello` | A greeting and the three things SIMBA can do. **No task starts.** | 0.7 MB, 8s |
 | `fold.webm` | mock | `Register for CS-401` | The scripted run, including the fold from one detail level to the next. | 3.1 MB, 43s |
@@ -18,7 +18,13 @@ re-recorded rather than read. Record them the day before showing anything.
 
 Recorded 2026-10-16/17 with the stack's host forced to 100% (railways at
 150%: at 100% the still of the site view used for "See it on the real page"
-failed to come, the known 100% capture problem, EVALUATION.md 2026-09-27).
+failed to come, the known 100% capture problem, EVALUATION.md 2026-09-27 —
+fixed on 2026-10-17, so a re-recording can be made at 100%). `booking.webm`
+re-recorded 2026-10-17 at the machine's own scale, on mains. Which clips
+show wording since changed: none now — the bill, trains and hello clips end
+on screens that did not change, and `fold.webm` is the scripted mock, whose
+run has no final screen and ends "That's done." as a task the site did not
+confirm does.
 No clip touches the live site.
 
 ## Recording them again
