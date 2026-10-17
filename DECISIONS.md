@@ -4851,3 +4851,30 @@ pytest run. The same commit took 805s one day and 1435s the next, and
 nothing said why.
 
 **Cost.** One PowerShell call (~1–2s) per banner and per pytest run.
+
+## What a run did, and how long each part took, is written down
+
+**Date:** 2026-10-17 (asked for: "make sure the log would show the cause next
+time" — a tile press not registering, a checklist sitting over a minute; where
+and what to log was not specified)
+
+**Decision.** The backend's `simba.*` loggers write to the terminal and to
+`logs/backend.log` (2 MB, three kept; `SIMBA_LOG_FILE=` empty keeps it to the
+terminal). Each run logs: the task starting and how long its page took to
+open; every page read and choice of next move, timed; every step put on
+screen and how long until it was answered, and with what action id; every
+checklist line; every move, done or not, and how long it took; every picture
+of the page and the end-of-task picture, timed; a window pause; and how the
+task ended. The host writes every press the overlay's guard logged — with
+whether it was ignored, how long since the button moved, and what was under
+the pointer — into its own log, beside why it closed if it closes.
+
+**Never logged:** a value the person typed, the goal's words, or the page's
+text — only kinds, counts, ids of the buttons pressed, the site's host name
+and timings. A credential cannot reach either log.
+
+**Alternatives.** Logging through the websocket to the overlay: a contract
+change. Logging only on failure: the minute-long checklist was not a failure.
+
+**Cost.** Two new files on the showcase machine, both in ignored paths; a few
+lines per step.

@@ -5762,3 +5762,39 @@ gone, so a press cannot go nowhere; "Back to start" is unchanged. Tests: a
 run whose offer nobody answers ends by itself (`test_booking.py`, with the
 idle time shortened), and an offer whose run has closed is not shown
 (`frontend/test_terminal_states.py`, 15 offer tests passed).
+
+## 2026-10-17f — the tile press and the slow checklist, at 150%: not reproduced
+
+`fix/stability`. Seen once at 150%: tile presses not registering, and the
+checklist sitting over a minute. Twenty train searches in the real window
+at forced 150% (`.scratch/walk-finish/walk_item4.py`: the replicas, the real
+host and backend, the guard on, pressing each answer the moment its button
+is there), each pressing the "Find train times" tile **once** at a set delay
+after the tiles arrived (0.3s to 4s, cycled), and timing the checklist from
+"Yes, that's right" to the answer:
+
+| | Result |
+|---|---|
+| tile registered on the first press | **20/20** |
+| press to the backend routing the goal (overlay's log against the backend's) | 0.00–0.01s |
+| routing to the first question on screen (backend's log) | ~1.3s |
+| checklist, read-back to answer | **4.4–6.2s**, median 5.35s — never near a minute |
+| reached the answer, with the end-of-task picture | 20/20 |
+| presses logged / ignored by the guard | 256 / 76 — every ignored one on a button that had appeared under 600ms before, the walk pressing as soon as it could |
+
+Not reproduced. One limit, measured: the walk could not press the tile
+early. The guard's own log put every press 5.4–6.6s after the tile appeared
+(`sinceButtonMs`), whatever delay was asked for — the overlay answers CDP
+slowly while it loads — so a press during the tiles' 1.3s entrance, which the
+guard ignores by design, was never tried. That is the one way a tile press
+can do nothing, and it is now visible.
+
+**So the log shows the cause next time.** Every press the guard logs —
+ignored or not, how long since its button moved, what was under the pointer
+— is now copied into the host's log as `SIMBA overlay press {…}`; the
+backend writes `logs/backend.log`, where every page read, choice of move,
+step on screen and its answer, checklist line, move and picture has a time
+(DECISIONS.md, *What a run did…*). Both were read back in this run: the
+press log above is the host's, the timings the backend's. Until now neither
+existed — the backend's `simba` lines were never set up to print, and the
+overlay's press log died with the page.

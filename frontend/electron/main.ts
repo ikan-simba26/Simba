@@ -219,6 +219,14 @@ app.whenReady().then(() => {
       `overlay ${DEV_SERVER ?? OVERLAY_FILE}`,
   );
 
+  // Every press the overlay's guard logged, ignored or not
+  // (`frontend/src/pressGuard.ts`), into the host's own log too: a tile press
+  // that did not register, seen once at 150%, said nothing anywhere the
+  // overlay's own memory did not outlive (2026-10-17).
+  overlay.webContents.on("console-message", (_event, _level, message) => {
+    if (message.startsWith("[simba] press ")) console.log(`SIMBA overlay ${message.slice(8)}`);
+  });
+
   win.on("closed", () => app.quit());
 });
 
