@@ -302,6 +302,11 @@ export interface TaskStart {
   input_mode: InputMode;
   /** Additive, optional (2026-09-21): the flow the person picked. */
   flow?: FlowName;
+  /**
+   * Additive and optional (2026-10-18): the level the person chose as
+   * comfortable in the welcome. The level rules start from it. Absent: 2.
+   */
+  start_level?: Level;
 }
 
 export interface StepResponse {

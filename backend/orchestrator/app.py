@@ -250,6 +250,10 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         chosen = payload.get("flow")
         # The checklist unless the person asked to be asked every time.
         auto = not bool(payload.get("confirm_each"))
+        # The level the person chose as comfortable, kept by the overlay
+        # (2026-10-18): the rules start there and come back to it.
+        if rules is not None:
+            rules.start_from(payload.get("start_level"))
 
         if chosen in ROUTABLE:
             # Picked by the person from something we offered. Not classified

@@ -171,6 +171,9 @@ def browser_page(playwright_instance: Playwright) -> Iterator[Page]:
     # Heights, not presses: the built overlay ignores a press on a button
     # that has just arrived (2026-10-16), which `test_press_guard.py` tests.
     page.add_init_script("window.__simbaSettleMs = 0")
+    # And straight to the home screen: the real build opens on the welcome
+    # the first time (2026-10-18), which `test_welcome.py` tests.
+    page.add_init_script("window.__simbaWelcome = false")
     yield page
     browser.close()
 

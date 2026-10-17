@@ -29,6 +29,7 @@ import type {
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
 import { FINAL } from "./copy";
+import { type Profile, loadProfile, saveProfile, welcomeEnabled } from "./profile";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -171,6 +172,20 @@ interface Store {
   /** Stop the checklist before its next move. */
   pause: () => void;
   setAskEachTime: (on: boolean) => void;
+  /**
+   * What the person told SIMBA in the welcome (2026-10-18), kept on this
+   * computer (`profile.ts`). Their name greets them; their level is where
+   * every task starts.
+   */
+  profile: Profile;
+  /** The welcome is on screen: a first open, or "Change my settings". */
+  welcomeOpen: boolean;
+  /** Part of the profile, as the welcome hears it: kept at once. */
+  updateProfile: (change: Partial<Profile>) => void;
+  /** The welcome done or skipped: it is not shown on its own again. */
+  finishWelcome: () => void;
+  /** "Change my settings": the welcome again, with what they said before. */
+  openWelcome: () => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -222,16 +237,8 @@ const NOTHING_CHANGED = `${FINAL.notDone} ${FINAL.nothingChanged}`;
  *  came: the backend's own limit (5s) and a little more. */
 const PICTURE_WAIT_MS = 7000;
 
-/** Where the person's "ask me before each thing" setting is kept. */
-const ASK_EACH_KEY = "simba.askEachTime";
-
-function readAskEachTime(): boolean {
-  try {
-    return window.localStorage.getItem(ASK_EACH_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+/** The profile as this window opened with it. */
+const STARTING_PROFILE = loadProfile();
 
 const EMPTY = {
   proofOpen: false,
@@ -305,16 +312,19 @@ export const useStore = create<Store>((set, get) => {
     status: "idle",
     wsUrl: DEFAULT_WS_URL,
     log: [],
-    level: 2,
+    // Where the person said they were comfortable, else the usual (2026-10-18).
+    level: STARTING_PROFILE.level ?? 2,
     history: [],
     levelLocked: false,
-    chosenLevel: 2,
+    chosenLevel: STARTING_PROFILE.level ?? 2,
     levelNotice: null,
     overflowHopped: false,
     debug: false,
     trustOpen: false,
     noPicture: false,
-    askEachTime: readAskEachTime(),
+    askEachTime: STARTING_PROFILE.askEach,
+    profile: STARTING_PROFILE,
+    welcomeOpen: welcomeEnabled() && !STARTING_PROFILE.welcomed,
     ...EMPTY,
 
     toggleDebug: () => set((current) => ({ debug: !current.debug })),
@@ -347,14 +357,26 @@ export const useStore = create<Store>((set, get) => {
       connection.respondToStep({ step_index: last.index, action_id: "pause", input_values: {} });
     },
 
-    setAskEachTime: (on) => {
-      set({ askEachTime: on });
-      try {
-        window.localStorage.setItem(ASK_EACH_KEY, on ? "1" : "0");
-      } catch {
-        // No storage: the setting holds until the window closes.
-      }
+    setAskEachTime: (on) => get().updateProfile({ askEach: on }),
+
+    updateProfile: (change) => {
+      const profile = { ...get().profile, ...change };
+      saveProfile(profile);
+      set({
+        profile,
+        askEachTime: profile.askEach,
+        // A level chosen here is where the next task starts, not a lock.
+        ...(change.level !== undefined && !get().levelLocked
+          ? { level: change.level, chosenLevel: change.level } : {}),
+      });
     },
+
+    finishWelcome: () => {
+      get().updateProfile({ welcomed: true });
+      set({ welcomeOpen: false });
+    },
+
+    openWelcome: () => set({ welcomeOpen: true }),
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
@@ -437,7 +459,11 @@ export const useStore = create<Store>((set, get) => {
       // to: a lock carried into a new task is still only their choice.
       const { chosenLevel, levelLocked } = get();
       if (levelLocked) connection.overrideLevel(chosenLevel, true);
-      connection.startTask(goal, flow, get().askEachTime);
+      // Every task starts at the person's own level (2026-10-18): the
+      // backend's rules start from it and come back to it after calm steps.
+      const start = get().profile.level;
+      if (start && !levelLocked) set({ level: start, chosenLevel: start });
+      connection.startTask(goal, flow, get().askEachTime, start);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),

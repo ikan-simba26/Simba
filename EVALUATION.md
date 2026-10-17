@@ -5990,3 +5990,26 @@ window fit: 3 passed** (100%, 125%, 150%, 415s). In all **1430 passed, 12
 skipped, 0 failed**. The fresh clone's second run, before the last test fix:
 901 passed and 1 failed (that test, since passing in the clone too), 528
 passed.
+
+## 2026-10-18 — the welcome, and the person's own starting level
+
+`feat/personal`. The four questions, in a headless browser from the built
+overlay: `frontend/test_welcome.py`, **8 passed** — every question skippable
+and the welcome not shown again; the answers kept as the profile
+(`{"name": "Ayesha", "level": 3, "readAloud": false, "askEach": false,
+"welcomed": true}`); the greeting "…, Ayesha. What can I do for you?"; the
+next `task.start` carrying `start_level: 3` and no name anywhere in what the
+overlay sent; no "Read this aloud" for a person who said no; "Change my
+settings" reopening with the answers marked; and all four questions fitting,
+nothing scrolling and every button on screen, at 1280x800 (100%), 1280x734
+(125%), 1266x606 and 1266x632 (150%). Looked at, at 150% and 100%: the three
+examples side by side, each the real step, legible.
+
+The rules (`backend/estimator/test_rules.py`, 7 new, **34 passed**): a task
+starts at the chosen level 1, 2 or 3; a heavy page still at 3; calm steps
+come back to the person's level, not 2; chosen 3, never brought back to 2;
+no level, or one out of range, is 2. Through the app over the websocket
+(`test_adaptation.py`, **7 passed**): the bill with `start_level: 1`, one
+hesitant question, then calm — levels sent **1, 2, 1**, against 2, 3, 2
+without it. The home, level, copy, first-screen and read-aloud tests:
+**134 passed**.

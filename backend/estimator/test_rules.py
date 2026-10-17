@@ -409,3 +409,63 @@ def test_a_guard_move_does_not_count_against_a_calm_run() -> None:
     run.rules.override(2, locked=False, by="overflow")   # 3 -> 2, for fit
     run.step(3, calm_step(3))
     assert run.rules.calm_streak == 2
+
+
+# --- the person's own level, from the welcome (2026-10-18) -------------------------
+
+
+def started_at(level: int | None) -> Run:
+    rules = LevelRules()
+    rules.start_from(level)
+    return Run(rules)
+
+
+def test_a_task_starts_at_the_level_the_person_chose() -> None:
+    for level in (1, 2, 3):
+        run = started_at(level)
+        run.step(1, calm_step(1))
+        assert run.levels[1] == level
+        assert [(d.at, d.level) for d in run.sent] == [("start", level)]
+
+
+def test_the_start_says_it_is_the_persons_own_level() -> None:
+    run = started_at(1)
+    run.step(1, calm_step(1))
+    assert "the person's own level, 1" in run.sent[0].reason
+
+
+def test_a_heavy_page_still_starts_simplest_whatever_was_chosen() -> None:
+    run = started_at(1)
+    run.step(1, calm_step(1), page=HEAVY)
+    assert run.levels[1] == 3
+
+
+def test_calm_steps_come_back_to_the_persons_level_not_to_2() -> None:
+    run = started_at(1)
+    run.step(1, hesitant_step(1))
+    assert run.levels[1] == 2  # one fold, from 1
+    run.step(2, calm_step(2))
+    run.step(3, calm_step(3))
+    run.step(4, calm_step(4))
+    assert run.levels[4] == 1
+
+
+def test_a_person_who_chose_the_simplest_is_never_brought_back_to_2() -> None:
+    run = started_at(3)
+    for index in range(1, 6):
+        run.step(index, calm_step(index))
+    assert set(run.levels.values()) == {3}
+
+
+def test_no_level_or_a_level_out_of_range_starts_at_2() -> None:
+    for level in (None, 0, 4, "2"):
+        run = started_at(level)  # type: ignore[arg-type]
+        run.step(1, calm_step(1))
+        assert run.levels[1] == 2
+
+
+def test_the_level_cannot_be_changed_once_the_task_has_started() -> None:
+    rules = LevelRules()
+    rules.start_step(1, LIGHT)
+    rules.start_from(1)
+    assert (rules.baseline, rules.level) == (2, 2)

@@ -328,6 +328,11 @@ class TaskStart(BaseModel):
     # every move, as SIMBA always did, rather than running the safe ones as a
     # checklist. Absent: the checklist.
     confirm_each: bool = False
+    # Additive and optional (2026-10-18). The level the person chose as
+    # comfortable in the welcome, kept on their computer: the level rules
+    # start from it, and come back to it after calm steps, instead of 2.
+    # Absent: they did not choose, and 2 it is.
+    start_level: Optional[Level] = None
 
 
 class StepResponse(BaseModel):

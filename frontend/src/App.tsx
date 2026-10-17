@@ -40,6 +40,7 @@ import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
+import { Welcome } from "./components/Welcome";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
@@ -141,7 +142,7 @@ function PresenceBar() {
 
 function Column() {
   const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
-          asking, checklist, declined } = useStore();
+          asking, checklist, declined, welcomeOpen } = useStore();
   // Put aside while the real page is shown: the trust panel's picture.
   const aside = trustOpen;
 
@@ -170,7 +171,11 @@ function Column() {
             ? "working"
             : reply
               ? `reply-${reply.kind}`
-              : "idle";
+              // The welcome takes the home screen's place, first time only
+              // or when asked for again (2026-10-18).
+              : welcomeOpen
+                ? "welcome"
+                : "idle";
 
   return (
     <motion.div
@@ -189,6 +194,7 @@ function Column() {
         <AnimatePresence initial={false}>
           <ScreenFrame key={screen}>
             {screen === "idle" && <Home />}
+            {screen === "welcome" && <Welcome />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
             {screen.startsWith("step-") && <Step index={Number(screen.slice(5))} />}
@@ -250,7 +256,7 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
  * way back from a task.
  */
 function Home() {
-  const { startTask, history } = useStore();
+  const { startTask, history, profile, openWelcome } = useStore();
   const reduce = useReducedMotion() ?? false;
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
@@ -266,7 +272,7 @@ function Home() {
       <div className="flex flex-col gap-8 short:gap-5">
         <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
                        short:text-heading" data-testid="greeting">
-          {greetingAt(hour)}
+          {greetingAt(hour, profile.name)}
         </h1>
 
         <section className="flex flex-col gap-3" aria-label={HOME.canHelp}>
@@ -332,7 +338,13 @@ function Home() {
         {/* In a short window the box's lead-in goes: the greeting above has
             just asked the same question. The box keeps it as its name. */}
         <AskBox lead={HOME.askHeading} leadWhenShort={false} />
-        <div className="flex justify-end"><AskEachSetting /></div>
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
+                  data-testid="change-settings">
+            {HOME.settings}
+          </Button>
+          <AskEachSetting />
+        </div>
       </div>
     </div>
   );

@@ -4986,3 +4986,44 @@ crawl of 1px a frame would never count as moving.
 
 **Cost.** None found; a button still moving is not at rest, so a move made
 after rest still counts from where it stopped.
+
+## Getting to know the person: what the welcome keeps, and where
+
+**Date:** 2026-10-18 (asked for: a short welcome on first open — a name, a
+comfortable level from three examples, read aloud on or off, ask-each or
+just-do-it — kept locally as a profile, the level as the starting level,
+greeting by name, "Change my settings" to reopen it)
+
+**Decision, and what the request left open:**
+
+- **Read aloud "on or off" shows or hides the "Read this aloud" button.**
+  Speech stays only on a press, as CLAUDE.md requires; reading each step
+  automatically would need that rule changed. Raham chose this when asked.
+- **The profile lives in the overlay's own storage** (`profile.ts`). The
+  name greets the person and never leaves the overlay — not to the backend,
+  not into a log or a recording. The level goes with every task as
+  `task.start.start_level` (additive, optional; CONTRACT.md), and the
+  ask-each setting as `confirm_each`, as it already did.
+- **The level rules take the person's level as their baseline**
+  (`LevelRules.start_from`): a task starts there, a heavy page still starts
+  at 3, and calm steps come back to it, where they came back to 2. Chosen 3,
+  nothing brings them back to 2.
+- **Each question's Skip keeps what was there**; skipping all four still
+  counts as having seen the welcome, so it is not shown again on its own.
+  "Change my settings" opens it with the earlier answers marked.
+- **The three examples are the real step**, at the real column's width,
+  drawn small: what the person picks is what they will see. Named "More on
+  the screen", "In between", "Less on the screen"; the level numbers are
+  never shown.
+- **No count** ("1 of 4") on the questions: the copy rules forbid counts.
+- **The tests' builds turn the welcome off** (`VITE_SIMBA_WELCOME=0`); its
+  own tests turn it on per page (`window.__simbaWelcome`), as the press
+  guard's do. The demo recorder turns it off in its own browser.
+- **The host takes `SIMBA_USER_DATA`**, the folder Electron keeps its storage
+  in. Tests and walks that need a first open point it at an empty folder in
+  `.scratch/`, so they never clear the real person's profile and never write
+  outside the repository. Unset, nothing changes.
+
+**Cost.** One more optional contract field, for Nahail and Aly to agree. The
+profile is per Windows account and per machine; a person on another laptop
+starts again.

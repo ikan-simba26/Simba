@@ -87,6 +87,8 @@ export const HOME = {
   canHelp: "I can help with these",
   /** Reveals the text box. Deliberately last, and quiet. */
   somethingElse: "Ask for something new",
+  /** Opens the welcome again, to change what the person told it (2026-10-18). */
+  settings: "Change my settings",
   /** Above the text box, once it is showing. */
   askHeading: "What would you like me to do?",
   /** What SIMBA really does, in the words a person would type. It said "Pay
@@ -95,12 +97,53 @@ export const HOME = {
   start: "Start",
 } as const;
 
-/** The greeting for the hour it is, by the person's own clock. */
-export function greetingAt(hour: number): string {
-  if (hour >= 5 && hour < 12) return HOME.morning;
-  if (hour >= 12 && hour < 17) return HOME.afternoon;
-  return HOME.evening;
+/** The greeting for the hour it is, by the person's own clock — with their
+ *  name, when they gave one in the welcome (2026-10-18): "Good morning,
+ *  Ayesha. What can I do for you?" */
+export function greetingAt(hour: number, name?: string): string {
+  const greeting = hour >= 5 && hour < 12 ? HOME.morning
+    : hour >= 12 && hour < 17 ? HOME.afternoon : HOME.evening;
+  if (!name) return greeting;
+  const [hello, ...rest] = greeting.split(". ");
+  return `${hello}, ${name}. ${rest.join(". ")}`;
 }
+
+/* ------------------------------------------------------------- welcome */
+
+/**
+ * Getting to know the person, the first time SIMBA opens (2026-10-18): four
+ * short questions, one at a time, each one skippable. What they say is kept
+ * on this computer as their profile (`profile.ts`).
+ */
+export const WELCOME = {
+  /** Above every question of the welcome. A lead-in. */
+  lead: "Getting to know you",
+  nameAsk: "What should I call you?",
+  nameDetail: "Your first name is enough. It stays on this computer.",
+  namePlaceholder: "Your name",
+  levelAsk: "Which of these feels comfortable?",
+  levelDetail: "Each shows the same question in its own way. I start with the one you pick, and show less when something seems hard.",
+  /** Under each of the three examples: what it is like. */
+  levelName: (level: Level) =>
+    level === 1 ? "More on the screen" : level === 3 ? "Less on the screen" : "In between",
+  readAsk: "Would you like a button that reads things aloud?",
+  readDetail: "It reads the question in your computer's own voice, only when you press it.",
+  readYes: "Yes, show it",
+  readNo: "No, thank you",
+  askAsk: "How would you like me to work?",
+  askDetail: "Paying, booking and anything you have to choose always wait for you.",
+  askEach: "Ask me before each thing",
+  justDo: "Just do it and show me",
+  next: "Next",
+  skip: "Skip this",
+  /** The example shown three ways: a question every journey asks. */
+  sample: {
+    instruction: "What day are you travelling?",
+    detail: "I'll look up the trains for that day.",
+    answers: ["Today", "Tomorrow", "Another day"],
+    stop: "Stop this",
+  },
+} as const;
 
 /* ---------------------------------------------------------------- flows */
 
@@ -529,6 +572,15 @@ export const SITUATIONS: Record<string, string> = {
   "home.evening": HOME.evening,
   "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
+  "home.morningNamed": greetingAt(9, "Ayesha"),
+  "welcome.nameAsk": WELCOME.nameAsk,
+  "welcome.nameDetail": WELCOME.nameDetail,
+  "welcome.levelAsk": WELCOME.levelAsk,
+  "welcome.levelDetail": WELCOME.levelDetail,
+  "welcome.readAsk": WELCOME.readAsk,
+  "welcome.readDetail": WELCOME.readDetail,
+  "welcome.askAsk": WELCOME.askAsk,
+  "welcome.askDetail": WELCOME.askDetail,
   "trust.ask": TRUST.ask,
   "reply.greeting": REPLY.greeting,
   "reply.unsupported": REPLY.unsupported,
@@ -545,6 +597,10 @@ export const LEADS: Record<string, string> = {
   "ending.fastest": ENDING.fastest,
   "home.canHelp": HOME.canHelp,
   "home.again": HOME.again,
+  "welcome.lead": WELCOME.lead,
+  "welcome.level1": WELCOME.levelName(1),
+  "welcome.level2": WELCOME.levelName(2),
+  "welcome.level3": WELCOME.levelName(3),
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
 };
@@ -575,6 +631,13 @@ export const LABELS: Record<string, string> = {
   "home.ending": HOME.ending("7890"),
   "home.onDay": HOME.onDay(1, 10),
   "settings.askEach": SETTINGS.askEach,
+  "home.settings": HOME.settings,
+  "welcome.readYes": WELCOME.readYes,
+  "welcome.readNo": WELCOME.readNo,
+  "welcome.askEach": WELCOME.askEach,
+  "welcome.justDo": WELCOME.justDo,
+  "welcome.next": WELCOME.next,
+  "welcome.skip": WELCOME.skip,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,

@@ -53,6 +53,13 @@ const DEV_SERVER = process.env.SIMBA_DEV_SERVER;
 // Must be set before the app is ready.
 app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
 
+// Where this host keeps its storage — the person's profile among it — when a
+// test or a walk says (2026-10-18). Unset, Electron's own place for the
+// person's app data, as always. A test that needs a first open points it at
+// an empty folder inside the repository, so it never clears the real
+// person's profile, and never writes outside the checkout (CLAUDE.md).
+if (process.env.SIMBA_USER_DATA) app.setPath("userData", process.env.SIMBA_USER_DATA);
+
 // 1280x800 is frozen — the estimator measures text density per visible area,
 // so the site view's viewport has to stay constant across runs. It is also
 // the largest the window's content gets.

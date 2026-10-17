@@ -432,6 +432,16 @@ classified as usual.
 { "goal": "I need to pay for my course", "input_mode": "text", "flow": "billing" }
 ```
 
+`start_level` is **additive and optional** (2026-10-18): `1` | `2` | `3`, the
+level the person chose as comfortable in the overlay's welcome, kept on their
+computer. The backend's level rules start the task there — a heavy page still
+starts at 3 — and come back to it after calm steps, where they came back to 2.
+Absent: 2, as before. The overlay sends nothing else from the profile; the
+person's name never leaves it.
+```json
+{ "goal": "Check my electricity bill", "input_mode": "text", "flow": "billing", "start_level": 1 }
+```
+
 ### `step.response`
 ```json
 { "step_index": 2, "action_id": "confirm",
