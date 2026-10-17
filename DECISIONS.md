@@ -4946,3 +4946,26 @@ them; README and RUNNING install with `npm ci`. Not asked, and settled here:
 
 **Cost.** Moving any version is now deliberate: edit, install, run the whole
 suite. Security fixes do not arrive by themselves.
+
+## `feat/orchestrator-preview-capture` is deleted, not merged
+
+**Date:** 2026-10-17 (asked for)
+
+**Decision.** The branch is deleted. It kept the site view repainting while
+it was photographed (2026-09-30), and was left unmerged until the 100%
+capture rate was measured for real. Measured on 2026-10-17, repainting made
+no difference — every capture at 100% still stalled until it was asked for
+again — and `browser.capture_site`, on `main` since then, asks again
+instead: 20/20 at every scale (EVALUATION.md, 2026-10-17). Nothing on the
+branch is needed.
+
+**What went with it.** Two commits, the last `0e42753` (2026-09-30): the
+repainting capture and its tests, a HANDOVER/STATUS refresh long since
+overtaken, and three evaluation scripts that were never on `main` and are
+cited nowhere on it — `tools/evaluation/flow_screens_run.py`,
+`preview_stack_run.py` and `remembered_home_run.py` — with the 2026-09-30
+EVALUATION entries they produced. It was never pushed: GitHub had no such
+branch, so the deletion is local only. The commits stay reachable from this
+machine's reflog for a while by that hash.
+
+**Cost.** Those three scripts' numbers cannot be re-run from `main`.
