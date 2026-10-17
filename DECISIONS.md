@@ -4923,3 +4923,26 @@ real ticket" is what the practice line already says.
 
 **Cost.** The line under the heading is three sentences; it fits at every
 scale measured.
+
+## Every dependency is pinned to the versions the suite passes with
+
+**Date:** 2026-10-17 (asked for: pin every Python and Node dependency, and
+say how to install them)
+
+**Decision.** `backend/requirements.txt` and `requirements-dev.txt` pin all
+48 packages in this venv with `==` — the 8 the backend names, the 3 the tests
+name, and the 37 they pull in, listed under their own comment.
+`frontend/package.json` names the exact installed version of each of its 14
+packages, and `package-lock.json` (already committed) holds everything below
+them; README and RUNNING install with `npm ci`. Not asked, and settled here:
+
+- **Transitive Python packages are pinned in the same files**, not in a
+  separate lock file: one `pip install -r` gets the exact set, with no new
+  tool.
+- **`uvloop` is not pinned**: `uvicorn[standard]` brings it on macOS and
+  Linux only, and it was never installed here, so there is no tested version.
+- **README's step 3 is `npm ci`**, to match RUNNING: `npm install` could
+  rewrite the lock.
+
+**Cost.** Moving any version is now deliberate: edit, install, run the whole
+suite. Security fixes do not arrive by themselves.

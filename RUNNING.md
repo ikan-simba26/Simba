@@ -34,6 +34,31 @@ do: it is about 20 requests a day and one run costs 6–7.
 
 ---
 
+## Installing the exact versions
+
+Every dependency is pinned to the version the full suite passes with
+(2026-10-17): `backend/requirements.txt` and `backend/requirements-dev.txt`
+name every Python package, the ones they pull in included, with `==`, and
+`frontend/package.json` names exact versions that `frontend/package-lock.json`
+holds to, down to every package beneath them. Install them like this, and
+nothing newer slips in:
+
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt     # exactly the pinned set
+cd ..\frontend
+npm ci                                  # exactly package-lock.json; never rewrites it
+cd ..
+```
+
+`npm ci` rather than `npm install`: it installs what the lock says and fails
+rather than change it. `pip check` afterwards should say "No broken
+requirements found." To move a version on purpose, change it in the file,
+install, and run the whole suite before committing (README.md, step 5).
+
+---
+
 ## What you see
 
 Starting `./run.sh registration` prints, in order:
