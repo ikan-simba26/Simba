@@ -45,7 +45,8 @@ Needs `npm run build` in frontend/ first. Uses CDP port 9232 so it cannot
 collide with a running stack on 9222.
 """
 
-import base64
+import asyncio
+import concurrent.futures
 import json
 import os
 import re
@@ -188,6 +189,19 @@ def read_home(overlay: Page) -> dict:
 TALLEST_ENDING = "completed with nine results and a sentence"
 
 
+def said(scale: str, what: str) -> None:
+    """One line per stage, with the time since the host was started
+    (2026-10-17). A run once took 22 minutes and ended with the host's pages
+    closed, and nothing said which stage the time went on; pytest shows these
+    lines with a failure."""
+    print(f"fit {scale} {time.monotonic() - STARTED.get(scale, time.monotonic()):7.1f}s "
+          f"{what}", flush=True)
+
+
+#: When each scale's host was started, for `said`.
+STARTED: dict[str, float] = {}
+
+
 def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
     """Every ending, played into the real window, and where its buttons are.
 
@@ -201,6 +215,7 @@ def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
     base = overlay.url.split("?")[0]
     measured = {}
     for name in ENDINGS:
+        said(scale, f"ending: {name}")
         reach(overlay, base, backend, name)
         measured[name] = onward(overlay)
         if name == TALLEST_ENDING:
@@ -275,19 +290,34 @@ def capture_view(page: Page, path: Path) -> None:
     Not `page.screenshot()`. Playwright sizes its capture as the CSS viewport
     times the screen's scale and knows nothing of the overlay's zoom, so at
     150% it returned a 1280x800-DIP picture with the real 969x606 view in its
-    top-left corner and page background round it. The raw call with no clip
-    returns the view's own surface. One retry, because a capture of a page
-    that has not changed can wait for a frame that never comes.
+    top-left corner and page background round it. The raw capture with no
+    clip returns the view's own surface.
+
+    Through `browser.capture_site` since 2026-10-17, which asks again while a
+    capture stalls and gives up after a few seconds. This sent one raw
+    request and retried only if it raised, and at 100% a stalled one never
+    does: one run of the host fit test sat here for 14 minutes until it was
+    stopped, and one on 2026-10-17 at 01:15 for most of 22 before its page
+    closed (EVALUATION.md, 2026-10-17h). Taken over a connection of its own,
+    on its own thread, because `capture_site` is async and this is not.
     """
-    session = page.context.new_cdp_session(page)
-    for attempt in range(2):
-        try:
-            shot = session.send("Page.captureScreenshot", {"format": "png"})
-            path.write_bytes(base64.b64decode(shot["data"]))
-            return
-        except Exception:  # noqa: BLE001 — retried once, then raised
-            if attempt:
-                raise
+    url = page.url
+
+    async def shoot() -> bytes:
+        from playwright.async_api import async_playwright
+
+        from backend.orchestrator.browser import capture_site
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.connect_over_cdp(CDP)
+            try:
+                view = next(p for c in browser.contexts for p in c.pages if p.url == url)
+                return await capture_site(view)
+            finally:
+                await browser.close()  # detaches; the host is the caller's to stop
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        path.write_bytes(pool.submit(asyncio.run, shoot()).result())
 
 
 def host_line(log: Path) -> dict:
@@ -302,7 +332,9 @@ def host_line(log: Path) -> dict:
 
 
 def measure(scale: str) -> dict:
+    STARTED[scale] = time.monotonic()
     proc, log = launch(scale)
+    said(scale, "host answering on CDP")
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.connect_over_cdp(CDP)
@@ -322,12 +354,14 @@ def measure(scale: str) -> dict:
                 avail: [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight],
             })""")
 
+            said(scale, "home screen up")
             view = read_home(overlay)
 
             site_view = site.evaluate("() => ({inner: [innerWidth, innerHeight], dpr: devicePixelRatio})")
             site_view["layout"] = site_layout(site)
             site.set_content("<h1 style='font:48px sans-serif'>site view</h1>"
                              "<p>" + "text " * 400 + "</p>")
+            said(scale, "site view laid out; capturing it")
             ok = 0
             for _ in range(CAPTURES):
                 try:
@@ -338,7 +372,9 @@ def measure(scale: str) -> dict:
 
             OUT.mkdir(parents=True, exist_ok=True)
             name = f"home-{scale}.png"
+            said(scale, f"site view captured {ok}/{CAPTURES}; capturing the overlay")
             capture_view(overlay, OUT / name)
+            said(scale, "overlay captured; the home screen with history")
 
             # The same screen for someone with history: the overlay pointed
             # at a backend that offers three remembered goals.
@@ -352,8 +388,18 @@ def measure(scale: str) -> dict:
             capture_view(overlay, OUT / f"home-{scale}-history.png")
 
             endings = read_endings(overlay, scale)
+            said(scale, "the sign-in screen")
             sign_in = read_sign_in(overlay, scale)
+            said(scale, "done")
             browser.close()
+    except Exception as error:
+        said(scale, f"failed: {error!r}"[:300])
+        # The host's own account of why it went, if it said (frontend/electron/main.ts).
+        text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
+        for line in text.splitlines():
+            if line.startswith("SIMBA host ") and "ready" not in line:
+                print(line, flush=True)
+        raise
     finally:
         stop(proc)
 

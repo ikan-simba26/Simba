@@ -5848,3 +5848,33 @@ stop every Python and Electron program on the showcase machine.
 **Not done:** the two halves were collected in the clone, not run there
 (about 50 minutes; the full suite runs on this branch below). The live
 railways start page was not tried.
+
+## 2026-10-17h — the host fit test that closed after 22 minutes: found
+
+`fix/stability`. Once, on 2026-10-17 at 01:15, the host fit test failed at
+100% after 22 minutes with the host's page closed (`TargetClosedError` in a
+`wait_for_timeout`); a passing run takes about 2.5 minutes a scale. The same
+measurement (`display_fit_run.measure("1")`) was run again and again at
+forced 100%, each in its own process with a 15-minute limit, its stage lines
+kept (`display_fit_run.said`, new) and the host's own log (new lines for a
+renderer gone, a window closed, the app quitting, the machine sleeping):
+
+| | Runs | Passed | Time each |
+|---|---|---|---|
+| before the fix | 12 | **11** — run 12 hung | 144–157s; run 12 stopped at the 900s limit |
+| after the fix | **20** | **20** | 145–153s (median 146s) |
+
+Run 12's stage lines: host up 0.6s, home screen 2.9s, site view laid out
+4.3s, 20 site-view captures done at 51.3s (13/20, the known 100% capture
+problem, measured on purpose), **"capturing the overlay" — and nothing more
+for 849s**. `capture_view` took the overlay's picture with one raw
+`Page.captureScreenshot` and retried only if it raised; a capture that stalls
+at 100% never raises (2026-10-17, the stall), so the test waited for ever, and
+on 2026-10-17 at 01:15 waited until the host's page was closed under it. The
+host's log said nothing was wrong: no renderer gone, no window closed.
+
+**The fix:** `capture_view` takes the picture through `browser.capture_site`
+— the same request sent again while one stalls, given up after 4s — over a
+connection of its own. Every one of the 20 runs after it saved the overlay's
+picture and finished. If a capture ever fails now, the test fails at once
+and says where, rather than sitting for 22 minutes.

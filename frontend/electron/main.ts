@@ -38,7 +38,9 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { BaseWindow, WebContentsView, app, screen, type Display, type Rectangle } from "electron";
+import {
+  BaseWindow, WebContentsView, app, powerMonitor, screen, type Display, type Rectangle,
+} from "electron";
 
 const CDP_PORT = process.env.SIMBA_CDP_PORT ?? "9222";
 const START_URL = process.env.SIMBA_START_URL ?? "about:blank";
@@ -219,15 +221,38 @@ app.whenReady().then(() => {
       `overlay ${DEV_SERVER ?? OVERLAY_FILE}`,
   );
 
+  // Why the host went away, in its own log (2026-10-17). Once, the host fit
+  // test found the host's pages closed after 22 minutes, and nothing said
+  // whether a renderer died, the window was closed, or the app quit; each of
+  // those, and the machine sleeping or locking, is now a line.
+  const said = (what: string, detail: object = {}): void => {
+    console.log(`SIMBA host ${what} ${JSON.stringify({ at: new Date().toISOString(), ...detail })}`);
+  };
+  for (const [name, view] of [["site", siteView], ["overlay", overlay]] as const) {
+    view.webContents.on("render-process-gone", (_event, details) =>
+      said("render-process-gone", { view: name, ...details }));
+    view.webContents.on("unresponsive", () => said("unresponsive", { view: name }));
+    view.webContents.on("responsive", () => said("responsive", { view: name }));
+    view.webContents.on("destroyed", () => said("view destroyed", { view: name }));
+  }
+  app.on("child-process-gone", (_event, details) => said("child-process-gone", details));
   // Every press the overlay's guard logged, ignored or not
-  // (`frontend/src/pressGuard.ts`), into the host's own log too: a tile press
-  // that did not register, seen once at 150%, said nothing anywhere the
-  // overlay's own memory did not outlive (2026-10-17).
+  // (`frontend/src/pressGuard.ts`), into this log too: a tile press that did
+  // not register, seen once at 150%, said nothing anywhere the overlay's own
+  // memory did not outlive (2026-10-17).
   overlay.webContents.on("console-message", (_event, _level, message) => {
     if (message.startsWith("[simba] press ")) console.log(`SIMBA overlay ${message.slice(8)}`);
   });
+  for (const event of ["suspend", "resume", "lock-screen", "unlock-screen"] as const) {
+    powerMonitor.on(event as "suspend", () => said(`power ${event}`));
+  }
+  win.on("close", () => said("window closing"));
+  app.on("before-quit", () => said("quitting"));
 
-  win.on("closed", () => app.quit());
+  win.on("closed", () => {
+    said("window closed");
+    app.quit();
+  });
 });
 
 app.on("window-all-closed", () => app.quit());

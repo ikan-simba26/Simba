@@ -4891,3 +4891,19 @@ press Ctrl+C, or to find the one process holding the port and stop that.
 program, whatever they are; CLAUDE.md forbids the same for tools.
 
 **Cost.** Two more steps for a presenter in a hurry.
+
+## The host fit test takes its pictures the way the product does
+
+**Date:** 2026-10-17 (asked for: find why the host fit test once closed the
+window after 22 minutes; the fix was not specified)
+
+**Decision.** `display_fit_run.capture_view` uses `browser.capture_site` on
+a second, async connection to the host, rather than its own raw capture with
+a retry that never fired. It also prints one timed line per stage, and the
+host logs why it went if it goes.
+
+**Alternatives.** A time limit around the old raw capture: the run would
+fail instead of hang, but still fail about one time in twelve at 100%.
+
+**Cost.** The evaluation now depends on a backend module, and opens a second
+CDP connection to the host for each overlay picture.
