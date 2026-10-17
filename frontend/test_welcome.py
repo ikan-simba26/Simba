@@ -161,9 +161,14 @@ DRAWN_INSIDE = """() => [...document.querySelectorAll('[data-testid=welcome-leve
     const step = card.querySelector('[data-testid=step-shell]').getBoundingClientRect();
     const frame = card.querySelector('[data-testid=welcome-example]').getBoundingClientRect();
     return {level: card.dataset.level,
-            frameInCard: frame.left >= c.left - 1 && frame.right <= c.right + 1,
-            stepNarrower: step.width < c.width,
-            scale: step.width / 880};
+            frameInCard: frame.left >= c.left - 1 && frame.right <= c.right + 1
+                         && frame.top >= c.top - 1 && frame.bottom <= c.bottom + 1,
+            stepInFrame: step.left >= frame.left - 1 && step.right <= frame.right + 1
+                         && step.bottom <= frame.bottom + 1,
+            stepWidth: Math.round(step.width), cardWidth: Math.round(c.width),
+            cutOff: [...card.querySelectorAll('[data-testid=welcome-example] button')]
+              .filter(b => b.getBoundingClientRect().right > frame.right + 0.5)
+              .map(b => b.innerText.trim())};
   })"""
 
 
@@ -183,8 +188,13 @@ def test_each_example_is_drawn_small_inside_its_own_card(
 
     assert [d["level"] for d in drawn] == ["1", "2", "3"]
     for example in drawn:
-        assert example["frameInCard"] and example["stepNarrower"], (size, drawn)
-        assert 0.2 < example["scale"] < 0.6, (size, drawn)
+        assert example["frameInCard"] and example["stepInFrame"], (size, drawn)
+        # And no answer cut off at the frame's edge (laid out at 600, the
+        # third one was).
+        assert example["cutOff"] == [], (size, drawn)
+        # Drawn smaller than the card, but not so small it cannot be read.
+        assert 0.5 * example["cardWidth"] < example["stepWidth"] < example["cardWidth"], (
+            size, drawn)
 
 
 FITS = """() => {

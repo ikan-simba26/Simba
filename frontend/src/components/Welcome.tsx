@@ -16,7 +16,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { Level, StepPresented } from "@shared/schema";
 
 import { WELCOME } from "../copy";
-import { ARRIVE, COLUMN } from "../design";
+import { ARRIVE } from "../design";
 import { NAME_MAX, cleanName } from "../profile";
 import { useStore } from "../store";
 import { StepShell } from "./StepShell";
@@ -42,9 +42,11 @@ const SAMPLE: StepPresented = {
   step_kind: "date",
 };
 
-/** The width the examples are laid out at — the real column's, so each wraps
- *  as the real question would — then drawn smaller to fit. */
-const EXAMPLE_WIDTH = COLUMN;
+/** The width the examples are laid out at, then drawn smaller to fit their
+ *  cards. Narrower than the real column (880): at its width, a card a third
+  of the window drew the question at 0.3 of its size, too small to read; at
+ *  600 the third answer was cut off at its right edge. */
+const EXAMPLE_WIDTH = 700;
 
 export function Welcome() {
   const { profile, updateProfile, finishWelcome, forgetEverything } = useStore();
@@ -217,7 +219,7 @@ function LevelQuestion({ chosen, onPick, onSkip }: {
                               short:gap-2 short:p-2 ${chosen === level
                                 ? "border-accent" : "border-edge"}`}>
             <Example level={level} />
-            <span className="px-2 text-body font-semibold text-ink">
+            <span className="mt-auto px-2 text-body font-semibold text-ink">
               {WELCOME.levelName(level)}
             </span>
           </button>
@@ -231,16 +233,26 @@ function LevelQuestion({ chosen, onPick, onSkip }: {
 /** One example: the step laid out at a fixed width, drawn to the card's. */
 function Example({ level }: { level: Level }) {
   const frame = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.45);
+  const inner = useRef<HTMLDivElement>(null);
+  const [drawn, setDrawn] = useState({ scale: 0.45, height: 180 });
   useLayoutEffect(() => {
     const element = frame.current;
-    if (!element) return;
+    const example = inner.current;
+    if (!element || !example) return;
     // An example takes no presses and no focus: it is only to look at.
     element.setAttribute("inert", "");
-    const measure = () => setScale(element.clientWidth / EXAMPLE_WIDTH);
+    // As large as the card's width allows, but never taller than the frame
+    // may be (less in a short window), and no taller than it is drawn.
+    const measure = () => {
+      const tallest = parseFloat(getComputedStyle(element).maxHeight) || 240;
+      const scale = Math.min(element.clientWidth / EXAMPLE_WIDTH,
+                             tallest / example.offsetHeight);
+      setDrawn({ scale, height: Math.ceil(example.offsetHeight * scale) });
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    observer.observe(example);
     return () => observer.disconnect();
   }, []);
   return (
@@ -250,10 +262,11 @@ function Example({ level }: { level: Level }) {
     // measured itself at more than the example, and drew it larger than life
     // across its neighbours — seen in the real window.
     <div ref={frame} aria-hidden data-testid="welcome-example"
-         className="pointer-events-none relative h-56 w-full min-w-0 overflow-hidden rounded-lg
-                    bg-canvas short:h-36">
-      <div className="absolute top-0 left-0"
-           style={{ width: EXAMPLE_WIDTH, transform: `scale(${scale})`,
+         style={{ height: drawn.height }}
+         className="pointer-events-none relative max-h-60 w-full min-w-0 overflow-hidden
+                    rounded-lg bg-canvas short:max-h-36">
+      <div ref={inner} className="absolute top-0 left-0"
+           style={{ width: EXAMPLE_WIDTH, transform: `scale(${drawn.scale})`,
                     transformOrigin: "top left", padding: "40px 48px" }}>
         <StepShell step={SAMPLE} values={{}} onChange={() => undefined}
                    onAction={() => undefined} waiting answered={false} level={level} />
