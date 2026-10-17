@@ -31,7 +31,7 @@ isn't in the contract.
 | `backend/estimator/` | Fuses page features + user behaviour into a load score |
 | `frontend/` | Overlay, three detail levels, trust panel, credential vault |
 | `shared/` | Message contract mirrored as `schema.py` / `schema.ts` |
-| `replicas/` | Local site replicas — `registration` (:5000), `billing` (:5100) |
+| `replicas/` | Local site replicas — `registration` (:5000), `billing` (:5100), `railways` (:5200, our copy of the train search) |
 | `tools/` | Dev tooling: the mock backend, screenshots, demo recordings |
 | `data/` | The page corpus and its labels |
 | `spike/` | The Electron + CDP experiment the architecture rests on |
@@ -139,14 +139,25 @@ alias like `*-latest`, or two benchmark runs stop being comparable.
 
 ## 5. Prove the install
 
+From the repo root, with the venv active, **in two halves** — one
+`python -m pytest` over everything stops at collection, because
+`backend/orchestrator/` and `frontend/` each have a `test_checklist.py`
+(checked on a fresh clone, 2026-10-17):
+
 ```powershell
-python -m pytest        # from the repo root, with the venv active
+python -m pytest backend tools test_basetemp.py     # about 900 tests
+python -m pytest frontend                           # about 530 tests
 ```
 
-485 pass, 9 skip. The tests start the replicas they need, so nothing has to be
-running first. The skips are deliberate: 5 want a running Electron host, 2 more
-want a host **and** `SIMBA_HOST_TESTS=1`, and 2 want `SIMBA_LIVE_TESTS=1`,
-which points at a real public website.
+About 1,430 tests in all; every one passes, and 12 skip. On the machine this
+was written on, each half takes 20–25 minutes. The tests start the replicas
+they need, so nothing has to be running first. The skips are deliberate: 5
+want a running Electron host, 2 more want a host **and** `SIMBA_HOST_TESTS=1`,
+3 open the host themselves and also want `SIMBA_HOST_TESTS=1`, and 2 want
+`SIMBA_LIVE_TESTS=1`, which points at a real public website. The first lines
+of each run say whether the machine was on battery and how much memory was
+free: the same suite has taken nearly twice as long on one day as the day
+before.
 
 Do step 3 (`npm run build`) before this: the overlay layout tests read
 `frontend/dist`, and skip themselves rather than fail when it is not there.
@@ -164,11 +175,15 @@ If that passes, most of the system is proven and what remains to check is the
 .\run.ps1                # opens on the registration replica — or ./run.sh anywhere with bash
 .\run.ps1 billing        # opens on the billing replica
 .\run.ps1 railways       # opens on the live site
+.\run.ps1 railways-local # opens on our own copy of the train search — rehearse here
 .\run.ps1 mock           # the overlay against the scripted backend, no browser driving
 ```
 
 The argument is only **the page the window opens on**. What you type chooses
-the task, from any start page, because both replicas are always up.
+the task, from any start page, because the registration and billing replicas
+are always up. A train goal runs on the live site unless you started with
+`railways-local`, which also brings up our copy of the train search (:5200)
+and sends train goals there.
 
 One command starts both replicas, the Electron host and the backend, in the
 order they need, and prints `==> ready - type a goal in the SIMBA window and
@@ -268,6 +283,8 @@ All environment variables, all read at the backend.
 | `SIMBA_INFERRED_ROLES` | on | Ablation switch for non-semantic control detection |
 | `SIMBA_SETBACK_PLACEMENT` | `above` | Where a setback sits in the prompt: `above` the element list or `after` it. Ablation arm; see EVALUATION.md, 2026-09-18 |
 | `SIMBA_LIVE_TESTS` | off | Let the two tests that hit a real website run |
+| `SIMBA_HOST_TESTS` | off | Let the tests that open real Electron windows run |
+| `SIMBA_LOG_FILE` | `logs/backend.log` | Where the backend writes what each run did and how long each part took; empty keeps it to the terminal |
 
 ---
 

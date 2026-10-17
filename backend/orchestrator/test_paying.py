@@ -67,9 +67,11 @@ def test_yes_pays_after_its_final_screen_with_no_card(billing_replica: str) -> N
     assert found["Receipt number"].startswith("RCPT-")
     assert found["Amount paid"] == "Rs 14,382"
     assert found["Paid on"] == voice.page_date(date.today().strftime("%d-%m-%Y"))
-    assert end["confirmation"] == (f"The site says “Payment Received”, with receipt "
-                                   f"number {found['Receipt number']}.")
-    assert end["caveat"] == "The site also says “No money was taken”."
+    # Said plainly, not "That's done." (2026-10-17).
+    assert end["heading"] == "Paid on the practice site."
+    assert end["caveat"] == (f"Receipt number {found['Receipt number']}. This was a practice "
+                             f"copy, so no money was taken.")
+    assert end["confirmation"] == "The site says “Payment Received”."
     assert end["scope"] == voice.PAID_SCOPE
     assert end["proof"] and end["proof"]["rings"]
 

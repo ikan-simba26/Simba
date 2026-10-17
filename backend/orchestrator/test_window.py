@@ -224,3 +224,42 @@ def test_window_state_reads_what_the_host_wrote_into_the_overlay(tmp_path: Path)
 
 def test_window_state_with_no_overlay_page_is_shown() -> None:
     assert asyncio.run(window_state([])) == "shown"
+
+
+def test_a_minimised_host_does_not_pause_a_run_started_from_another_overlay(
+    tmp_path: Path,
+) -> None:
+    """The false pause of 2026-10-16: the demo recorder ran its clips from an
+    overlay of its own, the host's window — which nobody was looking at — was
+    minimised, and the run waited, then said "I waited while the window was
+    closed" in a clip whose window had been open throughout. The host's
+    overlay now says whether a task was started from it
+    (`window.__simbaStarted`), and only then does its window count."""
+    overlay_file = tmp_path / "index.html"
+    overlay_file.write_text("<!doctype html><title>overlay</title>", encoding="utf-8")
+
+    async def go() -> list[str]:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            try:
+                site = await browser.new_page()
+                overlay = await browser.new_page()
+                await overlay.goto(overlay_file.as_uri())
+                pages = [site, overlay]
+                seen = []
+                # Loaded, nothing started from it; the host minimised.
+                await overlay.evaluate("() => { window.__simbaStarted = false;"
+                                       " window.__simbaWindow = 'minimised'; }")
+                seen.append(await window_state(pages))
+                # The person starts a task from it: now its window counts.
+                await overlay.evaluate("() => { window.__simbaStarted = true; }")
+                seen.append(await window_state(pages))
+                # An overlay from before the flag: as before, the window counts.
+                await overlay.evaluate("() => { delete window.__simbaStarted; }")
+                seen.append(await window_state(pages))
+                return seen
+            finally:
+                await browser.close()
+
+    assert asyncio.run(go()) == ["shown", "minimised", "minimised"]
+

@@ -4728,3 +4728,182 @@ button was a moment before")
   host fit test runs the real build, guard on, pressing as a person would.
 - **A screen on its way out takes no presses and shows its own step**: the
   structural cause, fixed where it was, as well as guarded.
+
+## A picture of the page is asked for raw, and asked for again while it waits
+
+**Date:** 2026-10-17 (asked for: "find the cause and fix it" — the
+end-of-task picture failing at 100%; how was not specified)
+
+**Decision.** `browser.capture_site` takes every picture of the site view —
+the end-of-task proof and the preview behind each step. It sends CDP's
+`Page.captureScreenshot` itself and, while that waits, sends the identical
+request again every 0.15s (`NUDGE_S`), up to 4s in all
+(`CAPTURE_TIMEOUT_S`, under the preview's 5s deadline). Password boxes are
+painted over by solid boxes added to the page for the capture and removed
+after, not by Playwright's `mask`; the text cursor is hidden for the capture,
+as Playwright did. The 2026-09-30 repaint pixel is not used.
+
+**Alternatives.** Playwright's screenshot retried after a timeout: reliable
+but every capture at 100% took ~3.2s, whatever the timeout. A raw request
+sent alongside Playwright's: up to 3.7s, and a smaller one returned the wrong
+picture. Keeping the page drawing: measured to make no difference.
+
+**Why this.** It is what the stall waits for — a second request — sent as
+soon as it can help: 20/20 at 100%, 110%, 125% and 150%, median ~0.35s
+(EVALUATION.md, 2026-10-17).
+
+**Cost.** The mask is ours now: it covers the top document only (Playwright's
+also reached into frames; no replica has one) and for the instant of the
+capture puts elements into the site's page, which a site's own script could
+see. Pictures stay the device's size, as before. Several captures may be
+answered for one picture; the extra ones are discarded. Why 100% stalls at
+all is still unexplained.
+
+## The host's window counts only when the task was started in it
+
+**Date:** 2026-10-17 (asked for: "find what triggered it and stop false
+pauses"; how was not specified)
+
+**Decision.** The overlay writes `window.__simbaStarted` (false on load, true
+once a task is started from it); `browser.WINDOW_JS` reads the host's window
+state only when it is true, and "shown" when it is false. Absent — an older
+overlay — keeps the old behaviour.
+
+**Alternatives.** An environment switch on the backend to turn the watch off
+for recordings: has to be remembered by whoever starts the stack, and the
+recorder does not start it. A new websocket message saying which overlay is
+which: cleaner, but a contract change needing all three owners. Debouncing
+the read (two reads 0.5s apart): would not have helped — the window was away
+for minutes.
+
+**Why this.** The pause was right about the window it read and wrong about
+which window mattered; this makes the backend read the window the person is
+working in, without a contract change.
+
+**Cost.** One more global on the overlay page that the backend depends on,
+written by the overlay and read only over CDP. If someone starts a task in
+the host's own overlay and then drives runs from another one, that host
+window counts again until the host's overlay reloads. A hidden window is
+still read as shown (the host is not told when something outside it hides
+the window); nothing in SIMBA hides it.
+
+## A booking or a payment on our copy ends in plain practice words
+
+**Date:** 2026-10-17 (asked for: replace "That's done." with plain practice
+wording, e.g. "Booked on the practice site. Booking number X. This was a
+practice copy, so no real ticket was booked and no money was taken.")
+
+**Decision.** The closing screen's heading is "Booked on the practice site."
+or "Paid on the practice site."; under it, in the place a registration's
+caveat takes, "Booking number PR-482193. This was a practice copy, so no real
+ticket was booked and no money was taken." or "Receipt number RCPT-305114.
+This was a practice copy, so no money was taken." (`Confirmation.done` and
+`.practice`, `voice.practice_copy`). Not asked for, and settled here:
+
+- **The payment's words** follow the booking's example; the payment never
+  involves a ticket, so it says only that no money was taken.
+- **The site's own words are still quoted** under it, without the number,
+  which is said just above: 'The site says "Booking Confirmed".' The receipt
+  below still lists the number under the site's own label, so it is on
+  screen twice, as it was before (it was three times with the quote).
+- **"This was a practice copy" is ours, not quoted**, and is said whether or
+  not the page says it: a change is only ever made on a replica
+  (`loop.carry_out`, the final-step rule). The page's own "No real ticket…"
+  sentence is still found and ringed on the picture, but no longer quoted on
+  the screen, where it would say the same thing twice.
+- **The registration is unchanged** ("You're registered for CS-401." and the
+  portal's caveat): it was not part of the request, though it too is made on
+  a practice copy. Flagged.
+
+**Cost.** `demo/booking.webm` still shows "That's done." until it is
+re-recorded.
+
+## A run kept open for an offer closes itself after ten minutes
+
+**Date:** 2026-10-17 (asked for: "make an open run close itself after a
+sensible idle time"; the time, and what the screen does then, were not
+specified)
+
+**Decision.** `loop.OFFER_IDLE_S = 600`: ten minutes on the closing screen
+with neither the offer nor "Back to start" pressed, and the run ends, having
+changed nothing; the backend closes the socket as after any ending. The
+overlay shows the offer only while its connection is open, so it disappears
+then; the answer, the picture and "Back to start" stay.
+
+**Alternatives.** Two minutes: a person reading nine trains and deciding
+whether to book could lose the offer mid-thought. Keeping the offer and
+reconnecting on a press: the run that knew the trains is gone, so a press
+would have to start the search again — a new feature. An hour: a forgotten
+run would hold the host's page that long.
+
+**Cost.** After ten minutes the person who does decide to book has to search
+again. Not measured with anyone.
+
+## Every run says what the machine was doing
+
+**Date:** 2026-10-17 (not asked for; found while measuring the slower
+suite)
+
+**Decision.** `tools/evaluation/conditions.py` records the power source,
+the processor's speed at that instant against its rated speed, and the free
+memory; the evaluation banner prints them, and so does the top of every
+pytest run. The same commit took 805s one day and 1435s the next, and
+nothing said why.
+
+**Cost.** One PowerShell call (~1–2s) per banner and per pytest run.
+
+## What a run did, and how long each part took, is written down
+
+**Date:** 2026-10-17 (asked for: "make sure the log would show the cause next
+time" — a tile press not registering, a checklist sitting over a minute; where
+and what to log was not specified)
+
+**Decision.** The backend's `simba.*` loggers write to the terminal and to
+`logs/backend.log` (2 MB, three kept; `SIMBA_LOG_FILE=` empty keeps it to the
+terminal). Each run logs: the task starting and how long its page took to
+open; every page read and choice of next move, timed; every step put on
+screen and how long until it was answered, and with what action id; every
+checklist line; every move, done or not, and how long it took; every picture
+of the page and the end-of-task picture, timed; a window pause; and how the
+task ended. The host writes every press the overlay's guard logged — with
+whether it was ignored, how long since the button moved, and what was under
+the pointer — into its own log, beside why it closed if it closes.
+
+**Never logged:** a value the person typed, the goal's words, or the page's
+text — only kinds, counts, ids of the buttons pressed, the site's host name
+and timings. A credential cannot reach either log.
+
+**Alternatives.** Logging through the websocket to the overlay: a contract
+change. Logging only on failure: the minute-long checklist was not a failure.
+
+**Cost.** Two new files on the showcase machine, both in ignored paths; a few
+lines per step.
+
+## The demo script never says to stop every Python program
+
+**Date:** 2026-10-17 (not asked for; found during the fresh-clone check)
+
+**Decision.** DEMO.md's advice for "port 8000 is already in use" said `Get-Process
+electron, python | Stop-Process`. It now says to close the old window and
+press Ctrl+C, or to find the one process holding the port and stop that.
+
+**Why.** On a showcase machine that command stops every Python and Electron
+program, whatever they are; CLAUDE.md forbids the same for tools.
+
+**Cost.** Two more steps for a presenter in a hurry.
+
+## The host fit test takes its pictures the way the product does
+
+**Date:** 2026-10-17 (asked for: find why the host fit test once closed the
+window after 22 minutes; the fix was not specified)
+
+**Decision.** `display_fit_run.capture_view` uses `browser.capture_site` on
+a second, async connection to the host, rather than its own raw capture with
+a retry that never fired. It also prints one timed line per stage, and the
+host logs why it went if it goes.
+
+**Alternatives.** A time limit around the old raw capture: the run would
+fail instead of hang, but still fail about one time in twelve at 100%.
+
+**Cost.** The evaluation now depends on a backend module, and opens a second
+CDP connection to the host for each overlay picture.

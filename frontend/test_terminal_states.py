@@ -52,6 +52,8 @@ GREETING = "What can I do for you?"
 
 # In a script, wait here for the overlay's `step.response` before going on.
 AWAIT_RESPONSE = "(await step.response)"
+# In a script, close the socket here, as a run that has ended does.
+CLOSE = "(close)"
 
 # Which button the person presses on the step, for an ending that has one.
 PRESSES = {"stopped by the person": "Stop this", "don't, on a final screen": "Don't book it"}
@@ -259,7 +261,8 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             # Not "That's done." (2026-10-16): what it confirmed, and what it
             # says against it.
             "heading": "You're registered for CS-401.",
-            "caveat": "The portal says it isn't final until fees are paid.",
+            "caveat": ("The portal says it isn't final until tuition and fees are paid, or "
+                       "a payment plan is in place."),
             "proof": PROOF,
         }),
     ],
@@ -276,10 +279,11 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                 {"label": "Seat", "value": "Coach 3, seat 23", "values": ["Coach 3, seat 23"]},
             ],
             "scope": "I booked one seat on 7UP for you.",
-            "confirmation": ("The site says “Booking Confirmed”, with booking number "
-                             "PR-482193."),
-            "caveat": ("The site also says “No real ticket was booked and no money was "
-                       "taken”."),
+            # Said plainly, not "That's done." (2026-10-17).
+            "heading": "Booked on the practice site.",
+            "confirmation": "The site says “Booking Confirmed”.",
+            "caveat": ("Booking number PR-482193. This was a practice copy, so no real "
+                       "ticket was booked and no money was taken."),
             "proof": PROOF,
         }),
     ],
@@ -294,9 +298,9 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
                 {"label": "Paid on", "value": "16 October 2026", "values": ["16 October 2026"]},
             ],
             "scope": "I paid your bill on the practice site. No card was used.",
-            "confirmation": ("The site says “Payment Received”, with receipt number "
-                             "RCPT-305114."),
-            "caveat": "The site also says “No money was taken”.",
+            "heading": "Paid on the practice site.",
+            "confirmation": "The site says “Payment Received”.",
+            "caveat": "Receipt number RCPT-305114. This was a practice copy, so no money was taken.",
             "proof": PROOF,
         }),
     ],
@@ -418,7 +422,8 @@ def overlay() -> Iterator[str]:
 
 class Backend:
     """Plays whichever ending is current, then closes the socket like the real
-    backend does once a task is over."""
+    backend does once a task is over — or, after a closing screen with an
+    offer on it, keeps it open, as the real backend does."""
 
     def __init__(self) -> None:
         self.script: list[tuple[str, dict]] = []
@@ -462,7 +467,20 @@ class Backend:
                         except websockets.ConnectionClosed:
                             return
                         continue
+                    if message_type == CLOSE:
+                        await ws.close()
+                        return
                     await send(message_type, payload)
+                last = self.script[-1] if self.script else ("", {})
+                if last[0] == "task.completed" and last[1].get("offer"):
+                    # A closing screen with an offer: the real run stays open
+                    # for it (2026-10-16) until the person answers or leaves,
+                    # and the overlay shows the offer only while it is.
+                    try:
+                        while True:
+                            self.responses.append(json.loads(await ws.recv()))
+                    except websockets.ConnectionClosed:
+                        return
                 await ws.close()
 
             async def main() -> None:
@@ -742,3 +760,21 @@ def test_the_offer_sits_beside_the_way_on_and_says_which(
         getComputedStyle([...document.querySelectorAll('button')]
           .find(b => b.innerText.trim() === name)).backgroundColor)""")
     assert looks[0] != looks[1], looks  # the way on leads; the offer is quieter
+
+
+def test_an_offer_whose_run_has_closed_is_taken_away(
+    page: Page, overlay: str, backend: Backend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run left on its closing screen closes itself after ten minutes
+    (`loop.OFFER_IDLE_S`, 2026-10-17). The offer goes with it — pressed then,
+    it would go nowhere — and "Back to start" stays."""
+    reach(page, overlay, backend, "completed with trains and an offer to book")
+    assert page.get_by_test_id("offer").count() == 1
+
+    name = "completed with trains and an offer to book"
+    monkeypatch.setitem(ENDINGS, name, ENDINGS[name] + [(CLOSE, {})])
+    labels = reach(page, overlay, backend, name)
+
+    assert "Book one of these" not in labels
+    assert page.get_by_test_id("offer").count() == 0
+    assert page.get_by_role("button", name="Back to start", exact=True).is_visible()

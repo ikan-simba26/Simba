@@ -736,7 +736,11 @@ function Checklist() {
  * to the home screen.
  */
 function Completed() {
-  const { completed, task, startOver, takeOffer } = useStore();
+  const { completed, task, startOver, takeOffer, status } = useStore();
+  // The offer is there only while the run waiting for it is (2026-10-17): a
+  // run left on its closing screen closes itself after a while
+  // (`loop.OFFER_IDLE_S`), and a press then would go nowhere.
+  const offer = status === "open" ? completed?.offer : null;
   const findings = completed?.findings ?? [];
   // One plain sentence saying what the result means, written by the backend
   // from the page's own values (`voice.explain_*`). This screen writes none of
@@ -833,12 +837,12 @@ function Completed() {
           follow the answer — "Book one of these", "Pay this bill" — sits
           beside it, quieter: someone who wanted only the answer presses
           nothing more. */}
-      {completed?.offer ? (
+      {offer ? (
         <div className="flex flex-row gap-3" data-testid="onward">
           <Button className="flex-1" onClick={startOver}>{STOPPED.again}</Button>
           <Button className="flex-1" variant="secondary" onClick={takeOffer}
                   data-testid="offer">
-            {completed.offer.label}
+            {offer.label}
           </Button>
         </div>
       ) : (
@@ -863,7 +867,11 @@ function ChangeDone() {
   // paid" — the screen does not say "That's done." (2026-10-16). It says what
   // the site confirmed, and, straight under it, what the site says against
   // it: "You're registered for CS-401. The portal says it isn't final until
-  // fees are paid." Both are the backend's words (`heading`, `caveat`).
+  // tuition and fees are paid, or a payment plan is in place." A booking or a
+  // payment on a practice copy is said the same way (2026-10-17): "Booked on
+  // the practice site." over "Booking number PR-482193. This was a practice
+  // copy, so no real ticket was booked and no money was taken." Both are the
+  // backend's words (`heading`, `caveat`).
   const qualified = Boolean(completed?.heading && completed?.caveat);
   return (
     <div className="flex flex-col items-start gap-5 short:gap-3" data-testid="change-done">

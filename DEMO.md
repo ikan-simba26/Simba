@@ -187,8 +187,9 @@ happen, in plain words, the amount, the month, the due date and the
 reference as the page states them, and two buttons that look alike — "Pay
 it" and "Don't pay". Say: *nothing happens until you choose; this is the
 only kind of screen where SIMBA changes anything, and only on our own copy
-of a site — on a real one it only reads.* Press "Pay it". The ending quotes
-the site's own receipt number, and says no card was used.
+of a site — on a real one it only reads.* Press "Pay it". The ending says it
+plainly: "Paid on the practice site." and under it the site's own receipt
+number, and that this was a practice copy, so no money was taken.
 
 To show the other way, press "Don't pay" instead: "I didn't do it. Nothing
 was changed."
@@ -211,7 +212,7 @@ failure and continues is stronger than one that pretends.
 train search: the screens are the same, **the trains in it are invented**. Then do the billing task live — it is local and unaffected. |
 | **No internet at all** | The railways site will not load | Skip railways entirely. Open the billing replica page (`http://127.0.0.1:5100`) as the cluttered "before", then run the billing task. Both replicas are local. Routing falls back to keywords with no network, so typing still works. |
 | **The Electron window never appears** | `run.ps1` stops at "starting the Electron host" | Almost always `ELECTRON_RUN_AS_NODE`, set by some editors' terminals. `run.ps1` clears it, so start from a plain PowerShell window, not the editor's. Otherwise play the recordings. |
-| **A port is already in use** | `port 8000 is already in use - another SIMBA run is probably up` | An earlier run is still alive. Close it, or `Get-Process electron, python \| Stop-Process`, then start again. |
+| **A port is already in use** | `port 8000 is already in use - another SIMBA run is probably up` | An earlier run is still alive. Close its window and press Ctrl+C in its terminal. If that terminal is gone, find what holds the port — `Get-NetTCPConnection -LocalPort 8000 -State Listen` — and stop that one process (`Stop-Process -Id <its OwningProcess>`), then start again. Never stop every `python` or `electron`: other programs on the machine may be using them. |
 | **The model has no quota** | The reading screen waits ~8 seconds, then works normally | Nothing to do. It fell back to keywords. If you want to avoid the wait entirely, set `$env:SIMBA_ROUTER = "keywords"` before `run.ps1`. |
 | **A step genuinely fails** | "I couldn't do that. I'm carrying on." or the stuck screen | Show it deliberately: *it tells you, it does not pretend, and it stops rather than guess.* Then move to the billing task or the recordings. |
 | **Everything is broken** | — | `python -m tools.record_demo mock` needs no stack at all, or play the clips in `demo/`. |

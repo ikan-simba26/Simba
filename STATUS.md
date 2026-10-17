@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-17 · **1421 passing, 12 skipped, 0 failed** · backend 896 in 1484s, frontend 525 in 1198s (two halves; the backend half has run about twice as long as before since 2026-10-16, not explained), on `feat/finish`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%) on its second run — the first failed once at 100% with the host's page closed, not reproduced. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Steps, counts and pass rates are the figures to read here; a wall clock from this machine carries about ±2x (EVALUATION.md, 2026-09-17h)
+**Last updated:** 2026-10-17 · **1428 passing, 12 skipped, 0 failed** · backend 901 in 879s (on mains; the same half took 1435–1537s on battery the same day), frontend 527 in 1059s, as two halves, on `fix/stability`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), with 20 of 20 more runs at 100% after the fix to its overlay picture. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines now say whether the machine was on battery and how much memory was free; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
 
 ---
 
@@ -119,6 +119,45 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-17 (later): stability — `fix/stability`, no new features
+
+- **The 100% picture is fixed.** At a display scale of 100% (and 110%) a
+  capture of an idle site view stalls until a second one is asked for.
+  `browser.capture_site` asks again every 0.15s while it waits: 20/20 at
+  100%, 110%, 125% and 150%, median ~0.35s; the proof and every preview use
+  it. Why the scale matters inside Chromium is still not known
+  (EVALUATION.md, 2026-10-17).
+- **The false "I waited while the window was closed"** came from the demo
+  recorder's run of 16 October: its overlay is a browser of its own, while
+  the backend read the host's window, minimised and unwatched. The host's
+  window now counts only when the task was started in it
+  (`window.__simbaStarted`). A hidden window is still read as shown
+  (2026-10-17b).
+- **The registration's caveat** is the portal's whole meaning: "…until
+  tuition and fees are paid, or a payment plan is in place." (2026-10-17c).
+- **A booking or a payment on our copy** ends "Booked on the practice site."
+  / "Paid on the practice site." over the number and "This was a practice
+  copy, so no real ticket was booked and no money was taken." (2026-10-17d).
+- **The slower backend suite is not the code, it is the battery**: the
+  commit before the offer took 805s on 2026-10-16 and 1435s on battery on
+  2026-10-17; this branch's backend half took 1537s on battery and 879s on
+  mains the same day, with the same free memory. Every run now prints the
+  power source, processor speed and free memory. A run kept open for an offer closes itself
+  after 10 minutes, and the overlay takes the offer away (2026-10-17e).
+- **Tile presses and a slow checklist at 150%: not reproduced** in 20 runs;
+  the backend now logs every step, move and picture with times to
+  `logs/backend.log`, and the host logs every press the guard saw (2026-10-17f).
+- **The host fit test's 22-minute hang: found** — its overlay picture had no
+  time limit and stalled at 100%, one run in twelve; now 20/20 (2026-10-17h).
+- **A fresh clone**, set up from README and RUNNING alone, ran all three
+  flows; README's way of proving the install was wrong and is fixed
+  (2026-10-17g).
+- **The suite before merging**: 1428 passed, 12 skipped, 0 failed (backend
+  901 in 879s on mains, frontend 527 in 1059s); the host fit test 3/3. Three
+  overlay tests that assumed Playwright acts within a fixed time were made
+  independent of it; the press-guard pair failed the same way on `main`
+  (EVALUATION.md, 2026-10-17i).
 
 ### Changed on 2026-10-17: offers as a button, the stop found, honest wording
 
@@ -576,7 +615,8 @@ On `feat/railways-ask`, **not merged**.
   as at forced 100%. A page that repaints every frame captures 20/20, so the
   capture waits for a frame an idle page never produces. `page.preview` will
   fail about half the time on 100% machines. **Open, not fixed**
-  (EVALUATION.md, 2026-09-27).
+  (EVALUATION.md, 2026-09-27). *Fixed 2026-10-17 (above): keeping the page
+  drawing turned out not to help; asking again does.*
 
 ### Changed on 2026-09-25 (last): text at full size, the guard, the notice, ratings
 
@@ -1333,7 +1373,9 @@ On `feat/railways-ask`, **not merged**.
 - **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
   of `main` until the 100% capture rate is measured for real (see 2026-09-27
-  above).
+  above). *Superseded 2026-10-17: measured again, the repainting made no
+  difference; `browser.capture_site` asks again instead. The branch need not
+  be merged.*
 - **The demo recordings must be made before a demo**, on a machine with the
   stack up: `demo/*.webm` is gitignored, so a fresh clone has no fallbacks
   (DECISIONS.md, 2026-09-23).

@@ -224,7 +224,8 @@ export function watchPresses(level: () => Level): () => void {
         const log = (window.__simbaPresses ??= []);
         log.push(press);
         if (log.length > LOG_SIZE) log.splice(0, log.length - LOG_SIZE);
-        console.debug("[simba] press", press);
+        // As text, so the host can copy it into its log (frontend/electron/main.ts).
+        console.debug(`[simba] press ${JSON.stringify(press)}`);
       }
     }
     if (ignored) {

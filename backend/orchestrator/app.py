@@ -49,6 +49,7 @@ import logging
 import os
 import sqlite3
 from dataclasses import replace
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
@@ -93,6 +94,36 @@ FLOWS = {
 }
 
 app = FastAPI()
+
+#: What each run did and how long each part took, beside the other run logs
+#: and never committed (2026-10-17). Once, a checklist sat for over a minute
+#: and nothing anywhere said where; until then the backend's own lines were
+#: not shown at all, because nothing set up the `simba` loggers. No value a
+#: person typed is ever logged. `SIMBA_LOG_FILE=` (empty) keeps it to the
+#: terminal.
+LOG_FILE = Path(__file__).resolve().parents[2] / "logs" / "backend.log"
+
+
+def log_runs() -> None:
+    """The `simba.*` loggers at INFO, to the terminal and to `LOG_FILE`."""
+    simba = logging.getLogger("simba")
+    if simba.handlers:
+        return
+    simba.setLevel(logging.INFO)
+    form = logging.Formatter("%(asctime)s.%(msecs)03d %(name)s %(message)s", "%Y-%m-%d %H:%M:%S")
+    terminal = logging.StreamHandler()
+    terminal.setFormatter(form)
+    simba.addHandler(terminal)
+    path = os.environ.get("SIMBA_LOG_FILE", str(LOG_FILE)).strip()
+    if path:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        written = RotatingFileHandler(path, maxBytes=2_000_000, backupCount=3,
+                                      encoding="utf-8")
+        written.setFormatter(form)
+        simba.addHandler(written)
+
+
+log_runs()
 
 
 def _flag(name: str) -> bool:

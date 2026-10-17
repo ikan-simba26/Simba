@@ -285,11 +285,22 @@ class Confirmation:
     # page says it.
     caveat: str | None = None
     # The caveat in a few plain words, said for it when the page says it —
-    # "it isn't final until fees are paid" — and then the closing screen
-    # does not say "That's done." (2026-10-16). None: the sentence is quoted.
+    # "it isn't final until tuition and fees are paid, or a payment plan is in
+    # place", the whole of what the page says, in its order (2026-10-17) — and
+    # then the closing screen does not say "That's done." (2026-10-16). None:
+    # the sentence is quoted.
     caveat_plain: str | None = None
     # Who is quoted: "The portal says…", "The site says…" (2026-10-16).
     who: str = "portal"
+    # A change made on a practice copy, said plainly in place of "That's
+    # done." (2026-10-17): `done` heads the closing screen — "Booked on the
+    # practice site." — and under it the reference the site gave, by its own
+    # label, then `practice`, what the copy did not do: "Booking number
+    # PR-482193. This was a practice copy, so no real ticket was booked and no
+    # money was taken." Ours to say, not quoted: a change is only ever made on
+    # a replica (`loop.carry_out`). None: "That's done.", as before.
+    done: str | None = None
+    practice: str | None = None
 
 
 def course_final(course: str) -> tuple[FinalRead, ...]:

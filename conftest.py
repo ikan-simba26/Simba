@@ -33,6 +33,16 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.basetemp = str(BASETEMP)
 
 
+def pytest_report_header(config: pytest.Config) -> str:
+    """The machine's power source, processor speed and free memory, at the
+    top of every run (2026-10-17). The backend half took 805s on one commit
+    on 2026-10-16 and 1435s on the same commit a day later, and nothing said
+    what the machine was doing either time."""
+    from tools.evaluation.conditions import power, power_line
+
+    return power_line(power()).replace("power       ", "power: ", 1)
+
+
 @pytest.fixture(scope="session")
 def playwright_instance() -> Playwright:
     with sync_playwright() as playwright:

@@ -19,11 +19,13 @@ passes none — most tests — never sends `load.updated` at all.
 import asyncio
 import base64
 import json
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from typing import Callable, Protocol
+from urllib.parse import urlsplit
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
@@ -33,6 +35,7 @@ from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator import voice
+from backend.orchestrator.browser import capture_site
 from backend.orchestrator.plan import (
     About,
     Confirmation,
@@ -829,8 +832,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
         # not as dots, whose count says its length, and not as text if a site
         # has a "show password" switch that turns the box into an ordinary
         # one: those are matched by what they autocomplete.
-        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
-                                     mask_color=MASK_COLOUR)
+        shot = await capture_site(page, mask=PASSWORD_BOXES, mask_colour=MASK_COLOUR)
     except PlaywrightError as error:
         await connection.send(
             "error",
@@ -911,6 +913,10 @@ def answers_to_save(move: "Move", input_values: dict[str, str]) -> Credentials |
 
 #: How often a run waiting on a put-away window looks again, in seconds.
 WINDOW_POLL_S = 0.5
+
+#: What a run did, and how long each part took, in `logs/backend.log`
+#: (`app.log_runs`). Never a value the person typed.
+log = logging.getLogger("simba.run")
 
 
 class StoppedWhileAway(Exception):
@@ -998,11 +1004,17 @@ class _Run:
         that the run waited, and it goes on only when they say so. Raises
         `StoppedWhileAway` if they press stop instead.
         """
-        if self.window is None or await self.window() == "shown":
+        if self.window is None:
             return
+        away = await self.window()
+        if away == "shown":
+            return
+        log.info("window %s: waiting before acting", away)
+        went = time.monotonic()
         was = self.state
         while await self.window() != "shown":
             await asyncio.sleep(WINDOW_POLL_S)
+        log.info("window shown again after %.1fs: asking to carry on", time.monotonic() - went)
         back = Move(instruction=voice.WINDOW_BACK, detail="", operations=[],
                     expect=Expectation(), fields=[], actions=voice.actions(voice.CARRY_ON),
                     question=True, kind="confirm")
@@ -1034,6 +1046,7 @@ class _Run:
                 coming=coming or [],
             ),
         )
+        log.info("checklist line %d: %s", self.shown, kind_of(move))
         return self.shown
 
     async def pause_pressed(self) -> bool:
@@ -1051,6 +1064,8 @@ class _Run:
         return paused
 
     async def give_up(self, reason: str, unconfirmed: bool = False) -> None:
+        log.info("task ended stuck after %.1fs%s", time.monotonic() - self.started,
+                 ", not confirmed" if unconfirmed else "")
         await self.set_state("stuck")
         await self.connection.send(
             "help.requested",
@@ -1062,6 +1077,7 @@ class _Run:
         )
 
     async def stopped(self) -> None:
+        log.info("task stopped by the person after %.1fs", time.monotonic() - self.started)
         await self.connection.send(
             "task.failed",
             TaskFailed(reason=voice.YOU_STOPPED, recoverable=True),
@@ -1075,7 +1091,10 @@ class _Run:
             TaskStarted(goal=goal, estimated_steps=estimated_steps, stages=stages or []),
         )
         await self.set_state("thinking")
+        opening = time.monotonic()
         await self.page.goto(start_url)
+        log.info("task started on %s, %d steps estimated; page open in %.1fs",
+                 urlsplit(start_url).netloc, estimated_steps, time.monotonic() - opening)
 
     async def present(
         self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
@@ -1128,6 +1147,8 @@ class _Run:
                 final=final,
             ),
         )
+        log.info("step %d on screen: %s%s", index, kind_of(move), ", final" if final else "")
+        shown_at = time.monotonic()
 
         async def answer_questions(message: dict) -> None:
             if message.get("type") == "trust.requested":
@@ -1162,7 +1183,10 @@ class _Run:
             # Answered: a picture still being taken is of a step that has
             # gone, and must not race the next move on the page.
             self.drop_pictures()
-        return response.get("payload", {})
+        payload = response.get("payload", {})
+        log.info("step %d answered %r after %.1fs", index, payload.get("action_id"),
+                 time.monotonic() - shown_at)
+        return payload
 
     def picture(self, move: "Move") -> None:
         """Take a picture of the page for the overlay, in a task of its own,
@@ -1170,12 +1194,16 @@ class _Run:
         picture is optional."""
 
         async def take() -> None:
+            asked = time.monotonic()
             try:
                 await asyncio.wait_for(send_preview(self.page, self.connection, move),
                                        PREVIEW_DEADLINE_S)
+                log.info("picture of the page sent in %.1fs", time.monotonic() - asked)
             except asyncio.CancelledError:
                 raise
-            except Exception:  # noqa: BLE001 - late, failed or closed: dropped
+            except Exception as error:  # noqa: BLE001 - late, failed or closed: dropped
+                log.info("picture of the page not sent after %.1fs: %s",
+                         time.monotonic() - asked, type(error).__name__)
                 # Said, so "What are you doing?" can say it too, rather than
                 # doing nothing (2026-10-16). Nothing more is tried.
                 try:
@@ -1299,14 +1327,23 @@ class LeftTheAnswer(Exception):
     """The person went on from the closing screen without the follow-on."""
 
 
+#: How long a run waits on its closing screen's offer before it closes itself
+#: (2026-10-17). Until then it waited for as long as the connection lasted.
+#: Ten minutes is long enough to read an answer and decide; the overlay takes
+#: the offer away when the run has gone (`App.tsx`), and "Back to start" works
+#: as before.
+OFFER_IDLE_S = 600.0
+
+
 async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -> None:
     """The answer, and the job finished if the person asks for it.
 
     Asked for in the goal: straight on, no closing screen between. Otherwise
     the closing screen as always, with one more, quieter button; the run
     waits for it until the person presses it, goes back to start (which
-    closes the connection), or cancels. Someone who wanted only the answer
-    presses nothing extra (2026-10-16; it was a question after every answer).
+    closes the connection), cancels, or leaves it for `OFFER_IDLE_S`.
+    Someone who wanted only the answer presses nothing extra (2026-10-16; it
+    was a question after every answer).
     """
     if follow is None:
         await run.connection.send("task.completed", completed)
@@ -1320,7 +1357,11 @@ async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -
                 raise LeftTheAnswer
 
         try:
-            response = await run.connection.receive("step.response", on_other=left)
+            response = await asyncio.wait_for(
+                run.connection.receive("step.response", on_other=left), OFFER_IDLE_S)
+        except asyncio.TimeoutError:
+            log.info("offer %r left for %.0fs: closing the run", follow.id, OFFER_IDLE_S)
+            return
         except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
             return
         if response.get("payload", {}).get("action_id") != follow.id:
@@ -1368,7 +1409,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         if steps_taken >= MAX_STEPS:
             break
         await set_state("thinking")
+        reading = time.monotonic()
         elements, before, view = await perceive(page)
+        read_s = time.monotonic() - reading
         findings = findings_in(before, task, found, rows)
         # A task that changes something has no answer to show on the way: what
         # it reads is its receipt, from the confirmation, shown at the end.
@@ -1410,7 +1453,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         if task.success is not None and unmet(before, task, seen) is None:
             break
 
+        choosing = time.monotonic()
         move = await planner.next_move(elements, history, setback)
+        log.info("page read in %.1fs (%d elements); next move chosen in %.1fs", read_s,
+                 len(elements), time.monotonic() - choosing)
         setback = None
 
         if move is None:
@@ -1537,13 +1583,18 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         strategies = 1 if move.expect.list_opens or move.changes else 2
         # Before every action, the window has to be there (`_Run.ready`).
         ready = (lambda: run.ready(goal=task.goal, findings=findings, view=view))
+        acting = time.monotonic()
         try:
             failure = await attempt_move(page, move, input_values, strategy=0, before=before,
                                          ready=ready)
             if failure is not None and strategies > 1:
+                log.info("move %s not done in %.1fs: trying another way",
+                         kind_of(move), time.monotonic() - acting)
                 _, before_retry, _ = await perceive(page)
                 failure = await attempt_move(page, move, input_values, 1, before_retry,
                                              ready=ready)
+            log.info("move %s %s in %.1fs", kind_of(move),
+                     "done" if failure is None else "not done", time.monotonic() - acting)
         except StoppedWhileAway:
             await run.stopped()
             return
@@ -1648,8 +1699,23 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     # "not final until tuition and fees are paid". Only if it says it.
     caveat_said = (await site_sentence(page, task.confirms.caveat)
                    if task.confirms is not None and task.confirms.caveat else None)
+    heading = task.heading
+    caveat = (voice.site_qualifies(caveat_said, task.confirms)
+              if caveat_said and task.confirms else None)
+    # A change made on a practice copy, said plainly in place of "That's
+    # done." (2026-10-17): "Booked on the practice site.", then "Booking
+    # number PR-482193. This was a practice copy, so no real ticket was booked
+    # and no money was taken." Ours to say: a change is only ever made on a
+    # replica (above). The number is said there, so the site's own words are
+    # quoted without it.
+    if task.confirms is not None and task.confirms.done and confirmed is not None:
+        heading = task.confirms.done
+        caveat = voice.practice_copy(task.confirms.reads, confirmed[1],
+                                     task.confirms.practice or "")
+        confirmation = voice.portal_says(task.confirms.heading, who=task.confirms.who)
 
     # The proof: a still of the page as it is now, what was read ringed.
+    proving = time.monotonic()
     try:
         proof, proof_note = await asyncio.wait_for(
             take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said,
@@ -1657,6 +1723,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             PROOF_DEADLINE_S)
     except asyncio.TimeoutError:
         proof, proof_note = None, voice.NO_PROOF_PICTURE
+    log.info("end-of-task picture %s in %.1fs", "taken" if proof else "not taken",
+             time.monotonic() - proving)
 
     # A return that was due when the last step was answered has no next step
     # to arrive with, so it goes out before the ending.
@@ -1676,14 +1744,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
             explanation=task.explain(found, seen, rows) if task.explain else None,
-            heading=task.heading,
+            heading=heading,
             scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
             confirmation=confirmation,
-            caveat=(voice.site_qualifies(caveat_said, task.confirms)
-                    if caveat_said and task.confirms else None),
+            caveat=caveat,
             proof=proof,
             proof_note=proof_note,
     )
+    log.info("task completed: %d steps, %.1fs", steps_taken, time.monotonic() - run.started)
     if send:
         await connection.send("task.completed", completed)
     return completed
@@ -1753,8 +1821,7 @@ async def take_proof(page: Page, targets: list[tuple[str, bool] | tuple[str, boo
     await page.evaluate(f"window.scrollTo(0, {max(0, int(top) - 40)})")
     try:
         at = await page.evaluate("[scrollX, scrollY]")
-        shot = await page.screenshot(mask=[page.locator(PASSWORD_BOXES)],
-                                     mask_color=MASK_COLOUR)
+        shot = await capture_site(page, mask=PASSWORD_BOXES, mask_colour=MASK_COLOUR)
     except PlaywrightError:
         return None, voice.NO_PROOF_PICTURE
     finally:

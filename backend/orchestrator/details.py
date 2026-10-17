@@ -1223,7 +1223,8 @@ class CourseBrief(_Asking):
             confirms=Confirmation(heading="Registration Confirmed",
                                   reads="Confirmation number",
                                   caveat="not final until",
-                                  caveat_plain="it isn't final until fees are paid"),
+                                  caveat_plain=("it isn't final until tuition and fees are "
+                                                "paid, or a payment plan is in place")),
             # Said instead of "That's done." when the portal qualifies it.
             heading=voice.registered(self.course) if self.course else None,
         )

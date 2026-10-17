@@ -25,6 +25,7 @@ import shutil
 import socketserver
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -203,8 +204,12 @@ def test_under_a_lock_a_guard_move_lasts_one_step(page: Page, overlay: str) -> N
     answer(page, 2)
 
     page.wait_for_selector("text=Go ahead 3")
-    page.wait_for_timeout(800)
-    assert level_on_screen(page) == 2                              # the person's, again
+    # The person's, again — waited for rather than read after a fixed 800ms,
+    # which a busy full run once missed (2026-10-17).
+    deadline = time.time() + 5
+    while level_on_screen(page) != 2 and time.time() < deadline:
+        page.wait_for_timeout(100)
+    assert level_on_screen(page) == 2
 
 
 def test_a_lock_carried_into_a_new_task_is_the_persons_level(

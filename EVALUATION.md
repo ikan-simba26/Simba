@@ -5586,3 +5586,327 @@ sign-in screen fitting). Not explained; no code changed between the runs.
 deliberate verification time-outs (50s, 23s, 22s), as before; none waits on
 the offer. Not explained either; this machine's wall clock carries ±2x
 (2026-09-17h), and nothing of the work's was left running.
+
+## 2026-10-17 — the 100% capture: what it waits for, and the fix
+
+`fix/stability`. The end-of-task picture (`take_proof`) and the picture
+behind every step (`send_preview`) failed about every other time at a display
+scale of 100%, known since 2026-09-27. All runs below are the real host,
+launched by the probe at a forced scale (`--force-device-scale-factor`), with
+an idle page in the site view; forced 100% matched a real 100% on 2026-09-27.
+Probes are in `.scratch/stability/` (not committed).
+
+**What a stalled capture waits for.** Raw CDP `Page.captureScreenshot`, 20
+captures at forced 100%, each sent 0.3s apart: a capture that stalls is never
+answered on its own (still waiting after 60s, measured earlier today). Sent
+again with identical settings while the first waits, **both are answered
+within ~0.1s: 20/20, slowest 0.46s**. Playwright's own screenshot, 5s timeout:
+11/20, 10/20 and 4/20 in three passes at 100%, 10–11/20 at 110%, and — new
+today — 9/20 at 125% in one pass (20/20 in every earlier pass at 125%); 20/20
+at 150%.
+
+**Ruled out, each 20 captures at forced 100%:** the overlay at opacity 0.999
+(no change); `backgroundThrottling: false` (12/20); Chromium's native window
+occlusion off (12/20); the window 1px narrower (14/20) or 1px shorter
+(13/20); the page hidden or throttled — it reports `visible`, has focus, and
+draws 55–63 frames a second at 100%, 110%, 125% and 150% alike. Why the scale
+matters inside Chromium is still not known.
+
+**Fixes tried, 20 captures each:**
+
+| Approach | 100% | 110% | 150% |
+|---|---|---|---|
+| Playwright, page kept drawing (a 1px rAF pixel, 2026-09-30's idea) and retried after 2.5s | 20/20, every one ~2.9–3.3s | 20/20, ~3.3s | 20/20, 0.3s |
+| the same without the pixel | 20/20, ~3.3s — the pixel made no difference | 20/20 | 20/20 |
+| retried after 0.8s or 1.5s instead of 2.5s | 20/20, still ~3.2s each | — | — |
+| Playwright with a raw capture sent alongside every 0.3s | 20/20, 0.2–3.7s, up to 11 extra requests | — | 20/20 |
+| the same, the extra request clipped to 1x1 | **wrong picture**: Playwright's capture came back 1x1 | — | — |
+| **raw capture, the same request again every 0.15s while it waits, password boxes painted in the page (`browser.capture_site`)** | **20/20, median 0.34s, slowest 2.03s** | **20/20, median 0.41s, slowest 2.43s** | **20/20, median 0.35s, slowest 0.47s** |
+
+At 125% the final version was also 20/20 (median 0.40s, slowest 2.71s). Every
+picture was the right size (1280x800 at 100%, 1408x880 at 110%, 1600x1000 at
+125%, 1920x1200 at 150%) and left nothing behind on the page.
+
+Two defects found along the way. The 1x1 extra request: Chromium answered
+Playwright's pending capture with the extra request's clip, so the extra
+request has to be identical to the real one — and so the capture is made raw,
+not through Playwright. And the raw capture showed the text cursor blinking in
+a box just typed into, which Playwright hides: `test_an_ordinary_box_is_left_as_it_is`
+failed on it; the cursor is now hidden for the capture.
+
+With the mask, at a 0.3s interval half the captures needed five requests
+(~1.5–2s, against two and ~0.5s without the mask); waiting two frames for the
+mask to be drawn first changed nothing; at 0.15s the median is 0.34s.
+
+**In the product.** Twenty train searches walked in the real window at
+forced 100% (`walk_proof.py`, the closing screen read after each):
+**20/20 ended with the picture**, every run reaching the answer (30.5s mean).
+The same walk with the old capture put back: **10/10 with the picture too** —
+in this flow the picture is taken just after the results page has drawn, and
+the stall needs a page that has gone still, so the walk shows the fix costs
+nothing in the product's path but cannot show the failure. The failure is
+shown by the idle-page captures above, which is how a preview or a proof of a
+page that has sat still is taken.
+
+## 2026-10-17b — "I waited while the window was closed", with the window open
+
+`fix/stability`. The sentence appeared once while the window was open. Where:
+the recording run of 2026-10-16 at 20:11 (`.scratch/walk-finish/clips3.log`,
+not the clips committed). The demo recorder plays the overlay in a browser of
+its own and records that; the backend drives the site view inside a real
+Electron host whose window nobody watches, and before every action reads
+*that* window's state. In that run the "fold" clip took 414s and never
+finished, and the "adapt" clip took 308s — "This site asks about cookies. ->
+Yes | I waited while the window was closed. -> Carry on" — against 43s and
+46s when re-recorded at 00:06. So the host's window was put away for minutes
+during those two clips, and each run waited, as it should for a person
+working in that window. Nothing in the repository minimises it; who or what
+did was not recorded, and is not known.
+
+**The state reads were checked first**, in a host this probe launched,
+driving only its own window by handle (`.scratch/stability/window_probe.py`,
+`window_race_probe.py`), reading what the backend reads:
+
+| What was done to the window | Read | Right? |
+|---|---|---|
+| minimise, restore / show-normal / maximise; maximise first, then minimise and restore; the same by `WM_SYSCOMMAND` as a taskbar click sends | minimised, then shown | yes, all 13 transitions |
+| minimise then `SW_SHOW` (stays minimised) | minimised | yes |
+| 100 minimise-restore cycles, 0–0.3s apart, read 1s after each | stale "minimised" after **0 of 100** | yes |
+| hidden (`SW_HIDE`) | **shown** | no — a hidden window is never noticed |
+
+So no read said "away" while the window was there. The pause was a true
+reading of a window that was not the one being looked at.
+
+**The fix.** The overlay writes `window.__simbaStarted` — false when it
+loads, true once a task is started from it — and the backend counts the
+host's window only when it is true. A run driven from any other overlay is
+never paused by the host's window; the person working in the host's own
+overlay is paused exactly as before. Tests: the state read through a real
+overlay page with the flag false, true and absent
+(`test_window.py::test_a_minimised_host_does_not_pause_a_run_started_from_another_overlay`),
+and the built overlay setting it (`frontend/test_window_started.py`). Every
+pause is now a line in `logs/backend.log`: the state, and how long it lasted.
+
+## 2026-10-17c — the registration's caveat, in full
+
+`fix/stability`. The closing screen of a registration now says what the
+portal says in full: "The portal says it isn't final until tuition and fees
+are paid, or a payment plan is in place." (it said "…until fees are paid",
+which dropped the payment plan, half of the portal's meaning). The portal's
+own sentence is "Registration is not final until tuition and fees are paid
+or a payment plan is in place". Measured: the closing screen with the longer
+line still fits — `frontend/test_terminal_states.py`, `test_closing.py` and
+`test_copy.py`, **288 passed**, which includes every ending, this one among
+them, at the window's size at 100%, 125% and 150% with every button wholly on
+screen and nothing scrolling; the host fit test checks it in the real window
+at the end of this branch.
+
+## 2026-10-17d — a booking and a payment end in plain practice words
+
+`fix/stability`. On our copies, a confirmed booking now ends "Booked on the
+practice site." over "Booking number PR-482193. This was a practice copy, so
+no real ticket was booked and no money was taken.", and a payment "Paid on
+the practice site." over "Receipt number RCPT-305114. This was a practice
+copy, so no money was taken." — in place of "That's done." Then the site's
+own words without the number ('The site says "Booking Confirmed".'), the
+receipt by the site's labels, and the picture. Measured on the replicas in
+headless Chromium, the real loop: `test_booking.py`, `test_paying.py` and
+`test_confirmation.py`, **18 passed** — the heading, the line under it with
+the replica's own booking or receipt number, and the shortened quote checked
+on the real run; and the closing-screen tests, `test_closing.py`, `test_copy.py` and `test_terminal_states.py`, **288 passed**, the booking
+and the payment among the endings measured at the window's size at 100%,
+125% and 150%.
+
+## 2026-10-17e — the slower backend suite, and runs kept open for an offer
+
+`fix/stability`. The backend half went from 12–13 minutes (752s, 805s on
+2026-10-15/16) to 23–25 minutes from the afternoon of 2026-10-16, when the
+closing screen's offer began to keep runs open (`610cde5`). Were runs left
+waiting for the offer until a timeout?
+
+**In the tests: no.** Every test that reaches an offer answers it: the
+scripted connections answer "leave" (`test_asking.ScriptedConnection`,
+`test_checklist.Answers`), and the websocket tests close their socket on
+`task.completed`, which ends the waiting run at once. Measured: the backend
+half, every test timed (`--durations=0`), at `67359d1` — the commit *before*
+the offer — and at this branch's `09d2577`, each in a clean worktree, one
+after the other, nothing else running:
+
+| | tests | wall clock | the 410 test phases in both |
+|---|---|---|---|
+| `67359d1`, before the offer | 886 passed, 9 skipped | **1435s** | 1409s |
+| `09d2577`, this branch | 899 passed, 9 skipped | **1537s** | 1466s |
+
+The same commit took **805s on 2026-10-16 and 1435s today**. So the code did
+not double the time: the machine did. The +100s on this branch is spread
+over the tests that now take the end-of-task picture and finish a booking or
+a payment (the four offer tests: 4.7–8.9s each, no wait in any), and 13 more
+tests. Nothing in either run waits on an offer.
+
+**What the machine was doing** (read-only, today): on battery (38–40%,
+discharging), Balanced plan; 1.0–1.2 GB of 7.9 GB memory free, 43–260 pages
+paged a second; the user's Chrome ~1.1 GB, two Claude processes, VS Code.
+The processor read 48% of rated speed idle but **143–189% under load**, so
+the battery is not slowing the processor. Memory pressure on a suite that
+launches a browser per test is the likelier cause, and is **not proven**: no
+earlier run recorded memory. Every evaluation banner and every pytest run now
+prints the power source, the processor's speed at that instant and the free
+memory (`conditions.power`, `conftest.pytest_report_header`).
+
+**In real use: yes.** A run kept open for "Book one of these" or "Pay this
+bill" waited for as long as the connection lasted — a person who read the
+answer and walked away left a run, its Playwright connection to the host and
+its page waiting indefinitely. It now closes itself after **10 minutes**
+(`loop.OFFER_IDLE_S`), and the overlay takes the offer away once the run has
+gone, so a press cannot go nowhere; "Back to start" is unchanged. Tests: a
+run whose offer nobody answers ends by itself (`test_booking.py`, with the
+idle time shortened), and an offer whose run has closed is not shown
+(`frontend/test_terminal_states.py`, 15 offer tests passed).
+
+## 2026-10-17f — the tile press and the slow checklist, at 150%: not reproduced
+
+`fix/stability`. Seen once at 150%: tile presses not registering, and the
+checklist sitting over a minute. Twenty train searches in the real window
+at forced 150% (`.scratch/walk-finish/walk_item4.py`: the replicas, the real
+host and backend, the guard on, pressing each answer the moment its button
+is there), each pressing the "Find train times" tile **once** at a set delay
+after the tiles arrived (0.3s to 4s, cycled), and timing the checklist from
+"Yes, that's right" to the answer:
+
+| | Result |
+|---|---|
+| tile registered on the first press | **20/20** |
+| press to the backend routing the goal (overlay's log against the backend's) | 0.00–0.01s |
+| routing to the first question on screen (backend's log) | ~1.3s |
+| checklist, read-back to answer | **4.4–6.2s**, median 5.35s — never near a minute |
+| reached the answer, with the end-of-task picture | 20/20 |
+| presses logged / ignored by the guard | 256 / 76 — every ignored one on a button that had appeared under 600ms before, the walk pressing as soon as it could |
+
+Not reproduced. One limit, measured: the walk could not press the tile
+early. The guard's own log put every press 5.4–6.6s after the tile appeared
+(`sinceButtonMs`), whatever delay was asked for — the overlay answers CDP
+slowly while it loads — so a press during the tiles' 1.3s entrance, which the
+guard ignores by design, was never tried. That is the one way a tile press
+can do nothing, and it is now visible.
+
+**So the log shows the cause next time.** Every press the guard logs —
+ignored or not, how long since its button moved, what was under the pointer
+— is now copied into the host's log as `SIMBA overlay press {…}`; the
+backend writes `logs/backend.log`, where every page read, choice of move,
+step on screen and its answer, checklist line, move and picture has a time
+(DECISIONS.md, *What a run did…*). Both were read back in this run: the
+press log above is the host's, the timings the backend's. Until now neither
+existed — the backend's `simba` lines were never set up to print, and the
+overlay's press log died with the page.
+
+## 2026-10-17g — a fresh clone, set up from README.md and RUNNING.md only
+
+`fix/stability`. The showcase machine will be set up this way. `git clone`
+of `origin` (`main` at `1a3579a`) into `.scratch/fresh/simba`, then only the
+two documents' steps, in Windows PowerShell. One change to the method: pip's,
+npm's, Electron's and Playwright's download caches were pointed inside
+`.scratch/fresh/cache` (`PIP_CACHE_DIR`, `npm_config_cache`,
+`electron_config_cache`, `PLAYWRIGHT_BROWSERS_PATH`), because CLAUDE.md keeps
+every file this work writes inside the repository; that also made every
+download a real one, as on a new machine.
+
+| Step | What the documents say | What happened |
+|---|---|---|
+| 1. Tools | Python 3.12+, Node 18+, npm, git | 3.12.3, 24.12.0, 11.6.2, 2.55.0 — as listed |
+| 2. Backend | venv, `pip install -r requirements-dev.txt`, `playwright install chromium`, the check | worked; `backend ok`. Unpinned, so the clone got **Playwright 1.64.0** (this machine 1.62.0), fastapi 0.143.3, uvicorn 0.54.0, websockets 17.2, scikit-learn 1.9.1, pytest 9.1.1 |
+| 3. Frontend | `npm install`, `npm run build` | worked; `dist/` and `dist-electron/` written |
+| 5. Prove it | `python -m pytest` from the root, "485 pass, 9 skip" | **wrong: stops at collection** — `backend/orchestrator/test_checklist.py` and `frontend/test_checklist.py` share a module name ("import file mismatch"). In two halves both collect: 905 and 528 tests. The count was a month old. |
+| Run it | `.\run.ps1 railways-local` (RUNNING.md) | every `==>` line RUNNING.md lists, in order, then ready |
+| Smoke test | `.\run.ps1 mock -Seconds 20` | "stopped", nothing left listening |
+
+**The three flows, in the clone's own window**, typed and answered as DEMO.md
+says (driven over CDP by `.scratch/stability/clone_flows.py`, no model key,
+the hardcoded plans):
+
+- **Trains** — "trains to Rawalpindi tomorrow", `Lahore`, Lahore Cantt, "Yes,
+  that's right": "There are 2 trains. The fastest is 9UP, at 8 hours 15
+  minutes.", both trains, the picture, "I only looked up times…", Back to
+  start and "Book one of these".
+- **The bill, then paying it** — "Check my electricity bill",
+  `04141234567890`, Yes to cookies, "Pay this bill", the final screen, "Pay
+  it": confirmed by the site, with the picture, in 14.4s.
+- **Registration** — "register me for CS-401", signed in, the final screen,
+  "Register": "You're registered for CS-401.", the portal's caveat, the
+  picture, in 8.7s.
+
+All three finished. The clone is `main`, so its endings are the old wording
+(2026-10-17c and d change them on this branch).
+
+**Fixed in the documents:** README's step 5 now runs the suite in its two
+halves, with today's counts, skips and times; its layout table and "the
+short way" name the railways copy and `railways-local`; its switches table
+gains `SIMBA_HOST_TESTS` and `SIMBA_LOG_FILE`. RUNNING.md needed nothing.
+DEMO.md's payment ending is the new wording, and its advice for a port in
+use no longer says `Get-Process electron, python | Stop-Process`, which would
+stop every Python and Electron program on the showcase machine.
+
+**Not done:** the two halves were collected in the clone, not run there
+(about 50 minutes; the full suite runs on this branch below). The live
+railways start page was not tried.
+
+## 2026-10-17h — the host fit test that closed after 22 minutes: found
+
+`fix/stability`. Once, on 2026-10-17 at 01:15, the host fit test failed at
+100% after 22 minutes with the host's page closed (`TargetClosedError` in a
+`wait_for_timeout`); a passing run takes about 2.5 minutes a scale. The same
+measurement (`display_fit_run.measure("1")`) was run again and again at
+forced 100%, each in its own process with a 15-minute limit, its stage lines
+kept (`display_fit_run.said`, new) and the host's own log (new lines for a
+renderer gone, a window closed, the app quitting, the machine sleeping):
+
+| | Runs | Passed | Time each |
+|---|---|---|---|
+| before the fix | 12 | **11** — run 12 hung | 144–157s; run 12 stopped at the 900s limit |
+| after the fix | **20** | **20** | 145–153s (median 146s) |
+
+Run 12's stage lines: host up 0.6s, home screen 2.9s, site view laid out
+4.3s, 20 site-view captures done at 51.3s (13/20, the known 100% capture
+problem, measured on purpose), **"capturing the overlay" — and nothing more
+for 849s**. `capture_view` took the overlay's picture with one raw
+`Page.captureScreenshot` and retried only if it raised; a capture that stalls
+at 100% never raises (2026-10-17, the stall), so the test waited for ever, and
+on 2026-10-17 at 01:15 waited until the host's page was closed under it. The
+host's log said nothing was wrong: no renderer gone, no window closed.
+
+**The fix:** `capture_view` takes the picture through `browser.capture_site`
+— the same request sent again while one stalls, given up after 4s — over a
+connection of its own. Every one of the 20 runs after it saved the overlay's
+picture and finished. If a capture ever fails now, the test fails at once
+and says where, rather than sitting for 22 minutes.
+
+**Addendum, the same day: the battery, after all.** The final backend half on
+this branch, run later with the laptop **on mains** and about the same free
+memory (1294 MB, printed by the new header), took **879s** for 901 tests —
+against 1435s and 1537s on battery that morning for 886 and 899. Same
+machine, same memory pressure, more tests, 40% less time. So memory was not
+the cause, and power was: the under-load reading above (143–189% of rated
+speed) was a one-second sample, which catches a burst of turbo and not the
+speed the processor can hold on battery. The suite's 12-to-25-minute jump on
+2026-10-16 matches the laptop going on battery that afternoon; that it did
+then is inferred, not recorded — which is what the new header is for.
+
+## 2026-10-17i — the suite, before merging `fix/stability`
+
+**Backend half: 901 passed, 9 skipped, 0 failed, 879s** (on mains).
+**Frontend half: 527 passed, 3 skipped, 0 failed, 1059s.**
+**Host window fit (`SIMBA_HOST_TESTS=1`): 3 passed** — 100%, 125%, 150%, 396s.
+In all, **1428 passed, 12 skipped, 0 failed**; the 12 skips as before.
+
+The frontend half failed twice before that: the two press-guard tests (both
+runs) and once a level test. All three passed alone, and the press-guard pair
+failed the same way on `main` (`1a3579a`) when run after
+`test_overflow_guard.py` and `test_levels.py` — an order effect that was
+already there, not this branch's doing. Each assumed Playwright acts within a
+fixed time: the "just arrived" test that its click lands inside the guard's
+500ms; the "on its way out" test that it can catch a screen that lives only
+for its exit; the level test that the level is back within 800ms. With
+earlier modules' servers still running in the process, none of those held.
+Now the first widens the guard's window to 3s after Start, the second has the
+page record the leaving screen the moment it is marked, and the third waits
+up to 5s for the level. The pair then passed 3 of 3 in the order that failed,
+and the whole half passed.

@@ -257,6 +257,23 @@ const EMPTY = {
   asking: null,
 };
 
+declare global {
+  interface Window {
+    /**
+     * Whether a task has been started from this overlay since it loaded
+     * (2026-10-17). The backend reads it beside the window state the host
+     * writes (`window.__simbaWindow`, `backend/orchestrator/browser.py`):
+     * the host's window matters to a run only when the person is working in
+     * it. A run driven from another overlay — the demo recorder's, a script's
+     * — is not paused because the host's window is minimised; on 2026-10-16
+     * two recorded clips sat for minutes on exactly that.
+     */
+    __simbaStarted?: boolean;
+  }
+}
+
+window.__simbaStarted = false;
+
 export const useStore = create<Store>((set, get) => {
   const append = (entry: LogEntry) =>
     set((current) => ({ log: [...current.log, entry] }));
@@ -399,6 +416,7 @@ export const useStore = create<Store>((set, get) => {
     },
 
     startTask: (goal, flow) => {
+      window.__simbaStarted = true;
       set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
       // the window, and after every completed task, since the backend closes

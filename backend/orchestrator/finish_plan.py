@@ -50,7 +50,8 @@ def booking_task(train: str | None = None):
             Answer("Seat", reads="Seat"),
         )),
         confirms=Confirmation(heading="Booking Confirmed", reads="Booking number",
-                              caveat="No real ticket", who="site"),
+                              caveat="No real ticket", who="site",
+                              done=voice.BOOKED_PRACTICE, practice=voice.NO_REAL_TICKET),
         scope=voice.booked_scope(train) if train else None,
     )
 
@@ -207,7 +208,8 @@ def payment_task(reference: str):
             Answer("Paid on", reads="Paid on", plain=voice.page_date),
         )),
         confirms=Confirmation(heading="Payment Received", reads="Receipt number",
-                              caveat="No money was taken", who="site"),
+                              caveat="No money was taken", who="site",
+                              done=voice.PAID_PRACTICE, practice=voice.NO_REAL_MONEY),
         scope=voice.PAID_SCOPE,
     )
 

@@ -31,6 +31,10 @@ NEXT = {**STEP, "step_index": 2, "instruction": "Lahore Cantt to Karachi Cantt. 
                     {"id": "cancel", "label": "Stop this", "kind": "secondary"}]}
 
 
+#: The guard's window in the test of a press that comes too soon.
+WIDE_MS = 3000
+
+
 @pytest.fixture(scope="module")
 def backend() -> Backend:
     return Backend()
@@ -64,13 +68,19 @@ def answers(backend: Backend) -> list[str]:
 def test_a_press_on_a_button_just_arrived_is_ignored_and_logged(
     page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
+    # A wider window than the real 500ms, so that "as soon as it is there"
+    # is inside it however slowly Playwright clicks (2026-10-17): in a full
+    # run, with every earlier module's servers still running in this
+    # process, the first click once landed after 500ms and counted. The
+    # same guard, the same rule; only the time is longer.
     start(page, overlay, backend, [("step.presented", STEP), (AWAIT_RESPONSE, {})])
+    page.evaluate(f"window.__simbaSettleMs = {WIDE_MS}")  # after Start, which it would hold
     page.get_by_role("button", name="Tomorrow").wait_for()
     page.get_by_role("button", name="Tomorrow").click()  # as soon as it is there
     page.wait_for_timeout(300)
     assert answers(backend) == []
 
-    page.wait_for_timeout(1500)  # long settled, even with animations slowed by load
+    page.wait_for_timeout(WIDE_MS + 1000)  # long settled
     page.get_by_role("button", name="Tomorrow").click()
     page.wait_for_timeout(500)
     assert answers(backend) == ["choice:1"]
@@ -78,7 +88,7 @@ def test_a_press_on_a_button_just_arrived_is_ignored_and_logged(
     log = page.evaluate("window.__simbaPresses")
     tomorrow = [p for p in log if p["label"] == "Tomorrow"]
     assert [p["ignored"] for p in tomorrow] == [True, False], tomorrow
-    assert tomorrow[0]["sinceButtonMs"] < 500 <= tomorrow[1]["sinceButtonMs"]
+    assert tomorrow[0]["sinceButtonMs"] < WIDE_MS <= tomorrow[1]["sinceButtonMs"]
     assert all(p["level"] in (1, 2, 3) for p in tomorrow)
     assert all("sinceLayoutMs" in p for p in tomorrow)
 
@@ -90,13 +100,25 @@ def test_a_screen_on_its_way_out_takes_no_presses_and_keeps_its_own_step(
                                    ("step.presented", NEXT), (AWAIT_RESPONSE, {})])
     page.get_by_role("button", name="Tomorrow").wait_for()
     page.wait_for_timeout(2000)  # settled, and the home screen's tiles long gone
+    # The screen on its way out lives only for its exit, which a busy
+    # process can miss between two looks (2026-10-17); the page records it
+    # the moment it is marked, and the test reads that.
+    page.evaluate("""() => {
+        window.__leaving = null;
+        new MutationObserver((_, observer) => {
+            const e = document.querySelector('[data-leaving=true]');
+            if (!e) return;
+            window.__leaving = {events: getComputedStyle(e).pointerEvents, text: e.innerText};
+            observer.disconnect();
+        }).observe(document.body, {subtree: true, childList: true, attributes: true});
+    }""")
     page.get_by_role("button", name="Tomorrow").click()
-    leaving = page.locator("[data-leaving=true]")
-    leaving.wait_for(state="attached", timeout=5000)
-    assert leaving.evaluate("e => getComputedStyle(e).pointerEvents") == "none"
+    page.wait_for_function("() => window.__leaving !== null", timeout=5000)
+    leaving = page.evaluate("window.__leaving")
+    assert leaving["events"] == "none"
     # Its own question, not the arriving one.
-    assert "What day are you travelling?" in leaving.inner_text()
-    assert "Is that right?" not in leaving.inner_text()
+    assert "What day are you travelling?" in leaving["text"]
+    assert "Is that right?" not in leaving["text"]
 
 
 def test_a_press_where_another_button_just_was_is_ignored(
