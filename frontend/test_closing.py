@@ -491,10 +491,12 @@ def test_a_registration_quotes_the_portals_confirmation(
     assert page.get_by_test_id("caveat").count() == 0
 
 
-#: What the portal says against a registration, in full (2026-10-17): fees,
-#: or a payment plan — the plan is half of what it says.
-CAVEAT = ("The portal says it isn't final until tuition and fees are paid, or a payment "
-          "plan is in place.")
+#: Under a registration on our copy (2026-10-17): the number, what the copy
+#: did not do, and what the portal says against it in full — fees, or a
+#: payment plan; the plan is half of what it says.
+CAVEAT = ("Confirmation number REG-10234-2026. This was a practice copy, so no real "
+          "registration was made. The portal says it isn't final until tuition and fees "
+          "are paid, or a payment plan is in place.")
 
 
 def test_a_registration_with_a_caveat_is_not_said_done(
@@ -505,16 +507,15 @@ def test_a_registration_with_a_caveat_is_not_said_done(
     confirmed and, straight under it, what it says against it."""
     script = completed(None, [])
     script[-1][1]["scope"] = "You are registered for CS-401 section 001."
-    script[-1][1]["heading"] = "You're registered for CS-401."
-    script[-1][1]["confirmation"] = ("The portal says “Registration Confirmed”, "
-                                     "with confirmation number REG-10234-2026.")
+    script[-1][1]["heading"] = "Registered for CS-401 on the practice site."
+    script[-1][1]["confirmation"] = "The portal says “Registration Confirmed”."
     script[-1][1]["caveat"] = CAVEAT
     page = end(browser, overlay, backend, script)
 
     assert "That's done." not in page.inner_text("body")
     heading = page.get_by_test_id("done-heading")
     caveat = page.get_by_test_id("caveat")
-    assert heading.inner_text() == "You're registered for CS-401."
+    assert heading.inner_text() == "Registered for CS-401 on the practice site."
     assert caveat.inner_text() == CAVEAT
     assert heading.bounding_box()["y"] < caveat.bounding_box()["y"]
     assert caveat.bounding_box()["y"] < page.get_by_test_id("confirmation").bounding_box()["y"]

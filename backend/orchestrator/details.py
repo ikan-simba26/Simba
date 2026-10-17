@@ -1224,8 +1224,14 @@ class CourseBrief(_Asking):
                                   reads="Confirmation number",
                                   caveat="not final until",
                                   caveat_plain=("it isn't final until tuition and fees are "
-                                                "paid, or a payment plan is in place")),
-            # Said instead of "That's done." when the portal qualifies it.
+                                                "paid, or a payment plan is in place"),
+                                  # Said as a booking and a payment are
+                                  # (2026-10-17): where, the number, what
+                                  # the copy did not do, then the caveat.
+                                  done=voice.registered_practice(self.course),
+                                  practice=voice.NO_REAL_REGISTRATION),
+            # Said instead of "That's done." when the portal qualifies it; on
+            # our copy, `confirms.done` takes its place.
             heading=voice.registered(self.course) if self.course else None,
         )
 

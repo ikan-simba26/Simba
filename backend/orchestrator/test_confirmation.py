@@ -58,15 +58,16 @@ def test_the_portals_confirmation_is_quoted(replica: str) -> None:  # noqa: F811
     done = go(replica, brief, [])
 
     ending = done.of("task.completed")[0]
-    assert ending["confirmation"] == (
-        "The portal says “Registration Confirmed”, with confirmation number "
-        "REG-10301-2026.")
+    # Said as a booking and a payment are (2026-10-17): where, then the
+    # number, what the practice copy did not do, and what the portal says
+    # against it — kept, plainly. The portal's own words, without the number.
+    assert ending["heading"] == "Registered for MATH-210 on the practice site."
+    assert ending["caveat"] == (
+        "Confirmation number REG-10301-2026. This was a practice copy, so no real "
+        "registration was made. The portal says it isn't final until tuition and fees "
+        "are paid, or a payment plan is in place.")
+    assert ending["confirmation"] == "The portal says “Registration Confirmed”."
     assert ending["scope"] == "You are registered for MATH-210 section 001."
-    # And what the portal says against it, plainly, under what it confirmed
-    # in place of "That's done." (2026-10-16): the page's sentence holds it.
-    assert ending["heading"] == "You're registered for MATH-210."
-    assert ending["caveat"] == ("The portal says it isn't final until tuition and fees are "
-                                "paid, or a payment plan is in place.")
     # Ringed where it was read, with the heading and the number's row.
     assert len(ending["proof"]["rings"]) == 3
 

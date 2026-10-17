@@ -4907,3 +4907,19 @@ fail instead of hang, but still fail about one time in twelve at 100%.
 
 **Cost.** The evaluation now depends on a backend module, and opens a second
 CDP connection to the host for each overlay picture.
+
+## A registration on our copy is said as a practice copy, the caveat kept
+
+**Date:** 2026-10-17 (asked for: "says 'practice copy' the same way bookings
+and payments do, keeping the portal's caveat"; the words were not given)
+
+**Decision.** "Registered for CS-401 on the practice site." / "Confirmation
+number X. This was a practice copy, so no real registration was made." then
+the portal's caveat in plain words. The heading names the course, where a
+booking's names no train: the registration's heading did before, and the
+course is what a person checks. A caveat is appended to the practice line
+only when it has plain words of its own (`caveat_plain`); a booking's "No
+real ticket" is what the practice line already says.
+
+**Cost.** The line under the heading is three sentences; it fits at every
+scale measured.

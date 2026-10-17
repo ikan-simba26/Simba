@@ -5910,3 +5910,17 @@ Now the first widens the guard's window to 3s after Start, the second has the
 page record the leaving screen the moment it is marked, and the third waits
 up to 5s for the level. The pair then passed 3 of 3 in the order that failed,
 and the whole half passed.
+
+## 2026-10-17j — a registration ends in practice words too
+
+`fix/final-touches`. A registration the portal confirmed on our copy now ends
+as a booking and a payment do: "Registered for CS-401 on the practice site."
+over "Confirmation number REG-10234-2026. This was a practice copy, so no real
+registration was made. The portal says it isn't final until tuition and fees
+are paid, or a payment plan is in place." — the portal's caveat kept, in
+plain words, and only when the page says it. Measured: the registration
+tests on the replica (`test_confirmation.py`, `test_final_step.py`,
+`test_course.py`), **24 passed**, the heading and the line with the replica's
+own number checked on the real run; the closing-screen, copy and fit tests,
+**289 passed**, the longer line fitting at 100%, 125% and 150% with every
+button on screen.

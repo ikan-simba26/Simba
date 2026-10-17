@@ -255,14 +255,14 @@ TAILS: dict[str, list[tuple[str, dict]]] = {
             # What changed, the last line, and the portal's own word for it
             # (2026-10-16).
             "scope": "You are registered for CS-401 section 001.",
-            "confirmation": ("The portal says “Registration Confirmed”, with "
-                             "confirmation number REG-10234-2026."),
-            # And what it says against it (2026-10-16).
-            # Not "That's done." (2026-10-16): what it confirmed, and what it
-            # says against it.
-            "heading": "You're registered for CS-401.",
-            "caveat": ("The portal says it isn't final until tuition and fees are paid, or "
-                       "a payment plan is in place."),
+            "confirmation": "The portal says “Registration Confirmed”.",
+            # Not "That's done." (2026-10-16), and said as a booking is
+            # (2026-10-17): where, the number, what the practice copy did not
+            # do, and what the portal says against it.
+            "heading": "Registered for CS-401 on the practice site.",
+            "caveat": ("Confirmation number REG-10234-2026. This was a practice copy, so no "
+                       "real registration was made. The portal says it isn't final until "
+                       "tuition and fees are paid, or a payment plan is in place."),
             "proof": PROOF,
         }),
     ],
