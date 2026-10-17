@@ -56,7 +56,7 @@ from fastapi import FastAPI, WebSocket
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
 from backend.orchestrator.browser import browser_source, open_page, window_watch
-from backend.orchestrator.details import BRIEFS, brief_for, understand
+from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.estimator.pairing import Recorder, recording_enabled
@@ -75,8 +75,9 @@ from backend.orchestrator.router import (
     use_model,
 )
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
+from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
-from shared.schema import GoalAnswered, HistoryOffered, PastGoal
+from shared.schema import GoalAnswered, HistoryOffered, PastGoal, PersonalTile, TileChange
 
 DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
 # How many past goals the home screen offers. Three large cards is a choice;
@@ -191,7 +192,7 @@ async def health() -> dict[str, str]:
     }
 
 
-def past_goals() -> HistoryOffered:
+def past_goals(tiles: TileStore | None = None) -> HistoryOffered:
     """What this person has asked for before, most recent first.
 
     Read from the same SQLite store trace replay uses, so the home screen
@@ -206,19 +207,45 @@ def past_goals() -> HistoryOffered:
     except sqlite3.Error:
         # A missing or unreadable store is an empty home screen, not a dead
         # socket. The text box is always there underneath.
-        return HistoryOffered(goals=[])
+        goals = []
+    # And the person's own tiles, by name only (2026-10-18): their details
+    # stay in the encrypted store.
+    own = [PersonalTile(id=tile.id, label=tile.label, flow=tile.flow)
+           for tile in (tiles.all() if tiles is not None else [])]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
-                                 for goal, site in goals])
+                                 for goal, site in goals],
+                          tiles=own)
+
+
+def change_tile(tiles: TileStore, message: dict) -> bool:
+    """A `tile.change` from the home screen (2026-10-18). Whether it was one."""
+    if message.get("type") != "tile.change":
+        return False
+    try:
+        change = TileChange.model_validate(message.get("payload") or {})
+    except ValueError:
+        return True  # one, but not one that parses: answered as it stands
+    if change.action == "clear":
+        tiles.clear()
+    elif change.action == "remove" and change.id:
+        tiles.remove(change.id)
+    elif change.action == "rename" and change.id and change.label:
+        tiles.rename(change.id, change.label)
+    elif change.action == "move" and change.id and change.to is not None:
+        tiles.move(change.id, change.to)
+    log.info("tiles: %s", change.action)
+    return True
 
 
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     connection = Connection(websocket, task_id="t_skeleton")
+    tiles = TileStore()
 
     # Offered before anything is asked for, so the home screen has something
     # to show the moment it connects.
-    await connection.send("history.offered", past_goals())
+    await connection.send("history.offered", past_goals(tiles))
 
     # Channel B's other half: every step's page features, paired with whatever
     # telemetry the overlay sends about it, appended to `data/steps.jsonl`,
@@ -232,6 +259,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     rules = LevelRules() if adapt_level() else None
 
     async def before_the_task(message: dict) -> None:
+        # The person's tiles changed on the home screen: answered with the
+        # home screen's offer as it now stands (2026-10-18).
+        if change_tile(tiles, message):
+            await connection.send("history.offered", past_goals(tiles))
+            return
         # Nothing is sent back: an override is the person's own doing, and
         # there is no step on screen yet for a level to reshape.
         async def write_down(decision: Decision | None) -> None:
@@ -255,13 +287,21 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         if rules is not None:
             rules.start_from(payload.get("start_level"))
 
-        if chosen in ROUTABLE:
+        # One of the person's own tiles (2026-10-18): its flow and its kept
+        # details, and its name as the goal. Nothing is read or classified.
+        tile = tiles.get(payload.get("tile")) if payload.get("tile") else None
+        if tile is not None:
+            goal = tile.label
+            decided = Route("flow", tile.flow, (tile.flow,), "tile")
+        elif chosen in ROUTABLE:
             # Picked by the person from something we offered. Not classified
             # again: they have already answered the question.
             decided = Route("flow", chosen, (chosen,), "chosen")
         else:
             decided = await route(goal, model)
-        log.info("routed %r -> %s %s (%s)", goal, decided.kind,
+        # The flow only, never the words typed (2026-10-18): this line goes to
+        # logs/backend.log, and a goal can hold a reference number.
+        log.info("routed -> %s %s (%s)", decided.kind,
                  decided.flow or list(decided.flows), decided.via)
 
         if decided.kind == "flow" and decided.flow is not None:
@@ -277,13 +317,19 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # The person's own details, read from what they typed. Whatever is
         # missing is asked for inside `run_brief`, and the task is built from
         # the answers — so nothing here knows yet what the task will be.
-        known = await understand(name, goal, model)
-        log.info("understood %r as %s", goal, known)
+        known = (known_from_tile(tile.details) if tile is not None
+                 else await understand(name, goal, model))
+        # Which details were found, never their values (2026-10-18).
+        log.info("understood: %s", ", ".join(
+            field for field in ("origin", "destination", "day", "reference", "course")
+            if getattr(known, field)) or "nothing")
         brief = brief_for(
             name, goal, known,
             hardcoded=use_hardcoded_plan(),
             provider=None if use_hardcoded_plan() else provider_from_env(),
         )
+        # Run from a tile: it is not offered as a tile again.
+        brief.from_tile = tile.id if tile is not None else None
         # Trace memory wraps whatever planner the brief settles on. It is
         # keyed on the details spelled out, not on the words typed: "trains
         # to Rawalpindi tomorrow" is a different journey every day.
@@ -294,7 +340,8 @@ async def ws_endpoint(websocket: WebSocket) -> None:
 
         async with open_page(replica_url) as page:
             await run_brief(page, connection, brief, replica_url, recorder, rules,
-                            vault=Vault(), window=window_watch(page), auto=auto)
+                            vault=Vault(), window=window_watch(page), auto=auto,
+                            tiles=tiles)
         # The overlay may have closed it already: going back to start from a
         # closing screen that offered more closes the connection (2026-10-16).
         try:

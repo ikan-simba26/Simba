@@ -5027,3 +5027,56 @@ greeting by name, "Change my settings" to reopen it)
 **Cost.** One more optional contract field, for Nahail and Aly to agree. The
 profile is per Windows account and per machine; a person on another laptop
 starts again.
+
+## The person's own tiles: what is kept, where, and what was left open
+
+**Date:** 2026-10-18 (asked for: after a task, offer once "Shall I keep this
+on your home screen?"; a personal tile with a short name and the details
+given, stored with the credential vault, never in plain text, never sent to
+a model; run with those details, still asking what changes; rename, reorder,
+remove; "Things I can help with" while there are none; theirs first)
+
+**Decision, and what the request left open:**
+
+- **Encrypted the vault's way, beside it**: `data/tiles.json`, DPAPI with
+  this Windows account's key, the whole list — names too — as one blob.
+  Not inside `vault.json` itself: that file is one entry per site, and mixing
+  tiles into it would change what `Vault.sites()` means.
+- **A tile keeps only what can be kept**: a bill's reference; a journey's
+  two stations, as the site names them. Never the day — asked each time —
+  and never a course: registering for the same course twice is not a task
+  anyone repeats, so a registration is not offered as a tile.
+- **The overlay gets id, name and flow only**; a tile is run by id
+  (`task.start.tile`). Its details become what the brief already knows
+  directly (`details.known_from_tile`), so neither the router nor
+  `understand` reads anything kept, and no model sees it.
+- **At most three tiles**, one row; no offer when full, or when the same
+  bill or journey is already a tile, or for a run started from a tile.
+- **The offer is one line above the way on** — "Shall I keep this on your
+  home screen as My bill?", Keep it / Not now — with the backend's suggested
+  name ("My bill", "Trains to Karachi"); the name is changed afterwards in
+  "Change my tiles", not typed on the closing screen.
+- **"Change my tiles"** is its own screen: a name box, Move left, Move right
+  and Take it off per tile, and "Back to start". Every change goes to the
+  backend as `tile.change` — **a new message type, pending Nahail's and Aly's
+  agreement** (Raham chose it when asked) — answered with the tiles as they
+  then stand.
+- **With tiles, the three cards take the tiles' shape** (icon beside words,
+  no picture) and the home screen's gaps close a little: the first version
+  put the box to ask in 28px below the window at 100% and the page scrolled.
+  "Things I can help with" is now always shown above the three.
+- **Back to start reconnects**, so the home screen is offered the tiles as
+  they now stand, one just kept among them.
+- **The backend's own log lines no longer hold the person's words** — found
+  while doing this: `routed %r` and `understood %r as %s` wrote the typed
+  goal and its reference number to `logs/backend.log` since 2026-10-17. Now
+  the flow and which details were found, never their values.
+
+**Not changed, and worth knowing:** with `SIMBA_TRACE_MEMORY` on (off by
+default), the trace store keeps a run's spelled-out goal — a bill's
+reference among it — in plain SQLite, tile or not; and the step recorder
+writes each page's address, which on the billing replica can carry the
+reference. Both predate tiles.
+
+**Cost.** Three new contract fields and one message type for the other
+owners to agree. Tiles are per Windows account and per machine.

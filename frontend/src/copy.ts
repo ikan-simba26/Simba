@@ -81,10 +81,9 @@ export const HOME = {
   onDay: (day: number, month: number) =>
     `${day} ${["January", "February", "March", "April", "May", "June", "July", "August",
                "September", "October", "November", "December"][month - 1]}`,
-  /** The name of the row of tiles, for a screen reader: the three things
-   *  SIMBA can do. Not shown since 2026-10-14; the tiles speak for
-   *  themselves. */
-  canHelp: "I can help with these",
+  /** Above the three things SIMBA can do (2026-10-18): shown again, now that
+   *  the person's own tiles can sit above them. */
+  canHelp: "Things I can help with",
   /** Reveals the text box. Deliberately last, and quiet. */
   somethingElse: "Ask for something new",
   /** Opens the welcome again, to change what the person told it (2026-10-18). */
@@ -107,6 +106,34 @@ export function greetingAt(hour: number, name?: string): string {
   const [hello, ...rest] = greeting.split(". ");
   return `${hello}, ${name}. ${rest.join(". ")}`;
 }
+
+/* -------------------------------------------------------- your own tiles */
+
+/**
+ * The person's own tiles (2026-10-18): a task they did, kept on the home
+ * screen with the details they gave, by the name they choose.
+ */
+export const TILES = {
+  /** Above the person's own tiles, first on the home screen. A lead-in. */
+  yours: "Yours",
+  /** Opens the place to rename, move and remove them. */
+  change: "Change my tiles",
+  /** On the closing screen, once: keep this task as a tile. */
+  keepAsk: (label: string) => `Shall I keep this on your home screen as ${label}?`,
+  keep: "Keep it",
+  notNow: "Not now",
+  kept: (label: string) => `Kept on your home screen as ${label}.`,
+  /** The place to change them. */
+  editAsk: "Your tiles",
+  editDetail: "Change a name, move a tile, or take one off your home screen.",
+  /** Each tile's name, for a screen reader, beside the box to change it. */
+  name: (label: string) => `Name of ${label}`,
+  left: "Move left",
+  right: "Move right",
+  remove: "Take it off",
+  /** When the last one has gone. */
+  none: "You have no tiles of your own now.",
+} as const;
 
 /* ------------------------------------------------------------- welcome */
 
@@ -581,6 +608,10 @@ export const SITUATIONS: Record<string, string> = {
   "welcome.readDetail": WELCOME.readDetail,
   "welcome.askAsk": WELCOME.askAsk,
   "welcome.askDetail": WELCOME.askDetail,
+  "tiles.keepAsk": TILES.keepAsk("My bill"),
+  "tiles.kept": TILES.kept("My bill"),
+  "tiles.editDetail": TILES.editDetail,
+  "tiles.none": TILES.none,
   "trust.ask": TRUST.ask,
   "reply.greeting": REPLY.greeting,
   "reply.unsupported": REPLY.unsupported,
@@ -598,6 +629,8 @@ export const LEADS: Record<string, string> = {
   "home.canHelp": HOME.canHelp,
   "home.again": HOME.again,
   "welcome.lead": WELCOME.lead,
+  "tiles.yours": TILES.yours,
+  "tiles.editAsk": TILES.editAsk,
   "welcome.level1": WELCOME.levelName(1),
   "welcome.level2": WELCOME.levelName(2),
   "welcome.level3": WELCOME.levelName(3),
@@ -638,6 +671,12 @@ export const LABELS: Record<string, string> = {
   "welcome.justDo": WELCOME.justDo,
   "welcome.next": WELCOME.next,
   "welcome.skip": WELCOME.skip,
+  "tiles.change": TILES.change,
+  "tiles.keep": TILES.keep,
+  "tiles.notNow": TILES.notNow,
+  "tiles.left": TILES.left,
+  "tiles.right": TILES.right,
+  "tiles.remove": TILES.remove,
   "speak.stop": SPEAK.stop,
   "flow.registration": FLOWS.registration,
   "flow.billing": FLOWS.billing,

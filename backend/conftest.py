@@ -44,6 +44,13 @@ os.environ.setdefault("SIMBA_RECORD_STEPS", "0")
 os.environ.setdefault(
     "SIMBA_VAULT", str(Path(__file__).resolve().parents[1] / ".scratch" / "vault-tests.json"))
 
+# Nor the person's own tiles (2026-10-18): how many they have kept would change
+# whether a closing screen offers to keep another, and a test that pressed
+# "keep" would add one to their home screen. Emptied at the start of every run.
+TILES_FOR_TESTS = Path(__file__).resolve().parents[1] / ".scratch" / "tiles-tests.json"
+os.environ.setdefault("SIMBA_TILES", str(TILES_FOR_TESTS))
+TILES_FOR_TESTS.unlink(missing_ok=True)
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

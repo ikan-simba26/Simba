@@ -349,6 +349,19 @@ THROUGH_A_STEP = [
     ("state.changed", {"state": "acting"}),
 ]
 
+# And the offer to keep the task as a tile (2026-10-18), once, as one quiet
+# line above the way on: beside the offer to book, and on the tallest closing
+# screen there is, where it costs the most room.
+TAILS["completed with trains, an offer to book, and an offer to keep"] = [
+    ("task.completed", {**TAILS["completed with trains and an offer to book"][0][1],
+                        "keep": {"label": "Trains to Karachi"}}),
+]
+TAILS["completed with nine results, an offer to book, and an offer to keep"] = [
+    ("task.completed", {**TAILS["completed with nine results and a sentence"][0][1],
+                        "offer": {"id": "book", "label": "Book one of these"},
+                        "keep": {"label": "Trains to Karachi"}}),
+]
+
 ENDINGS: dict[str, list[tuple[str, dict]]] = {
     # From the working screen, before any step. Not how a real run ends, and
     # on their own these passed while every ending after a step was
@@ -475,7 +488,8 @@ class Backend:
                         return
                     await send(message_type, payload)
                 last = self.script[-1] if self.script else ("", {})
-                if last[0] == "task.completed" and last[1].get("offer"):
+                if last[0] == "task.completed" and (last[1].get("offer")
+                                                    or last[1].get("keep")):
                     # A closing screen with an offer: the real run stays open
                     # for it (2026-10-16) until the person answers or leaves,
                     # and the overlay shows the offer only while it is.
@@ -560,6 +574,16 @@ def test_everything_on_an_ending_leads_somewhere(
             # The run goes on to book (2026-10-16): working, until its first
             # question comes.
             page.get_by_text("Give me a moment.").wait_for(timeout=5000)
+            continue
+        if label == "Keep it":
+            # Kept (2026-10-18): said, in the line's place; the rest stays.
+            page.get_by_test_id("kept").wait_for(timeout=5000)
+            assert page.get_by_role("button", name="Back to start").is_visible()
+            continue
+        if label == "Not now":
+            # Declined: the line goes, and nothing else changes.
+            page.get_by_test_id("keep").wait_for(state="detached", timeout=5000)
+            assert page.get_by_role("button", name="Back to start").is_visible()
             continue
         if label == "See it on the real page":
             page.get_by_test_id("proof-panel").wait_for(timeout=5000)

@@ -282,7 +282,7 @@ def test_the_wording_asked_for(copy: dict) -> None:
     # "You asked me for these" headed a second list of remembered goals until
     # 2026-09-30. There is one list now, under one lead-in.
     assert "againHeading" not in copy["home"]
-    assert copy["home"]["canHelp"] == "I can help with these"
+    assert copy["home"]["canHelp"] == "Things I can help with"
     assert voice.STOP == "Stop this"
 
 

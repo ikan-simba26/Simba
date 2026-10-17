@@ -16,6 +16,8 @@ import type {
   HelpRequested,
   HistoryOffered,
   PastGoal,
+  PersonalTile,
+  TileChange,
   LoadUpdated,
   PagePreview,
   State,
@@ -186,6 +188,22 @@ interface Store {
   finishWelcome: () => void;
   /** "Change my settings": the welcome again, with what they said before. */
   openWelcome: () => void;
+  /**
+   * The person's own tiles, in their order (2026-10-18), as the backend last
+   * offered them. Their details are never here: a tile is run by its id.
+   */
+  tiles: PersonalTile[];
+  /** The place to rename, move and remove them is open. */
+  tilesOpen: boolean;
+  /** The closing screen's offer to keep this task: kept, declined, or not yet. */
+  keepAnswer: "kept" | "declined" | null;
+  /** Run one of their own tiles. */
+  startTile: (tile: PersonalTile) => void;
+  keepTile: () => void;
+  declineKeep: () => void;
+  /** Rename, move or remove one of their own tiles, or clear them all. */
+  changeTile: (change: TileChange) => void;
+  setTilesOpen: (open: boolean) => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -211,7 +229,7 @@ interface Store {
    * offered — a card, or an answer to "which did you mean" — so the backend
    * runs exactly that and does not guess again.
    */
-  startTask: (goal: string, flow?: FlowName) => void;
+  startTask: (goal: string, flow?: FlowName, tile?: string) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -226,6 +244,9 @@ interface Store {
  * `test_copy.py` checks this id and the backend's agree.
  */
 const STOP_ID = "cancel";
+
+/** "Keep it" on the closing screen's offer of a tile (`voice.KEEP_ID`). */
+const KEEP_ID = "keep";
 
 /** "Don't" on a final screen, and No to a yes-or-no question (`voice.DECLINE_ID`). */
 const DECLINE_ID = "decline";
@@ -242,6 +263,7 @@ const STARTING_PROFILE = loadProfile();
 
 const EMPTY = {
   proofOpen: false,
+  keepAnswer: null,
   task: null,
   state: null,
   step: null,
@@ -324,6 +346,8 @@ export const useStore = create<Store>((set, get) => {
     noPicture: false,
     askEachTime: STARTING_PROFILE.askEach,
     profile: STARTING_PROFILE,
+    tiles: [],
+    tilesOpen: false,
     welcomeOpen: welcomeEnabled() && !STARTING_PROFILE.welcomed,
     ...EMPTY,
 
@@ -378,6 +402,29 @@ export const useStore = create<Store>((set, get) => {
 
     openWelcome: () => set({ welcomeOpen: true }),
 
+    startTile: (tile) => get().startTask(tile.label, tile.flow, tile.id),
+
+    keepTile: () => {
+      const keep = get().completed?.keep;
+      if (!keep) return;
+      connection.respondToStep({ step_index: 0, action_id: KEEP_ID,
+                                 input_values: { label: keep.label } });
+      set({ keepAnswer: "kept" });
+    },
+
+    // Nothing is sent: the run goes on waiting for the other offer, if any,
+    // and ends with "Back to start" as always.
+    declineKeep: () => set({ keepAnswer: "declined" }),
+
+    changeTile: (change) => {
+      // The home screen's connection may have closed with the last task; a
+      // new one is offered the tiles first, then answers the change.
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.changeTile(change);
+    },
+
+    setTilesOpen: (open) => set({ tilesOpen: open }),
+
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
       set({ level, chosenLevel: level, levelLocked: true, levelNotice: null });
@@ -416,10 +463,14 @@ export const useStore = create<Store>((set, get) => {
     // Clears the finished task but keeps the remembered goals, so "do
     // something else" lands on the home screen rather than an empty box.
     startOver: () => {
-      // A run still waiting on the closing screen's offer (2026-10-16) is
-      // over: the connection closes, and the next task opens a new one.
-      if (get().completed?.offer) connection.close();
+      // A run still waiting on the closing screen's offer (2026-10-16), or on
+      // its offer to keep a tile (2026-10-18), is over: the connection closes.
+      const completed = get().completed;
+      if (completed?.offer || completed?.keep) connection.close();
       set({ ...EMPTY });
+      // And a new one, so the home screen is offered the tiles as they now
+      // stand — one just kept among them — as when SIMBA opened.
+      if (!connection.isOpen) connection.connect(get().wsUrl);
     },
 
     takeOffer: () => {
@@ -437,7 +488,7 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal, flow) => {
+    startTask: (goal, flow, tile) => {
       window.__simbaStarted = true;
       set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
@@ -463,7 +514,7 @@ export const useStore = create<Store>((set, get) => {
       // backend's rules start from it and come back to it after calm steps.
       const start = get().profile.level;
       if (start && !levelLocked) set({ level: start, chosenLevel: start });
-      connection.startTask(goal, flow, get().askEachTime, start);
+      connection.startTask(goal, flow, get().askEachTime, start, tile);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -571,7 +622,8 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       }));
       return;
     case "history.offered":
-      set({ history: (message.payload as HistoryOffered).goals });
+      set({ history: (message.payload as HistoryOffered).goals,
+            tiles: (message.payload as HistoryOffered).tiles ?? [] });
       return;
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.

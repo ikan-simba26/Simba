@@ -56,6 +56,16 @@ words for the home screen's one line, `"Bill ending 7890"`, `"Trains Lahore
 Cantt to Rawalpindi"`, `"Course CS-401"`. Absent, the goal's own words are
 shown.
 
+**`tiles` is additive and optional** (added 2026-10-18): the person's own
+tiles, in their order — a task they kept from its closing screen, by the
+name they gave it. Each is `id`, `label` and `flow` only: what the tile keeps
+(a reference number, two stations) stays in the backend, encrypted with the
+vault's key (`backend/orchestrator/tiles.py`), and never crosses the socket.
+Also sent again, whole, in answer to every `tile.change`. Absent: none.
+```json
+{ "goals": [], "tiles": [ { "id": "3f9a1c2e7b40", "label": "My bill", "flow": "billing" } ] }
+```
+
 What the home screen offers instead of an empty text box. Read from the same
 SQLite trace store that replay uses, newest first, capped at three — so the
 cards are exactly the goals that would replay, rather than a second list that
@@ -391,6 +401,18 @@ page, and the run then opens the detail page where that column does not exist.
 for, from what the person asked and agreed — "Lahore Cantt to Karachi Cantt,
 Thursday 15 October" — never from the page. Absent: no heading.
 
+`keep` is additive and optional (added 2026-10-18): `{ "label": "My bill" }`,
+offered **once** — "Shall I keep this on your home screen as My bill?" — when
+the task looked up a bill or a journey, is not already one of the person's
+tiles, there is room for another (three at most), and was not itself run from
+a tile. The run stays open for the answer, as for `offer` (it closes itself
+after ten minutes). Kept: a `step.response` with `"action_id": "keep"` and the
+name as `input_values.label`; the backend keeps the tile and goes on waiting
+for `offer`, if there is one. Declined: nothing is sent.
+```json
+{ "step_index": 0, "action_id": "keep", "input_values": { "label": "My bill" } }
+```
+
 ### `task.failed`
 ```json
 { "reason": "Portal timed out", "recoverable": true }
@@ -442,6 +464,16 @@ person's name never leaves it.
 { "goal": "Check my electricity bill", "input_mode": "text", "flow": "billing", "start_level": 1 }
 ```
 
+`tile` is **additive and optional** (2026-10-18): the id of one of the
+person's own tiles (`history.offered.tiles`). The backend runs that tile's
+flow with the details kept with it, and asks only what can change — the day
+of a journey. The goal is the tile's name and is not classified, and nothing
+kept is read by, or sent to, a model. An id it does not hold is ignored and
+the goal is taken as usual.
+```json
+{ "goal": "My bill", "input_mode": "text", "flow": "billing", "tile": "3f9a1c2e7b40" }
+```
+
 ### `step.response`
 ```json
 { "step_index": 2, "action_id": "confirm",
@@ -480,6 +512,22 @@ backend answers it the same way whoever asked. Only the person pressing
 ```json
 {}
 ```
+
+### `tile.change`
+Added 2026-10-18. **Pending agreement** — a new message type, with the rest
+listed in HANDOVER.md. The person renaming, moving or removing one of their own
+tiles from the home screen, or clearing them all (the reset). Answered with
+`history.offered`, whole, as the tiles now stand; a change the backend cannot
+make (an id it does not hold, an empty name) is answered the same way, with
+nothing changed.
+```json
+{ "action": "rename", "id": "3f9a1c2e7b40", "label": "Electricity" }
+{ "action": "move", "id": "3f9a1c2e7b40", "to": 0 }
+{ "action": "remove", "id": "3f9a1c2e7b40" }
+{ "action": "clear" }
+```
+`to` counts from 0 at the left. Read only before a task starts, on the home
+screen; one sent during a task is ignored.
 
 ### `telemetry`
 Channel B signals for the estimator. Sent on every step response, and on a

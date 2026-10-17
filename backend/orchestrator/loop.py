@@ -24,7 +24,7 @@ import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
-from typing import Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 from urllib.parse import urlsplit
 
 from playwright.async_api import Error as PlaywrightError
@@ -71,10 +71,14 @@ from shared.schema import (
     StepPresented,
     TaskCompleted,
     TaskOffer,
+    KeepOffer,
     TaskFailed,
     TaskStarted,
     LevelOverride,
 )
+
+if TYPE_CHECKING:
+    from backend.orchestrator.tiles import TileStore
 
 VERIFY_TIMEOUT_S = 5.0
 
@@ -1259,6 +1263,7 @@ async def run_brief(
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
     auto: bool = False,
+    tiles: "TileStore | None" = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
 
@@ -1303,10 +1308,37 @@ async def run_brief(
 
     planner, task = brief.settle()
     follow_for = getattr(brief, "follow_on", None)
-    completed = await carry_out(run, planner, task, send=follow_for is None)
-    if follow_for is None or completed is None:
+    keep = keep_offer(brief, tiles)
+    completed = await carry_out(run, planner, task, send=follow_for is None and keep is None)
+    if completed is None or (follow_for is None and keep is None):
         return
-    await finish(run, completed, follow_for(completed) if on_replica(page.url) else None)
+    follow = follow_for(completed) if follow_for and on_replica(page.url) else None
+    await finish(run, completed, follow, keep)
+
+
+@dataclass(frozen=True)
+class Keep:
+    """Keeping this task as one of the person's tiles (2026-10-18): offered
+    once on the closing screen under `label`; `save` keeps it under the name
+    the person gives, or returns None if it cannot."""
+
+    label: str
+    save: Callable[[str], object]
+
+
+def keep_offer(brief: "Brief", tiles: "TileStore | None") -> Keep | None:
+    """The offer to keep this task, when it has details worth keeping, is not
+    already a tile, and there is room. Never for a run started from a tile."""
+    keepable = getattr(brief, "keepable", None)
+    if tiles is None or keepable is None or getattr(brief, "from_tile", None):
+        return None
+    kept = keepable()
+    if kept is None:
+        return None
+    flow, details, label = kept
+    if not tiles.can_keep(flow, details):
+        return None
+    return Keep(label=label, save=lambda name: tiles.add(name, flow, details))
 
 
 @dataclass(frozen=True)
@@ -1335,7 +1367,8 @@ class LeftTheAnswer(Exception):
 OFFER_IDLE_S = 600.0
 
 
-async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -> None:
+async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None,
+                 keep: Keep | None = None) -> None:
     """The answer, and the job finished if the person asks for it.
 
     Asked for in the goal: straight on, no closing screen between. Otherwise
@@ -1344,29 +1377,49 @@ async def finish(run: _Run, completed: TaskCompleted, follow: FollowOn | None) -
     closes the connection), cancels, or leaves it for `OFFER_IDLE_S`.
     Someone who wanted only the answer presses nothing extra (2026-10-16; it
     was a question after every answer).
+
+    And, once, the offer to keep the task as one of the person's own tiles
+    (`keep`, 2026-10-18). Kept, the run goes on waiting for the other offer,
+    if there is one.
     """
-    if follow is None:
+    if follow is None and keep is None:
         await run.connection.send("task.completed", completed)
         return
-    if not follow.straight:
-        await run.connection.send("task.completed", completed.model_copy(
-            update={"offer": TaskOffer(id=follow.id, label=follow.label)}))
+    if follow is None or not follow.straight:
+        update: dict = {}
+        if follow is not None:
+            update["offer"] = TaskOffer(id=follow.id, label=follow.label)
+        if keep is not None:
+            update["keep"] = KeepOffer(label=keep.label)
+        await run.connection.send("task.completed", completed.model_copy(update=update))
 
         async def left(message: dict) -> None:
             if message.get("type") == "task.cancel":
                 raise LeftTheAnswer
 
-        try:
-            response = await asyncio.wait_for(
-                run.connection.receive("step.response", on_other=left), OFFER_IDLE_S)
-        except asyncio.TimeoutError:
-            log.info("offer %r left for %.0fs: closing the run", follow.id, OFFER_IDLE_S)
-            return
-        except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
-            return
-        if response.get("payload", {}).get("action_id") != follow.id:
+        while True:
+            try:
+                response = await asyncio.wait_for(
+                    run.connection.receive("step.response", on_other=left), OFFER_IDLE_S)
+            except asyncio.TimeoutError:
+                log.info("closing screen left for %.0fs: closing the run", OFFER_IDLE_S)
+                return
+            except Exception:  # noqa: BLE001 - left, cancelled, or the connection closed
+                return
+            payload = response.get("payload", {})
+            action = payload.get("action_id")
+            if keep is not None and action == voice.KEEP_ID:
+                name = (payload.get("input_values") or {}).get("label") or keep.label
+                log.info("kept as a tile" if keep.save(name) else "could not keep the tile")
+                keep = None
+                if follow is None:
+                    return
+                continue
+            if follow is not None and action == follow.id:
+                break
             return  # any other answer: the closing screen was the end
         await run.set_state("thinking")
+    assert follow is not None
     planner, task = follow.take()
     await carry_out(run, planner, task)
 

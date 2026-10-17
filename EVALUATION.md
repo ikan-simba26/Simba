@@ -6013,3 +6013,42 @@ no level, or one out of range, is 2. Through the app over the websocket
 hesitant question, then calm — levels sent **1, 2, 1**, against 2, 3, 2
 without it. The home, level, copy, first-screen and read-aloud tests:
 **134 passed**.
+
+## 2026-10-18b — the person's own tiles
+
+`feat/personal`. The store and the backend (`backend/orchestrator/
+test_tiles.py`, **14 passed**): a tile written to disk holds neither its name,
+its flow nor its reference in readable form, and nothing that prints a tile
+shows its details; rename, move, remove and clear; three at most, the same
+bill never twice, only a bill's reference or a journey's two stations kept.
+On the replicas, through the real loop: a bill's closing screen offered once
+to keep it as "My bill", beside "Pay this bill", and kept under the name
+given ("Electricity", reference and all); not offered again for a bill
+already kept, nor for a run started from a tile; a journey offered as
+"Trains to Karachi" (the site says "KARACHI CANTT" — the first version said
+"Trains to KARACHI"). Through the app over the websocket: the home screen is
+offered the tiles by name only, no reference or station in the message; the
+bill's tile ran without asking for the number, its goal "My bill"; the
+journey's tile asked the day first and neither station; `tile.change`
+renamed, moved and removed, each answered with the tiles as they then stood,
+an unknown id changing nothing; and `logs/backend.log` held neither the
+reference nor a station.
+
+The overlay (`frontend/test_own_tiles.py`, **9 passed**): "Things I can help
+with" shown above the three while there are no tiles; the person's own first
+with them; a tile press sends only its id, flow and name; "Change my tiles"
+renames, moves and takes off, sending exactly those changes, the first
+unable to move left and the last right; "Keep it" sends `keep` with the
+offered name, says "Kept on your home screen as Trains to Karachi.", and
+leaves "Book one of these" where it was. Three tiles and two goals asked
+before fit at 1280x800, 1280x734, 1266x606 and 1266x632 — **after two
+failures**: first the box to ask in was 28px below the window at 100% and
+17px at 150% (the three cards kept their pictures and two-line names under
+the tiles), then the page still scrolled by 19px (the canvas's own bottom
+padding). The three now take the tiles' shape under them, and the gaps close
+a little the more the home screen holds. Showing "Things I can help with"
+always also made the screen with three goals asked before scroll by 16px at
+100%; fixed the same way. Both new endings with the offer to keep fit at
+every size (`test_terminal_states.py`), and the home, copy, welcome, ending
+and first-screen tests: **404 run, all passing after those fixes**. The
+backend's websocket and flow tests: **127 passed**.
