@@ -283,8 +283,10 @@ function Home() {
     <div className={`flex min-h-[calc(100dvh-176px)] flex-col justify-center
                      short:min-h-[calc(100dvh-92px)] ${spacing}`}>
       <div className={`flex flex-col ${spacing}`}>
+        {/* Balanced: with a name in it the greeting can take two lines, and
+            the second was "you?" alone (2026-10-18, the walk). */}
         <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
-                       short:text-heading" data-testid="greeting">
+                       text-balance short:text-heading" data-testid="greeting">
           {greetingAt(hour, profile.name)}
         </h1>
 
