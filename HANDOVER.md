@@ -18,7 +18,9 @@ after ten minutes, the backend's run log (`logs/backend.log`), the host fit
 test's hang, and README checked against a fresh clone — STATUS.md has each. And on 2026-10-17 for `fix/final-touches`: a
 registration said as a practice copy, every dependency pinned, the whole
 suite run on a fresh clone (which found a press-guard bug, now fixed), the
-booking clip re-recorded, and the superseded preview-capture branch deleted. Section 9 is still the 2026-09-17 capture, and says so.
+booking clip re-recorded, and the superseded preview-capture branch deleted. And on 2026-10-18 for `feat/personal`, which is **not merged**: the welcome
+and the person's profile, their own tiles, the starting level as an estimator
+signal, and a reset — items 5 to 7 below. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -102,6 +104,26 @@ with what it would cost to undo.
    second "Sign in and save my password" button (Raham's choice, 2026-10-15;
    CONTRACT.md, *Keeping a password*; no message changed). *To undo:* the
    overlay draws the backend's `remember` answer as a button again.
+
+**And from `feat/personal` (2026-10-18, not merged): three more to agree.**
+
+5. **The welcome and the person's profile** (Aly's area): four questions on
+   first open, kept in the overlay's own storage; the name never leaves it.
+   One additive field, `task.start.start_level`, carries the chosen level to
+   the rules, which take it as their baseline. Read aloud "on" shows the
+   button and "off" hides it — speech is still only on a press. *To undo:*
+   drop the welcome; the rules start at 2 again.
+6. **The person's own tiles**: additive `history.offered.tiles`,
+   `task.completed.keep` and `task.start.tile`, and **a new message type,
+   `tile.change`** (rename, move, remove, clear), answered with
+   `history.offered`. Tiles are encrypted with the vault's key in
+   `data/tiles.json`; the overlay never holds their details. *To undo:* drop
+   the four on both sides and delete the file.
+7. **For Nahail: the starting level as an estimator signal** — a
+   `start_level` row per task and field on every telemetry row in
+   `data/steps.jsonl`; how it relates to the estimator is in DECISIONS.md,
+   *The starting level is a signal of its own*. It confounds pooled telemetry
+   from today on.
 
 **How to read the claims below.** Each "works" claim names its evidence: a
 test file, or a dated entry in EVALUATION.md. A test is evidence for today,
@@ -740,6 +762,11 @@ options and a recommendation; this is the list.
     again.
 14c. *(Settled 2026-10-17: a registration on our copy ends in practice words
     too, the portal's caveat kept.)*
+14e. **What a reset should clear between study participants** (2026-10-18):
+    the profile and tiles go, but "You asked before" still shows the last
+    person's goals, from the replay store. DECISIONS.md, *Forgetting the
+    person*, has the options; the recommendation is to hide goals from before
+    a reset.
 14d. **The host's window counts only for a task started in it**
     (`window.__simbaStarted`, 2026-10-17), and a window hidden by something
     else is never noticed. Nothing in SIMBA hides it today.

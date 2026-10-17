@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-17 · **1430 passing, 12 skipped, 0 failed** · backend 902 in 952s, frontend 528 in 1036s, as two halves, on mains, on `fix/final-touches`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%). The same suite on a fresh clone set up from README and RUNNING alone: 901 + 528 passed, one failure in a test since fixed (EVALUATION.md, 2026-10-17k). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
+**Last updated:** 2026-10-18 · **1500 passing, 12 skipped, 0 failed** · backend 928 in 859s, frontend 572 in 1190s, as two halves, on mains, on `feat/personal` — **not merged** (`main` is at `cb68c82`, 1430 passing); and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), each host opening as for a new person. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
 
 ---
 
@@ -119,6 +119,38 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-18: SIMBA made for the person — `feat/personal`, not merged
+
+- **Getting to know you**: on first open, four short questions, each
+  skippable — a name, which of three ways of showing a question feels
+  comfortable (the real step at levels 1, 2 and 3), whether to show "Read
+  this aloud", and ask-each or just-do-it. Kept in the overlay as the
+  person's profile; the name greets them and never leaves it. The level goes
+  with every task (`task.start.start_level`), and the rules start from it and
+  come back to it instead of 2. "Change my settings" reopens it
+  (EVALUATION.md, 2026-10-18).
+- **Your own tiles**: a bill or a journey's closing screen offers once to keep
+  it; kept, it is encrypted with the vault's key, names and all, and the
+  overlay is told only its id, name and flow. Run by id, it asks only what
+  changes. Up to three, first on the home screen above "Things I can help
+  with"; renamed, moved and removed through `tile.change`, a new message
+  (2026-10-18b).
+- **The starting level is written down as its own signal** for the
+  estimator, with a note for Nahail (2026-10-18c).
+- **"Forget me and start again"** clears the profile and the tiles. The last
+  goals asked are not cleared — flagged, with a recommendation (2026-10-18d).
+- **Walked in the real window** as a brand-new person at 100%: welcome,
+  the bill, kept as "My bill", run again from the tile without being asked
+  the number (2026-10-18e).
+- **Found on the way**: the backend's log lines had held the typed goal and
+  its reference number since 2026-10-17; they now hold neither.
+- **Needs the other owners**: `start_level`, `history.offered.tiles`,
+  `task.completed.keep`, `task.start.tile` (additive, optional) and the new
+  `tile.change` message — listed in HANDOVER.md.
+- **The suite on this branch, on mains**: 1500 passed, 12 skipped, 0 failed
+  (backend 928 in 859s, frontend 572 in 1190s); the host fit test 3/3, now
+  with a new person's welcome and three tiles of their own in it.
 
 ### Changed on 2026-10-17 (last): final touches — `fix/final-touches`
 

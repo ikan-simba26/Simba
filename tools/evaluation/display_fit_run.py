@@ -73,6 +73,25 @@ CAPTURES = 20
 
 # Three remembered goals at the limit of what a card holds: two lines even at
 # the compact layout's 23px, so every card is as tall as a card can be.
+#: The person's own tiles (2026-10-18), three — as many as there can be — so
+#: the home screen with history is the fullest it gets.
+OWN_TILES = [{"id": "a1", "label": "My bill", "flow": "billing"},
+             {"id": "b2", "label": "Trains to Karachi", "flow": "railways"},
+             {"id": "c3", "label": "Trains home", "flow": "railways"}]
+
+#: Whether one question of the welcome fits: nothing scrolls, and every button
+#: on it is wholly in the window.
+WELCOME_FITS = """() => {
+  const scrolls = document.scrollingElement.scrollHeight > innerHeight;
+  const off = [...document.querySelectorAll('[data-testid=welcome] button')]
+    .filter(b => b.offsetParent && !b.closest('[aria-hidden=true]'))
+    .filter(b => { const r = b.getBoundingClientRect();
+                   return r.top < 0 || r.bottom > innerHeight || r.right > innerWidth; })
+    .map(b => b.innerText.trim());
+  return {question: document.querySelector('[data-testid=welcome]').dataset.question,
+          scrolls, off};
+}"""
+
 HISTORY = [
     f"Find the amount due for reference number {n}. Then tell me which of them "
     "is due first and how much it is."
@@ -99,7 +118,8 @@ class ScriptedHistory:
             async def handler(ws):
                 await ws.send(json.dumps({
                     "v": 1, "type": "history.offered", "task_id": "t_fit", "seq": 1,
-                    "ts": 0, "payload": {"goals": [{"goal": g, "site": "fit"} for g in HISTORY]},
+                    "ts": 0, "payload": {"goals": [{"goal": g, "site": "fit"} for g in HISTORY],
+                                         "tiles": OWN_TILES},
                 }))
                 try:
                     async for _ in ws:
@@ -202,6 +222,24 @@ def said(scale: str, what: str) -> None:
 STARTED: dict[str, float] = {}
 
 
+def read_welcome(overlay: Page, scale: str) -> list[dict]:
+    """Each question of the welcome as a new person meets it (2026-10-18):
+    whether it fits, and its picture. Empty if the host opened on the home
+    screen instead."""
+    try:
+        overlay.get_by_test_id("welcome").wait_for(timeout=15000)
+    except Exception:  # noqa: BLE001 - no welcome is a finding, not a failure here
+        return []
+    measured = []
+    for _ in range(4):
+        overlay.wait_for_timeout(900)  # past the arrival and the press guard
+        fit = overlay.evaluate(WELCOME_FITS)
+        capture_view(overlay, OUT / f"welcome-{scale}-{fit['question']}.png")
+        measured.append(fit)
+        overlay.get_by_test_id("welcome-skip").click()
+    return measured
+
+
 def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
     """Every ending, played into the real window, and where its buttons are.
 
@@ -260,7 +298,12 @@ def launch(scale: str) -> tuple[subprocess.Popen, Path]:
     args = [str(electron), "."]
     if scale != "native":
         args.append(f"--force-device-scale-factor={scale}")
-    env = {**os.environ, "SIMBA_CDP_PORT": PORT, "SIMBA_START_URL": "about:blank"}
+    # A host of its own storage, empty, so it opens as for a new person — the
+    # welcome first (2026-10-18) — and never touches the real person's profile.
+    user_data = OUT / f"user-data-{scale}"
+    shutil.rmtree(user_data, ignore_errors=True)
+    env = {**os.environ, "SIMBA_CDP_PORT": PORT, "SIMBA_START_URL": "about:blank",
+           "SIMBA_USER_DATA": str(user_data)}
     env.pop("ELECTRON_RUN_AS_NODE", None)
     proc = subprocess.Popen(args, cwd=FRONTEND, env=env, stdout=log.open("w"),
                             stderr=subprocess.STDOUT, shell=os.name == "nt")
@@ -342,6 +385,9 @@ def measure(scale: str) -> dict:
             overlay = next(p for p in pages if p.url.startswith("file:"))
             site = next(p for p in pages if not p.url.startswith("file:"))
             overlay.wait_for_load_state()
+            # A new person's first open: the welcome, each question measured
+            # and kept as a picture, then skipped through to the home screen.
+            welcome = read_welcome(overlay, scale)
             overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
             overlay.wait_for_timeout(1200)  # let the entrance animation finish
 
@@ -384,7 +430,9 @@ def measure(scale: str) -> dict:
             overlay.wait_for_function(
                 "g => document.body.textContent.includes(g)", arg=HISTORY[0], timeout=15000)
             overlay.wait_for_timeout(1200)
+            overlay.get_by_test_id("own-tile").first.wait_for(timeout=15000)
             with_history = read_home(overlay)
+            with_history["own_tiles"] = overlay.get_by_test_id("own-tile").count()
             capture_view(overlay, OUT / f"home-{scale}-history.png")
 
             endings = read_endings(overlay, scale)
@@ -413,6 +461,7 @@ def measure(scale: str) -> dict:
         "overlay": view,
         "overlay_with_history": with_history,
         "endings": endings,
+        "welcome": welcome,
         "sign_in": sign_in,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,

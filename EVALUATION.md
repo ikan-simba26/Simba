@@ -6074,3 +6074,30 @@ screen greets no one by name and has no tiles of its own; a first open shows
 no button to forget. Through the app (`test_tiles.py`, **15 passed**): `clear`
 answers with no tiles and the file they were kept in is gone. The welcome
 and copy tests, with the new words: **40 passed**.
+
+## 2026-10-18e — a brand-new person, in the real window; and the suite
+
+`feat/personal`, not merged. **The walk**, at forced 100% in the real host
+with an empty profile folder (`SIMBA_USER_DATA`) and an empty tiles file,
+our replicas, the hardcoded plans (`.scratch/walk-finish/walk_personal.py`):
+first open showed the welcome; "Ayesha", the fullest of the three examples,
+the read-aloud button kept, "Just do it and show me"; the home screen said
+"Good evening, Ayesha. What can I do for you?" — over two lines, the second
+"you?" alone, now balanced (`text-balance`). Typed "Check my electricity
+bill": asked the reference number and the cookies, found Rs 14,382, and
+offered "Shall I keep this on your home screen as My bill?" beside "Pay this
+bill"; "Keep it" said "Kept on your home screen as My bill." Back to start:
+"My bill" first, above "Things I can help with". Pressed: asked only the
+cookies — the site asks again — and never the number; found the bill again;
+offered nothing to keep. 37 seconds end to end. Every screen captured from the
+overlay's own view, in `.scratch/for-review-6/`.
+
+**The host window fit, with a new person's first open** (`SIMBA_HOST_TESTS=1
+frontend/test_window_fit.py`, each host with an empty profile folder): **3
+passed** at 100%, 125% and 150% — the four welcome questions each fitting,
+nothing scrolling, every button in the window; the home screen with three of
+the person's own tiles and two goals asked before; every ending, the two with
+the offer to keep among them; the sign-in screen.
+
+**The suite, on mains: 1500 passed, 12 skipped, 0 failed** — backend 928 in
+859s, frontend 572 in 1190s, as two halves.
