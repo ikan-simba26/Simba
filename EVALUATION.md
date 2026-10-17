@@ -5981,3 +5981,12 @@ was taken." / 'The site says "Booking Confirmed".' / the receipt. The other
 five clips were checked against today's wording and left: the bill, trains
 and hello clips end on screens that have not changed, and `fold.webm` is the
 scripted mock, with no final screen and no confirmation.
+
+## 2026-10-17m — the suite, before merging `fix/final-touches`
+
+On mains (printed by each run). **Backend half: 902 passed, 9 skipped, 0
+failed, 952s. Frontend half: 528 passed, 3 skipped, 0 failed, 1036s. Host
+window fit: 3 passed** (100%, 125%, 150%, 415s). In all **1430 passed, 12
+skipped, 0 failed**. The fresh clone's second run, before the last test fix:
+901 passed and 1 failed (that test, since passing in the clone too), 528
+passed.

@@ -15,7 +15,10 @@ and Aly must agree (below). And once more on 2026-10-17 for `fix/stability`:
 the 100% picture fixed (`browser.capture_site`), the false window pause, the
 practice-copy endings, the full registration caveat, an offer that closes
 after ten minutes, the backend's run log (`logs/backend.log`), the host fit
-test's hang, and README checked against a fresh clone — STATUS.md has each. Section 9 is still the 2026-09-17 capture, and says so.
+test's hang, and README checked against a fresh clone — STATUS.md has each. And on 2026-10-17 for `fix/final-touches`: a
+registration said as a practice copy, every dependency pinned, the whole
+suite run on a fresh clone (which found a press-guard bug, now fixed), the
+booking clip re-recorded, and the superseded preview-capture branch deleted. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -180,7 +183,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-10-17: **1428 passed, 12 skipped, 0 failed** (backend 901 in 879s, frontend 527 in 1059s, as two halves), and the host fit test 3/3. The 12 skips are
+The full suite was last run on 2026-10-17: **1430 passed, 12 skipped, 0 failed** (backend 902 in 952s, frontend 528 in 1036s, as two halves, on mains), and the host fit test 3/3. The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, last run separately on
@@ -375,15 +378,20 @@ Windows PowerShell and bash are both given where they differ.
 python -m venv backend\venv
 backend\venv\Scripts\python -m pip install -r backend\requirements-dev.txt
 backend\venv\Scripts\python -m playwright install chromium
-cd frontend; npm install; cd ..
+cd frontend; npm ci; cd ..
 ```
 
 ```bash
 python -m venv backend/venv
 backend/venv/bin/python -m pip install -r backend/requirements-dev.txt
 backend/venv/bin/python -m playwright install chromium
-(cd frontend && npm install)
+(cd frontend && npm ci)
 ```
+
+Every version is pinned (2026-10-17): the requirement files name all 48
+Python packages with `==`, and `npm ci` installs exactly `package-lock.json`.
+Checked on a fresh clone, where the whole suite then ran (EVALUATION.md,
+2026-10-17k).
 
 The launchers look for `backend/venv` and fall back to `python` on the PATH.
 The venv on the development machine is Python 3.12.3, and CLAUDE.md has
@@ -730,9 +738,8 @@ options and a recommendation; this is the list.
     ten minutes, then it closes and the offer goes (`loop.OFFER_IDLE_S`).
     Chosen without anyone using it; a person who decides later has to search
     again.
-14c. **A registration is also made on a practice copy**, but its ending
-    does not say so the way a booking's and a payment's now do (2026-10-17).
-    Say it the same way?
+14c. *(Settled 2026-10-17: a registration on our copy ends in practice words
+    too, the portal's caveat kept.)*
 14d. **The host's window counts only for a task started in it**
     (`window.__simbaStarted`, 2026-10-17), and a window hidden by something
     else is never noticed. Nothing in SIMBA hides it today.
