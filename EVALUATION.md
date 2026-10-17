@@ -5798,3 +5798,53 @@ step on screen and its answer, checklist line, move and picture has a time
 press log above is the host's, the timings the backend's. Until now neither
 existed — the backend's `simba` lines were never set up to print, and the
 overlay's press log died with the page.
+
+## 2026-10-17g — a fresh clone, set up from README.md and RUNNING.md only
+
+`fix/stability`. The showcase machine will be set up this way. `git clone`
+of `origin` (`main` at `1a3579a`) into `.scratch/fresh/simba`, then only the
+two documents' steps, in Windows PowerShell. One change to the method: pip's,
+npm's, Electron's and Playwright's download caches were pointed inside
+`.scratch/fresh/cache` (`PIP_CACHE_DIR`, `npm_config_cache`,
+`electron_config_cache`, `PLAYWRIGHT_BROWSERS_PATH`), because CLAUDE.md keeps
+every file this work writes inside the repository; that also made every
+download a real one, as on a new machine.
+
+| Step | What the documents say | What happened |
+|---|---|---|
+| 1. Tools | Python 3.12+, Node 18+, npm, git | 3.12.3, 24.12.0, 11.6.2, 2.55.0 — as listed |
+| 2. Backend | venv, `pip install -r requirements-dev.txt`, `playwright install chromium`, the check | worked; `backend ok`. Unpinned, so the clone got **Playwright 1.64.0** (this machine 1.62.0), fastapi 0.143.3, uvicorn 0.54.0, websockets 17.2, scikit-learn 1.9.1, pytest 9.1.1 |
+| 3. Frontend | `npm install`, `npm run build` | worked; `dist/` and `dist-electron/` written |
+| 5. Prove it | `python -m pytest` from the root, "485 pass, 9 skip" | **wrong: stops at collection** — `backend/orchestrator/test_checklist.py` and `frontend/test_checklist.py` share a module name ("import file mismatch"). In two halves both collect: 905 and 528 tests. The count was a month old. |
+| Run it | `.\run.ps1 railways-local` (RUNNING.md) | every `==>` line RUNNING.md lists, in order, then ready |
+| Smoke test | `.\run.ps1 mock -Seconds 20` | "stopped", nothing left listening |
+
+**The three flows, in the clone's own window**, typed and answered as DEMO.md
+says (driven over CDP by `.scratch/stability/clone_flows.py`, no model key,
+the hardcoded plans):
+
+- **Trains** — "trains to Rawalpindi tomorrow", `Lahore`, Lahore Cantt, "Yes,
+  that's right": "There are 2 trains. The fastest is 9UP, at 8 hours 15
+  minutes.", both trains, the picture, "I only looked up times…", Back to
+  start and "Book one of these".
+- **The bill, then paying it** — "Check my electricity bill",
+  `04141234567890`, Yes to cookies, "Pay this bill", the final screen, "Pay
+  it": confirmed by the site, with the picture, in 14.4s.
+- **Registration** — "register me for CS-401", signed in, the final screen,
+  "Register": "You're registered for CS-401.", the portal's caveat, the
+  picture, in 8.7s.
+
+All three finished. The clone is `main`, so its endings are the old wording
+(2026-10-17c and d change them on this branch).
+
+**Fixed in the documents:** README's step 5 now runs the suite in its two
+halves, with today's counts, skips and times; its layout table and "the
+short way" name the railways copy and `railways-local`; its switches table
+gains `SIMBA_HOST_TESTS` and `SIMBA_LOG_FILE`. RUNNING.md needed nothing.
+DEMO.md's payment ending is the new wording, and its advice for a port in
+use no longer says `Get-Process electron, python | Stop-Process`, which would
+stop every Python and Electron program on the showcase machine.
+
+**Not done:** the two halves were collected in the clone, not run there
+(about 50 minutes; the full suite runs on this branch below). The live
+railways start page was not tried.

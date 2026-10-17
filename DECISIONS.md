@@ -4878,3 +4878,16 @@ change. Logging only on failure: the minute-long checklist was not a failure.
 
 **Cost.** Two new files on the showcase machine, both in ignored paths; a few
 lines per step.
+
+## The demo script never says to stop every Python program
+
+**Date:** 2026-10-17 (not asked for; found during the fresh-clone check)
+
+**Decision.** DEMO.md's advice for "port 8000 is already in use" said `Get-Process
+electron, python | Stop-Process`. It now says to close the old window and
+press Ctrl+C, or to find the one process holding the port and stop that.
+
+**Why.** On a showcase machine that command stops every Python and Electron
+program, whatever they are; CLAUDE.md forbids the same for tools.
+
+**Cost.** Two more steps for a presenter in a hurry.
