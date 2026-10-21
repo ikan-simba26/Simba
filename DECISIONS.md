@@ -5185,7 +5185,7 @@ in its storage (`simba.forgetting`) until the backend has answered the
 not shown and the `clear` is said again — so a reset made while the backend
 was not running still holds the next time SIMBA opens.
 
-**Not asked for, decided, flagged:** **saved sign-ins are cleared too**
+**Not asked for, then approved by Raham on 2026-10-21:** **saved sign-ins are cleared too**
 (`Vault.clear`). Kept, the next person on the registration copy would read
 "I'll use the sign-in details you saved for this site" and be signed in as
 the last one — something from before the reset, shown. Options: (a) clear
