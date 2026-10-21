@@ -8,6 +8,11 @@ would be worthless on the next load. Role and label survive.
 Storage is SQLite: one row per (goal, site), holding the ordered steps as
 JSON. Re-recording the same pair replaces it, so a corrected trace supersedes
 the one that no longer fits.
+
+A reset ("Forget me and start again", 2026-10-21) is written here too, as the
+moment it happened. Traces from before it are kept — replay and the
+evaluation read them — but `recent`, which is what the home screen offers, never
+returns one: the next person is never shown the last one's goals.
 """
 
 import json
@@ -29,6 +34,11 @@ CREATE TABLE IF NOT EXISTS traces (
     PRIMARY KEY (goal, site)
 )
 """
+FORGOTTEN = "CREATE TABLE IF NOT EXISTS forgotten (at TEXT NOT NULL)"
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,7 @@ class TraceStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute(SCHEMA)
+            connection.execute(FORGOTTEN)
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path)
@@ -76,7 +87,7 @@ class TraceStore:
                 "INSERT INTO traces (goal, site, created_at, steps) VALUES (?, ?, ?, ?) "
                 "ON CONFLICT(goal, site) DO UPDATE SET steps=excluded.steps, "
                 "created_at=excluded.created_at",
-                (goal, site, datetime.now(timezone.utc).isoformat(), payload),
+                (goal, site, now(), payload),
             )
 
     def find(self, goal: str, site: str) -> Trace | None:
@@ -102,19 +113,28 @@ class TraceStore:
             )
 
     def recent(self, limit: int = 3) -> list[tuple[str, str]]:
-        """The most recently recorded goals, newest first.
+        """The most recently recorded goals since the last reset, newest first.
 
-        `created_at` is an ISO-8601 UTC string, which sorts correctly as text,
-        so the ordering does not need parsing.
+        `created_at` is an ISO-8601 UTC string, which sorts and compares
+        correctly as text, so neither the ordering nor the cutoff needs parsing.
+        A goal done again after a reset is recorded afresh, and is offered.
         """
         with self._connect() as connection:
             return [
                 (goal, site)
                 for goal, site in connection.execute(
-                    "SELECT goal, site FROM traces ORDER BY created_at DESC LIMIT ?",
+                    "SELECT goal, site FROM traces "
+                    "WHERE created_at > COALESCE((SELECT MAX(at) FROM forgotten), '') "
+                    "ORDER BY created_at DESC LIMIT ?",
                     (limit,),
                 )
             ]
+
+    def forget_the_person(self) -> None:
+        """A reset: nothing recorded until now is offered again (`recent`).
+        Nothing is deleted; replay and the evaluation still read it all."""
+        with self._connect() as connection:
+            connection.execute("INSERT INTO forgotten (at) VALUES (?)", (now(),))
 
     def goals(self) -> list[tuple[str, str]]:
         with self._connect() as connection:

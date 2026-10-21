@@ -255,6 +255,18 @@ def test_forgetting_deletes_the_entry(tmp_path: Path) -> None:
     assert SECRET.encode() not in (tmp_path / "vault.json").read_bytes()
 
 
+
+def test_a_reset_forgets_every_site(tmp_path: Path) -> None:
+    """"Forget me and start again" (2026-10-21): the next person is never
+    signed in as the last one, nor told "the details you saved"."""
+    vault = Vault(tmp_path / "vault.json")
+    vault.put("http://127.0.0.1:5000/", Credentials(USERNAME, SECRET))
+    vault.put("http://127.0.0.1:5100/", Credentials(USERNAME, SECRET))
+
+    vault.clear()
+    assert vault.sites() == [] and not (tmp_path / "vault.json").exists()
+    vault.clear()  # nothing saved: nothing to do
+
 # --- 3. the person's part -----------------------------------------------------
 
 

@@ -165,6 +165,10 @@ class Vault:
         self._write(entries)
         return True
 
+    def clear(self) -> None:
+        """Everything saved, for every site, gone: a reset (2026-10-21)."""
+        self.path.unlink(missing_ok=True)
+
     def sites(self) -> list[str]:
         """Which sites have something saved. Origins only: nothing secret."""
         return sorted(self._entries())

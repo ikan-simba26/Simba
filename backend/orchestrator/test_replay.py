@@ -85,6 +85,28 @@ def test_a_different_site_is_a_different_trace(tmp_path) -> None:
     assert store.find("goal", "http://b") is None
 
 
+
+def test_a_reset_hides_what_came_before_from_the_home_screen_only(tmp_path) -> None:
+    """"Forget me and start again" (2026-10-21): the goals asked before it are
+    never offered again, but every trace is kept for replay and the
+    evaluation, and a goal done again afterwards is offered afresh."""
+    store = TraceStore(tmp_path / "t.db")
+    store.save("bill 04141234567890", "http://x", [TraceStep("click", "button", "Look up")])
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    assert len(store.recent()) == 2
+
+    store.forget_the_person()
+    assert store.recent() == []
+    assert store.find("bill 04141234567890", "http://x") is not None
+    assert len(store.goals()) == 2
+
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    store.save("register for CS-401", "http://z", [TraceStep("click", "button", "Go")])
+    assert store.recent() == [("register for CS-401", "http://z"),
+                              ("trains to Karachi", "http://y")]
+    # Opened again: the reset is in the store, not in this object.
+    assert TraceStore(tmp_path / "t.db").recent(limit=1) == [("register for CS-401", "http://z")]
+
 def test_site_is_the_origin() -> None:
     assert site_of("http://127.0.0.1:5001/courses?x=1") == "http://127.0.0.1:5001"
 

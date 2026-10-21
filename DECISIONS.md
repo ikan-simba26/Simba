@@ -5144,7 +5144,7 @@ their defaults for the next person.
 **Not cleared, and flagged for review — the question is whether a study
 needs them gone between participants:**
 
-- **"You asked before"** — the last goals run on this machine, read from the
+- **"You asked before"** — *settled on 2026-10-21, below: never shown after a reset.* The last goals run on this machine, read from the
   replay trace store (`data/traces.db`). The next person sees the previous
   one's last two goals, and a bill's spelled-out goal holds its reference
   number. Options: (a) leave them; (b) clear the trace store too, which also
@@ -5162,3 +5162,40 @@ needs them gone between participants:**
 With the home screen's connection closed, the `clear` waits for a new one to
 open and is sent then. If the backend is not running at all, the profile is
 gone but the tiles stay until a reset is done with it running.
+
+## Forgetting the person: nothing from before the reset is ever shown
+
+**Date:** 2026-10-21 (asked for: after "Forget me and start again", no past
+goals, references or names from before it are ever shown; the replay data the
+evaluation needs is kept). Settles the first item flagged on 2026-10-18 above.
+
+**Decision.** Option (c) of 2026-10-18, but decided by the backend rather than
+the overlay. A reset writes its moment into the trace store (`traces.db`, a
+`forgotten` table); `TraceStore.recent`, which is all the home screen is
+offered, returns only traces recorded after the last one. Nothing is deleted:
+`find` (replay) and `goals` still read every trace. A goal done again after a
+reset is recorded afresh and offered. The old goals never cross the
+WebSocket, so no overlay — this one, an older one, the mock — can show them.
+No contract field was added; `tile.change` `clear` means the reset
+(CONTRACT.md).
+
+**Also on the overlay:** the goals on screen go at once, and a reset is marked
+in its storage (`simba.forgetting`) until the backend has answered the
+`clear`. While marked, the first `history.offered` of each new connection is
+not shown and the `clear` is said again — so a reset made while the backend
+was not running still holds the next time SIMBA opens.
+
+**Not asked for, decided, flagged:** **saved sign-ins are cleared too**
+(`Vault.clear`). Kept, the next person on the registration copy would read
+"I'll use the sign-in details you saved for this site" and be signed in as
+the last one — something from before the reset, shown. Options: (a) clear
+them (done); (b) keep them and hide only the line, which still signs the next
+person in as someone else; (c) keep them per profile, which needs a person
+id across the boundary. Cost of (a): a participant re-types the replica's
+throwaway password after each reset.
+
+**Still not cleared:** `data/steps.jsonl` and `logs/backend.log` — the study's
+record, never on screen. The replay store's traces from before a reset still
+replay if the next person spells out the very same details; what replay shows
+is then their own words.
+

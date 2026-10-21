@@ -6118,3 +6118,28 @@ width and the example sits inside it out of the flow. A new test,
 component at all four sizes and passes on the new (the welcome's tests: **12
 passed**); the real host at forced 150% shows the three side by side, each in
 its card.
+
+## 2026-10-21 — after a reset, nothing from before it is shown
+
+**Method.** `frontend/test_forget_run.py`, end to end: the real backend
+(hardcoded plan, trace memory on, its own trace store, tiles and vault in a
+temporary folder), the bill replica and the real overlay build. The bill is run
+through the overlay as a person would — "check my electricity bill
+04141234567890", agreed, kept as "My bill" — by a profile named Ayesha; then
+"Forget me and start again", and the welcome skipped.
+
+**Before the reset (the control):** the greeting holds "Ayesha", the tile
+"My bill", one goal asked before, and the bill's last four digits "7890".
+
+**After it:** none of the four anywhere in the page's text, the reference in
+neither the text nor the markup (a tooltip), 0 goal cards, 0 tiles — and the
+same after the page is opened again. The replay store still holds the run's
+one trace with its reference; the tile file is gone. A second test makes the
+reset with the overlay pointed at no backend, then opens it against the real
+one: nothing shown, and the backend told.
+
+**Against the code before today:** both tests fail — "7890" still on the
+home screen after the reset, and no reset kept for a backend that was not
+there. **With it:** 2 passed (53.8s). The store and vault units
+(`test_replay.py`, `test_vault.py`) and the files around them (tiles, reset,
+own tiles, short labels): **63 passed** in 264s, on battery.

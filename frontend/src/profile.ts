@@ -87,6 +87,39 @@ export function clearProfile(): void {
   }
 }
 
+/**
+ * A reset the backend has not answered yet (2026-10-21): set when the person
+ * says "forget it all", cleared only by the backend's answer to the
+ * `tile.change` `clear` it sends. Kept here, not in memory, so a reset made
+ * while the backend was not running still holds on the next open: until it is
+ * answered, nothing a backend offers from before it is shown.
+ */
+const FORGETTING_KEY = "simba.forgetting";
+
+export function markForgetting(): void {
+  try {
+    storage()?.setItem(FORGETTING_KEY, "1");
+  } catch {
+    // No storage: the reset holds for this session only.
+  }
+}
+
+export function forgetting(): boolean {
+  try {
+    return storage()?.getItem(FORGETTING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function doneForgetting(): void {
+  try {
+    storage()?.removeItem(FORGETTING_KEY);
+  } catch {
+    // Nothing kept, so nothing to clear.
+  }
+}
+
 /** A name as typed, tidied: spaces collapsed, cut to `NAME_MAX`. */
 export function cleanName(name: string): string {
   return name.replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim();

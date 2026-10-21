@@ -193,7 +193,8 @@ async def health() -> dict[str, str]:
 
 
 def past_goals(tiles: TileStore | None = None) -> HistoryOffered:
-    """What this person has asked for before, most recent first.
+    """What this person has asked for before, most recent first — since the
+    last "Forget me and start again", never before it (2026-10-21).
 
     Read from the same SQLite store trace replay uses, so the home screen
     offers exactly the goals that would replay rather than a separate list
@@ -226,7 +227,16 @@ def change_tile(tiles: TileStore, message: dict) -> bool:
     except ValueError:
         return True  # one, but not one that parses: answered as it stands
     if change.action == "clear":
+        # "Forget me and start again" (2026-10-18), its only sender: the
+        # person's tiles and saved sign-ins go, and the goals asked before now
+        # are never offered again — kept for replay and the evaluation, never
+        # shown to the next person (2026-10-21).
         tiles.clear()
+        Vault().clear()
+        try:
+            TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB)).forget_the_person()
+        except sqlite3.Error:
+            log.warning("tiles: the reset could not be written to the trace store")
     elif change.action == "remove" and change.id:
         tiles.remove(change.id)
     elif change.action == "rename" and change.id and change.label:

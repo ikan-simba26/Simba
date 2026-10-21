@@ -529,6 +529,13 @@ nothing changed.
 `to` counts from 0 at the left. Read only before a task starts, on the home
 screen; one sent during a task is ignored.
 
+`clear` is the reset, "Forget me and start again", and its only sender
+(2026-10-21, no field changed): the backend deletes the tiles and every saved
+sign-in, and from then on offers no goal asked before it in `history.offered`
+— the goals stay in the replay store, never on screen. Until a `clear` is
+answered, the overlay shows no `history.offered` from before it, and says it
+again on each new connection.
+
 ### `telemetry`
 Channel B signals for the estimator. Sent on every step response, and on a
 timer while waiting (every 3s as of 2026-09-20).

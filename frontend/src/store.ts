@@ -32,7 +32,8 @@ import type {
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
 import { FINAL } from "./copy";
 import {
-  type Profile, NEW_PROFILE, clearProfile, loadProfile, saveProfile, welcomeEnabled,
+  type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
+  markForgetting, saveProfile, welcomeEnabled,
 } from "./profile";
 import { tracker, watch } from "./telemetry";
 
@@ -111,6 +112,12 @@ interface Store {
    * closing screen's "do something else" goes straight back to them.
    */
   history: PastGoal[];
+  /**
+   * While a reset is unanswered (`forgetting`), how many `history.offered`
+   * still to come on this connection are from before it: the one a new
+   * connection opens with. Not shown, whatever they hold (2026-10-21).
+   */
+  offersToSkip: number;
   /**
    * The backend's answer to a goal that did not start a task: a greeting, a
    * polite "I can't do that", or "which of these did you mean". Nothing is
@@ -316,7 +323,16 @@ export const useStore = create<Store>((set, get) => {
     set((current) => ({ log: [...current.log, entry] }));
 
   const connection = new BackendConnection({
-    onStatus: (status, detail) => set({ status, statusDetail: detail }),
+    onStatus: (status, detail) => {
+      set({ status, statusDetail: detail });
+      // A reset not yet answered, from this session or one before it: this
+      // connection opens with an offer made as if it had not happened. That
+      // one is not shown, and the reset is said again (2026-10-21).
+      if (status === "open" && forgetting()) {
+        set({ offersToSkip: 1, history: [], tiles: [] });
+        connection.changeTile({ action: "clear" });
+      }
+    },
 
     onSequenceGap: (expected, received) => {
       const note = `sequence gap: expected seq ${expected}, got ${received}`;
@@ -345,6 +361,7 @@ export const useStore = create<Store>((set, get) => {
     // Where the person said they were comfortable, else the usual (2026-10-18).
     level: STARTING_PROFILE.level ?? 2,
     history: [],
+    offersToSkip: 0,
     levelLocked: false,
     chosenLevel: STARTING_PROFILE.level ?? 2,
     levelNotice: null,
@@ -435,9 +452,20 @@ export const useStore = create<Store>((set, get) => {
 
     forgetEverything: () => {
       clearProfile();
-      get().changeTile({ action: "clear" });
+      markForgetting();
+      // Open, the next offer on it answers this clear. Closed, the new
+      // connection's own `onStatus` says the clear, and skips its first offer.
+      if (connection.isOpen) {
+        set({ offersToSkip: 0 });
+        connection.changeTile({ action: "clear" });
+      } else {
+        connection.connect(get().wsUrl);
+      }
       set({
         profile: { ...NEW_PROFILE },
+        // Nothing asked before is shown, even for the moment until the
+        // backend answers (2026-10-21).
+        history: [],
         askEachTime: NEW_PROFILE.askEach,
         tiles: [],
         tilesOpen: false,
@@ -645,10 +673,21 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         ...((message.payload as StepPresented).final ? { levelNotice: null } : {}),
       }));
       return;
-    case "history.offered":
-      set({ history: (message.payload as HistoryOffered).goals,
-            tiles: (message.payload as HistoryOffered).tiles ?? [] });
+    case "history.offered": {
+      // An offer from before a reset is never shown (2026-10-21): the first
+      // on a connection opened while one was unanswered. The next answers it.
+      const offered = message.payload as HistoryOffered;
+      set((current) => {
+        if (forgetting()) {
+          if (current.offersToSkip > 0) {
+            return { offersToSkip: current.offersToSkip - 1, history: [], tiles: [] };
+          }
+          doneForgetting();
+        }
+        return { history: offered.goals, tiles: offered.tiles ?? [] };
+      });
       return;
+    }
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
       set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });
