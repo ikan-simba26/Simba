@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-17 · **1430 passing, 12 skipped, 0 failed** · backend 902 in 952s, frontend 528 in 1036s, as two halves, on mains, on `fix/final-touches`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%). The same suite on a fresh clone set up from README and RUNNING alone: 901 + 528 passed, one failure in a test since fixed (EVALUATION.md, 2026-10-17k). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
+**Last updated:** 2026-10-22, `feat/rating-online`, **merged into `main`** — only the rating and training tests were run for it: 66 passed (13 new). The whole suite was last run on 2026-10-17: **1430 passing, 12 skipped, 0 failed** · backend 902 in 952s, frontend 528 in 1036s, as two halves, on mains, on `fix/final-touches`, **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%). The same suite on a fresh clone set up from README and RUNNING alone: 901 + 528 passed, one failure in a test since fixed (EVALUATION.md, 2026-10-17k). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
 
 ---
 
@@ -119,6 +119,20 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-22: ratings collected online — `feat/rating-online`
+
+- **Ratings can now be collected remotely, with a Google Form.**
+  `python -m tools.rating.export_form` writes the 50 pictures and five repeats
+  (P01–P55) and a mapping to `.scratch/rating-form/`, with `make_form.gs` to
+  build the form and a README for the steps. `python -m tools.rating.from_form`
+  turns the form's CSV into `data/ratings.jsonl` rows marked online. It drops
+  phone, declined and incomplete answers, and counts the usable raters
+  against `train.py`'s ten. One fixed order for every online rater;
+  pictures seen at about half size; unsupervised (DECISIONS.md, EVALUATION.md
+  2026-10-22).
+- **Still no ratings.** The form has not been made in Google yet, so
+  `make_form.gs` is untested.
 
 ### Changed on 2026-10-17 (last): final touches — `fix/final-touches`
 
@@ -1186,6 +1200,10 @@ On `feat/railways-ask`, **not merged**.
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
+- **Ratings online** (2026-10-22): the pictures exported for a Google Form
+  (`tools/rating/export_form.py`, `tools/rating/form/`), and its CSV read back
+  into `data/ratings.jsonl` with `"online": true` (`tools/rating/from_form.py`).
+  13 tests. No ratings collected yet.
 - **Pictures and features from one load** (2026-10-03): `tools/rating/capture`
   writes the rating pictures and `data/corpus.json` in one run, both dated;
   `train.py` uses a rating only when its picture is current and its features
