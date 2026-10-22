@@ -1546,6 +1546,11 @@ makes about verification should be read with that boundary attached.
 
 ## Known limitations
 
+- **Ratings are collected online as well as in person** (2026-10-22). Online
+  raters see each picture at about half size, with nobody supervising, in one
+  fixed order shared by all of them. Their rows say `"online": true`; a
+  trained result should be checked with and without them (DECISIONS.md,
+  *Ratings are collected online*).
 - **These numbers come from a free-tier model.** `gemini-3.1-flash-lite` was
   chosen because it was the strongest model whose free quota allowed ten runs,
   not because it is the right model for the project. Treat every figure here
@@ -5990,3 +5995,34 @@ window fit: 3 passed** (100%, 125%, 150%, 415s). In all **1430 passed, 12
 skipped, 0 failed**. The fresh clone's second run, before the last test fix:
 901 passed and 1 failed (that test, since passing in the clone too), 528
 passed.
+
+## 2026-10-22 — ratings collected online: the form, and its answers read back
+
+`feat/rating-online`. **No ratings were collected; nothing here is a result
+about pages.** What was measured is that the instrument is built and that its
+answers reach training.
+
+- **Export** (`python -m tools.rating.export_form`): 55 pictures, 5.5 MB in
+  all, every one checked against its sha256 in `data/rating/pages.json` (run
+  `58dc053cdac7`). The repeats and how far each comes after its first
+  showing: P51 = P29 (positions 3 → 12), P52 = P39 (9 → 19), P53 = P07
+  (36 → 43), P54 = P28 (27 → 45), P55 = P48 (32 → 46): gaps of 7 to 18.
+- **Converter, on a synthetic 12-response CSV against the real mapping** (to
+  `.scratch/`, deleted after): 1 dropped for not agreeing, 2 for phones, **9
+  usable**, 495 rows, and `train.py` refused at 9 raters as it should. With
+  two more usable responses, 11 raters: all 50 pages paired with a current
+  picture and features from the same run, 55 repeat pairs, and R² −0.019 ±
+  0.018. That is correct for random answers, and shows only that the pipeline
+  runs.
+- **Tests**: 13 new in `tools/rating/test_form.py`; with the rating tool's and
+  training's own, 66 passed in 45.8s.
+- **The form itself has not been run.** Apps Script cannot be run from this
+  machine; `make_form.gs` is untested until it is run in Google, and the
+  README's step 4 is the check.
+
+**Limitations of online ratings**, in full in DECISIONS.md (*Ratings are
+collected online*): the pictures are seen at about half size; nobody
+supervises, and no time per answer is recorded; one fixed order for every
+online rater; the same five repeats for everyone; and the device is
+self-reported. Any trained result should say how many of its raters were
+online (`"online": true`), and should be checked with and without them.
