@@ -254,3 +254,62 @@ def test_reading_aloud_is_kept_as_its_own_signal(tmp_path) -> None:
     rules_b.start_step(1, None)
     assert rules_a.telemetry({**plain, "read_aloud": 5}).level == \
         rules_b.telemetry(plain).level
+
+
+# --- the starting level, a signal of its own (2026-10-18) ---------------------------
+
+
+def test_the_starting_level_is_its_own_row_and_on_every_row_after_it(
+    recorder: Recorder,
+) -> None:
+    start = recorder.note_start_level(3)
+    recorder.note_step(1, goal="Check my bill", url="http://x/", instruction="i",
+                       features=FEATURES)
+    row = recorder.note_telemetry(SAMPLE)
+
+    assert start["kind"] == "start_level"
+    assert (start["start_level"], start["chosen"]) == (3, True)
+    assert row is not None and row["start_level"] == 3
+    assert read_rows(recorder.path) == [start, row]
+
+
+def test_a_level_not_chosen_is_written_as_none_never_as_two(recorder: Recorder) -> None:
+    for given in (None, 0, 4, "2", 2.0):
+        row = recorder.note_start_level(given)
+        assert (row["start_level"], row["chosen"]) == (None, False), given
+    recorder.note_step(1, goal="g", url="u", instruction="i", features=FEATURES)
+    assert recorder.note_telemetry(SAMPLE)["start_level"] is None
+
+
+def test_the_app_writes_the_starting_level_when_the_task_starts(tmp_path, monkeypatch) -> None:
+    """Through the app, in-process: the `task.start` a person with a profile
+    sends, and the row it leaves before anything else of the task."""
+    from fastapi.testclient import TestClient
+
+    from backend.orchestrator import app as app_module
+
+    steps = tmp_path / "steps.jsonl"
+    monkeypatch.setenv("SIMBA_RECORD_STEPS", "1")
+    monkeypatch.setattr("backend.estimator.pairing.DEFAULT_PATH", steps)
+    monkeypatch.setattr(app_module, "Recorder",
+                        lambda task_id: Recorder(path=steps, task_id=task_id))
+    # The task itself is not run: the site it would open is not needed here.
+    monkeypatch.setattr(app_module, "flow_setup", _refuse)
+
+    with pytest.raises(_Stop), TestClient(app_module.app) as client,             client.websocket_connect("/ws") as ws:
+        ws.receive_json()  # history.offered
+        ws.send_json({"v": 1, "type": "task.start", "task_id": "t", "seq": 1, "ts": 0,
+                      "payload": {"goal": "check my bill", "input_mode": "text",
+                                  "flow": "billing", "start_level": 1}})
+        ws.receive_json()
+
+    rows = read_rows(steps)
+    assert rows[0]["kind"] == "start_level" and rows[0]["start_level"] == 1
+
+
+class _Stop(Exception):
+    pass
+
+
+def _refuse(name: str):
+    raise _Stop(name)

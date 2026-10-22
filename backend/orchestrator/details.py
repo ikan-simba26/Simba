@@ -754,6 +754,14 @@ class TripBrief(_Asking):
     def stages(self) -> list[str]:
         return [*voice.TRIP_STAGES, voice.BOOK_STAGE] if self.finishes else voice.TRIP_STAGES
 
+    def keepable(self) -> tuple[str, dict[str, str], str] | None:
+        """What a tile would keep of this journey (2026-10-18): both ends as
+        the site names them, never the day, which is asked each time."""
+        if not (self.origin and self.destination):
+            return None
+        return ("railways", {"origin": self.origin, "destination": self.destination},
+                voice.keep_trains(self.destination))
+
     def follow_on(self, completed) -> "FollowOn | None":
         """Once the trains are found, on a replica: booking one of them
         (2026-10-16). A quiet second button on the closing screen, or, when
@@ -1104,6 +1112,12 @@ class BillBrief(_Asking):
     def stages(self) -> list[str]:
         return [*voice.BILL_STAGES, voice.PAY_STAGE] if self.finishes else voice.BILL_STAGES
 
+    def keepable(self) -> tuple[str, dict[str, str], str] | None:
+        """What a tile would keep of this bill (2026-10-18): its reference."""
+        if not self.reference:
+            return None
+        return ("billing", {"reference": self.reference}, voice.KEEP_BILL)
+
     def follow_on(self, completed) -> "FollowOn | None":
         """Once the bill is found, on a replica: paying it (2026-10-16). A
         quiet second button on the closing screen, or, when the goal said to
@@ -1245,6 +1259,14 @@ class CourseBrief(_Asking):
 
 
 BRIEFS = {"railways": TripBrief, "billing": BillBrief, "registration": CourseBrief}
+
+
+def known_from_tile(details: dict[str, str]) -> Understood:
+    """What a kept tile already knows (2026-10-18), straight from what was
+    kept — never read from words, so nothing kept goes near a model. The day
+    is never kept: it is asked each time."""
+    return Understood(origin=details.get("origin"), destination=details.get("destination"),
+                      reference=details.get("reference"))
 
 
 def brief_for(flow: str, goal: str, known: Understood, *, hardcoded: bool = True,

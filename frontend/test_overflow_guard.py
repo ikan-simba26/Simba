@@ -74,7 +74,10 @@ def overlay() -> Iterator[str]:
         # Presses count at once in these tests: the guard that ignores a press
         # on a button that has just arrived (2026-10-16) is tested on its own
         # (`test_press_guard.py`), which turns it back on.
-        env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0"},
+        env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0",
+             # Straight to the home screen: the welcome (2026-10-18) has its
+             # own tests, which turn it back on.
+             "VITE_SIMBA_WELCOME": "0"},
     )
     assert built.returncode == 0 and (BUILD / "index.html").exists(), built.stderr
 

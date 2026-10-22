@@ -52,12 +52,21 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     # And for someone with history: the three tiles and two remembered goals
     # under them, as long as a line holds. Not measured until 2026-09-30, when
     # six cards had put the box below the bottom of the window at every scale.
+    # Since 2026-10-18 with the person's own three tiles above them too: the
+    # fullest the home screen gets.
     history = result["overlay_with_history"]
     assert history["cards"] == 3, history
+    assert history["own_tiles"] == 3, history
     assert history["remembered"] == 2, history
     assert history["box_in_viewport"], history
     assert not history["scrolls"], history
     assert history["smallest_text_px"] >= 20, history
+    # And a new person's first open (2026-10-18): the welcome, its four
+    # questions each fitting, nothing to scroll and every button in the window.
+    welcome = result["welcome"]
+    assert [q["question"] for q in welcome] == ["name", "level", "read", "ask"], welcome
+    for question in welcome:
+        assert not question["scrolls"] and question["off"] == [], question
     # And every way a task can end: each button wholly in the window, nothing
     # to scroll. Not measured until 2026-10-05, when the closing screen had put
     # its way onward below the window, with three results or more, at every

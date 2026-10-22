@@ -18,6 +18,7 @@ import type {
   StepResponse,
   Telemetry,
   TaskStart,
+  TileChange,
 } from "@shared/schema";
 
 const FALLBACK_WS_URL = "ws://127.0.0.1:8000/ws";
@@ -91,12 +92,22 @@ export class BackendConnection {
 
   // --- sending -------------------------------------------------------------
 
-  startTask(goal: string, flow?: FlowName, confirmEach = false): void {
+  startTask(goal: string, flow?: FlowName, confirmEach = false, startLevel?: Level,
+            tile?: string): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
     // Only when the person asked to be asked every time (2026-10-14).
     if (confirmEach) payload.confirm_each = true;
+    // The level they chose in the welcome, if they chose one (2026-10-18).
+    if (startLevel) payload.start_level = startLevel;
+    // One of their own tiles, by id: its details stay in the backend.
+    if (tile) payload.tile = tile;
     this.send("task.start", payload);
+  }
+
+  /** The person changing their own tiles (2026-10-18). */
+  changeTile(change: TileChange): void {
+    this.send("tile.change", change);
   }
 
   respondToStep(response: StepResponse): void {

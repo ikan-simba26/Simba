@@ -18,7 +18,12 @@ after ten minutes, the backend's run log (`logs/backend.log`), the host fit
 test's hang, and README checked against a fresh clone — STATUS.md has each. And on 2026-10-17 for `fix/final-touches`: a
 registration said as a practice copy, every dependency pinned, the whole
 suite run on a fresh clone (which found a press-guard bug, now fixed), the
-booking clip re-recorded, and the superseded preview-capture branch deleted. Section 9 is still the 2026-09-17 capture, and says so.
+booking clip re-recorded, and the superseded preview-capture branch deleted. And on 2026-10-18 for `feat/personal`, **merged into `main` on 2026-10-23**: the welcome
+and the person's profile, their own tiles, the starting level as an estimator
+signal, and a reset — items 5 to 7 below. And on 2026-10-23 for ratings
+collected online: two Google Forms, A and B in reverse order, and a converter
+for their answers (`tools/rating/form/README.md`); and for the trace store's
+times, which tied on Windows and are now strictly increasing (STATUS.md). Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -102,6 +107,26 @@ with what it would cost to undo.
    second "Sign in and save my password" button (Raham's choice, 2026-10-15;
    CONTRACT.md, *Keeping a password*; no message changed). *To undo:* the
    overlay draws the backend's `remember` answer as a button again.
+
+**And from `feat/personal` (2026-10-18, merged 2026-10-23): three more to agree.**
+
+5. **The welcome and the person's profile** (Aly's area): four questions on
+   first open, kept in the overlay's own storage; the name never leaves it.
+   One additive field, `task.start.start_level`, carries the chosen level to
+   the rules, which take it as their baseline. Read aloud "on" shows the
+   button and "off" hides it — speech is still only on a press. *To undo:*
+   drop the welcome; the rules start at 2 again.
+6. **The person's own tiles**: additive `history.offered.tiles`,
+   `task.completed.keep` and `task.start.tile`, and **a new message type,
+   `tile.change`** (rename, move, remove, clear), answered with
+   `history.offered`. Tiles are encrypted with the vault's key in
+   `data/tiles.json`; the overlay never holds their details. *To undo:* drop
+   the four on both sides and delete the file.
+7. **For Nahail: the starting level as an estimator signal** — a
+   `start_level` row per task and field on every telemetry row in
+   `data/steps.jsonl`; how it relates to the estimator is in DECISIONS.md,
+   *The starting level is a signal of its own*. It confounds pooled telemetry
+   from today on.
 
 **How to read the claims below.** Each "works" claim names its evidence: a
 test file, or a dated entry in EVALUATION.md. A test is evidence for today,
@@ -264,7 +289,7 @@ interactive elements, and the readable content.
 | A corpus of 50 pages, read headless and in the window | `data/corpus.json`, recaptured with the rating pictures in one run (EVALUATION.md, 2026-10-03) |
 | Each step's telemetry is paired with that step's page features and logged | `pairing.py`, `data/steps.jsonl` (not committed: it holds what people typed) |
 | A training pipeline: agreement between raters, per-page means, ridge regression, 5-fold cross-validation, feature importance | `train.py`, `test_train.py` — **on synthetic ratings only. Nothing is trained, because nobody has rated a page yet** |
-| A rating tool: 50 pictures at 1280x800, rated 1–7 with repeats | `tools/rating/`; no ratings collected |
+| A rating tool: 50 pictures at 1280x800, rated 1–7 with repeats | `tools/rating/`, in person; and the same pictures as two Google Forms for raters who cannot come in, A and B in reverse order, read back by `tools/rating/from_form.py` (`tools/rating/form/README.md`). No ratings collected |
 
 ---
 
@@ -615,7 +640,7 @@ replicas/railways/             our own copy of the live train search, for repeat
 tools/mock_backend.py          a scripted backend for working on the overlay alone
 tools/screen_site.py           read-only site screener
 tools/evaluation/              the scripts behind every table in EVALUATION.md
-tools/rating/                  the rating pictures and the session that collects ratings
+tools/rating/                  the rating pictures, the session that collects ratings, the online forms
 tools/record_demo.py           records the demo's fallback clips into demo/
 spike/                         the original Electron + CDP experiment
 
@@ -652,7 +677,7 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **Ratings from people** | People rating the 50 pictures (`tools/rating/`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
+| **Ratings from people** | People rating the 50 pictures, in person (`tools/rating/`) or online (`tools/rating/form/README.md`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
 | **Early sessions with two or three people** | People, including someone who works with people with cognitive disabilities | Nobody from the audience has seen the interface. Second and third October priorities |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
@@ -740,6 +765,11 @@ options and a recommendation; this is the list.
     again.
 14c. *(Settled 2026-10-17: a registration on our copy ends in practice words
     too, the portal's caveat kept.)*
+14e. **What a reset should clear between study participants** (2026-10-18):
+    the profile and tiles go, but "You asked before" still shows the last
+    person's goals, from the replay store. DECISIONS.md, *Forgetting the
+    person*, has the options; the recommendation is to hide goals from before
+    a reset.
 14d. **The host's window counts only for a task started in it**
     (`window.__simbaStarted`, 2026-10-17), and a window hidden by something
     else is never noticed. Nothing in SIMBA hides it today.

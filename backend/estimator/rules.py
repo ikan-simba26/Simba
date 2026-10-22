@@ -185,6 +185,10 @@ class LevelRules:
 
     def __init__(self, thresholds: Thresholds = THRESHOLDS) -> None:
         self.t = thresholds
+        #: Where a task starts and where calm steps bring it back: 2, or the
+        #: level the person chose as comfortable in the welcome (2026-10-18,
+        #: `start_from`).
+        self.baseline: int = BASELINE
         self.level: int = BASELINE
         self.locked = False
         #: The level the person chose and locked. `level` can differ from it
@@ -199,6 +203,15 @@ class LevelRules:
         #: the level could move for it. Such a step is not calm.
         self.signalled = False
         self.page_score = 0.0
+
+    def start_from(self, level: int | None) -> None:
+        """The person's own level, from `task.start.start_level` (2026-10-18):
+        the task starts there, unless the page is heavy, and calm steps come
+        back to it. None, or anything but 1 to 3, leaves 2."""
+        whole = isinstance(level, int) and not isinstance(level, bool)
+        if whole and level in (1, 2, 3) and not self.started:
+            self.baseline = level
+            self.level = level
 
     # --- the three moments ---------------------------------------------------------
 
@@ -218,9 +231,11 @@ class LevelRules:
         if not self.started:
             self.started = True
             heavy = len(signs) >= self.t.heavy_signs
-            wanted = SIMPLEST if heavy else BASELINE
+            wanted = SIMPLEST if heavy else self.baseline
             why = (f"heavy page: {', '.join(signs)}" if heavy
                    else f"ordinary page{': ' + ', '.join(signs) if signs else ''}")
+            if not heavy and self.baseline != BASELINE:
+                why += f"; the person's own level, {self.baseline}"
             if self.locked:
                 return self._hold("start", "locked",
                                   f"locked at {self.locked_level}; would start at {wanted}: {why}",
@@ -303,7 +318,7 @@ class LevelRules:
 
     def _between_steps(self, at: When, inputs: dict[str, Any]) -> Decision:
         """The only place the level goes back: two calm steps, then one level."""
-        if self.calm_streak >= self.t.calm_steps and self.level > BASELINE:
+        if self.calm_streak >= self.t.calm_steps and self.level > self.baseline:
             why = f"{self.calm_streak} calm steps in a row"
             if self.locked:
                 return self._hold(at, "locked",

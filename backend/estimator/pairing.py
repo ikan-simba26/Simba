@@ -29,6 +29,13 @@ provisional level rules make (`rules.py`), with the inputs it was made from.
 `kind` tells them apart — `telemetry` or `decision`; a row written before
 that day has no `kind` and is a telemetry row.
 
+Since 2026-10-18, a third: `start_level`, once per task — the level the
+person chose as comfortable in the overlay's welcome, or `null` if they did
+not choose — and the same value on every telemetry row after it, as
+`start_level`, so each row says what the person said about themselves beside
+what they did. It is the person's own report, not a measurement: see
+DECISIONS.md, *The starting level is a signal of its own*.
+
 **Appended, never rewritten**, as JSON lines, so a crashed run keeps whatever
 it had written and a reader can `tail` it while a run is happening.
 
@@ -85,6 +92,9 @@ class Recorder:
     task_id: str = "t_unknown"
     #: Rows written, for a caller that wants to say so without reading the file.
     written: int = 0
+    #: The level the person chose in the welcome, for this task; None if they
+    #: did not choose (2026-10-18).
+    start_level: int | None = None
     _steps: dict[int, Step] = field(default_factory=dict)
 
     def note_step(
@@ -127,6 +137,24 @@ class Recorder:
             "page": step.features.as_dict() if step.features else None,
             "telemetry": {key: value for key, value in payload.items()
                           if key not in {"answered"}},
+            "start_level": self.start_level,
+        }
+        self._write(row)
+        return row
+
+    def note_start_level(self, level: object) -> dict:
+        """The level the person chose as comfortable, as the task starts
+        (`task.start.start_level`, 2026-10-18): its own row, and on every
+        telemetry row after it. Anything but 1, 2 or 3 is written as null —
+        not chosen — and never as 2, which would claim a choice not made."""
+        chosen = isinstance(level, int) and not isinstance(level, bool) and level in (1, 2, 3)
+        self.start_level = level if chosen else None
+        row = {
+            "kind": "start_level",
+            "ts": int(time.time() * 1000),
+            "task_id": self.task_id,
+            "start_level": self.start_level,
+            "chosen": self.start_level is not None,
         }
         self._write(row)
         return row

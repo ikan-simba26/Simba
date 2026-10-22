@@ -35,7 +35,9 @@ export type MessageType =
   | "level.override"
   | "trust.requested"
   | "task.cancel"
-  | "telemetry";
+  | "telemetry"
+  // Pending agreement (2026-10-18): the person changing their own tiles.
+  | "tile.change";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -70,8 +72,18 @@ export interface PastGoal {
  * Sent once, when the socket opens, before any task. A frontend that ignores
  * it sees exactly what it saw before.
  */
+/** One of the person's own tiles (2026-10-18). Its details stay in the
+ *  backend, encrypted; it is run by `id` (`TaskStart.tile`). */
+export interface PersonalTile {
+  id: string;
+  label: string;
+  flow: FlowName;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
+  /** Additive and optional (2026-10-18): the person's own tiles, in order. */
+  tiles?: PersonalTile[];
 }
 
 export type FlowName = "registration" | "billing" | "railways";
@@ -236,10 +248,19 @@ export interface TaskOffer {
   label: string;
 }
 
+/** Keep this task as a tile, under `label` (2026-10-18). Answered with a
+ *  `step.response` whose `action_id` is "keep" and whose `input_values.label`
+ *  is the name. */
+export interface KeepOffer {
+  label: string;
+}
+
 export interface TaskCompleted {
   /** Additive and optional (2026-10-16). On our replicas, what can follow
    *  the answer, as a quiet second button beside "Back to start". */
   offer?: TaskOffer;
+  /** Additive and optional (2026-10-18): offered once, keep this as a tile. */
+  keep?: KeepOffer;
   /**
    * Additive and optional (2026-10-16). The closing screen's last line: what
    * was done, and what was not.
@@ -302,6 +323,26 @@ export interface TaskStart {
   input_mode: InputMode;
   /** Additive, optional (2026-09-21): the flow the person picked. */
   flow?: FlowName;
+  /**
+   * Additive and optional (2026-10-18): the level the person chose as
+   * comfortable in the welcome. The level rules start from it. Absent: 2.
+   */
+  start_level?: Level;
+  /**
+   * Additive and optional (2026-10-18): one of the person's own tiles, by id.
+   * Runs with the details kept with it; asks only what can change.
+   */
+  tile?: string;
+}
+
+/** The person changing their own tiles (2026-10-18). Answered with
+ *  `history.offered`. Pending agreement: a new message type. */
+export interface TileChange {
+  action: "rename" | "move" | "remove" | "clear";
+  id?: string;
+  label?: string;
+  /** For "move": where it goes, counting from 0 at the left. */
+  to?: number;
 }
 
 export interface StepResponse {

@@ -41,6 +41,9 @@ MessageType = Literal[
     "trust.requested",
     "task.cancel",
     "telemetry",
+    # Pending agreement with the rest (2026-10-18): the person renaming,
+    # moving or removing one of their own tiles, or clearing them all.
+    "tile.change",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -71,6 +74,16 @@ class PastGoal(BaseModel):
     label: Optional[str] = None
 
 
+class PersonalTile(BaseModel):
+    """One of the person's own tiles (2026-10-18): a task they kept, by the
+    name they gave it. Its details stay in the backend, encrypted; the overlay
+    runs it by `id` (`task.start.tile`)."""
+
+    id: str
+    label: str
+    flow: "FlowName"
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -79,6 +92,9 @@ class HistoryOffered(BaseModel):
     """
 
     goals: List[PastGoal]
+    # Additive and optional (2026-10-18). The person's own tiles, in their
+    # order. Also sent again after each `tile.change`. Absent: none.
+    tiles: Optional[List[PersonalTile]] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]
@@ -258,6 +274,15 @@ class TaskOffer(BaseModel):
     label: str
 
 
+class KeepOffer(BaseModel):
+    """Offered once on a closing screen (2026-10-18): keep this task as a tile
+    on the home screen, under `label`. Pressed, the overlay sends a
+    `step.response` whose `action_id` is "keep" and whose `input_values` has
+    the name as `label`."""
+
+    label: str
+
+
 class TaskCompleted(BaseModel):
     summary: str
     duration_ms: int
@@ -302,6 +327,10 @@ class TaskCompleted(BaseModel):
     # second button beside "Back to start". The backend keeps the run open
     # for it; going back to start closes the connection.
     offer: Optional[TaskOffer] = None
+    # Additive and optional (2026-10-18). Keep this task as one of the
+    # person's own tiles: offered once, when it has details worth keeping and
+    # is not already a tile. The run stays open for the answer.
+    keep: Optional[KeepOffer] = None
 
 
 class TaskFailed(BaseModel):
@@ -328,6 +357,27 @@ class TaskStart(BaseModel):
     # every move, as SIMBA always did, rather than running the safe ones as a
     # checklist. Absent: the checklist.
     confirm_each: bool = False
+    # Additive and optional (2026-10-18). The level the person chose as
+    # comfortable in the welcome, kept on their computer: the level rules
+    # start from it, and come back to it after calm steps, instead of 2.
+    # Absent: they did not choose, and 2 it is.
+    start_level: Optional[Level] = None
+    # Additive and optional (2026-10-18). One of the person's own tiles, by its
+    # id: the task runs with the details kept with it, and asks only what can
+    # change (the day). The goal is the tile's name and is not classified.
+    tile: Optional[str] = None
+
+
+class TileChange(BaseModel):
+    """The person changing their own tiles (2026-10-18), from the home screen.
+    Answered with `history.offered`, as it now stands. Pending agreement: a
+    new message type."""
+
+    action: Literal["rename", "move", "remove", "clear"]
+    id: Optional[str] = None
+    label: Optional[str] = None
+    # For "move": where it goes, counting from 0 at the left.
+    to: Optional[int] = None
 
 
 class StepResponse(BaseModel):

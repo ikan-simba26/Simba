@@ -16,6 +16,8 @@ import type {
   HelpRequested,
   HistoryOffered,
   PastGoal,
+  PersonalTile,
+  TileChange,
   LoadUpdated,
   PagePreview,
   State,
@@ -29,6 +31,10 @@ import type {
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
 import { FINAL } from "./copy";
+import {
+  type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
+  markForgetting, saveProfile, welcomeEnabled,
+} from "./profile";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -107,6 +113,12 @@ interface Store {
    */
   history: PastGoal[];
   /**
+   * While a reset is unanswered (`forgetting`), how many `history.offered`
+   * still to come on this connection are from before it: the one a new
+   * connection opens with. Not shown, whatever they hold (2026-10-21).
+   */
+  offersToSkip: number;
+  /**
    * The backend's answer to a goal that did not start a task: a greeting, a
    * polite "I can't do that", or "which of these did you mean". Nothing is
    * running while this is set; the next choice is the person's.
@@ -171,6 +183,42 @@ interface Store {
   /** Stop the checklist before its next move. */
   pause: () => void;
   setAskEachTime: (on: boolean) => void;
+  /**
+   * What the person told SIMBA in the welcome (2026-10-18), kept on this
+   * computer (`profile.ts`). Their name greets them; their level is where
+   * every task starts.
+   */
+  profile: Profile;
+  /** The welcome is on screen: a first open, or "Change my settings". */
+  welcomeOpen: boolean;
+  /** Part of the profile, as the welcome hears it: kept at once. */
+  updateProfile: (change: Partial<Profile>) => void;
+  /** The welcome done or skipped: it is not shown on its own again. */
+  finishWelcome: () => void;
+  /** "Change my settings": the welcome again, with what they said before. */
+  openWelcome: () => void;
+  /**
+   * The person's own tiles, in their order (2026-10-18), as the backend last
+   * offered them. Their details are never here: a tile is run by its id.
+   */
+  tiles: PersonalTile[];
+  /** The place to rename, move and remove them is open. */
+  tilesOpen: boolean;
+  /** The closing screen's offer to keep this task: kept, declined, or not yet. */
+  keepAnswer: "kept" | "declined" | null;
+  /** Run one of their own tiles. */
+  startTile: (tile: PersonalTile) => void;
+  keepTile: () => void;
+  declineKeep: () => void;
+  /** Rename, move or remove one of their own tiles, or clear them all. */
+  changeTile: (change: TileChange) => void;
+  setTilesOpen: (open: boolean) => void;
+  /**
+   * Forget the person (2026-10-18): their profile, and their own tiles in the
+   * backend. Then the welcome, as on a first open. For the next person to use
+   * this computer, and between sessions of a study.
+   */
+  forgetEverything: () => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -196,7 +244,7 @@ interface Store {
    * offered — a card, or an answer to "which did you mean" — so the backend
    * runs exactly that and does not guess again.
    */
-  startTask: (goal: string, flow?: FlowName) => void;
+  startTask: (goal: string, flow?: FlowName, tile?: string) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -212,6 +260,9 @@ interface Store {
  */
 const STOP_ID = "cancel";
 
+/** "Keep it" on the closing screen's offer of a tile (`voice.KEEP_ID`). */
+const KEEP_ID = "keep";
+
 /** "Don't" on a final screen, and No to a yes-or-no question (`voice.DECLINE_ID`). */
 const DECLINE_ID = "decline";
 
@@ -222,19 +273,12 @@ const NOTHING_CHANGED = `${FINAL.notDone} ${FINAL.nothingChanged}`;
  *  came: the backend's own limit (5s) and a little more. */
 const PICTURE_WAIT_MS = 7000;
 
-/** Where the person's "ask me before each thing" setting is kept. */
-const ASK_EACH_KEY = "simba.askEachTime";
-
-function readAskEachTime(): boolean {
-  try {
-    return window.localStorage.getItem(ASK_EACH_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+/** The profile as this window opened with it. */
+const STARTING_PROFILE = loadProfile();
 
 const EMPTY = {
   proofOpen: false,
+  keepAnswer: null,
   task: null,
   state: null,
   step: null,
@@ -279,7 +323,16 @@ export const useStore = create<Store>((set, get) => {
     set((current) => ({ log: [...current.log, entry] }));
 
   const connection = new BackendConnection({
-    onStatus: (status, detail) => set({ status, statusDetail: detail }),
+    onStatus: (status, detail) => {
+      set({ status, statusDetail: detail });
+      // A reset not yet answered, from this session or one before it: this
+      // connection opens with an offer made as if it had not happened. That
+      // one is not shown, and the reset is said again (2026-10-21).
+      if (status === "open" && forgetting()) {
+        set({ offersToSkip: 1, history: [], tiles: [] });
+        connection.changeTile({ action: "clear" });
+      }
+    },
 
     onSequenceGap: (expected, received) => {
       const note = `sequence gap: expected seq ${expected}, got ${received}`;
@@ -305,16 +358,22 @@ export const useStore = create<Store>((set, get) => {
     status: "idle",
     wsUrl: DEFAULT_WS_URL,
     log: [],
-    level: 2,
+    // Where the person said they were comfortable, else the usual (2026-10-18).
+    level: STARTING_PROFILE.level ?? 2,
     history: [],
+    offersToSkip: 0,
     levelLocked: false,
-    chosenLevel: 2,
+    chosenLevel: STARTING_PROFILE.level ?? 2,
     levelNotice: null,
     overflowHopped: false,
     debug: false,
     trustOpen: false,
     noPicture: false,
-    askEachTime: readAskEachTime(),
+    askEachTime: STARTING_PROFILE.askEach,
+    profile: STARTING_PROFILE,
+    tiles: [],
+    tilesOpen: false,
+    welcomeOpen: welcomeEnabled() && !STARTING_PROFILE.welcomed,
     ...EMPTY,
 
     toggleDebug: () => set((current) => ({ debug: !current.debug })),
@@ -347,13 +406,75 @@ export const useStore = create<Store>((set, get) => {
       connection.respondToStep({ step_index: last.index, action_id: "pause", input_values: {} });
     },
 
-    setAskEachTime: (on) => {
-      set({ askEachTime: on });
-      try {
-        window.localStorage.setItem(ASK_EACH_KEY, on ? "1" : "0");
-      } catch {
-        // No storage: the setting holds until the window closes.
+    setAskEachTime: (on) => get().updateProfile({ askEach: on }),
+
+    updateProfile: (change) => {
+      const profile = { ...get().profile, ...change };
+      saveProfile(profile);
+      set({
+        profile,
+        askEachTime: profile.askEach,
+        // A level chosen here is where the next task starts, not a lock.
+        ...(change.level !== undefined && !get().levelLocked
+          ? { level: change.level, chosenLevel: change.level } : {}),
+      });
+    },
+
+    finishWelcome: () => {
+      get().updateProfile({ welcomed: true });
+      set({ welcomeOpen: false });
+    },
+
+    openWelcome: () => set({ welcomeOpen: true }),
+
+    startTile: (tile) => get().startTask(tile.label, tile.flow, tile.id),
+
+    keepTile: () => {
+      const keep = get().completed?.keep;
+      if (!keep) return;
+      connection.respondToStep({ step_index: 0, action_id: KEEP_ID,
+                                 input_values: { label: keep.label } });
+      set({ keepAnswer: "kept" });
+    },
+
+    // Nothing is sent: the run goes on waiting for the other offer, if any,
+    // and ends with "Back to start" as always.
+    declineKeep: () => set({ keepAnswer: "declined" }),
+
+    changeTile: (change) => {
+      // The home screen's connection may have closed with the last task; a
+      // new one is offered the tiles first, then answers the change.
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.changeTile(change);
+    },
+
+    setTilesOpen: (open) => set({ tilesOpen: open }),
+
+    forgetEverything: () => {
+      clearProfile();
+      markForgetting();
+      // Open, the next offer on it answers this clear. Closed, the new
+      // connection's own `onStatus` says the clear, and skips its first offer.
+      if (connection.isOpen) {
+        set({ offersToSkip: 0 });
+        connection.changeTile({ action: "clear" });
+      } else {
+        connection.connect(get().wsUrl);
       }
+      set({
+        profile: { ...NEW_PROFILE },
+        // Nothing asked before is shown, even for the moment until the
+        // backend answers (2026-10-21).
+        history: [],
+        askEachTime: NEW_PROFILE.askEach,
+        tiles: [],
+        tilesOpen: false,
+        level: 2,
+        chosenLevel: 2,
+        levelLocked: false,
+        levelNotice: null,
+        welcomeOpen: welcomeEnabled(),
+      });
     },
 
     chooseLevel: (level) => {
@@ -394,10 +515,14 @@ export const useStore = create<Store>((set, get) => {
     // Clears the finished task but keeps the remembered goals, so "do
     // something else" lands on the home screen rather than an empty box.
     startOver: () => {
-      // A run still waiting on the closing screen's offer (2026-10-16) is
-      // over: the connection closes, and the next task opens a new one.
-      if (get().completed?.offer) connection.close();
+      // A run still waiting on the closing screen's offer (2026-10-16), or on
+      // its offer to keep a tile (2026-10-18), is over: the connection closes.
+      const completed = get().completed;
+      if (completed?.offer || completed?.keep) connection.close();
       set({ ...EMPTY });
+      // And a new one, so the home screen is offered the tiles as they now
+      // stand — one just kept among them — as when SIMBA opened.
+      if (!connection.isOpen) connection.connect(get().wsUrl);
     },
 
     takeOffer: () => {
@@ -415,7 +540,7 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal, flow) => {
+    startTask: (goal, flow, tile) => {
       window.__simbaStarted = true;
       set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
@@ -437,7 +562,11 @@ export const useStore = create<Store>((set, get) => {
       // to: a lock carried into a new task is still only their choice.
       const { chosenLevel, levelLocked } = get();
       if (levelLocked) connection.overrideLevel(chosenLevel, true);
-      connection.startTask(goal, flow, get().askEachTime);
+      // Every task starts at the person's own level (2026-10-18): the
+      // backend's rules start from it and come back to it after calm steps.
+      const start = get().profile.level;
+      if (start && !levelLocked) set({ level: start, chosenLevel: start });
+      connection.startTask(goal, flow, get().askEachTime, start, tile);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -544,9 +673,21 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         ...((message.payload as StepPresented).final ? { levelNotice: null } : {}),
       }));
       return;
-    case "history.offered":
-      set({ history: (message.payload as HistoryOffered).goals });
+    case "history.offered": {
+      // An offer from before a reset is never shown (2026-10-21): the first
+      // on a connection opened while one was unanswered. The next answers it.
+      const offered = message.payload as HistoryOffered;
+      set((current) => {
+        if (forgetting()) {
+          if (current.offersToSkip > 0) {
+            return { offersToSkip: current.offersToSkip - 1, history: [], tiles: [] };
+          }
+          doneForgetting();
+        }
+        return { history: offered.goals, tiles: offered.tiles ?? [] };
+      });
       return;
+    }
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
       set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });

@@ -1,9 +1,11 @@
 """Trace memory: record a run, replay it, and cope when the page has moved on."""
 
 import asyncio
+from datetime import datetime, timezone
 
 from playwright.async_api import async_playwright
 
+from backend.orchestrator import traces
 from backend.orchestrator.llm import Action, LLMError
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.orchestrator.loop import Move, Task, run_task
@@ -84,6 +86,57 @@ def test_a_different_site_is_a_different_trace(tmp_path) -> None:
 
     assert store.find("goal", "http://b") is None
 
+
+
+def test_a_reset_hides_what_came_before_from_the_home_screen_only(tmp_path) -> None:
+    """"Forget me and start again" (2026-10-21): the goals asked before it are
+    never offered again, but every trace is kept for replay and the
+    evaluation, and a goal done again afterwards is offered afresh."""
+    store = TraceStore(tmp_path / "t.db")
+    store.save("bill 04141234567890", "http://x", [TraceStep("click", "button", "Look up")])
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    assert len(store.recent()) == 2
+
+    store.forget_the_person()
+    assert store.recent() == []
+    assert store.find("bill 04141234567890", "http://x") is not None
+    assert len(store.goals()) == 2
+
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    store.save("register for CS-401", "http://z", [TraceStep("click", "button", "Go")])
+    assert store.recent() == [("register for CS-401", "http://z"),
+                              ("trains to Karachi", "http://y")]
+    # Opened again: the reset is in the store, not in this object.
+    assert TraceStore(tmp_path / "t.db").recent(limit=1) == [("register for CS-401", "http://z")]
+
+
+def test_saves_and_a_reset_in_one_clock_tick_keep_their_order(tmp_path, monkeypatch) -> None:
+    """Windows' clock can give the same time to calls milliseconds apart: on
+    2026-10-23, 1996 of 1999 consecutive readings were identical, and the
+    test above put two goals in the wrong order in 60 runs of 200. With the
+    clock stopped outright, the newest goal still comes first, and a goal
+    saved straight after a reset is still offered."""
+    stopped = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
+
+    class StoppedClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return stopped
+
+    monkeypatch.setattr(traces, "datetime", StoppedClock)
+    store = TraceStore(tmp_path / "t.db")
+    store.save("bill 04141234567890", "http://x", [TraceStep("click", "button", "Look up")])
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    assert store.recent() == [("trains to Karachi", "http://y"),
+                              ("bill 04141234567890", "http://x")]
+
+    store.forget_the_person()
+    store.save("trains to Karachi", "http://y", [TraceStep("click", "button", "Search")])
+    store.save("register for CS-401", "http://z", [TraceStep("click", "button", "Go")])
+    assert store.recent() == [("register for CS-401", "http://z"),
+                              ("trains to Karachi", "http://y")]
+    stamps = [traces.now() for _ in range(100)]
+    assert stamps == sorted(set(stamps))
 
 def test_site_is_the_origin() -> None:
     assert site_of("http://127.0.0.1:5001/courses?x=1") == "http://127.0.0.1:5001"

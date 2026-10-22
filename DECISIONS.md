@@ -4987,6 +4987,218 @@ crawl of 1px a frame would never count as moving.
 **Cost.** None found; a button still moving is not at rest, so a move made
 after rest still counts from where it stopped.
 
+## Getting to know the person: what the welcome keeps, and where
+
+**Date:** 2026-10-18 (asked for: a short welcome on first open — a name, a
+comfortable level from three examples, read aloud on or off, ask-each or
+just-do-it — kept locally as a profile, the level as the starting level,
+greeting by name, "Change my settings" to reopen it)
+
+**Decision, and what the request left open:**
+
+- **Read aloud "on or off" shows or hides the "Read this aloud" button.**
+  Speech stays only on a press, as CLAUDE.md requires; reading each step
+  automatically would need that rule changed. Raham chose this when asked.
+- **The profile lives in the overlay's own storage** (`profile.ts`). The
+  name greets the person and never leaves the overlay — not to the backend,
+  not into a log or a recording. The level goes with every task as
+  `task.start.start_level` (additive, optional; CONTRACT.md), and the
+  ask-each setting as `confirm_each`, as it already did.
+- **The level rules take the person's level as their baseline**
+  (`LevelRules.start_from`): a task starts there, a heavy page still starts
+  at 3, and calm steps come back to it, where they came back to 2. Chosen 3,
+  nothing brings them back to 2.
+- **Each question's Skip keeps what was there**; skipping all four still
+  counts as having seen the welcome, so it is not shown again on its own.
+  "Change my settings" opens it with the earlier answers marked.
+- **The three examples are the real step**, at the real column's width,
+  drawn small: what the person picks is what they will see. Named "More on
+  the screen", "In between", "Less on the screen"; the level numbers are
+  never shown.
+- **No count** ("1 of 4") on the questions: the copy rules forbid counts.
+- **The tests' builds turn the welcome off** (`VITE_SIMBA_WELCOME=0`); its
+  own tests turn it on per page (`window.__simbaWelcome`), as the press
+  guard's do. The demo recorder turns it off in its own browser.
+- **The host takes `SIMBA_USER_DATA`**, the folder Electron keeps its storage
+  in. Tests and walks that need a first open point it at an empty folder in
+  `.scratch/`, so they never clear the real person's profile and never write
+  outside the repository. Unset, nothing changes.
+
+**Cost.** One more optional contract field, for Nahail and Aly to agree. The
+profile is per Windows account and per machine; a person on another laptop
+starts again.
+
+## The person's own tiles: what is kept, where, and what was left open
+
+**Date:** 2026-10-18 (asked for: after a task, offer once "Shall I keep this
+on your home screen?"; a personal tile with a short name and the details
+given, stored with the credential vault, never in plain text, never sent to
+a model; run with those details, still asking what changes; rename, reorder,
+remove; "Things I can help with" while there are none; theirs first)
+
+**Decision, and what the request left open:**
+
+- **Encrypted the vault's way, beside it**: `data/tiles.json`, DPAPI with
+  this Windows account's key, the whole list — names too — as one blob.
+  Not inside `vault.json` itself: that file is one entry per site, and mixing
+  tiles into it would change what `Vault.sites()` means.
+- **A tile keeps only what can be kept**: a bill's reference; a journey's
+  two stations, as the site names them. Never the day — asked each time —
+  and never a course: registering for the same course twice is not a task
+  anyone repeats, so a registration is not offered as a tile.
+- **The overlay gets id, name and flow only**; a tile is run by id
+  (`task.start.tile`). Its details become what the brief already knows
+  directly (`details.known_from_tile`), so neither the router nor
+  `understand` reads anything kept, and no model sees it.
+- **At most three tiles**, one row; no offer when full, or when the same
+  bill or journey is already a tile, or for a run started from a tile.
+- **The offer is one line above the way on** — "Shall I keep this on your
+  home screen as My bill?", Keep it / Not now — with the backend's suggested
+  name ("My bill", "Trains to Karachi"); the name is changed afterwards in
+  "Change my tiles", not typed on the closing screen.
+- **"Change my tiles"** is its own screen: a name box, Move left, Move right
+  and Take it off per tile, and "Back to start". Every change goes to the
+  backend as `tile.change` — **a new message type, pending Nahail's and Aly's
+  agreement** (Raham chose it when asked) — answered with the tiles as they
+  then stand.
+- **With tiles, the three cards take the tiles' shape** (icon beside words,
+  no picture) and the home screen's gaps close a little: the first version
+  put the box to ask in 28px below the window at 100% and the page scrolled.
+  "Things I can help with" is now always shown above the three.
+- **Back to start reconnects**, so the home screen is offered the tiles as
+  they now stand, one just kept among them.
+- **The backend's own log lines no longer hold the person's words** — found
+  while doing this: `routed %r` and `understood %r as %s` wrote the typed
+  goal and its reference number to `logs/backend.log` since 2026-10-17. Now
+  the flow and which details were found, never their values.
+
+**Not changed, and worth knowing:** with `SIMBA_TRACE_MEMORY` on (off by
+default), the trace store keeps a run's spelled-out goal — a bill's
+reference among it — in plain SQLite, tile or not; and the step recorder
+writes each page's address, which on the billing replica can carry the
+reference. Both predate tiles.
+
+**Cost.** Three new contract fields and one message type for the other
+owners to agree. Tiles are per Windows account and per machine.
+
+## The starting level is a signal of its own (for Nahail)
+
+**Date:** 2026-10-18 (asked for: record the starting level chosen in the
+welcome as its own signal, and note how it relates to the estimator)
+
+**What is recorded.** `data/steps.jsonl` gains a third kind of row,
+`start_level`, once per task as it starts: `{"kind": "start_level",
+"task_id", "start_level": 1 | 2 | 3 | null, "chosen": true | false}`. Every
+telemetry row after it carries the same `start_level`, so a training row
+stands alone. `null` means the person did not choose — skipped the question,
+or a frontend from before 2026-10-18 — and is never written as 2, which would
+claim a choice nobody made. Rows written before 2026-10-18 have no
+`start_level` at all: unknown, not "not chosen". (`pairing.Recorder.
+note_start_level`; `test_pairing.py`.)
+
+**How it relates to the estimator — Nahail to confirm or change:**
+
+1. **It is the person's report, not a measurement.** One choice, made once,
+   before any task, looking at three drawings of one sample question. Every
+   other input — page features, hesitation, the pointer — is measured on the
+   step itself. It belongs beside them as context, not mixed in as one more
+   reading.
+2. **The provisional rules already use it**, as their baseline
+   (`LevelRules.start_from`): a task starts at it, a heavy page still starts
+   at 3, and calm steps come back to it rather than to 2. A trained model that
+   replaces the rules has to decide whether to keep doing so; the rules'
+   decision rows record which baseline they used (`reason`: "the person's own
+   level, 1").
+3. **It confounds what the person does.** The level a step is shown at
+   changes how long it takes to read and answer, and since today the level
+   shown depends on the level chosen. Telemetry from people who started at 1
+   and at 3 should not be pooled as if it came from the same screen: condition
+   on the level shown (in the decision rows), or on `start_level`.
+4. **It cannot be a feature of the model being trained now.** That model is
+   trained on raters' scores of corpus pages (`tools/rating`), which have no
+   person-in-a-task attached. It could become one in a person-aware model, or
+   serve as the prior when the model is unsure — a choice for Nahail.
+5. **It is a check on the estimator.** People who chose 3 might be expected
+   to show more hesitation on the same pages than people who chose 1; if they
+   do not, either the welcome's question or the signals are not measuring what
+   they seem to.
+
+**Cost.** One more row kind, and one field on every telemetry row; readers
+that filter by `kind` are unaffected (`adaptation_stack_run`,
+`record_demo`).
+
+## Forgetting the person: where the reset is, and what it does not clear
+
+**Date:** 2026-10-18 (asked for: a reset that clears the profile and the
+personal tiles, for the user study and for handing the laptop to someone new)
+
+**Decision.** "Forget me and start again", a quiet button on the first
+question of the welcome when it is opened from "Change my settings" — never
+on a first open, where there is nothing to forget. One plain question,
+"Shall I forget everything about you?", with "Yes, forget it all" and "No,
+keep it", no default. Yes clears the profile in the overlay, sends
+`tile.change` `clear` (the backend deletes `data/tiles.json`), and opens the
+welcome as on a first open; the read-aloud button and checklist are back to
+their defaults for the next person.
+
+**Not cleared, and flagged for review — the question is whether a study
+needs them gone between participants:**
+
+- **"You asked before"** — *settled on 2026-10-21, below: never shown after a reset.* The last goals run on this machine, read from the
+  replay trace store (`data/traces.db`). The next person sees the previous
+  one's last two goals, and a bill's spelled-out goal holds its reference
+  number. Options: (a) leave them; (b) clear the trace store too, which also
+  deletes the replay memory the evaluation measures; (c) have the reset hide
+  only goals from before it (a timestamp in the profile, and the backend
+  sending each goal's time — one more optional field). **Recommendation:
+  (c)**, about an hour's work; until then, run the study with
+  `SIMBA_TRACE_DB` pointed at a fresh file per participant.
+- **Saved passwords** (`data/vault.json`) — the request named only the
+  profile and the tiles. For the study's replicas they are throwaway.
+- **`data/steps.jsonl`** and `logs/backend.log` — the study's own record; not
+  the person's to clear.
+
+**Cost.** The overlay forgets at once; the tiles are cleared by the backend.
+With the home screen's connection closed, the `clear` waits for a new one to
+open and is sent then. If the backend is not running at all, the profile is
+gone but the tiles stay until a reset is done with it running.
+
+## Forgetting the person: nothing from before the reset is ever shown
+
+**Date:** 2026-10-21 (asked for: after "Forget me and start again", no past
+goals, references or names from before it are ever shown; the replay data the
+evaluation needs is kept). Settles the first item flagged on 2026-10-18 above.
+
+**Decision.** Option (c) of 2026-10-18, but decided by the backend rather than
+the overlay. A reset writes its moment into the trace store (`traces.db`, a
+`forgotten` table); `TraceStore.recent`, which is all the home screen is
+offered, returns only traces recorded after the last one. Nothing is deleted:
+`find` (replay) and `goals` still read every trace. A goal done again after a
+reset is recorded afresh and offered. The old goals never cross the
+WebSocket, so no overlay — this one, an older one, the mock — can show them.
+No contract field was added; `tile.change` `clear` means the reset
+(CONTRACT.md).
+
+**Also on the overlay:** the goals on screen go at once, and a reset is marked
+in its storage (`simba.forgetting`) until the backend has answered the
+`clear`. While marked, the first `history.offered` of each new connection is
+not shown and the `clear` is said again — so a reset made while the backend
+was not running still holds the next time SIMBA opens.
+
+**Not asked for, then approved by Raham on 2026-10-21:** **saved sign-ins are cleared too**
+(`Vault.clear`). Kept, the next person on the registration copy would read
+"I'll use the sign-in details you saved for this site" and be signed in as
+the last one — something from before the reset, shown. Options: (a) clear
+them (done); (b) keep them and hide only the line, which still signs the next
+person in as someone else; (c) keep them per profile, which needs a person
+id across the boundary. Cost of (a): a participant re-types the replica's
+throwaway password after each reset.
+
+**Still not cleared:** `data/steps.jsonl` and `logs/backend.log` — the study's
+record, never on screen. The replay store's traces from before a reset still
+replay if the next person spells out the very same details; what replay shows
+is then their own words.
+
 ## Ratings are collected online, with a Google Form
 
 **Date:** 2026-10-22 (asked for, by Raham; the form's order chosen by Raham
@@ -5095,3 +5307,21 @@ are not assigned at random, only alternately.
   stops a run at six minutes.
 - **Raters see the same title on both forms;** only the file names in Drive
   ("SIMBA rating form A" and "B") differ.
+
+## The trace store's times never tie
+
+**Date:** 2026-10-23 (not asked for; found by the suite before merging
+`feat/personal`)
+
+**Decision.** `traces.now()` returns a time strictly later than the last one
+it returned in this process, moving a tie on by a microsecond. Windows' clock
+gave identical readings to calls milliseconds apart, and `recent` orders
+goals and finds the last reset by these times (EVALUATION.md, 2026-10-23).
+
+**Alternatives.** Break ties by `rowid` in `recent`: but a goal saved again
+keeps its old `rowid` (the save is an upsert), so a re-saved goal could still
+sort below one saved just before it. A sequence column: a schema change to
+every existing `traces.db` for the same result.
+
+**Cost.** A stored time can be up to a few microseconds later than the clock
+said, and only within one process; the backend is one process.

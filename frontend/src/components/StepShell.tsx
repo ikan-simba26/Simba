@@ -357,6 +357,9 @@ export function TopLine({ step, stages, full, answered }: {
   step: StepPresented | null; stages: boolean; full: boolean; answered: boolean;
 }) {
   const notice = useNotice();
+  // "Read this aloud" unless the person said, in the welcome, they did not
+  // want it (2026-10-18). Speech is still only ever on a press.
+  const readAloud = useStore((state) => state.profile.readAloud);
   // One thing on the left: a notice if one is up, else the stages.
   let left: React.ReactNode = null;
   if (notice) left = <NoticeLine />;
@@ -366,7 +369,7 @@ export function TopLine({ step, stages, full, answered }: {
       <div className="min-w-0 flex-1">
         {left}
       </div>
-      <SpeakButton step={step && !answered ? step : null} />
+      {readAloud && <SpeakButton step={step && !answered ? step : null} />}
     </div>
   );
 }

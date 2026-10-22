@@ -189,7 +189,7 @@ def app_url(billing: str) -> Iterator[str]:
         proc.wait(timeout=10)
 
 
-def converse(url: str, before: list[tuple[str, dict]]) -> list[dict]:
+def converse(url: str, before: list[tuple[str, dict]], start: dict | None = None) -> list[dict]:
     """Play the overlay: anything in `before`, then the bill, hesitating on
     step 1 and answering the rest at once."""
 
@@ -215,7 +215,7 @@ def converse(url: str, before: list[tuple[str, dict]]) -> list[dict]:
             # return on.
             await send("task.start", {"goal": "Check my electricity bill",
                                       "input_mode": "text", "flow": "billing",
-                                      "confirm_each": True})
+                                      "confirm_each": True, **(start or {})})
             while True:
                 message = json.loads(await asyncio.wait_for(ws.recv(), timeout=90))
                 received.append(message)
@@ -256,3 +256,15 @@ def test_a_lock_set_on_the_home_screen_holds_from_the_first_step(app_url: str) -
 
     assert received[-1]["type"] == "task.completed"
     assert levels_of(received) == []
+
+
+def test_the_level_the_person_chose_is_where_the_task_starts_and_returns(
+    app_url: str,
+) -> None:
+    """`task.start.start_level` (2026-10-18), from the overlay's welcome: the
+    rules start at the person's own level, fold one from there, and come back
+    to it — not to 2."""
+    received = converse(app_url, [], {"start_level": 1})
+
+    assert received[-1]["type"] == "task.completed", [m["type"] for m in received]
+    assert levels_of(received) == [1, 2, 1]

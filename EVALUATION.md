@@ -5997,6 +5997,159 @@ skipped, 0 failed**. The fresh clone's second run, before the last test fix:
 901 passed and 1 failed (that test, since passing in the clone too), 528
 passed.
 
+## 2026-10-18 — the welcome, and the person's own starting level
+
+`feat/personal`. The four questions, in a headless browser from the built
+overlay: `frontend/test_welcome.py`, **8 passed** — every question skippable
+and the welcome not shown again; the answers kept as the profile
+(`{"name": "Ayesha", "level": 3, "readAloud": false, "askEach": false,
+"welcomed": true}`); the greeting "…, Ayesha. What can I do for you?"; the
+next `task.start` carrying `start_level: 3` and no name anywhere in what the
+overlay sent; no "Read this aloud" for a person who said no; "Change my
+settings" reopening with the answers marked; and all four questions fitting,
+nothing scrolling and every button on screen, at 1280x800 (100%), 1280x734
+(125%), 1266x606 and 1266x632 (150%). Looked at, at 150% and 100%: the three
+examples side by side, each the real step, legible.
+
+The rules (`backend/estimator/test_rules.py`, 7 new, **34 passed**): a task
+starts at the chosen level 1, 2 or 3; a heavy page still at 3; calm steps
+come back to the person's level, not 2; chosen 3, never brought back to 2;
+no level, or one out of range, is 2. Through the app over the websocket
+(`test_adaptation.py`, **7 passed**): the bill with `start_level: 1`, one
+hesitant question, then calm — levels sent **1, 2, 1**, against 2, 3, 2
+without it. The home, level, copy, first-screen and read-aloud tests:
+**134 passed**.
+
+## 2026-10-18b — the person's own tiles
+
+`feat/personal`. The store and the backend (`backend/orchestrator/
+test_tiles.py`, **14 passed**): a tile written to disk holds neither its name,
+its flow nor its reference in readable form, and nothing that prints a tile
+shows its details; rename, move, remove and clear; three at most, the same
+bill never twice, only a bill's reference or a journey's two stations kept.
+On the replicas, through the real loop: a bill's closing screen offered once
+to keep it as "My bill", beside "Pay this bill", and kept under the name
+given ("Electricity", reference and all); not offered again for a bill
+already kept, nor for a run started from a tile; a journey offered as
+"Trains to Karachi" (the site says "KARACHI CANTT" — the first version said
+"Trains to KARACHI"). Through the app over the websocket: the home screen is
+offered the tiles by name only, no reference or station in the message; the
+bill's tile ran without asking for the number, its goal "My bill"; the
+journey's tile asked the day first and neither station; `tile.change`
+renamed, moved and removed, each answered with the tiles as they then stood,
+an unknown id changing nothing; and `logs/backend.log` held neither the
+reference nor a station.
+
+The overlay (`frontend/test_own_tiles.py`, **9 passed**): "Things I can help
+with" shown above the three while there are no tiles; the person's own first
+with them; a tile press sends only its id, flow and name; "Change my tiles"
+renames, moves and takes off, sending exactly those changes, the first
+unable to move left and the last right; "Keep it" sends `keep` with the
+offered name, says "Kept on your home screen as Trains to Karachi.", and
+leaves "Book one of these" where it was. Three tiles and two goals asked
+before fit at 1280x800, 1280x734, 1266x606 and 1266x632 — **after two
+failures**: first the box to ask in was 28px below the window at 100% and
+17px at 150% (the three cards kept their pictures and two-line names under
+the tiles), then the page still scrolled by 19px (the canvas's own bottom
+padding). The three now take the tiles' shape under them, and the gaps close
+a little the more the home screen holds. Showing "Things I can help with"
+always also made the screen with three goals asked before scroll by 16px at
+100%; fixed the same way. Both new endings with the offer to keep fit at
+every size (`test_terminal_states.py`), and the home, copy, welcome, ending
+and first-screen tests: **404 run, all passing after those fixes**. The
+backend's websocket and flow tests: **127 passed**.
+
+## 2026-10-18c — the starting level, written down as its own signal
+
+`feat/personal`. `backend/estimator/test_pairing.py`, 3 new, **12 passed**:
+a `start_level` row once per task, and the level on every telemetry row after
+it; anything but a whole 1, 2 or 3 — none, 0, 4, "2", 2.0 — written as
+`null`, not chosen, never as 2 (the first version took 2.0 as a choice:
+`2.0 in (1, 2, 3)` is true in Python; fixed here and in `LevelRules.
+start_from`); and through the app, the `task.start` of a person with a
+profile leaving its `start_level` row first. The rules, with floats and
+booleans added to what is not a level: **34 passed**.
+
+## 2026-10-18d — forgetting the person
+
+`feat/personal`. `frontend/test_reset.py`, **3 passed**: "No, keep it" changes
+nothing (profile kept, no `tile.change` sent); "Yes, forget it all" sends
+`clear`, removes the profile from the overlay's storage, opens the welcome on
+an empty name question with nothing left to forget, and after it the home
+screen greets no one by name and has no tiles of its own; a first open shows
+no button to forget. Through the app (`test_tiles.py`, **15 passed**): `clear`
+answers with no tiles and the file they were kept in is gone. The welcome
+and copy tests, with the new words: **40 passed**.
+
+## 2026-10-18e — a brand-new person, in the real window; and the suite
+
+`feat/personal`, not merged. **The walk**, at forced 100% in the real host
+with an empty profile folder (`SIMBA_USER_DATA`) and an empty tiles file,
+our replicas, the hardcoded plans (`.scratch/walk-finish/walk_personal.py`):
+first open showed the welcome; "Ayesha", the fullest of the three examples,
+the read-aloud button kept, "Just do it and show me"; the home screen said
+"Good evening, Ayesha. What can I do for you?" — over two lines, the second
+"you?" alone, now balanced (`text-balance`). Typed "Check my electricity
+bill": asked the reference number and the cookies, found Rs 14,382, and
+offered "Shall I keep this on your home screen as My bill?" beside "Pay this
+bill"; "Keep it" said "Kept on your home screen as My bill." Back to start:
+"My bill" first, above "Things I can help with". Pressed: asked only the
+cookies — the site asks again — and never the number; found the bill again;
+offered nothing to keep. 37 seconds end to end. Every screen captured from the
+overlay's own view, in `.scratch/for-review-6/`.
+
+**The host window fit, with a new person's first open** (`SIMBA_HOST_TESTS=1
+frontend/test_window_fit.py`, each host with an empty profile folder): **3
+passed** at 100%, 125% and 150% — the four welcome questions each fitting,
+nothing scrolling, every button in the window; the home screen with three of
+the person's own tiles and two goals asked before; every ending, the two with
+the offer to keep among them; the sign-in screen.
+
+**The suite, on mains: 1500 passed, 12 skipped, 0 failed** — backend 928 in
+859s, frontend 572 in 1190s, as two halves.
+
+## 2026-10-18f — the welcome's examples, drawn larger than life
+
+Seen by Raham in the real window at 150%, and in the 100% picture already
+copied for review without being looked at: each of the three examples was
+drawn at more than full size, across its neighbours. Each example's frame
+took its width from the example inside it, laid out at the column's 880px,
+so it measured itself at about 976px and drew the example at 1.1 instead of
+about 0.45. The tests passed — they checked that nothing scrolled and that the
+welcome's own buttons were in the window, and the examples' overflow was
+hidden; and the headless pictures looked at earlier were taken before the
+examples' width was changed to the column's. Now the frame takes the card's
+width and the example sits inside it out of the flow. A new test,
+`test_each_example_is_drawn_small_inside_its_own_card`, fails on the old
+component at all four sizes and passes on the new (the welcome's tests: **12
+passed**); the real host at forced 150% shows the three side by side, each in
+its card.
+
+## 2026-10-21 — after a reset, nothing from before it is shown
+
+**Method.** `frontend/test_forget_run.py`, end to end: the real backend
+(hardcoded plan, trace memory on, its own trace store, tiles and vault in a
+temporary folder), the bill replica and the real overlay build. The bill is run
+through the overlay as a person would — "check my electricity bill
+04141234567890", agreed, kept as "My bill" — by a profile named Ayesha; then
+"Forget me and start again", and the welcome skipped.
+
+**Before the reset (the control):** the greeting holds "Ayesha", the tile
+"My bill", one goal asked before, and the bill's last four digits "7890".
+
+**After it:** none of the four anywhere in the page's text, the reference in
+neither the text nor the markup (a tooltip), 0 goal cards, 0 tiles — and the
+same after the page is opened again. The replay store still holds the run's
+one trace with its reference; the tile file is gone. A second test makes the
+reset with the overlay pointed at no backend, then opens it against the real
+one: nothing shown, and the backend told.
+
+**Against the code before today:** both tests fail — "7890" still on the
+home screen after the reset, and no reset kept for a backend that was not
+there. **With it:** 2 passed (53.8s). The store and vault units
+(`test_replay.py`, `test_vault.py`) and the files around them (tiles, reset,
+own tiles, short labels): **63 passed** in 264s, on battery.
+
 ## 2026-10-22 — ratings collected online: the form, and its answers read back
 
 `feat/rating-online`. **No ratings were collected; nothing here is a result
@@ -6048,3 +6201,35 @@ online (`"online": true`), and should be checked with and without them.
 - **Tests**: `tools/rating/test_form.py` 22 (was 13); with the rating tool's
   and training's own, 75 passed in 41.7s. Training reads both forms' rows
   together: 4 raters, 50 pages, 20 repeat pairs, every page from all 4.
+
+## 2026-10-23 — `feat/personal` brought up to date and merged; a clock tie found
+
+`feat/personal` with `main` merged into it (`bc903c5`), every half on mains
+(the header of each run).
+
+**The first run: 1 failure.** Backend half 951 passed, 1 failed, 9 skipped
+(876s); frontend half 578 passed, 3 skipped (1220s); host fit test 3 passed
+(455s). The failure was
+`test_replay.py::test_a_reset_hides_what_came_before_from_the_home_screen_only`,
+which passed on 2026-10-18: two goals saved one after the other came back
+from `TraceStore.recent` oldest first.
+
+**The cause, measured.** `traces.now()` read `datetime.now()`, and on this
+machine 1996 of 1999 consecutive readings were identical. The clock moves in
+ticks of several milliseconds, so two saves in one tick tied on `created_at`
+and `ORDER BY created_at DESC` returned them in either order. The same
+sequence as the test, 200 times: **60 wrong**. The same tie would hide a goal
+saved in the reset's own tick, because the cutoff is a strict `>`. A person
+cannot finish a task within milliseconds of another, so the app was very
+unlikely to show it; the test, which saves back to back, did.
+
+**The fix** (`1e0689f`): `now()` never returns a time at or before the last
+one it gave; a tie moves on by a microsecond. New test: the clock stopped
+outright, the order and the reset both still right. After: **0 of 200**
+wrong, 0 of 1999 consecutive readings identical, and the stamps still sort
+as text in time order.
+
+**The rerun, after the fix**: backend half **953 passed, 9 skipped, 0
+failed** (941s); frontend half **578 passed, 3 skipped, 0 failed** (1245s);
+host fit test **3 passed** at 100%, 125% and 150% (455s). **1531 passed, 12
+skipped, 0 failed.** Merged into `main`.

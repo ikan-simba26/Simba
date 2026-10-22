@@ -907,3 +907,20 @@ def site_qualifies(sentence: str, confirms) -> str:
     if plain:
         return f"The {confirms.who} says {plain}."
     return site_also_says(sentence, confirms.who)
+
+
+# --- the person's own tiles (2026-10-18) -------------------------------------------
+
+#: The answer to "Shall I keep this on your home screen?", as the overlay sends it.
+KEEP_ID = "keep"
+#: What a kept bill is called until the person renames it.
+KEEP_BILL = "My bill"
+
+
+def keep_trains(destination: str) -> str:
+    """What a kept journey is called until renamed: "Trains to Karachi" — the
+    place, not the station, since a short name is what fits on a tile."""
+    place = (destination or "").split()[0] if destination else ""
+    # As people write it: the site names its stations in capitals.
+    return f"Trains to {place.capitalize()}" if place else "My trains"
+

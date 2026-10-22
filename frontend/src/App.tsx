@@ -34,12 +34,15 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, WHICH, greetingAt,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, TILES, WHICH,
+         greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
+import { Welcome } from "./components/Welcome";
+import { TilesEditor } from "./components/TilesEditor";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
 import type { Finding, FlowName, PastGoal } from "@shared/schema";
@@ -141,7 +144,7 @@ function PresenceBar() {
 
 function Column() {
   const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
-          asking, checklist, declined } = useStore();
+          asking, checklist, declined, welcomeOpen, tilesOpen } = useStore();
   // Put aside while the real page is shown: the trust panel's picture.
   const aside = trustOpen;
 
@@ -170,7 +173,13 @@ function Column() {
             ? "working"
             : reply
               ? `reply-${reply.kind}`
-              : "idle";
+              // The welcome takes the home screen's place, first time only
+              // or when asked for again (2026-10-18).
+              : welcomeOpen
+                ? "welcome"
+                : tilesOpen
+                  ? "tiles"
+                  : "idle";
 
   return (
     <motion.div
@@ -189,6 +198,8 @@ function Column() {
         <AnimatePresence initial={false}>
           <ScreenFrame key={screen}>
             {screen === "idle" && <Home />}
+            {screen === "welcome" && <Welcome />}
+            {screen === "tiles" && <TilesEditor />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
             {screen.startsWith("step-") && <Step index={Number(screen.slice(5))} />}
@@ -250,7 +261,10 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
  * way back from a task.
  */
 function Home() {
-  const { startTask, history } = useStore();
+  const { startTask, history, profile, openWelcome, tiles, startTile, setTilesOpen } = useStore();
+  // The person's own tiles first, when they have any (2026-10-18); the three
+  // things SIMBA can do are then smaller, under them.
+  const own = tiles.length > 0;
   const reduce = useReducedMotion() ?? false;
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
@@ -259,17 +273,61 @@ function Home() {
   // start of a long sentence, cut off, said little.
   const shown = remembered.map((past) => past.label ?? past.goal);
   const apart = tellApart(shown, remembered.map((past) => past.goal));
+  const spacing = own ? "gap-5 short:gap-3"
+    : remembered.length > 0 ? "gap-6 short:gap-5" : "gap-8 short:gap-5";
 
   return (
-    <div className="flex min-h-[calc(100dvh-176px)] flex-col justify-center gap-8
-                    short:min-h-[calc(100dvh-92px)] short:gap-5">
-      <div className="flex flex-col gap-8 short:gap-5">
+    // Closer together the more there is (2026-10-18): the person's own tiles
+    // and "Things I can help with" are two more lines, and with three goals
+    // asked before the page scrolled by 16px at 100%.
+    <div className={`flex min-h-[calc(100dvh-176px)] flex-col justify-center
+                     short:min-h-[calc(100dvh-92px)] ${spacing}`}>
+      <div className={`flex flex-col ${spacing}`}>
+        {/* Balanced: with a name in it the greeting can take two lines, and
+            the second was "you?" alone (2026-10-18, the walk). */}
         <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
-                       short:text-heading" data-testid="greeting">
-          {greetingAt(hour)}
+                       text-balance short:text-heading" data-testid="greeting">
+          {greetingAt(hour, profile.name)}
         </h1>
 
-        <section className="flex flex-col gap-3" aria-label={HOME.canHelp}>
+        {own && (
+          <section className="flex flex-col gap-3 short:gap-2" aria-label={TILES.yours}
+                   data-testid="own-tiles">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-small font-medium text-soft">{TILES.yours}</p>
+              <Button variant="quiet" size="md" wide={false} onClick={() => setTilesOpen(true)}
+                      data-testid="change-tiles">
+                {TILES.change}
+              </Button>
+            </div>
+            <ul className="grid grid-cols-3 gap-4 short:gap-3">
+              {tiles.map((tile) => (
+                <li key={tile.id}>
+                  <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
+                          title={tile.label}
+                          className="flex h-full w-full items-center gap-4 rounded-xl border
+                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     shadow-card transition-[box-shadow,border-color,transform]
+                                     duration-200 hover:border-accent hover:shadow-lift
+                                     active:translate-y-px short:py-2">
+                    <span className="shrink-0 text-accent" aria-hidden>
+                      <FlowIcon flow={tile.flow} />
+                    </span>
+                    <span className="line-clamp-2 text-body font-semibold leading-snug
+                                     text-ink">
+                      {tile.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section className="flex flex-col gap-3 short:gap-2" aria-label={HOME.canHelp}>
+          <p className="text-small font-medium text-soft" data-testid="can-help">
+            {HOME.canHelp}
+          </p>
           <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="tiles">
             {/* Its own AnimatePresence: the screens' one above starts with
                 `initial={false}`, which would hold back the tiles' entrance
@@ -282,15 +340,28 @@ function Home() {
                          transition={{ duration: 0.7, ease: EASE, delay: 0.35 + index * 0.12 }}>
                 <button type="button" onClick={() => startTask(FLOWS[flow], flow)}
                         data-testid="tile"
-                        className="group flex h-full w-full flex-col items-center gap-4 rounded-xl
-                                   border border-edge bg-surface px-5 pt-6 pb-5 text-center
-                                   shadow-card transition-[box-shadow,border-color,transform]
-                                   duration-200 hover:border-accent/50 hover:shadow-lift
-                                   active:translate-y-px short:gap-3 short:pt-4 short:pb-4">
-                  <span className="h-24 w-32 short:h-16 short:w-24">
-                    <FlowIllustration flow={flow} />
-                  </span>
-                  <span className="text-lead font-semibold leading-snug text-ink short:text-body">
+                        className={`group flex h-full w-full rounded-xl border border-edge
+                                    bg-surface shadow-card
+                                    transition-[box-shadow,border-color,transform] duration-200
+                                    hover:border-accent/50 hover:shadow-lift active:translate-y-px
+                                    ${own
+                                      ? "items-center gap-4 px-5 py-3 text-left short:py-2"
+                                      : "flex-col items-center gap-4 px-5 pt-5 pb-5 text-center short:gap-3 short:pt-4 short:pb-4"}`}>
+                  {/* Under the person's own tiles, in their shape, an icon
+                      beside the words (2026-10-18): a picture each, above
+                      them, put the box to ask in off the bottom at 100% and
+                      150%. */}
+                  {own ? (
+                    <span className="shrink-0 text-accent" aria-hidden>
+                      <FlowIcon flow={flow} />
+                    </span>
+                  ) : (
+                    <span className="h-20 w-28 short:h-16 short:w-24">
+                      <FlowIllustration flow={flow} />
+                    </span>
+                  )}
+                  <span className={`font-semibold leading-snug text-ink ${own
+                    ? "text-body" : "text-lead short:text-body"}`}>
                     {FLOWS[flow]}
                   </span>
                 </button>
@@ -332,7 +403,13 @@ function Home() {
         {/* In a short window the box's lead-in goes: the greeting above has
             just asked the same question. The box keeps it as its name. */}
         <AskBox lead={HOME.askHeading} leadWhenShort={false} />
-        <div className="flex justify-end"><AskEachSetting /></div>
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
+                  data-testid="change-settings">
+            {HOME.settings}
+          </Button>
+          <AskEachSetting />
+        </div>
       </div>
     </div>
   );
@@ -736,7 +813,8 @@ function Checklist() {
  * to the home screen.
  */
 function Completed() {
-  const { completed, task, startOver, takeOffer, status } = useStore();
+  const { completed, task, startOver, takeOffer, status, keepAnswer, keepTile,
+          declineKeep } = useStore();
   // The offer is there only while the run waiting for it is (2026-10-17): a
   // run left on its closing screen closes itself after a while
   // (`loop.OFFER_IDLE_S`), and a press then would go nowhere.
@@ -829,6 +907,30 @@ function Completed() {
             <p className="text-lead text-ink" data-testid="scope">{completed.scope}</p>
           )}
           <ProofLine />
+        </div>
+      )}
+
+      {/* Once, the offer to keep this task on the home screen (2026-10-18):
+          one quiet line, so the answer above keeps its room. Gone once
+          answered, or when the run waiting for the answer has closed. */}
+      {completed?.keep && keepAnswer === "kept" && (
+        <p className="text-body text-soft" data-testid="kept" role="status">
+          {TILES.kept(completed.keep.label)}
+        </p>
+      )}
+      {completed?.keep && keepAnswer === null && status === "open" && (
+        <div className="flex items-center gap-3 rounded-lg bg-tint px-5 py-2 short:py-1"
+             data-testid="keep">
+          <p className="min-w-0 flex-1 text-body text-ink">
+            {TILES.keepAsk(completed.keep.label)}
+          </p>
+          <Button variant="secondary" size="md" wide={false} onClick={keepTile}
+                  data-testid="keep-it">
+            {TILES.keep}
+          </Button>
+          <Button variant="quiet" size="md" wide={false} onClick={declineKeep}>
+            {TILES.notNow}
+          </Button>
         </div>
       )}
 
