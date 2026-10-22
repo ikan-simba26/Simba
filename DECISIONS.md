@@ -5055,3 +5055,43 @@ supervision, but not enough raters before the feature freeze.
   because `.scratch/` is ignored and the instrument belongs in history. The
   mapping is committed as `data/rating/form.json`, so the answers stay
   readable if `.scratch/` is lost.
+
+## Two forms, A and B, the second in reverse order
+
+**Date:** 2026-10-22 (asked for, by Raham)
+
+**Decision.** `make_form.gs` builds two forms: A in the order the export
+fixed, B in the reverse of it. Half the raters get each link, alternating.
+`from_form.py` takes both CSVs and records each rater's form (`"form": "A"`
+or `"B"`). This replaces "one order for everyone" in *Ratings are collected
+online* above. Every rater of one form still sees the same order, but an
+order effect such as tiredness now falls on opposite ends of the list in
+the two forms. *Cost:* two links to hand out and two CSVs to download. Raters
+are not assigned at random, only alternately.
+
+**Decisions inside it (not asked for):**
+
+- **The repeat is the later showing in the rater's own form.** Reversing
+  keeps every gap between a page and its repeat (7 to 18 pictures, in both),
+  but in B the names `P51`–`P55` come *before* the pictures they repeat. The
+  converter marks as `repeat` whichever of the two a rater saw second, which
+  is what a repeat means in the in-person tool. *Alternative:* keep
+  `P51`–`P55` as the repeat in both forms, which in B would mean a "repeat"
+  answered before its "first showing". `train.py` uses the first showings
+  for agreement between raters, so in B those first showings are partly the
+  `P51`–`P55` pictures; the pictures are identical (same hash), so no answer
+  changes meaning.
+- **A CSV's form is read from its column order**, because Google writes a
+  form's columns in the order of its questions and the two orders differ. A
+  CSV can also be named (`B=path.csv`). A named CSV whose columns are in the
+  other form's order is refused as probably swapped; one in neither order is
+  taken as named, with a note. *Why not names only:* swapped file names would
+  silently give every B rater A's positions and repeats.
+- **Form B's raters are numbered from 6001**, form A's from 5001, each by its
+  row in its own CSV. Re-running with one CSV replaces that form's rows and
+  keeps the other's.
+- **One function per form** (`makeFormA`, `makeFormB`), not one that makes
+  both: each takes a minute or two to upload 55 pictures, and Apps Script
+  stops a run at six minutes.
+- **Raters see the same title on both forms;** only the file names in Drive
+  ("SIMBA rating form A" and "B") differ.
