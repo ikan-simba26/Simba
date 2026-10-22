@@ -1,17 +1,20 @@
 /**
- * Makes SIMBA's rating form from a Google Drive folder of pictures.
+ * Makes SIMBA's two rating forms, A and B, from a Google Drive folder of
+ * pictures. Run makeFormA, then makeFormB: one form per run, because each
+ * takes a minute or two and a script may run for six.
  *
  * The folder is .scratch/rating-form/ uploaded as it is: P01.png to P55.png
  * and mapping.json, written by `python -m tools.rating.export_form`. Every
  * question's wording, and the order the pictures are shown in, come from
  * mapping.json, so the form and tools/rating/from_form.py agree on them.
  *
- * The form: a consent question (answering "No" ends it), three questions
+ * Each form: a consent question (answering "No" ends it), three questions
  * about the person, a page of instructions, then one page per picture: the
- * picture and a 1-7 question. The order is the same for everyone, because a
- * picture cannot be shuffled together with its question in a form made by a
- * script; it is the random order in mapping.json, with each repeated picture
- * well after its first showing.
+ * picture and a 1-7 question. A picture cannot be shuffled together with its
+ * question in a form made by a script, so each form has a fixed order: A the
+ * random order in mapping.json, B the same reversed, each repeated picture
+ * well apart from its other showing in both. Send half the raters A and half
+ * B. The two look the same to a rater; only their names in Drive differ.
  *
  * Each rating question's title ends in the picture's name, "[P07]". That is
  * how from_form.py knows which answer is which picture: do not edit those
@@ -24,20 +27,26 @@
 const FOLDER_ID = 'PASTE-THE-FOLDER-ID-HERE';
 const FORM_TITLE = 'How overwhelming is this web page?';
 
-function makeForm() {
+function makeFormA() { makeForm('A'); }
+
+function makeFormB() { makeForm('B'); }
+
+function makeForm(letter) {
   if (FOLDER_ID.indexOf('PASTE') === 0) {
     throw new Error('Set FOLDER_ID at the top of the script to your folder\'s id first.');
   }
   const folder = DriveApp.getFolderById(FOLDER_ID);
   const mapping = JSON.parse(fileNamed(folder, 'mapping.json').getBlob().getDataAsString('UTF-8'));
   const q = mapping.questions;
-  const order = mapping.order;
+  const order = mapping.orders[letter];
+  if (!order) throw new Error('mapping.json has no form ' + letter + '. Upload the latest rating-form folder.');
   // Every picture is checked for before anything is made, so a missing one
   // does not leave half a form behind.
   const pictures = {};
   order.forEach(function (name) { pictures[name] = fileNamed(folder, name + '.png'); });
 
-  const form = FormApp.create(FORM_TITLE)
+  const form = FormApp.create('SIMBA rating form ' + letter)
+    .setTitle(FORM_TITLE)
     .setDescription(
       'Please fill this in on a laptop or desktop computer, not a phone: the pictures ' +
       'are too small on a phone to judge. It takes about 15 minutes.')
@@ -92,8 +101,8 @@ function makeForm() {
   });
 
   DriveApp.getFileById(form.getId()).moveTo(folder);
-  Logger.log('Done. Edit the form at: %s', form.getEditUrl());
-  Logger.log('Send raters this link: %s', form.getPublishedUrl());
+  Logger.log('Done: form %s. Edit it at: %s', letter, form.getEditUrl());
+  Logger.log("Send form %s's raters this link: %s", letter, form.getPublishedUrl());
 }
 
 function fileNamed(folder, name) {

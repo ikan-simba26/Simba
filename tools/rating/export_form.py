@@ -5,16 +5,21 @@
 Writes `P01.png` to `P50.png`, one per rateable page in the order of their
 ids, and `P51.png` to `P55.png`, five of them again: the repeats. They are
 chosen the way a session chooses its two (`session.plan`), with five instead
-of two and a fixed seed, so everyone who fills in the form sees the same five
-again, each at least `MIN_GAP` pictures after its first showing.
+of two and a fixed seed, so everyone who fills in either form sees the same
+five again, each more than `MIN_GAP` pictures from its other showing.
 
-**The order is fixed in the form, the same for every rater.** Google Forms
-cannot shuffle a picture together with its question when the form is made by
-a script, so the form shows one picture per page in the order `plan` gives
-(DECISIONS.md, *Ratings collected online*).
+**Two forms, each in a fixed order.** Google Forms cannot shuffle a picture
+together with its question when the form is made by a script, so each form
+shows one picture per page in a fixed order: form A in the order `plan`
+gives, form B in the reverse of it, so that whatever tiredness does late in
+a form falls on different pages in each (DECISIONS.md, *Ratings collected
+online*; *Two forms*). Reversing keeps every gap between a page and its
+repeat, but in B the name `P51` to `P55` is the first showing and the
+original the second; `from_form.py` takes whichever comes later as the
+repeat.
 
 Beside the pictures: `mapping.json` — which page each name is, the hash of the
-exact picture, the order, and the wording of every question — which
+exact picture, both forms' orders, and the wording of every question — which
 `make_form.gs` reads to build the form and `from_form.py` reads to turn its
 answers back into rows. The same mapping is written to `data/rating/form.json`,
 which is committed, so the answers stay readable when `.scratch/` is gone.
@@ -38,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 OUT = REPO / ".scratch" / "rating-form"
 RECORD = REPO / "data" / "rating" / "form.json"
 REPEATS = 5
-#: Fixed, so the form's order and repeats can be made again from the manifest.
+#: Fixed, so the forms' orders and repeats can be made again from the manifest.
 SEED = 20261022
 
 #: Every question the form asks, in the words it asks them. `make_form.gs`
@@ -106,7 +111,10 @@ def rateable(manifest: Path) -> list[dict]:
 
 
 def mapping(manifest: Path = MANIFEST, seed: int = SEED, repeats: int = REPEATS) -> dict:
-    """Which page each name is, the order the form shows them in, and the questions."""
+    """Which page each name is, the order each form shows them in, and the questions.
+
+    A name from `P51` up carries `of`: the name of the same page's first
+    picture. Which of the two a rater saw first depends on their form."""
     pages = rateable(manifest)
     if not pages:
         raise ExportRefused(f"no rateable pages in {manifest}")
@@ -117,22 +125,21 @@ def mapping(manifest: Path = MANIFEST, seed: int = SEED, repeats: int = REPEATS)
         row = by_id[page_id]
         pictures[name] = {"page": page_id, "url": row["url"], "state": row["state"],
                           "kind": row["kind"], "file": row["file"],
-                          "sha256": row["sha256"], "repeat": False}
+                          "sha256": row["sha256"]}
     order: list[str] = []
     for item in plan(sorted(by_id), seed, repeats=repeats):
         if not item["repeat"]:
             order.append(names[item["page"]])
             continue
         name = f"P{len(pictures) + 1:02d}"
-        pictures[name] = {**pictures[names[item["page"]]], "repeat": True,
-                          "of": names[item["page"]]}
+        pictures[name] = {**pictures[names[item["page"]]], "of": names[item["page"]]}
         order.append(name)
     data = json.loads(manifest.read_text(encoding="utf-8"))
     return {
         "made_by": "python -m tools.rating.export_form",
         "run": data.get("run", {}).get("id"),
         "seed": seed, "repeats": repeats, "min_gap": MIN_GAP,
-        "pictures": pictures, "order": order,
+        "pictures": pictures, "orders": {"A": order, "B": order[::-1]},
         "questions": QUESTIONS, "rating_title": RATING_TITLE,
     }
 
@@ -166,7 +173,7 @@ def main() -> None:
     except ExportRefused as reason:
         print(f"Not exported: {reason}")
         raise SystemExit(2) from None
-    repeats = [f"{n} = {p['of']}" for n, p in made["pictures"].items() if p["repeat"]]
+    repeats = [f"{n} = {p['of']}" for n, p in made["pictures"].items() if "of" in p]
     print(f"{len(made['pictures'])} pictures in {args.out} "
           f"({len(made['pictures']) - len(repeats)} pages, repeats {', '.join(repeats)})")
     print(f"mapping also written to {RECORD.relative_to(REPO)}")
