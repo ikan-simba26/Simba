@@ -5199,3 +5199,111 @@ record, never on screen. The replay store's traces from before a reset still
 replay if the next person spells out the very same details; what replay shows
 is then their own words.
 
+## Ratings are collected online, with a Google Form
+
+**Date:** 2026-10-22 (asked for, by Raham; the form's order chosen by Raham
+the same day)
+
+**Decision.** Ratings for the estimator are collected remotely, with a Google
+Form, instead of only in person with `tools/rating/serve.py`. The 50 pictures
+are exported as `P01.png` to `P50.png` with five repeats, `P51` to `P55`
+(`python -m tools.rating.export_form`). `make_form.gs` builds the form from
+them in Google Drive, and `python -m tools.rating.from_form` turns the form's
+CSV back into `data/ratings.jsonl` rows marked `"online": true`. Steps are in
+`tools/rating/form/README.md`.
+
+**How it differs from a session in person, and what that costs:**
+
+- **The pictures are smaller.** A form fits a picture to its own column, about
+  640–740px wide on a laptop, where the in-person page fills the window. A
+  1280x800 page is seen at roughly half size, small text is harder to read,
+  and a page may look calmer than it would be to use. Nothing records the size
+  it was drawn at, so this cannot be corrected for afterwards (`shown` and
+  `window` are None on online rows).
+- **Nobody watches.** A rater may be interrupted, may do it on a bad screen,
+  may talk to someone, or may click through. Nothing records the time per
+  answer (`ms` is None), so a rater who clicked through cannot be found by
+  speed. What remains is the repeats and each rater's agreement with the
+  others, which `train.py` reports anyway.
+- **One order for everyone.** `FormApp` cannot attach a picture to a question,
+  so Google's own shuffle would separate every picture from its question.
+  Raham chose a fixed order, one picture per page, over the Forms REST API
+  (a true per-person shuffle, but a Google Cloud project to set up, and a
+  repeat could land next to its first showing). The order is
+  `session.plan(..., seed=20261022, repeats=5)`, so each repeat is still at
+  least five pictures after its first showing (7 to 18 in the export).
+  *Cost:* an order effect, such as tiredness late in the form, falls on the
+  same pages for every online rater, and is not spread across them as in
+  person. *To undo:* several copies of the form in different orders, or the
+  REST API.
+- **The same five repeats for everyone,** instead of two chosen at random per
+  session: P29, P39, P07, P28 and P48, repeated as P51 to P55.
+- **The device is self-reported.** Phone answers are dropped by the
+  converter; a phone user who says "Laptop" is not caught.
+
+**Alternatives.** Only in person (the original plan): better pictures and
+supervision, but not enough raters before the feature freeze.
+
+## Online raters: their numbers, what is kept about them, and where the form lives
+
+**Date:** 2026-10-22 (not asked for)
+
+- **Online raters are numbered 5001 up**, by their row in the form's CSV, so
+  a number stays the same when the converter is run again on a longer CSV.
+  It refuses to run if an in-person rater has a number in that range. *Cost:*
+  deleting a response from the form renumbers everyone after it.
+- **Running the converter again replaces every online row** and keeps the
+  in-person rows as they are, so it can be re-run as answers arrive.
+- **Online rows carry the device, age range and computing answer.** The
+  in-person tool records only the rater's number; these three were asked for
+  so online raters can be described and compared. They stay in
+  `data/ratings.jsonl`, which is not committed.
+- **The consent wording is mine** (`QUESTIONS` in `export_form.py`): what is
+  collected, that nothing names the rater, 18 or over, stop at any time. It
+  has not been checked against the university's ethics requirements. The age
+  bands start at 18 for the same reason.
+- **The form's script and instructions are committed** under
+  `tools/rating/form/` and copied into `.scratch/rating-form/` by the export,
+  because `.scratch/` is ignored and the instrument belongs in history. The
+  mapping is committed as `data/rating/form.json`, so the answers stay
+  readable if `.scratch/` is lost.
+
+## Two forms, A and B, the second in reverse order
+
+**Date:** 2026-10-22 (asked for, by Raham)
+
+**Decision.** `make_form.gs` builds two forms: A in the order the export
+fixed, B in the reverse of it. Half the raters get each link, alternating.
+`from_form.py` takes both CSVs and records each rater's form (`"form": "A"`
+or `"B"`). This replaces "one order for everyone" in *Ratings are collected
+online* above. Every rater of one form still sees the same order, but an
+order effect such as tiredness now falls on opposite ends of the list in
+the two forms. *Cost:* two links to hand out and two CSVs to download. Raters
+are not assigned at random, only alternately.
+
+**Decisions inside it (not asked for):**
+
+- **The repeat is the later showing in the rater's own form.** Reversing
+  keeps every gap between a page and its repeat (7 to 18 pictures, in both),
+  but in B the names `P51`–`P55` come *before* the pictures they repeat. The
+  converter marks as `repeat` whichever of the two a rater saw second, which
+  is what a repeat means in the in-person tool. *Alternative:* keep
+  `P51`–`P55` as the repeat in both forms, which in B would mean a "repeat"
+  answered before its "first showing". `train.py` uses the first showings
+  for agreement between raters, so in B those first showings are partly the
+  `P51`–`P55` pictures; the pictures are identical (same hash), so no answer
+  changes meaning.
+- **A CSV's form is read from its column order**, because Google writes a
+  form's columns in the order of its questions and the two orders differ. A
+  CSV can also be named (`B=path.csv`). A named CSV whose columns are in the
+  other form's order is refused as probably swapped; one in neither order is
+  taken as named, with a note. *Why not names only:* swapped file names would
+  silently give every B rater A's positions and repeats.
+- **Form B's raters are numbered from 6001**, form A's from 5001, each by its
+  row in its own CSV. Re-running with one CSV replaces that form's rows and
+  keeps the other's.
+- **One function per form** (`makeFormA`, `makeFormB`), not one that makes
+  both: each takes a minute or two to upload 55 pictures, and Apps Script
+  stops a run at six minutes.
+- **Raters see the same title on both forms;** only the file names in Drive
+  ("SIMBA rating form A" and "B") differ.

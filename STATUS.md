@@ -120,6 +120,30 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-10-22 (later): two rating forms — `feat/rating-two-orders`
+
+- **Two forms, A and B**, B showing the pictures in reverse order, each repeat
+  as far from its first showing in both (7 to 18 pictures). `make_form.gs` has
+  `makeFormA` and `makeFormB`. `from_form.py` takes both CSVs, tells them
+  apart by column order (or `A=`/`B=`), and records each rater's form. The
+  repeat is the later showing in the rater's own form (DECISIONS.md, *Two
+  forms*). The script was run against stand-ins for Google's services, not
+  in Google (EVALUATION.md, 2026-10-22b).
+
+### Changed on 2026-10-22: ratings collected online — `feat/rating-online`
+
+- **Ratings can now be collected remotely, with a Google Form.**
+  `python -m tools.rating.export_form` writes the 50 pictures and five repeats
+  (P01–P55) and a mapping to `.scratch/rating-form/`, with `make_form.gs` to
+  build the form and a README for the steps. `python -m tools.rating.from_form`
+  turns the form's CSV into `data/ratings.jsonl` rows marked online. It drops
+  phone, declined and incomplete answers, and counts the usable raters
+  against `train.py`'s ten. One fixed order for every online rater;
+  pictures seen at about half size; unsupervised (DECISIONS.md, EVALUATION.md
+  2026-10-22).
+- **Still no ratings.** The form has not been made in Google yet, so
+  `make_form.gs` is untested.
+
 ### Changed on 2026-10-18: SIMBA made for the person — `feat/personal`, not merged
 
 - **Getting to know you**: on first open, four short questions, each
@@ -1218,6 +1242,11 @@ On `feat/railways-ask`, **not merged**.
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
+- **Ratings online** (2026-10-22): the pictures exported for a Google Form
+  (`tools/rating/export_form.py`, `tools/rating/form/`), and its CSV read back
+  into `data/ratings.jsonl` with `"online": true` (`tools/rating/from_form.py`).
+  Two forms, A and B in reverse order, each rater's form recorded. 22 tests.
+  No ratings collected yet.
 - **Pictures and features from one load** (2026-10-03): `tools/rating/capture`
   writes the rating pictures and `data/corpus.json` in one run, both dated;
   `train.py` uses a rating only when its picture is current and its features

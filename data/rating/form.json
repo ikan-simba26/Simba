@@ -1,0 +1,617 @@
+{
+  "made_by": "python -m tools.rating.export_form",
+  "run": "58dc053cdac7",
+  "seed": 20261022,
+  "repeats": 5,
+  "min_gap": 5,
+  "pictures": {
+    "P01": {
+      "page": "127-0-0-1-5000",
+      "url": "http://127.0.0.1:5000/",
+      "state": "as it loads",
+      "kind": "ours",
+      "file": "127-0-0-1-5000.png",
+      "sha256": "a7e7cab8985225685e833a386e838116e9147188f01e641bc2f385ae3482adf5"
+    },
+    "P02": {
+      "page": "127-0-0-1-5000--sign-in",
+      "url": "http://127.0.0.1:5000/",
+      "state": "sign in",
+      "kind": "ours",
+      "file": "127-0-0-1-5000--sign-in.png",
+      "sha256": "e4d894ba6eb413cc09465cdef9d90cf7165e6073e49876f50e1e02a7918f7d1e"
+    },
+    "P03": {
+      "page": "127-0-0-1-5000-stubborn",
+      "url": "http://127.0.0.1:5000/stubborn",
+      "state": "as it loads",
+      "kind": "ours",
+      "file": "127-0-0-1-5000-stubborn.png",
+      "sha256": "66e03202a5c269b56cadf42801135d4c5b22e2368fd51ed2629841adb19ad61e"
+    },
+    "P04": {
+      "page": "127-0-0-1-5100",
+      "url": "http://127.0.0.1:5100/",
+      "state": "as it loads",
+      "kind": "ours",
+      "file": "127-0-0-1-5100.png",
+      "sha256": "3b26122ba300c482038175991dd5a37372ffb18d9f6a7882adf327970bde67af"
+    },
+    "P05": {
+      "page": "127-0-0-1-5100-bill-reference-04141234567890",
+      "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
+      "state": "as it loads",
+      "kind": "ours",
+      "file": "127-0-0-1-5100-bill-reference-04141234567890.png",
+      "sha256": "e0647b3ec2a1f2a7dff3cf06e40007935406f4c3ce789c7762f0446f70bed498"
+    },
+    "P06": {
+      "page": "ant-design-components-drawer--open-an-antd-drawer",
+      "url": "https://ant.design/components/drawer",
+      "state": "open an antd drawer",
+      "kind": "demo",
+      "file": "ant-design-components-drawer--open-an-antd-drawer.png",
+      "sha256": "f3c66839a30763e699d06ff4d4492e5f099684ee0261e32ceafa9c401c373c5c"
+    },
+    "P07": {
+      "page": "ant-design-components-modal--open-an-antd-modal",
+      "url": "https://ant.design/components/modal",
+      "state": "open an antd modal",
+      "kind": "demo",
+      "file": "ant-design-components-modal--open-an-antd-modal.png",
+      "sha256": "828b89749395fda9cc9f5c198ea77678886e9ba3f35bad280c5744f94b92cb84"
+    },
+    "P08": {
+      "page": "arxiv-org-list-cs-hc-recent",
+      "url": "https://arxiv.org/list/cs.HC/recent",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "arxiv-org-list-cs-hc-recent.png",
+      "sha256": "017828f325c33edc199ea9d5771f33abd7a366e29a908ab61b3ee6f6a80a343c"
+    },
+    "P09": {
+      "page": "books-toscrape-com",
+      "url": "https://books.toscrape.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "books-toscrape-com.png",
+      "sha256": "15f63a54b1a6952bdf8567ce6c06e84f157b1454c3393758a799b8df62493a33"
+    },
+    "P10": {
+      "page": "danluu-com",
+      "url": "https://danluu.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "danluu-com.png",
+      "sha256": "c44f894bb53f37a5622012a3a9c8819ef7c0d39bce71d97d500117f0f96f315b"
+    },
+    "P11": {
+      "page": "demo-applitools-com",
+      "url": "https://demo.applitools.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "demo-applitools-com.png",
+      "sha256": "efeab6befabfb37e4cdcafce008bf96ffa99195840b775eb799896f5c9afa146"
+    },
+    "P12": {
+      "page": "demo-opencart-com",
+      "url": "https://demo.opencart.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "demo-opencart-com.png",
+      "sha256": "6213ca0c334714864f917c8ff6191f66ccf37bde0f8b7f50c113642495a9f36e"
+    },
+    "P13": {
+      "page": "demo-testfire-net",
+      "url": "http://demo.testfire.net/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "demo-testfire-net.png",
+      "sha256": "870fb227c78c2dea2e61f953e8e09a3ed4d87ce60e6f103675f8fd6e60f546ac"
+    },
+    "P14": {
+      "page": "demoqa-com-automation-practice-form",
+      "url": "https://demoqa.com/automation-practice-form",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "demoqa-com-automation-practice-form.png",
+      "sha256": "d909cf101795402f37c78da9d6be0e3096646bfe709243d9dc3389ae8d4b24e9"
+    },
+    "P15": {
+      "page": "demoqa-com-modal-dialogs--open-a-demoqa-modal",
+      "url": "https://demoqa.com/modal-dialogs",
+      "state": "open a demoqa modal",
+      "kind": "demo",
+      "file": "demoqa-com-modal-dialogs--open-a-demoqa-modal.png",
+      "sha256": "64804ffea7114a08db6758b711bfc72a41062d61ed98d8447fb445da7d1cfd1f"
+    },
+    "P16": {
+      "page": "developer-mozilla-org-en-us-docs-web-html",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "developer-mozilla-org-en-us-docs-web-html.png",
+      "sha256": "4df69d2935fb6eb82fc03e5fd4cc3a20f5f9d952c8b091799c02fac926087422"
+    },
+    "P17": {
+      "page": "element-plus-org-en-us-component-dialog-html--open-an-element-plus-dialog",
+      "url": "https://element-plus.org/en-US/component/dialog.html",
+      "state": "open an element plus dialog",
+      "kind": "demo",
+      "file": "element-plus-org-en-us-component-dialog-html--open-an-element-plus-dialog.png",
+      "sha256": "8ab7fdb56b637f1a233f8e929b6eb0cadf4b5422cdbad0f1046989f8cf20a26c"
+    },
+    "P18": {
+      "page": "en-wikipedia-org-wiki-cognitive-load",
+      "url": "https://en.wikipedia.org/wiki/Cognitive_load",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "en-wikipedia-org-wiki-cognitive-load.png",
+      "sha256": "b9b966590aa711beae2a158412164ee854f63c1812a7410d05cc6f2ef60ff8f4"
+    },
+    "P19": {
+      "page": "en-wikipedia-org-wiki-main-page",
+      "url": "https://en.wikipedia.org/wiki/Main_Page",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "en-wikipedia-org-wiki-main-page.png",
+      "sha256": "2ac6e1919958b22fc3c6b7f3c3fb2ba96431653e82d71047370af4560c06c58f"
+    },
+    "P20": {
+      "page": "example-com",
+      "url": "https://example.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "example-com.png",
+      "sha256": "400bd0d9a9c528464c7c818976c0d17b24086cbe9afb9e4c2a0e91b8b7c35bbe"
+    },
+    "P21": {
+      "page": "getbootstrap-com-docs-5-3-components-modal--open-a-bootstrap-modal",
+      "url": "https://getbootstrap.com/docs/5.3/components/modal/",
+      "state": "open a bootstrap modal",
+      "kind": "demo",
+      "file": "getbootstrap-com-docs-5-3-components-modal--open-a-bootstrap-modal.png",
+      "sha256": "d608d3d27a79cce302dbd1badf6d2a80f884347a61f84673018fe1d5b0d5a4bd"
+    },
+    "P22": {
+      "page": "getbootstrap-com-docs-5-3-components-offcanvas--open-a-side-drawer",
+      "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
+      "state": "open a side drawer",
+      "kind": "demo",
+      "file": "getbootstrap-com-docs-5-3-components-offcanvas--open-a-side-drawer.png",
+      "sha256": "3e64e99adbee12223d323461a91d59fb1318bf16271f2d478d00c5dec57cded4"
+    },
+    "P23": {
+      "page": "httpbin-org-html",
+      "url": "https://httpbin.org/html",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "httpbin-org-html.png",
+      "sha256": "cdfe25ab296ad0abd9c00adfcd787f459b3bb729eeff661823bf72a2054ef4c2"
+    },
+    "P24": {
+      "page": "info-cern-ch-hypertext-www-theproject-html",
+      "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "info-cern-ch-hypertext-www-theproject-html.png",
+      "sha256": "df79844b12db21d3ad7a2fd794286cf61f19258d0cfd3cb76cb97c56ea85e321"
+    },
+    "P25": {
+      "page": "lite-cnn-com",
+      "url": "https://lite.cnn.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "lite-cnn-com.png",
+      "sha256": "c438f9ec12e5b46a5cf50449fd4f017154ea390bf8790d463712a92b6f747472"
+    },
+    "P26": {
+      "page": "mui-com-material-ui-react-dialog--open-a-mui-dialog",
+      "url": "https://mui.com/material-ui/react-dialog/",
+      "state": "open a mui dialog",
+      "kind": "demo",
+      "file": "mui-com-material-ui-react-dialog--open-a-mui-dialog.png",
+      "sha256": "0b7ef754b7320f605eaba9f62636e8f2f72ca1d46036f25bcb78e42cadf01495"
+    },
+    "P27": {
+      "page": "mui-com-material-ui-react-drawer--open-a-bottom-sheet",
+      "url": "https://mui.com/material-ui/react-drawer/",
+      "state": "open a bottom sheet",
+      "kind": "demo",
+      "file": "mui-com-material-ui-react-drawer--open-a-bottom-sheet.png",
+      "sha256": "6f6351ac7c9d206a5cd9d1aeeed42e6bdcb0fe7c60aff6099d45e9d2a099b531"
+    },
+    "P28": {
+      "page": "news-ycombinator-com",
+      "url": "https://news.ycombinator.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "news-ycombinator-com.png",
+      "sha256": "8288aa4414326d0289e6621842c0c1634fe795add4c86eb8ac566944028ce3b2"
+    },
+    "P29": {
+      "page": "opensource-demo-orangehrmlive-com-web-index-php-auth-login",
+      "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "opensource-demo-orangehrmlive-com-web-index-php-auth-login.png",
+      "sha256": "890d75df7193910b662aca5da2fcf061cbb2141b293e9203985e09033cb53956"
+    },
+    "P30": {
+      "page": "parabank-parasoft-com-parabank-index-htm",
+      "url": "https://parabank.parasoft.com/parabank/index.htm",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "parabank-parasoft-com-parabank-index-htm.png",
+      "sha256": "1a3b0e607d3707c9b129445da58ee5f5147bf3d9cb28fd1a2b67d7fe0cd652e7"
+    },
+    "P31": {
+      "page": "practice-expandtesting-com",
+      "url": "https://practice.expandtesting.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "practice-expandtesting-com.png",
+      "sha256": "4eaa9b2494078323f09bd2f8a7ae912da8d13714a5b3a81386419ea679b540f1"
+    },
+    "P32": {
+      "page": "pypi-org",
+      "url": "https://pypi.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "pypi-org.png",
+      "sha256": "403a63eb9170373eb7e9dc2f1b27b27fc940dac38adb2109531fb55cee593576"
+    },
+    "P33": {
+      "page": "quotes-toscrape-com",
+      "url": "https://quotes.toscrape.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "quotes-toscrape-com.png",
+      "sha256": "5e07243d33f9261bd9a2ff7795258c91706d1f264e9dce6e987d3467cc26e130"
+    },
+    "P34": {
+      "page": "sweetalert2-github-io--open-a-sweetalert",
+      "url": "https://sweetalert2.github.io/",
+      "state": "open a sweetalert",
+      "kind": "demo",
+      "file": "sweetalert2-github-io--open-a-sweetalert.png",
+      "sha256": "235a2b168a39c527b97628d8c0011a57edf40c14918218daba0e09e1412bf140"
+    },
+    "P35": {
+      "page": "text-npr-org",
+      "url": "https://text.npr.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "text-npr-org.png",
+      "sha256": "ac85336007b67d11731a08866784a6d363c71089e77d12baf8eb8e790eba79ce"
+    },
+    "P36": {
+      "page": "the-internet-herokuapp-com",
+      "url": "https://the-internet.herokuapp.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "the-internet-herokuapp-com.png",
+      "sha256": "ed8dd09b16d7fd49ebf5be5f4e4a69abef80761fc63772490d2bf71d1c93acea"
+    },
+    "P37": {
+      "page": "the-internet-herokuapp-com-entry-ad",
+      "url": "https://the-internet.herokuapp.com/entry_ad",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "the-internet-herokuapp-com-entry-ad.png",
+      "sha256": "eda28bd3261518154a9a07d03265bf6eaca984a36d57e5a2e8d53cd70b4ef55e"
+    },
+    "P38": {
+      "page": "the-internet-herokuapp-com-login",
+      "url": "https://the-internet.herokuapp.com/login",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "the-internet-herokuapp-com-login.png",
+      "sha256": "93303bbbf2c8f0e12c75f4c04cdfc673b27655a746904040a75d41bc0bfc05c5"
+    },
+    "P39": {
+      "page": "todomvc-com-examples-react-dist--add-a-todo",
+      "url": "https://todomvc.com/examples/react/dist/",
+      "state": "add a todo",
+      "kind": "demo",
+      "file": "todomvc-com-examples-react-dist--add-a-todo.png",
+      "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a"
+    },
+    "P40": {
+      "page": "www-bbc-co-uk-news",
+      "url": "https://www.bbc.co.uk/news",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-bbc-co-uk-news.png",
+      "sha256": "99cb623b80cca9df7542d905161e856a9eb2b29184072f88a43e0351b9b46e2a"
+    },
+    "P41": {
+      "page": "www-gov-uk",
+      "url": "https://www.gov.uk/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-gov-uk.png",
+      "sha256": "0df6bd8e2808f4a5c6b1b5ba080b4b07985eb85eb7f567aa4b851423bbc0e7d3"
+    },
+    "P42": {
+      "page": "www-gov-uk-browse-benefits",
+      "url": "https://www.gov.uk/browse/benefits",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-gov-uk-browse-benefits.png",
+      "sha256": "12b35a52e6a19ab52933326087804a1e4696965c5d2258ad2c96926422e6cd9b"
+    },
+    "P43": {
+      "page": "www-nhs-uk",
+      "url": "https://www.nhs.uk/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-nhs-uk.png",
+      "sha256": "5d69ffe55bc789cf9c97728d8b353adf4d2d50be54343aa664db0af4f14ff8af"
+    },
+    "P44": {
+      "page": "www-pakrailways-gov-pk-train",
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "as it loads",
+      "kind": "target",
+      "file": "www-pakrailways-gov-pk-train.png",
+      "sha256": "c5f6fa32d5167a07bb1e31d577f13823ceb2d538e7b1a9b9c9a7ebab7c530d00"
+    },
+    "P45": {
+      "page": "www-pakrailways-gov-pk-train--open-the-calendar",
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "open the calendar",
+      "kind": "target",
+      "file": "www-pakrailways-gov-pk-train--open-the-calendar.png",
+      "sha256": "580d69f64c951eb0e572bab7437a4838a3baf4ed9b27c456e9f264fa1da6f858"
+    },
+    "P46": {
+      "page": "www-pakrailways-gov-pk-train--open-the-station-list",
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "open the station list",
+      "kind": "target",
+      "file": "www-pakrailways-gov-pk-train--open-the-station-list.png",
+      "sha256": "b64273081db3dab451e0584140ca159d41ef7877069e634f79c30fd82c14054b"
+    },
+    "P47": {
+      "page": "www-python-org",
+      "url": "https://www.python.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-python-org.png",
+      "sha256": "aaec659e575e2042855bd68a73901b5236463790c3ced67edde20514959337ce"
+    },
+    "P48": {
+      "page": "www-saucedemo-com",
+      "url": "https://www.saucedemo.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "www-saucedemo-com.png",
+      "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d"
+    },
+    "P49": {
+      "page": "www-spiegel-de",
+      "url": "https://www.spiegel.de/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-spiegel-de.png",
+      "sha256": "ea881e8e16be2b15e1e953a008d4207869cd70ac804313cdbdce9448ee719389"
+    },
+    "P50": {
+      "page": "www-theguardian-com-international",
+      "url": "https://www.theguardian.com/international",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "www-theguardian-com-international.png",
+      "sha256": "d8443d6898359b4df6d4f5945c328fd1a6708cc059a0943e3a03d659a8273d7a"
+    },
+    "P51": {
+      "page": "opensource-demo-orangehrmlive-com-web-index-php-auth-login",
+      "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "opensource-demo-orangehrmlive-com-web-index-php-auth-login.png",
+      "sha256": "890d75df7193910b662aca5da2fcf061cbb2141b293e9203985e09033cb53956",
+      "of": "P29"
+    },
+    "P52": {
+      "page": "todomvc-com-examples-react-dist--add-a-todo",
+      "url": "https://todomvc.com/examples/react/dist/",
+      "state": "add a todo",
+      "kind": "demo",
+      "file": "todomvc-com-examples-react-dist--add-a-todo.png",
+      "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a",
+      "of": "P39"
+    },
+    "P53": {
+      "page": "ant-design-components-modal--open-an-antd-modal",
+      "url": "https://ant.design/components/modal",
+      "state": "open an antd modal",
+      "kind": "demo",
+      "file": "ant-design-components-modal--open-an-antd-modal.png",
+      "sha256": "828b89749395fda9cc9f5c198ea77678886e9ba3f35bad280c5744f94b92cb84",
+      "of": "P07"
+    },
+    "P54": {
+      "page": "news-ycombinator-com",
+      "url": "https://news.ycombinator.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "file": "news-ycombinator-com.png",
+      "sha256": "8288aa4414326d0289e6621842c0c1634fe795add4c86eb8ac566944028ce3b2",
+      "of": "P28"
+    },
+    "P55": {
+      "page": "www-saucedemo-com",
+      "url": "https://www.saucedemo.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "file": "www-saucedemo-com.png",
+      "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d",
+      "of": "P48"
+    }
+  },
+  "orders": {
+    "A": [
+      "P27",
+      "P14",
+      "P29",
+      "P21",
+      "P11",
+      "P40",
+      "P26",
+      "P06",
+      "P39",
+      "P24",
+      "P32",
+      "P51",
+      "P33",
+      "P31",
+      "P08",
+      "P03",
+      "P22",
+      "P18",
+      "P52",
+      "P02",
+      "P42",
+      "P49",
+      "P25",
+      "P05",
+      "P46",
+      "P30",
+      "P28",
+      "P41",
+      "P43",
+      "P47",
+      "P34",
+      "P48",
+      "P17",
+      "P10",
+      "P36",
+      "P07",
+      "P20",
+      "P37",
+      "P13",
+      "P45",
+      "P09",
+      "P35",
+      "P53",
+      "P01",
+      "P54",
+      "P55",
+      "P50",
+      "P15",
+      "P16",
+      "P04",
+      "P12",
+      "P19",
+      "P38",
+      "P23",
+      "P44"
+    ],
+    "B": [
+      "P44",
+      "P23",
+      "P38",
+      "P19",
+      "P12",
+      "P04",
+      "P16",
+      "P15",
+      "P50",
+      "P55",
+      "P54",
+      "P01",
+      "P53",
+      "P35",
+      "P09",
+      "P45",
+      "P13",
+      "P37",
+      "P20",
+      "P07",
+      "P36",
+      "P10",
+      "P17",
+      "P48",
+      "P34",
+      "P47",
+      "P43",
+      "P41",
+      "P28",
+      "P30",
+      "P46",
+      "P05",
+      "P25",
+      "P49",
+      "P42",
+      "P02",
+      "P52",
+      "P18",
+      "P22",
+      "P03",
+      "P08",
+      "P31",
+      "P33",
+      "P51",
+      "P32",
+      "P24",
+      "P39",
+      "P06",
+      "P26",
+      "P40",
+      "P11",
+      "P21",
+      "P29",
+      "P14",
+      "P27"
+    ]
+  },
+  "questions": {
+    "consent": {
+      "title": "Do you agree to take part?",
+      "help": "This is part of a final-year university project on making websites easier to use. You will see 55 pictures of web pages and rate each one from 1 to 7. It takes about 15 minutes. We do not ask for your name or email address: we record only your answers, the time you send them, and the three questions on the next page. Your answers are used to train and test the project's software and may be reported in summary in the project's write-up. You must be 18 or over. You can stop at any time by closing this page, and nothing is sent.",
+      "yes": "Yes, I agree to take part",
+      "no": "No"
+    },
+    "device": {
+      "title": "What are you using to fill in this form?",
+      "choices": {
+        "laptop": "Laptop",
+        "desktop": "Desktop computer",
+        "phone": "Phone"
+      }
+    },
+    "age": {
+      "title": "What is your age range?",
+      "choices": [
+        "18-24",
+        "25-34",
+        "35-44",
+        "45-54",
+        "55-64",
+        "65 or over",
+        "Prefer not to say"
+      ]
+    },
+    "computing": {
+      "title": "Do you study or work in computing?",
+      "choices": {
+        "yes": "Yes",
+        "no": "No"
+      }
+    },
+    "rating": {
+      "title": "How overwhelming would this page be to use?",
+      "help": "Imagine you had to use this page to get something done. Go with your first impression; there are no right answers.",
+      "low": "Not at all",
+      "high": "Extremely",
+      "scale": [
+        1,
+        7
+      ]
+    }
+  },
+  "rating_title": "{question} [{name}]",
+  "exported_at": "2026-10-22T23:34:00+05:00"
+}

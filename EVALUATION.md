@@ -1546,6 +1546,12 @@ makes about verification should be read with that boundary attached.
 
 ## Known limitations
 
+- **Ratings are collected online as well as in person** (2026-10-22). Online
+  raters see each picture at about half size, with nobody supervising, in one
+  of two fixed orders (form A, or B, its reverse). Their rows say
+  `"online": true` and which form; a trained result should be checked with
+  and without them (DECISIONS.md, *Ratings are collected online*; *Two
+  forms*).
 - **These numbers come from a free-tier model.** `gemini-3.1-flash-lite` was
   chosen because it was the strongest model whose free quota allowed ten runs,
   not because it is the right model for the project. Treat every figure here
@@ -6143,3 +6149,55 @@ home screen after the reset, and no reset kept for a backend that was not
 there. **With it:** 2 passed (53.8s). The store and vault units
 (`test_replay.py`, `test_vault.py`) and the files around them (tiles, reset,
 own tiles, short labels): **63 passed** in 264s, on battery.
+
+## 2026-10-22 — ratings collected online: the form, and its answers read back
+
+`feat/rating-online`. **No ratings were collected; nothing here is a result
+about pages.** What was measured is that the instrument is built and that its
+answers reach training.
+
+- **Export** (`python -m tools.rating.export_form`): 55 pictures, 5.5 MB in
+  all, every one checked against its sha256 in `data/rating/pages.json` (run
+  `58dc053cdac7`). The repeats and how far each comes after its first
+  showing: P51 = P29 (positions 3 → 12), P52 = P39 (9 → 19), P53 = P07
+  (36 → 43), P54 = P28 (27 → 45), P55 = P48 (32 → 46): gaps of 7 to 18.
+- **Converter, on a synthetic 12-response CSV against the real mapping** (to
+  `.scratch/`, deleted after): 1 dropped for not agreeing, 2 for phones, **9
+  usable**, 495 rows, and `train.py` refused at 9 raters as it should. With
+  two more usable responses, 11 raters: all 50 pages paired with a current
+  picture and features from the same run, 55 repeat pairs, and R² −0.019 ±
+  0.018. That is correct for random answers, and shows only that the pipeline
+  runs.
+- **Tests**: 13 new in `tools/rating/test_form.py`; with the rating tool's and
+  training's own, 66 passed in 45.8s.
+- **The form itself has not been run.** Apps Script cannot be run from this
+  machine; `make_form.gs` is untested until it is run in Google, and the
+  README's step 4 is the check.
+
+**Limitations of online ratings**, in full in DECISIONS.md (*Ratings are
+collected online*): the pictures are seen at about half size; nobody
+supervises, and no time per answer is recorded; one fixed order for every
+online rater; the same five repeats for everyone; and the device is
+self-reported. Any trained result should say how many of its raters were
+online (`"online": true`), and should be checked with and without them.
+
+## 2026-10-22b — two rating forms, A and B reversed
+
+`feat/rating-two-orders`. **Still no ratings collected.**
+
+- **Export**: unchanged pictures and repeats; form A's order is the one in
+  2026-10-22, and B is its reverse. Every page and its repeat are as far apart
+  in B as in A: 9, 10, 7, 18 and 14 pictures.
+- **`make_form.gs`, run in Node against stand-ins for Google's `FormApp`,
+  `DriveApp` and `Logger`** (not Google itself), over the real exported
+  folder: each form has 171 items (consent, two page breaks, three
+  questions, then a page break, picture and 1–7 question for each of 55);
+  every question is required with bounds 1–7. Every picture sits directly
+  above the question naming it, and each form's order matches the mapping,
+  B exactly reversed. This checks the script's own logic, not that Google
+  accepts each call. A real run in Google is still the check (README step 4).
+  It also caught a JavaScript syntax error in a log line, made while editing,
+  before commit.
+- **Tests**: `tools/rating/test_form.py` 22 (was 13); with the rating tool's
+  and training's own, 75 passed in 41.7s. Training reads both forms' rows
+  together: 4 raters, 50 pages, 20 repeat pairs, every page from all 4.
