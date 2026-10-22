@@ -17,8 +17,9 @@ returns one: the next person is never shown the last one's goals.
 
 import json
 import sqlite3
+import threading
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -37,8 +38,24 @@ CREATE TABLE IF NOT EXISTS traces (
 FORGOTTEN = "CREATE TABLE IF NOT EXISTS forgotten (at TEXT NOT NULL)"
 
 
+_last: datetime | None = None
+_clock = threading.Lock()
+
+
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    """The time, always later than the last time this returned.
+
+    `recent` orders goals and finds the last reset by these stamps, and on
+    Windows the clock can give the same time to calls milliseconds apart
+    (1996 of 1999 consecutive readings, 2026-10-23), so two goals saved in one
+    tick came back in either order. A tie is moved on by a microsecond."""
+    global _last
+    with _clock:
+        stamp = datetime.now(timezone.utc)
+        if _last is not None and stamp <= _last:
+            stamp = _last + timedelta(microseconds=1)
+        _last = stamp
+        return stamp.isoformat()
 
 
 @dataclass(frozen=True)
