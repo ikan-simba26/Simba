@@ -6201,3 +6201,35 @@ online (`"online": true`), and should be checked with and without them.
 - **Tests**: `tools/rating/test_form.py` 22 (was 13); with the rating tool's
   and training's own, 75 passed in 41.7s. Training reads both forms' rows
   together: 4 raters, 50 pages, 20 repeat pairs, every page from all 4.
+
+## 2026-10-23 — `feat/personal` brought up to date and merged; a clock tie found
+
+`feat/personal` with `main` merged into it (`bc903c5`), every half on mains
+(the header of each run).
+
+**The first run: 1 failure.** Backend half 951 passed, 1 failed, 9 skipped
+(876s); frontend half 578 passed, 3 skipped (1220s); host fit test 3 passed
+(455s). The failure was
+`test_replay.py::test_a_reset_hides_what_came_before_from_the_home_screen_only`,
+which passed on 2026-10-18: two goals saved one after the other came back
+from `TraceStore.recent` oldest first.
+
+**The cause, measured.** `traces.now()` read `datetime.now()`, and on this
+machine 1996 of 1999 consecutive readings were identical. The clock moves in
+ticks of several milliseconds, so two saves in one tick tied on `created_at`
+and `ORDER BY created_at DESC` returned them in either order. The same
+sequence as the test, 200 times: **60 wrong**. The same tie would hide a goal
+saved in the reset's own tick, because the cutoff is a strict `>`. A person
+cannot finish a task within milliseconds of another, so the app was very
+unlikely to show it; the test, which saves back to back, did.
+
+**The fix** (`1e0689f`): `now()` never returns a time at or before the last
+one it gave; a tie moves on by a microsecond. New test: the clock stopped
+outright, the order and the reset both still right. After: **0 of 200**
+wrong, 0 of 1999 consecutive readings identical, and the stamps still sort
+as text in time order.
+
+**The rerun, after the fix**: backend half **953 passed, 9 skipped, 0
+failed** (941s); frontend half **578 passed, 3 skipped, 0 failed** (1245s);
+host fit test **3 passed** at 100%, 125% and 150% (455s). **1531 passed, 12
+skipped, 0 failed.** Merged into `main`.

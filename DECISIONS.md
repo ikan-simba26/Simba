@@ -5307,3 +5307,21 @@ are not assigned at random, only alternately.
   stops a run at six minutes.
 - **Raters see the same title on both forms;** only the file names in Drive
   ("SIMBA rating form A" and "B") differ.
+
+## The trace store's times never tie
+
+**Date:** 2026-10-23 (not asked for; found by the suite before merging
+`feat/personal`)
+
+**Decision.** `traces.now()` returns a time strictly later than the last one
+it returned in this process, moving a tie on by a microsecond. Windows' clock
+gave identical readings to calls milliseconds apart, and `recent` orders
+goals and finds the last reset by these times (EVALUATION.md, 2026-10-23).
+
+**Alternatives.** Break ties by `rowid` in `recent`: but a goal saved again
+keeps its old `rowid` (the save is an upsert), so a re-saved goal could still
+sort below one saved just before it. A sequence column: a schema change to
+every existing `traces.db` for the same result.
+
+**Cost.** A stored time can be up to a few microseconds later than the clock
+said, and only within one process; the backend is one process.

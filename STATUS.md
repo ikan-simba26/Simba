@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-18 · **1500 passing, 12 skipped, 0 failed** · backend 928 in 859s, frontend 572 in 1190s, as two halves, on mains, on `feat/personal` — **not merged** (`main` is at `cb68c82`, 1430 passing); and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), each host opening as for a new person. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
+**Last updated:** 2026-10-23 · **1531 passing, 12 skipped, 0 failed** · backend 953 in 941s, frontend 578 in 1245s, as two halves, every half on mains, on `feat/personal` brought up to date with `main` and **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), each host opening as for a new person. The first run of the same tree had 1 failure, a clock tie in the trace store, fixed before the rerun (EVALUATION.md, 2026-10-23). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
 
 ---
 
@@ -120,6 +120,22 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-10-23: `feat/personal` merged into `main`
+
+- **Brought up to date with `main`** (the two rating-form branches); only
+  STATUS, DECISIONS and EVALUATION conflicted, every side kept.
+- **The suite found a real defect on the branch**: the trace store's times
+  tied on Windows (1996 of 1999 consecutive clock readings identical), so two
+  goals saved in one tick came back from `recent` in either order, and the
+  reset test failed in 60 runs of 200. Fixed — a tie moves on a microsecond —
+  with a test that stops the clock outright; 0 of 200 after (EVALUATION.md,
+  2026-10-23).
+- **The suite, rerun on mains after the fix**: 1531 passed, 12 skipped, 0
+  failed (backend 953 in 941s, frontend 578 in 1245s); the host fit test 3/3.
+  Merged into `main` and pushed.
+- **Still needs the other owners**: the contract additions from
+  `feat/personal`, listed in HANDOVER.md, are now on `main`.
+
 ### Changed on 2026-10-22 (later): two rating forms — `feat/rating-two-orders`
 
 - **Two forms, A and B**, B showing the pictures in reverse order, each repeat
@@ -144,7 +160,7 @@ application's state (EVALUATION.md).
 - **Still no ratings.** The form has not been made in Google yet, so
   `make_form.gs` is untested.
 
-### Changed on 2026-10-18: SIMBA made for the person — `feat/personal`, not merged
+### Changed on 2026-10-18: SIMBA made for the person — `feat/personal`, merged 2026-10-23
 
 - **Getting to know you**: on first open, four short questions, each
   skippable — a name, which of three ways of showing a question feels
