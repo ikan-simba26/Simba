@@ -1,29 +1,35 @@
-"""The rating pictures as a Google Form's folder, for raters who cannot come in.
+"""The rating pictures as two Google Forms' folder, for raters who cannot come in.
 
     python -m tools.rating.export_form          # writes .scratch/rating-form/
 
-Writes `P01.png` to `P50.png`, one per rateable page in the order of their
-ids, and `P51.png` to `P55.png`, five of them again: the repeats. They are
-chosen the way a session chooses its two (`session.plan`), with five instead
-of two and a fixed seed, so everyone who fills in either form sees the same
-five again, each more than `MIN_GAP` pictures from its other showing.
+**Two sets of 30** (2026-10-23; DECISIONS.md, *Two sets of 30*). The 50
+rateable pages are split into Set 1 and Set 2, 25 each, alike in their
+features (`session.split`). Each set lends three of its pages — a calm one, a
+middling one and a heavy one (`session.anchors`) — to the other, so that both
+groups of raters rate those six pages and can be compared on them. With two
+repeats, a form is 25 + 3 + 2 = 30 pictures.
 
-**Two forms, each in a fixed order.** Google Forms cannot shuffle a picture
-together with its question when the form is made by a script, so each form
-shows one picture per page in a fixed order: form A in the order `plan`
-gives, form B in the reverse of it, so that whatever tiredness does late in
-a form falls on different pages in each (DECISIONS.md, *Ratings collected
-online*; *Two forms*). Reversing keeps every gap between a page and its
-repeat, but in B the name `P51` to `P55` is the first showing and the
-original the second; `from_form.py` takes whichever comes later as the
-repeat.
+Writes `P01.png` to `P50.png`, one per page in the order of their ids, then
+the repeats, `P51` and `P52` for Set 1 and `P53` and `P54` for Set 2, each a
+copy of one of the set's own pages (never an anchor) shown again at least
+`MIN_GAP` pictures later. An anchor keeps its own name in both forms. And
+`E1.png` and `E2.png`: the two worked examples shown before the first picture,
+neither of them among the 50 (`examples.py`).
+
+**Each form has one fixed order.** Google Forms cannot shuffle a picture
+together with its question when the form is made by a script, so each set's
+pictures are in an order fixed by a seed (`session.plan`). The A/B forms in
+reverse order (2026-10-22) are gone: a form of 30 leaves far less room for
+tiredness to fall on the same pages.
 
 Beside the pictures: `mapping.json` — which page each name is, the hash of the
-exact picture, both forms' orders, and the wording of every question — which
-`make_form.gs` reads to build the form and `from_form.py` reads to turn its
-answers back into rows. The same mapping is written to `data/rating/form.json`,
-which is committed, so the answers stay readable when `.scratch/` is gone.
-`make_form.gs` and `README.md` are copied in from `tools/rating/form/`.
+exact picture, the two sets, each form's order, how alike the sets are, the
+examples, and the wording of every question — which `make_form.gs` reads to
+build the forms, `from_form.py` reads to turn their answers back into rows,
+and the in-person tool reads for its sets (`serve.py`). The same mapping is
+written to `data/rating/form.json`, which is committed, so the answers stay
+readable when `.scratch/` is gone. `make_form.gs` and `README.md` are copied
+in from `tools/rating/form/`.
 """
 
 from __future__ import annotations
@@ -32,34 +38,41 @@ import argparse
 import hashlib
 import json
 import shutil
+import statistics
+import sys
 from datetime import datetime
 from pathlib import Path
 
-from tools.rating.serve import MANIFEST, QUESTION, SCALE
-from tools.rating.session import MIN_GAP, plan
+from backend.estimator.train import CORPUS, ENVIRONMENT, FEATURES
+from tools.rating import examples as worked
+from tools.rating.serve import LABELS, MANIFEST, QUESTION, SCALE
+from tools.rating.session import (ANCHORS, MIN_GAP, REPEATS, SETS, anchors, feature_ranks,
+                                  heaviness, imbalance, plan, split)
 
 REPO = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 OUT = REPO / ".scratch" / "rating-form"
 RECORD = REPO / "data" / "rating" / "form.json"
-REPEATS = 5
-#: Fixed, so the forms' orders and repeats can be made again from the manifest.
-SEED = 20261022
+#: Fixed, so the sets, orders and repeats can be made again from the manifest.
+SEED = 20261023
+PICTURES_PER_FORM = 30
 
-#: Every question the form asks, in the words it asks them. `make_form.gs`
-#: builds the form from these, and `from_form.py` finds the answers by them.
+#: Every question the forms ask, in the words they ask them. `make_form.gs`
+#: builds the forms from these, and `from_form.py` finds the answers by them.
 QUESTIONS = {
+    "intro": ("About 5-7 minutes. Please fill this in on a laptop or desktop computer, "
+              "not a phone: the pictures are too small on a phone to judge."),
     "consent": {
         "title": "Do you agree to take part?",
         "help": ("This is part of a final-year university project on making websites "
-                 "easier to use. You will see 55 pictures of web pages and rate each "
-                 "one from 1 to 7. It takes about 15 minutes. We do not ask for your "
-                 "name or email address: we record only your answers, the time you "
-                 "send them, and the three questions on the next page. Your answers "
-                 "are used to train and test the project's software and may be "
-                 "reported in summary in the project's write-up. You must be 18 or "
-                 "over. You can stop at any time by closing this page, and nothing "
-                 "is sent."),
+                 "easier to use. You will see 30 pictures of web pages and answer one "
+                 "question about each, choosing one of five answers. It takes about 5-7 "
+                 "minutes. We do not ask for your name or email address: we record only "
+                 "your answers, the time you send them, and the three questions on the "
+                 "next page. Your answers are used to train and test the project's "
+                 "software and may be reported in summary in the project's write-up. "
+                 "You must be 18 or over. You can stop at any time by closing this "
+                 "page, and nothing is sent."),
         "yes": "Yes, I agree to take part",
         "no": "No",
     },
@@ -76,11 +89,18 @@ QUESTIONS = {
         "title": "Do you study or work in computing?",
         "choices": {"yes": "Yes", "no": "No"},
     },
+    "examples": {
+        "title": "Two examples first",
+        "help": ("For each picture, imagine you had to use that page to get something "
+                 "done, and choose the answer that fits. Here are two pages that are not "
+                 "in the form, with the answer we would give."),
+        "answer": "Answer: {label}.",
+    },
     "rating": {
         "title": QUESTION,
         "help": ("Imagine you had to use this page to get something done. Go with your "
                  "first impression; there are no right answers."),
-        "low": "Not at all", "high": "Extremely", "scale": list(SCALE),
+        "labels": list(LABELS), "scale": list(SCALE),
     },
 }
 #: The rating question's title in the form: the question, then the picture's
@@ -110,51 +130,102 @@ def rateable(manifest: Path) -> list[dict]:
     return pages
 
 
-def mapping(manifest: Path = MANIFEST, seed: int = SEED, repeats: int = REPEATS) -> dict:
-    """Which page each name is, the order each form shows them in, and the questions.
+def features_of(pages: list[dict], corpus: Path) -> dict[str, dict[str, float]]:
+    """Each page's nine features, from the corpus run its picture came from."""
+    data = json.loads(corpus.read_text(encoding="utf-8"))
+    rows = {(r["url"], r["state"]): r for r in data["results"][ENVIRONMENT]
+            if "error" not in r}
+    found: dict[str, dict[str, float]] = {}
+    for page in pages:
+        row = rows.get((page["url"], page["state"]))
+        if row is None or row.get("run") != page.get("run"):
+            raise ExportRefused(f"{page['id']} has no {ENVIRONMENT} features from its "
+                                f"picture's run in {corpus}; recapture with "
+                                f"python -m tools.rating.capture")
+        found[page["id"]] = {name: float(row[name]) for name in FEATURES}
+    return found
 
-    A name from `P51` up carries `of`: the name of the same page's first
-    picture. Which of the two a rater saw first depends on their form."""
+
+def mapping(manifest: Path = MANIFEST, corpus: Path = CORPUS, seed: int = SEED,
+            examples: list[dict] | None = None) -> dict:
+    """Which page each name is, the two sets, each form's order, and the questions.
+
+    A name from `P51` up carries `of`: the name of the same page's own picture."""
     pages = rateable(manifest)
-    if not pages:
-        raise ExportRefused(f"no rateable pages in {manifest}")
-    by_id = {row["id"]: row for row in pages}
+    if len(pages) < 2 * (ANCHORS + REPEATS + 1):
+        raise ExportRefused(f"only {len(pages)} rateable pages in {manifest}")
+    features = features_of(pages, corpus)
+    heavy = heaviness(features)
     names = {row["id"]: f"P{n:02d}" for n, row in enumerate(pages, start=1)}
     pictures: dict[str, dict] = {}
-    for page_id, name in names.items():
-        row = by_id[page_id]
-        pictures[name] = {"page": page_id, "url": row["url"], "state": row["state"],
-                          "kind": row["kind"], "file": row["file"],
-                          "sha256": row["sha256"]}
-    order: list[str] = []
-    for item in plan(sorted(by_id), seed, repeats=repeats):
-        if not item["repeat"]:
-            order.append(names[item["page"]])
-            continue
-        name = f"P{len(pictures) + 1:02d}"
-        pictures[name] = {**pictures[names[item["page"]]], "of": names[item["page"]]}
-        order.append(name)
+    for row in pages:
+        pictures[names[row["id"]]] = {
+            "page": row["id"], "url": row["url"], "state": row["state"],
+            "kind": row["kind"], "file": row["file"], "sha256": row["sha256"],
+            "heaviness": round(heavy[row["id"]], 3)}
+
+    groups = split(features, seed, {row["id"]: row["kind"] for row in pages})
+    lends = {s: anchors(groups[s], heavy) for s in SETS}
+    sets: dict[str, dict] = {}
+    orders: dict[str, list[str]] = {}
+    for s in SETS:
+        other = SETS[1] if s == SETS[0] else SETS[0]
+        shown = groups[s] + lends[other]
+        repeatable = set(groups[s]) - set(lends[s])
+        order: list[str] = []
+        repeats: list[str] = []
+        for item in plan(sorted(shown), seed + s, repeats=REPEATS, repeatable=repeatable):
+            if not item["repeat"]:
+                order.append(names[item["page"]])
+                continue
+            name = f"P{len(pictures) + 1:02d}"
+            pictures[name] = {**pictures[names[item["page"]]], "of": names[item["page"]]}
+            order.append(name)
+            repeats.append(name)
+        sets[str(s)] = {"own": sorted(names[p] for p in groups[s]),
+                        "lends": [names[p] for p in lends[s]],
+                        "anchors": [names[p] for p in lends[other]],
+                        "repeats": repeats}
+        orders[str(s)] = order
+
+    ranks = feature_ranks(features)
+    balance = {name: [round(statistics.mean(features[p][name] for p in groups[s]), 3)
+                      for s in SETS] for name in FEATURES}
     data = json.loads(manifest.read_text(encoding="utf-8"))
+    if examples is None:
+        examples = worked.read(folder=manifest.parent / "examples",
+                               record=manifest.parent / "examples.json")
     return {
         "made_by": "python -m tools.rating.export_form",
         "run": data.get("run", {}).get("id"),
-        "seed": seed, "repeats": repeats, "min_gap": MIN_GAP,
-        "pictures": pictures, "orders": {"A": order, "B": order[::-1]},
+        "seed": seed, "repeats": REPEATS, "anchors": ANCHORS, "min_gap": MIN_GAP,
+        "pictures": pictures, "sets": sets, "orders": orders,
+        "balance": {"largest_rank_difference": round(imbalance(groups, ranks), 3),
+                    "means": balance},
+        "examples": [{"name": e["name"], "file": e["file"], "url": e["url"],
+                      "sha256": e["sha256"], "answer": e["answer"],
+                      "label": LABELS[e["answer"] - SCALE[0]], "says": e["says"]}
+                     for e in examples],
         "questions": QUESTIONS, "rating_title": RATING_TITLE,
     }
 
 
 def export(out: Path = OUT, manifest: Path = MANIFEST, record: Path | None = RECORD,
-           seed: int = SEED) -> dict:
-    """Write the pictures, the mapping, the form script and its instructions."""
-    made = mapping(manifest, seed)
+           seed: int = SEED, corpus: Path = CORPUS) -> dict:
+    """Write the pictures, the examples, the mapping, the form script and its
+    instructions."""
+    examples = worked.read(folder=manifest.parent / "examples",
+                           record=manifest.parent / "examples.json")
+    made = mapping(manifest, corpus, seed, examples)
     made["exported_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
     out.mkdir(parents=True, exist_ok=True)
-    for stale in out.glob("P*.png"):
+    for stale in [*out.glob("P*.png"), *out.glob("E*.png")]:
         stale.unlink()
     images = manifest.parent / "pages"
     for name, picture in made["pictures"].items():
         shutil.copyfile(images / picture["file"], out / f"{name}.png")
+    for example in examples:
+        shutil.copyfile(example["path"], out / example["file"])
     text = json.dumps(made, indent=2, ensure_ascii=False) + "\n"
     (out / "mapping.json").write_text(text, encoding="utf-8")
     for name in ("make_form.gs", "README.md"):
@@ -165,18 +236,23 @@ def export(out: Path = OUT, manifest: Path = MANIFEST, record: Path | None = REC
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=OUT)
     args = parser.parse_args()
     try:
         made = export(args.out)
-    except ExportRefused as reason:
+    except (ExportRefused, worked.ExamplesMissing) as reason:
         print(f"Not exported: {reason}")
         raise SystemExit(2) from None
-    repeats = [f"{n} = {p['of']}" for n, p in made["pictures"].items() if "of" in p]
-    print(f"{len(made['pictures'])} pictures in {args.out} "
-          f"({len(made['pictures']) - len(repeats)} pages, repeats {', '.join(repeats)})")
-    print(f"mapping also written to {RECORD.relative_to(REPO)}")
+    for s, chosen in made["sets"].items():
+        repeats = ", ".join(f"{n} = {made['pictures'][n]['of']}" for n in chosen["repeats"])
+        print(f"Set {s}: {len(made['orders'][s])} pictures — {len(chosen['own'])} own, "
+              f"anchors {', '.join(chosen['anchors'])}, repeats {repeats}")
+    print(f"sets alike within {made['balance']['largest_rank_difference']} of a rank "
+          f"on every feature; examples {', '.join(e['file'] for e in made['examples'])}")
+    print(f"{len(made['pictures'])} pictures in {args.out}; mapping also written to "
+          f"{RECORD.relative_to(REPO)}")
 
 
 if __name__ == "__main__":

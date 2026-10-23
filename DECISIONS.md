@@ -5202,7 +5202,8 @@ is then their own words.
 ## Ratings are collected online, with a Google Form
 
 **Date:** 2026-10-22 (asked for, by Raham; the form's order chosen by Raham
-the same day)
+the same day). The 55 pictures, the 1–7 scale and the five repeats were
+replaced on 2026-10-23 by *Two sets of 30* below; the rest still holds.
 
 **Decision.** Ratings for the estimator are collected remotely, with a Google
 Form, instead of only in person with `tools/rating/serve.py`. The 50 pictures
@@ -5270,7 +5271,8 @@ supervision, but not enough raters before the feature freeze.
 
 ## Two forms, A and B, the second in reverse order
 
-**Date:** 2026-10-22 (asked for, by Raham)
+**Date:** 2026-10-22 (asked for, by Raham). **Replaced on 2026-10-23** by
+*Two sets of 30* below, before any rating was collected.
 
 **Decision.** `make_form.gs` builds two forms: A in the order the export
 fixed, B in the reverse of it. Half the raters get each link, alternating.
@@ -5325,3 +5327,126 @@ every existing `traces.db` for the same result.
 
 **Cost.** A stored time can be up to a few microseconds later than the clock
 said, and only within one process; the backend is one process.
+
+## Two sets of 30: a shorter, clearer rating form
+
+**Date:** 2026-10-23 (asked for, by Raham; the anchors' arrangement, where the
+worked examples come from and the cluttered example's answer chosen by Raham
+the same day). Replaces *Two forms, A and B* and the 1–7 scale. No rating had
+been collected, so nothing was converted.
+
+**Decision.** Online and in person alike:
+
+- **Two sets.** The 50 pages are split into Set 1 and Set 2, 25 each, with a
+  similar spread of calm and heavy pages (below). Each set also shows three
+  pages of the other, the **anchors**, and two of its own pages again, the
+  **repeats**: 25 + 3 + 2 = **30 pictures** per rater, where it was 55 online
+  and 52 in person. Two Google Forms, Set 1 and Set 2; in person, odd rater
+  numbers rate Set 1 and even Set 2.
+- **One fully labelled five-point question:** "How overwhelming does this page
+  feel?" — Not at all / A little / Somewhat / Very / Extremely (1–5). It was
+  "How overwhelming would this page be to use?", 1–7 with only the ends named.
+- **Two worked examples before the first picture**, neither among the 50, one
+  sentence each with its answer: GOV.UK's bank holidays page ("One clear
+  heading, a few links and plenty of space." Not at all) and Newegg's front
+  page under a sale pop-up ("A pop-up covers a crowded shop page full of menus
+  and offers." Very).
+- **"About 5-7 minutes" at the top** and a progress bar, on the forms and on
+  the in-person page.
+- **Training needs at least 8 ratings on every page**, each from a different
+  rater, instead of 10 raters overall, and says how many more ratings, and
+  raters of each set, are needed when it refuses. Agreement is measured on the
+  incomplete table, and the anchors check whether the two groups rate alike.
+
+**Why.** Shorter: 30 pictures, not 55, is the largest cut in a rater's time,
+and the time a form says it takes is what decides whether someone starts it
+and finishes it. Clearer: every answer has its words, so nobody has to guess
+what a 3 or a 5 meant; the examples show the two ends before anything counts;
+"does this page feel" asks for the first impression the instructions already
+asked for. Less drop-out: a short form, its length said up front, and a bar
+that shows how far there is to go. *None of this was measured: no one has
+filled in either form yet.* The 5-7 minutes is an estimate (30 pictures at
+about ten seconds each, plus the questions), to be checked against the first
+in-person sessions, whose rows carry each answer's time.
+
+**What it costs.**
+
+- **Each page gets half the raters.** 8 ratings on every page takes 16 usable
+  raters, 8 per set — more people than the 10 the old floor needed, for less of
+  each person's time (480 ratings in all, against 520). The anchors get
+  everyone's.
+- **A page's mean comes from one group.** If Set 2's raters happen to rate
+  everything higher, Set 2's pages read heavier for a reason that is not the
+  page. The six anchors measure this; it is reported, not corrected (below).
+- **Five points are coarser than seven.** One rating carries less, and
+  rounding to five adds error of its own: synthetic raters with the same noise
+  relative to the scale agree less on 1–5 (alpha 0.70) than the old test
+  required on 1–7 (above 0.7; the threshold is now 0.6). Averaging eight
+  ratings is what recovers it.
+- **The floor is lower, relative to the scale.** With 8 ratings one answer of
+  5 instead of 1 moves a page's mean by half a point, an eighth of the scale;
+  with 10 on 1–7 one answer of 7 instead of 1 moved it by 0.6, a tenth.
+- **Each set's raters see different neighbours.** A page can look calmer
+  after a heavy one. The balanced split keeps the two sets' spreads alike;
+  it cannot make the sequences alike.
+- **One order per set for every online rater** (Google Forms cannot shuffle a
+  picture with its question). The A/B reversal is dropped: in a form of 30,
+  tiredness late on is much less of a concern than in one of 55. In person the
+  order is still random per session.
+- **Six anchors, not three.** 25 + 3 + 2 with 50 pages needs each set's three
+  anchors to come from the other set, so six pages are anchors in all. Raham
+  chose this over three shared pages with forms of 28–29, or three extra
+  pages outside the 50 that training could not use.
+
+**Decisions inside it (not asked for):**
+
+- **How the split is made** (`session.split`). Each of the nine features is
+  turned into ranks (0 to 1), because they are skewed — `links` runs from 0
+  to 715 — and a mean of raw values would be decided by a few pages. A page's
+  *heaviness* is its mean rank. Pages are sorted by heaviness and taken in
+  pairs, one of each pair to each set, so both sets run from calm to heavy;
+  which way each pair goes is tried 4,000 times with a fixed seed, keeping the
+  assignment whose worst feature differs least between the sets, with an
+  uneven count of a kind (ours, target, public, demo) breaking near-ties.
+  *Result:* the sets' mean ranks differ by at most 0.023 on any feature; 2,000
+  random halvings of the same pages have a median of 0.133 and none below
+  0.042 (EVALUATION.md, 2026-10-23b). *Cost:* balanced by rank, not by raw
+  value — `interactive` averages 32.4 in Set 1 and 17.7 in Set 2, and
+  `form_fields` 1.76 and 3.24, because a few pages hold most of either.
+- **Which pages are anchors.** In each set, the pages a sixth, a half and five
+  sixths of the way up its heaviness: Set 1 lends demo.applitools.com, Hacker
+  News and Bootstrap's open modal; Set 2 lends danluu.com, lite.cnn.com and
+  the live railway site with its calendar open. An anchor is never repeated,
+  so every rater answers each once.
+- **Repeats are of the set's own pages**, never an anchor; online they are
+  fixed by the seed (gaps of 10 to 19 pictures), in person random per session
+  as before.
+- **"Alike" is a mean anchor difference under 0.5** (an eighth of the scale)
+  **and a Mann–Whitney U on each rater's anchor mean not below 0.05.** It is
+  reported in the training section, and training goes on either way. *Cost:*
+  with 8 raters a set the test has little power, so the 0.5 does most of the
+  work, and 0.5 is a guess.
+- **In-person raters are numbered 1 to 4,999** (was 9,999), so they never meet
+  the online numbers (Set 1 from 5,001, Set 2 from 6,001). The set follows the
+  number: odd Set 1, even Set 2, so raters numbered in turn alternate. *Cost:*
+  numbering out of turn unbalances the sets; the converter's summary shows
+  how far each set is from enough.
+- **Rows carry `set` (1 or 2) and `anchor`**, in place of `form` ("A"/"B").
+- **The 8 are counted on the pages training can use**: a current picture with
+  features from its run. A page whose only ratings were of an earlier picture
+  needs new ones and is counted as short.
+- **Where the examples come from.** Live pages, photographed once, read-only,
+  the way the 50 are (`python -m tools.rating.examples`); the pictures are not
+  committed and their hashes are (`data/rating/examples.json`). GOV.UK's
+  cookie banner covered a third of the calm page, so the capture presses
+  "Reject additional cookies" and "Hide cookie message" first. CNN's front
+  page was tried first for the cluttered one and was full of politics;
+  timeanddate.com looked "Somewhat", Arngren is in Norwegian and arguably
+  "Extremely", Yahoo was full of politics too, and eight more were blocked,
+  blank or failed to load. Newegg was taken as it came, pop-up and all. The two sentences are mine, written
+  against the pictures.
+- **The consent text now says 30 pictures, five answers and 5-7 minutes**;
+  still not checked against the university's ethics requirements.
+- **The in-person page's answer buttons put the number beside the words**,
+  so they stay one line and the picture keeps its size: 598px wide in a
+  1266x606 window.

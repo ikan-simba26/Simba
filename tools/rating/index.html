@@ -39,25 +39,35 @@
   .picture img { max-width: 100%; max-height: 100%; border: 1px solid var(--line); border-radius: 8px;
                  box-shadow: 0 10px 30px -8px rgb(60 38 16 / .2); background: #fff; }
   .top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
-  .scale { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
   .scale button { background: var(--surface); border: 2px solid var(--line); border-radius: 14px;
-                  font-size: 28px; font-weight: 600; padding: 10px 0; color: var(--ink); }
+                  font-size: 22px; font-weight: 600; padding: 10px 6px; color: var(--ink);
+                  display: flex; justify-content: center; align-items: baseline; gap: 10px; }
+  .scale button .key { font-size: 15px; font-weight: 400; color: var(--soft); }
   .scale button:hover:not(:disabled) { border-color: var(--accent); background: var(--tint); }
   .scale button:disabled { opacity: .45; cursor: default; }
-  .ends { display: flex; justify-content: space-between; font-size: 18px; color: var(--soft); }
+  .bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .examples figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  /* Small enough that both examples and the button fit a 1266x606 window. */
+  .examples img { max-width: 100%; max-height: 36vh; width: auto; height: auto; align-self: flex-start;
+                  border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .examples .answer { font-weight: 600; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
   <!-- 1. Who is rating -->
-  <section id="start" class="card" style="display:flex;flex-direction:column;gap:20px">
+  <section id="start" class="card" style="display:flex;flex-direction:column;gap:14px">
     <h1>Rating web pages</h1>
-    <p>You will see pictures of web pages, one at a time. For each one, imagine you
+    <p><strong>About 5-7 minutes.</strong></p>
+    <p>You will see 30 pictures of web pages, one at a time. For each one, imagine you
        had to use that page to get something done, and answer one question:</p>
-    <p><strong>How overwhelming would this page be to use?</strong></p>
-    <p class="soft">Answer from 1 (not at all overwhelming) to 7 (extremely overwhelming),
-       by pressing a number on the screen or on the keyboard. Go with your first
+    <p><strong>How overwhelming does this page feel?</strong></p>
+    <p class="soft">Choose one of five answers, from "Not at all" to "Extremely", by
+       pressing it on the screen or its number on the keyboard. Go with your first
        impression — there are no right answers. Some pages may come up more than once.</p>
     <label>Your rater number
       <input id="rater" inputmode="numeric" autocomplete="off" autofocus>
@@ -66,19 +76,28 @@
     <button id="begin" class="primary" type="button">Begin</button>
   </section>
 
-  <!-- 2. One page -->
+  <!-- 2. Two worked examples, neither of them among the pages rated -->
+  <section id="examples" class="card" hidden style="display:flex;flex-direction:column;gap:16px;padding:24px 32px">
+    <h1>Two examples first</h1>
+    <p class="soft">These two pages are not among the ones you will rate. Here is the
+       answer we would give each.</p>
+    <div class="examples" id="example-list"></div>
+    <button id="go" class="primary" type="button">Start rating</button>
+  </section>
+
+  <!-- 3. One page -->
   <section id="rate" hidden style="display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
     <div class="top">
       <h1 id="question"></h1>
       <span id="progress" class="soft" aria-live="polite"></span>
     </div>
+    <div class="bar" role="progressbar" aria-label="Progress" aria-valuemin="0" id="bar"><div></div></div>
     <div class="picture"><img id="shot" alt="A web page"></div>
-    <div class="scale" id="scale" role="group" aria-label="Your answer, 1 to 7"></div>
-    <div class="ends"><span>1 — not at all overwhelming</span><span>7 — extremely overwhelming</span></div>
+    <div class="scale" id="scale" role="group" aria-label="Your answer"></div>
     <p id="rate-error" class="error" role="alert"></p>
   </section>
 
-  <!-- 3. Done -->
+  <!-- 4. Done -->
   <section id="done" class="card" hidden>
     <h1>Thank you — that's all of them.</h1>
     <p class="soft" id="done-note"></p>
@@ -88,7 +107,7 @@
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-let session = null, items = [], index = 0, shownAt = null, busy = false;
+let session = null, items = [], index = 0, shownAt = null, busy = false, scale = [1, 5];
 
 async function post(path, body) {
   const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -106,18 +125,38 @@ $("begin").onclick = async () => {
   }
   try {
     const started = await post("/api/session", { rater: Number(value) });
-    session = started.session; items = started.items;
+    session = started.session; items = started.items; scale = started.scale;
     $("question").textContent = started.question;
-    for (let n = started.scale[0]; n <= started.scale[1]; n++) {
+    $("bar").setAttribute("aria-valuemax", String(items.length));
+    started.labels.forEach((label, i) => {
+      const n = started.scale[0] + i;
       const button = document.createElement("button");
-      button.type = "button"; button.textContent = n; button.dataset.rating = n;
+      button.type = "button"; button.dataset.rating = n;
+      const words = document.createElement("span"); words.textContent = label;
+      const key = document.createElement("span"); key.className = "key"; key.textContent = n;
+      button.append(words, key);
       button.onclick = () => answer(n);
       $("scale").append(button);
+    });
+    for (const example of started.examples) {
+      const figure = document.createElement("figure");
+      const img = document.createElement("img"); img.src = example.image; img.alt = "An example web page";
+      const says = document.createElement("p"); says.textContent = example.says;
+      const answer = document.createElement("p"); answer.className = "answer";
+      answer.textContent = `Answer: ${example.label}.`;
+      figure.append(img, says, answer);
+      $("example-list").append(figure);
     }
-    $("start").hidden = true; $("rate").hidden = false;
-    show();
+    $("start").hidden = true;
+    if (started.examples.length) { $("examples").hidden = false; $("go").focus(); }
+    else begin();
   } catch (error) { $("start-error").textContent = error.message; }
 };
+function begin() {
+  $("examples").hidden = true; $("rate").hidden = false;
+  show();
+}
+$("go").onclick = begin;
 $("rater").addEventListener("keydown", (event) => { if (event.key === "Enter") $("begin").click(); });
 
 function lock(locked) {
@@ -128,7 +167,9 @@ function lock(locked) {
 async function show() {
   lock(true); shownAt = null;
   const item = items[index];
-  $("progress").textContent = `Page ${index + 1} of ${items.length}`;
+  $("progress").textContent = `Picture ${index + 1} of ${items.length}`;
+  $("bar").firstElementChild.style.width = `${(100 * index) / items.length}%`;
+  $("bar").setAttribute("aria-valuenow", String(index));
   const img = $("shot");
   img.src = item.image;
   try { await img.decode(); } catch (_) { /* shown anyway; the clock still starts on paint */ }
@@ -170,7 +211,7 @@ async function answer(rating) {
 document.addEventListener("keydown", (event) => {
   if ($("rate").hidden) return;
   const n = Number(event.key);
-  if (Number.isInteger(n) && n >= 1 && n <= 7) answer(n);
+  if (Number.isInteger(n) && n >= scale[0] && n <= scale[1]) answer(n);
 });
 </script>
 </body>
