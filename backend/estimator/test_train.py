@@ -22,7 +22,7 @@ from backend.estimator import train as pipeline
 from backend.estimator.train import (
     EVALUATION,
     FEATURES,
-    MIN_RATERS,
+    MIN_RATINGS,
     MODEL,
     Rating,
     RefusedToTrain,
@@ -30,10 +30,12 @@ from backend.estimator.train import (
     krippendorff_alpha_interval,
     page_means,
     read_corpus,
+    read_design,
     read_ratings,
     report,
     run,
     save_model,
+    shortfall,
     train,
     write_evaluation,
 )
@@ -66,40 +68,61 @@ def synthetic_corpus(pages: int = 50, seed: int = 1) -> dict:
 
 def truth(row: dict) -> float:
     """The rule synthetic raters follow: dense text and many links overwhelm.
-    On a 1-7 scale; nothing else matters."""
-    return 1.0 + 1.2 * row["text_density"] + 0.006 * row["links"]
+    On the 1-5 scale; nothing else matters."""
+    return 1.0 + 0.7 * row["text_density"] + 0.004 * row["links"]
 
 
-def synthetic_ratings(corpus: dict, raters: int = 12, noise: float = 0.6,
-                      signal: bool = True, repeats: int = 2, seed: int = 2) -> list[dict]:
+def two_sets(corpus: dict, anchors: int = 3) -> dict:
+    """The forms' design on the synthetic corpus: every other page in each
+    set, and the first `anchors` of each set shown in the other too."""
+    keys = list(corpus)
+    own = {1: keys[0::2], 2: keys[1::2]}
+    design = {k: {s} for s, pages in own.items() for k in pages}
+    for s in (1, 2):
+        for k in own[s][:anchors]:
+            design[k] = {1, 2}
+    return design
+
+
+def synthetic_ratings(corpus: dict, raters: int = 12, noise: float = 0.4,
+                      signal: bool = True, repeats: int = 2, seed: int = 2,
+                      design: dict | None = None, first_rater: int = 1,
+                      shift: dict[int, float] | None = None) -> list[dict]:
     """Rows in `tools/rating` shape, every one marked synthetic.
 
     Each rater has a bias of their own and answers with noise, rounded and
-    clipped to 1-7; each repeats two pages, as a real session does. With
-    `signal=False` the answers ignore the page entirely."""
+    clipped to 1-5 (noise 0.4 and bias 0.3: the 0.6 and 0.4 of the 1-7 scale,
+    scaled by 4/6); each repeats two pages, as a real session does. With
+    `signal=False` the answers ignore the page entirely. With `design`, a
+    rater rates only the pages of one set — odd raters Set 1, even Set 2,
+    as in person — and `shift` adds to every answer of a set's raters."""
     rng = random.Random(seed)
     rows = []
-    keys = list(corpus)
-    for rater in range(1, raters + 1):
-        bias = rng.gauss(0, 0.4)
+    for rater in range(first_rater, first_rater + raters):
+        bias = rng.gauss(0, 0.3)
+        chosen = (1 if rater % 2 else 2) if design else None
+        keys = [k for k in corpus if design is None or chosen in design[k]]
+        lean = (shift or {}).get(chosen, 0.0)
 
         def answer(key) -> int:
-            base = truth(corpus[key]) if signal else 4.0
-            return int(min(7, max(1, round(base + bias + rng.gauss(0, noise)))))
+            base = truth(corpus[key]) if signal else 3.0
+            return int(min(5, max(1, round(base + bias + lean + rng.gauss(0, noise)))))
 
         for key in keys:
             rows.append({"rater": rater, "url": key[0], "state": key[1], "page": key[0],
-                         "repeat": False, "rating": answer(key), "synthetic": True})
+                         "repeat": False, "rating": answer(key), "synthetic": True,
+                         "set": chosen})
         for key in rng.sample(keys, repeats):
             rows.append({"rater": rater, "url": key[0], "state": key[1], "page": key[0],
-                         "repeat": True, "rating": answer(key), "synthetic": True})
+                         "repeat": True, "rating": answer(key), "synthetic": True,
+                         "set": chosen})
     return rows
 
 
 def as_ratings(rows: list[dict]) -> list[Rating]:
     return [Rating(rater=r["rater"], url=r["url"], state=r["state"], page=r["page"],
                    repeat=r["repeat"], rating=r["rating"],
-                   synthetic=r.get("synthetic", False)) for r in rows]
+                   synthetic=r.get("synthetic", False), set=r.get("set")) for r in rows]
 
 
 def write_jsonl(path: Path, rows: list[dict]) -> Path:
@@ -213,7 +236,9 @@ def test_raters_who_ignore_the_page_do_not_agree() -> None:
     following = agreement(as_ratings(synthetic_ratings(corpus)))
     ignoring = agreement(as_ratings(synthetic_ratings(corpus, signal=False)))
 
-    assert following.alpha > 0.7
+    # 0.7 on the 1-7 scale. Rounding to five points adds error of its own
+    # (2026-10-23: 0.70 at the same noise relative to the scale), so 0.6.
+    assert following.alpha > 0.6
     assert ignoring.alpha < 0.2
 
 
@@ -222,7 +247,7 @@ def test_a_rater_who_reads_the_question_backwards_is_picked_out() -> None:
     rows = synthetic_ratings(corpus)
     for row in rows:
         if row["rater"] == 7:
-            row["rating"] = 8 - row["rating"]
+            row["rating"] = 6 - row["rating"]
 
     found = agreement(as_ratings(rows))
 
@@ -273,24 +298,112 @@ def test_a_rater_counts_once_per_page_however_often_they_saw_it() -> None:
     assert raters == 2
 
 
+# --- each rater rates only some pages -------------------------------------------
+
+
+def test_raters_of_two_sets_agree_as_well_as_raters_of_every_page() -> None:
+    """The same raters' rule, once with everyone rating all 50 and once with
+    each rating one set of 28: alpha copes with the missing ratings, and
+    lands near the full table's."""
+    corpus = synthetic_corpus()
+    full = agreement(as_ratings(synthetic_ratings(corpus, raters=16)))
+    halves = agreement(as_ratings(synthetic_ratings(corpus, raters=16,
+                                                    design=two_sets(corpus))))
+
+    assert halves.pages == 50 and halves.raters_by_set == {1: 8, 2: 8}
+    assert halves.alpha == pytest.approx(full.alpha, abs=0.1)
+    assert all(v > 0.6 for v in halves.alpha_by_set.values())
+    # Every rater is compared with the others on the pages they rated.
+    assert all(rho is not None and rho > 0.5 for rho in halves.rater_vs_rest.values())
+
+
+def test_sixteen_raters_in_two_sets_is_enough_to_train() -> None:
+    corpus = synthetic_corpus()
+    design = two_sets(corpus)
+    trained = train(as_ratings(synthetic_ratings(corpus, raters=16, design=design)), corpus,
+                    design=design)
+
+    assert trained.r2[0] > 0.5, trained.fold_r2
+    assert min(trained.coverage.counts.values()) == MIN_RATINGS
+    assert max(trained.coverage.counts.values()) == 16  # the anchors
+    section = report(trained)
+    assert "Set 1: 8, Set 2: 8" in section and "8 / 8 / 16" in section
+
+
+def test_the_anchors_say_the_two_groups_rate_alike() -> None:
+    corpus = synthetic_corpus()
+    design = two_sets(corpus)
+    found = agreement(as_ratings(synthetic_ratings(corpus, raters=16, design=design)))
+
+    assert found.groups is not None and len(found.groups.anchors) == 6
+    assert abs(found.groups.difference) < 0.5
+    assert found.groups.alike is True
+
+
+def test_the_anchors_catch_a_group_that_rates_everything_higher() -> None:
+    corpus = synthetic_corpus()
+    design = two_sets(corpus)
+    rows = synthetic_ratings(corpus, raters=16, design=design, shift={2: 1.2})
+
+    found = agreement(as_ratings(rows))
+
+    assert found.groups.difference > 0.8
+    assert found.groups.p_value is not None and found.groups.p_value < 0.05
+    assert found.groups.alike is False
+    section = report(train(as_ratings(rows), corpus, design=design))
+    assert "**not alike**" in section and "depends on which set" in section
+
+
+def test_without_sets_there_is_no_group_check() -> None:
+    corpus = synthetic_corpus()
+    assert agreement(as_ratings(synthetic_ratings(corpus))).groups is None
+
+
 # --- what it refuses ----------------------------------------------------------
 
 
-def test_it_refuses_fewer_than_ten_raters_and_says_why() -> None:
+def test_it_refuses_pages_with_fewer_than_eight_ratings_and_says_how_many_more() -> None:
     corpus = synthetic_corpus()
-    nine = as_ratings(synthetic_ratings(corpus, raters=MIN_RATERS - 1))
+    seven = as_ratings(synthetic_ratings(corpus, raters=MIN_RATINGS - 1))
 
     with pytest.raises(RefusedToTrain) as refused:
-        train(nine, corpus)
+        train(seven, corpus)
 
     message = str(refused.value)
-    assert "only 9 raters" in message and "at least 10" in message
+    assert "50 of 50 pages have fewer than 8 ratings" in message
+    assert "50 more ratings are needed in all" in message
     assert "average" in message
 
 
-def test_ten_raters_is_enough() -> None:
+def test_with_the_sets_it_says_how_many_more_raters_of_each() -> None:
+    """Ten raters, five per set: every page of a set's own has five ratings,
+    the anchors ten. Three more of each set bring every page to eight."""
     corpus = synthetic_corpus()
-    assert train(as_ratings(synthetic_ratings(corpus, raters=MIN_RATERS)), corpus)
+    design = two_sets(corpus)
+    rows = as_ratings(synthetic_ratings(corpus, raters=10, design=design))
+
+    with pytest.raises(RefusedToTrain) as refused:
+        train(rows, corpus, design=design)
+
+    assert "44 of 50 pages have fewer than 8 ratings; 132 more ratings" in str(refused.value)
+    assert "at least 3 more Set 1 raters and 3 more Set 2 raters" in str(refused.value)
+
+
+def test_the_shortfall_counts_a_rater_once_per_page_and_pages_nobody_rated() -> None:
+    ratings = as_ratings([
+        {"rater": 1, "url": "a", "state": "s", "page": "a", "repeat": False, "rating": 2},
+        {"rater": 1, "url": "a", "state": "s", "page": "a", "repeat": True, "rating": 3},
+        {"rater": 2, "url": "a", "state": "s", "page": "a", "repeat": False, "rating": 4},
+    ])
+    found = shortfall(ratings, [("a", "s"), ("b", "s")], minimum=3)
+
+    assert found.counts == {("a", "s"): 2, ("b", "s"): 0}
+    assert found.short == {("a", "s"): 1, ("b", "s"): 3} and found.needed == 4
+
+
+def test_eight_ratings_per_page_is_enough() -> None:
+    corpus = synthetic_corpus()
+    assert train(as_ratings(synthetic_ratings(corpus, raters=MIN_RATINGS)), corpus)
 
 
 def test_it_refuses_to_mix_synthetic_and_real_ratings() -> None:
@@ -326,7 +439,10 @@ def test_a_malformed_row_stops_the_read(here: Path) -> None:
     path = here / "ratings.jsonl"
     path.write_text('{"rater": 1, "url": "u", "state": "s", "rating": 9}\n', encoding="utf-8")
 
-    with pytest.raises(RefusedToTrain, match="outside 1-7"):
+    with pytest.raises(RefusedToTrain, match="outside 1-5"):
+        read_ratings(path)
+    path.write_text('{"rater": 1, "url": "u", "state": "s", "rating": 6}\n', encoding="utf-8")
+    with pytest.raises(RefusedToTrain, match="outside 1-5"):
         read_ratings(path)
 
 
@@ -381,12 +497,13 @@ def test_the_whole_pipeline_runs_and_writes_where_it_is_told(here: Path) -> None
 
     pictures = write_pictures(here / "pages.json", corpus)
 
-    trained = run(ratings, corpus_file, model, evaluation, pictures_path=pictures)
+    trained = run(ratings, corpus_file, model, evaluation, pictures_path=pictures,
+                  design_path=None)
 
     saved = joblib.load(model)
     assert saved["synthetic"] is True
     assert saved["features"] == FEATURES
-    assert saved["raters"] == 12
+    assert saved["raters"] == 12 and saved["scale"] == (1, 5)
     # The saved model predicts, from features in the declared order.
     row = next(iter(corpus.values()))
     prediction = saved["model"].predict(np.array([[row[f] for f in FEATURES]]))
@@ -445,6 +562,8 @@ def test_features_from_another_run_than_the_picture_are_left_out() -> None:
 
 
 def test_a_rating_of_an_earlier_picture_is_left_out() -> None:
+    """Three of twelve raters rated an earlier picture of one page: their
+    answers to it are left out, and the nine left are still enough."""
     corpus = synthetic_corpus()
     pictures = pictures_of(corpus)
     rows = synthetic_ratings(corpus)
@@ -452,12 +571,28 @@ def test_a_rating_of_an_earlier_picture_is_left_out() -> None:
         row["image_sha256"] = pictures[(row["url"], row["state"])]["sha256"]
     first = next(iter(corpus))
     for row in rows:
-        if (row["url"], row["state"]) == first:
+        if (row["url"], row["state"]) == first and row["rater"] <= 3:
             row["image_sha256"] = "an-older-picture"
 
     trained = train(as_rated(rows), corpus, pictures=pictures)
 
     assert trained.unpaired == [(first, "rated an earlier picture than the one captured now")]
+    assert trained.coverage.counts[first] == 9
+
+
+def test_a_page_whose_ratings_are_all_of_an_earlier_picture_needs_new_ones() -> None:
+    corpus = synthetic_corpus()
+    pictures = pictures_of(corpus)
+    rows = synthetic_ratings(corpus)
+    first = next(iter(corpus))
+    for row in rows:
+        same = (row["url"], row["state"]) == first
+        row["image_sha256"] = "an-older-picture" if same else \
+            pictures[(row["url"], row["state"])]["sha256"]
+
+    with pytest.raises(RefusedToTrain, match="1 of 50 pages have fewer than 8 ratings; "
+                                             "8 more ratings"):
+        train(as_rated(rows), corpus, pictures=pictures)
 
 
 def test_nothing_that_pairs_is_refused_with_the_reason() -> None:
@@ -471,4 +606,13 @@ def as_rated(rows: list[dict]) -> list[Rating]:
     """`as_ratings`, keeping which picture each answer was given for."""
     return [Rating(rater=r["rater"], url=r["url"], state=r["state"], page=r["page"],
                    repeat=r["repeat"], rating=r["rating"], synthetic=r.get("synthetic", False),
-                   image=r.get("image_sha256", "")) for r in rows]
+                   image=r.get("image_sha256", ""), set=r.get("set")) for r in rows]
+
+
+def test_it_reads_the_sets_of_the_committed_forms() -> None:
+    """`data/rating/form.json`: 50 pages, 44 in one set and the 6 anchors in both."""
+    design = read_design(pipeline.DESIGN)
+
+    assert len(design) == 50
+    assert sorted(len(s) for s in design.values()).count(2) == 6
+    assert sum(s == {1} for s in design.values()) == sum(s == {2} for s in design.values()) == 22

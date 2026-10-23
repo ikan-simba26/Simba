@@ -168,18 +168,26 @@ the display scaling instead, and it re-fits. To check a machine:
 ### Rating pages (the estimator's labels)
 
 `tools/rating/` collects people's judgements of the corpus pages, one
-screenshot at a time: "How overwhelming would this page be to use?", 1 to 7.
+screenshot at a time: "How overwhelming does this page feel?", answered Not
+at all / A little / Somewhat / Very / Extremely (1 to 5).
 
 ```powershell
 python -m tools.rating.capture        # once: every corpus page, 1280x800, no scrollbar
+python -m tools.rating.examples       # once: the two worked examples, outside the 50
+python -m tools.rating.export_form    # the two sets, written to data/rating/form.json
 python -m tools.rating.serve          # then open http://127.0.0.1:8765
 ```
 
-Each rater enters their number, sees all 50 pages in a random order plus two
-of them again later, and every answer is appended to `data/ratings.jsonl`
-with the page, the time taken and the size the picture was shown at. The
-pictures are in `data/rating/pages/` and are not committed; their hashes are
-in `data/rating/pages.json`, which is. Capture once and rate that set: a
+The 50 pages are split into two sets of 25 alike in their features, and each
+set also shows three anchor pages from the other (DECISIONS.md, *Two sets of
+30*). Each rater enters their number — odd numbers rate Set 1, even Set 2 —
+sees two worked examples, then their set's 25 pages and 3 anchors in a random
+order plus two of them again later: 30 pictures, about 5-7 minutes. Every
+answer is appended to `data/ratings.jsonl` with the page, the set, the time
+taken and the size the picture was shown at. The same sets as Google Forms,
+for raters who cannot come in: `tools/rating/form/README.md`. The pictures
+are in `data/rating/pages/` and are not committed; their hashes are in
+`data/rating/pages.json`, which is. Capture once and rate that set: a
 re-capture of live pages is a different set of pictures.
 
 ### The level adapts in a real run

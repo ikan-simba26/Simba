@@ -98,9 +98,10 @@ def new_run() -> dict:
             "taken_at": taken, "date": taken[:10]}
 
 
-async def photograph(page, url: str, drive, kind: str, run: dict | None = None
-                     ) -> tuple[dict, dict]:
-    """The picture and the corpus row of one page, from one load.
+async def photograph(page, url: str, drive, kind: str, run: dict | None = None,
+                     into: Path | None = None) -> tuple[dict, dict]:
+    """The picture and the corpus row of one page, from one load. The picture
+    goes to `into`, or to `PAGES` (the worked examples go elsewhere).
 
     The features are read and the picture taken in the same state, moments
     apart, after the drive and after the scrollbars are hidden — so the row
@@ -131,7 +132,7 @@ async def photograph(page, url: str, drive, kind: str, run: dict | None = None
             # ("Unable to capture screenshot"); a second is usually fine.
             await page.wait_for_timeout(1500)
             png = await page.screenshot(full_page=False)
-        path = PAGES / f"{row['id']}.png"
+        path = (into or PAGES) / f"{row['id']}.png"
         path.write_bytes(png)
         row.update({
             "file": path.name,

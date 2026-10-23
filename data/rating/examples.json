@@ -1,0 +1,33 @@
+{
+  "made_by": "python -m tools.rating.examples",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "examples": [
+    {
+      "name": "E1",
+      "url": "https://www.gov.uk/bank-holidays",
+      "answer": 1,
+      "says": "One clear heading, a few links and plenty of space.",
+      "state": "turn down cookies",
+      "file": "E1.png",
+      "sha256": "02af63002c2cf65a938a31fcc7b25ee51180bcada4501079f5cf80b7d9115ef2",
+      "title": "UK bank holidays - GOV.UK",
+      "layout_width": 1280,
+      "captured_at": "2026-10-23T17:04:12+0500"
+    },
+    {
+      "name": "E2",
+      "url": "https://www.newegg.com/",
+      "answer": 4,
+      "says": "A pop-up covers a crowded shop page full of menus and offers.",
+      "state": "as it loads",
+      "file": "E2.png",
+      "sha256": "4f0601140182a3214d44807f561bef1c25693e92a67724d6fe4eab6c3609db21",
+      "title": "PC Parts, Computers, Workstations & AI PCs | Newegg",
+      "layout_width": 1280,
+      "captured_at": "2026-10-23T17:04:22+0500"
+    }
+  ]
+}

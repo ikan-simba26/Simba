@@ -1,8 +1,9 @@
 {
   "made_by": "python -m tools.rating.export_form",
   "run": "58dc053cdac7",
-  "seed": 20261022,
-  "repeats": 5,
+  "seed": 20261023,
+  "repeats": 2,
+  "anchors": 3,
   "min_gap": 5,
   "pictures": {
     "P01": {
@@ -11,7 +12,8 @@
       "state": "as it loads",
       "kind": "ours",
       "file": "127-0-0-1-5000.png",
-      "sha256": "a7e7cab8985225685e833a386e838116e9147188f01e641bc2f385ae3482adf5"
+      "sha256": "a7e7cab8985225685e833a386e838116e9147188f01e641bc2f385ae3482adf5",
+      "heaviness": 0.591
     },
     "P02": {
       "page": "127-0-0-1-5000--sign-in",
@@ -19,7 +21,8 @@
       "state": "sign in",
       "kind": "ours",
       "file": "127-0-0-1-5000--sign-in.png",
-      "sha256": "e4d894ba6eb413cc09465cdef9d90cf7165e6073e49876f50e1e02a7918f7d1e"
+      "sha256": "e4d894ba6eb413cc09465cdef9d90cf7165e6073e49876f50e1e02a7918f7d1e",
+      "heaviness": 0.57
     },
     "P03": {
       "page": "127-0-0-1-5000-stubborn",
@@ -27,7 +30,8 @@
       "state": "as it loads",
       "kind": "ours",
       "file": "127-0-0-1-5000-stubborn.png",
-      "sha256": "66e03202a5c269b56cadf42801135d4c5b22e2368fd51ed2629841adb19ad61e"
+      "sha256": "66e03202a5c269b56cadf42801135d4c5b22e2368fd51ed2629841adb19ad61e",
+      "heaviness": 0.425
     },
     "P04": {
       "page": "127-0-0-1-5100",
@@ -35,7 +39,8 @@
       "state": "as it loads",
       "kind": "ours",
       "file": "127-0-0-1-5100.png",
-      "sha256": "3b26122ba300c482038175991dd5a37372ffb18d9f6a7882adf327970bde67af"
+      "sha256": "3b26122ba300c482038175991dd5a37372ffb18d9f6a7882adf327970bde67af",
+      "heaviness": 0.524
     },
     "P05": {
       "page": "127-0-0-1-5100-bill-reference-04141234567890",
@@ -43,7 +48,8 @@
       "state": "as it loads",
       "kind": "ours",
       "file": "127-0-0-1-5100-bill-reference-04141234567890.png",
-      "sha256": "e0647b3ec2a1f2a7dff3cf06e40007935406f4c3ce789c7762f0446f70bed498"
+      "sha256": "e0647b3ec2a1f2a7dff3cf06e40007935406f4c3ce789c7762f0446f70bed498",
+      "heaviness": 0.471
     },
     "P06": {
       "page": "ant-design-components-drawer--open-an-antd-drawer",
@@ -51,7 +57,8 @@
       "state": "open an antd drawer",
       "kind": "demo",
       "file": "ant-design-components-drawer--open-an-antd-drawer.png",
-      "sha256": "f3c66839a30763e699d06ff4d4492e5f099684ee0261e32ceafa9c401c373c5c"
+      "sha256": "f3c66839a30763e699d06ff4d4492e5f099684ee0261e32ceafa9c401c373c5c",
+      "heaviness": 0.834
     },
     "P07": {
       "page": "ant-design-components-modal--open-an-antd-modal",
@@ -59,7 +66,8 @@
       "state": "open an antd modal",
       "kind": "demo",
       "file": "ant-design-components-modal--open-an-antd-modal.png",
-      "sha256": "828b89749395fda9cc9f5c198ea77678886e9ba3f35bad280c5744f94b92cb84"
+      "sha256": "828b89749395fda9cc9f5c198ea77678886e9ba3f35bad280c5744f94b92cb84",
+      "heaviness": 0.707
     },
     "P08": {
       "page": "arxiv-org-list-cs-hc-recent",
@@ -67,7 +75,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "arxiv-org-list-cs-hc-recent.png",
-      "sha256": "017828f325c33edc199ea9d5771f33abd7a366e29a908ab61b3ee6f6a80a343c"
+      "sha256": "017828f325c33edc199ea9d5771f33abd7a366e29a908ab61b3ee6f6a80a343c",
+      "heaviness": 0.492
     },
     "P09": {
       "page": "books-toscrape-com",
@@ -75,7 +84,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "books-toscrape-com.png",
-      "sha256": "15f63a54b1a6952bdf8567ce6c06e84f157b1454c3393758a799b8df62493a33"
+      "sha256": "15f63a54b1a6952bdf8567ce6c06e84f157b1454c3393758a799b8df62493a33",
+      "heaviness": 0.4
     },
     "P10": {
       "page": "danluu-com",
@@ -83,7 +93,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "danluu-com.png",
-      "sha256": "c44f894bb53f37a5622012a3a9c8819ef7c0d39bce71d97d500117f0f96f315b"
+      "sha256": "c44f894bb53f37a5622012a3a9c8819ef7c0d39bce71d97d500117f0f96f315b",
+      "heaviness": 0.365
     },
     "P11": {
       "page": "demo-applitools-com",
@@ -91,7 +102,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "demo-applitools-com.png",
-      "sha256": "efeab6befabfb37e4cdcafce008bf96ffa99195840b775eb799896f5c9afa146"
+      "sha256": "efeab6befabfb37e4cdcafce008bf96ffa99195840b775eb799896f5c9afa146",
+      "heaviness": 0.373
     },
     "P12": {
       "page": "demo-opencart-com",
@@ -99,7 +111,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "demo-opencart-com.png",
-      "sha256": "6213ca0c334714864f917c8ff6191f66ccf37bde0f8b7f50c113642495a9f36e"
+      "sha256": "6213ca0c334714864f917c8ff6191f66ccf37bde0f8b7f50c113642495a9f36e",
+      "heaviness": 0.298
     },
     "P13": {
       "page": "demo-testfire-net",
@@ -107,7 +120,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "demo-testfire-net.png",
-      "sha256": "870fb227c78c2dea2e61f953e8e09a3ed4d87ce60e6f103675f8fd6e60f546ac"
+      "sha256": "870fb227c78c2dea2e61f953e8e09a3ed4d87ce60e6f103675f8fd6e60f546ac",
+      "heaviness": 0.482
     },
     "P14": {
       "page": "demoqa-com-automation-practice-form",
@@ -115,7 +129,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "demoqa-com-automation-practice-form.png",
-      "sha256": "d909cf101795402f37c78da9d6be0e3096646bfe709243d9dc3389ae8d4b24e9"
+      "sha256": "d909cf101795402f37c78da9d6be0e3096646bfe709243d9dc3389ae8d4b24e9",
+      "heaviness": 0.512
     },
     "P15": {
       "page": "demoqa-com-modal-dialogs--open-a-demoqa-modal",
@@ -123,7 +138,8 @@
       "state": "open a demoqa modal",
       "kind": "demo",
       "file": "demoqa-com-modal-dialogs--open-a-demoqa-modal.png",
-      "sha256": "64804ffea7114a08db6758b711bfc72a41062d61ed98d8447fb445da7d1cfd1f"
+      "sha256": "64804ffea7114a08db6758b711bfc72a41062d61ed98d8447fb445da7d1cfd1f",
+      "heaviness": 0.457
     },
     "P16": {
       "page": "developer-mozilla-org-en-us-docs-web-html",
@@ -131,7 +147,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "developer-mozilla-org-en-us-docs-web-html.png",
-      "sha256": "4df69d2935fb6eb82fc03e5fd4cc3a20f5f9d952c8b091799c02fac926087422"
+      "sha256": "4df69d2935fb6eb82fc03e5fd4cc3a20f5f9d952c8b091799c02fac926087422",
+      "heaviness": 0.573
     },
     "P17": {
       "page": "element-plus-org-en-us-component-dialog-html--open-an-element-plus-dialog",
@@ -139,7 +156,8 @@
       "state": "open an element plus dialog",
       "kind": "demo",
       "file": "element-plus-org-en-us-component-dialog-html--open-an-element-plus-dialog.png",
-      "sha256": "8ab7fdb56b637f1a233f8e929b6eb0cadf4b5422cdbad0f1046989f8cf20a26c"
+      "sha256": "8ab7fdb56b637f1a233f8e929b6eb0cadf4b5422cdbad0f1046989f8cf20a26c",
+      "heaviness": 0.687
     },
     "P18": {
       "page": "en-wikipedia-org-wiki-cognitive-load",
@@ -147,7 +165,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "en-wikipedia-org-wiki-cognitive-load.png",
-      "sha256": "b9b966590aa711beae2a158412164ee854f63c1812a7410d05cc6f2ef60ff8f4"
+      "sha256": "b9b966590aa711beae2a158412164ee854f63c1812a7410d05cc6f2ef60ff8f4",
+      "heaviness": 0.76
     },
     "P19": {
       "page": "en-wikipedia-org-wiki-main-page",
@@ -155,7 +174,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "en-wikipedia-org-wiki-main-page.png",
-      "sha256": "2ac6e1919958b22fc3c6b7f3c3fb2ba96431653e82d71047370af4560c06c58f"
+      "sha256": "2ac6e1919958b22fc3c6b7f3c3fb2ba96431653e82d71047370af4560c06c58f",
+      "heaviness": 0.649
     },
     "P20": {
       "page": "example-com",
@@ -163,7 +183,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "example-com.png",
-      "sha256": "400bd0d9a9c528464c7c818976c0d17b24086cbe9afb9e4c2a0e91b8b7c35bbe"
+      "sha256": "400bd0d9a9c528464c7c818976c0d17b24086cbe9afb9e4c2a0e91b8b7c35bbe",
+      "heaviness": 0.331
     },
     "P21": {
       "page": "getbootstrap-com-docs-5-3-components-modal--open-a-bootstrap-modal",
@@ -171,7 +192,8 @@
       "state": "open a bootstrap modal",
       "kind": "demo",
       "file": "getbootstrap-com-docs-5-3-components-modal--open-a-bootstrap-modal.png",
-      "sha256": "d608d3d27a79cce302dbd1badf6d2a80f884347a61f84673018fe1d5b0d5a4bd"
+      "sha256": "d608d3d27a79cce302dbd1badf6d2a80f884347a61f84673018fe1d5b0d5a4bd",
+      "heaviness": 0.629
     },
     "P22": {
       "page": "getbootstrap-com-docs-5-3-components-offcanvas--open-a-side-drawer",
@@ -179,7 +201,8 @@
       "state": "open a side drawer",
       "kind": "demo",
       "file": "getbootstrap-com-docs-5-3-components-offcanvas--open-a-side-drawer.png",
-      "sha256": "3e64e99adbee12223d323461a91d59fb1318bf16271f2d478d00c5dec57cded4"
+      "sha256": "3e64e99adbee12223d323461a91d59fb1318bf16271f2d478d00c5dec57cded4",
+      "heaviness": 0.624
     },
     "P23": {
       "page": "httpbin-org-html",
@@ -187,7 +210,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "httpbin-org-html.png",
-      "sha256": "cdfe25ab296ad0abd9c00adfcd787f459b3bb729eeff661823bf72a2054ef4c2"
+      "sha256": "cdfe25ab296ad0abd9c00adfcd787f459b3bb729eeff661823bf72a2054ef4c2",
+      "heaviness": 0.376
     },
     "P24": {
       "page": "info-cern-ch-hypertext-www-theproject-html",
@@ -195,7 +219,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "info-cern-ch-hypertext-www-theproject-html.png",
-      "sha256": "df79844b12db21d3ad7a2fd794286cf61f19258d0cfd3cb76cb97c56ea85e321"
+      "sha256": "df79844b12db21d3ad7a2fd794286cf61f19258d0cfd3cb76cb97c56ea85e321",
+      "heaviness": 0.305
     },
     "P25": {
       "page": "lite-cnn-com",
@@ -203,7 +228,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "lite-cnn-com.png",
-      "sha256": "c438f9ec12e5b46a5cf50449fd4f017154ea390bf8790d463712a92b6f747472"
+      "sha256": "c438f9ec12e5b46a5cf50449fd4f017154ea390bf8790d463712a92b6f747472",
+      "heaviness": 0.48
     },
     "P26": {
       "page": "mui-com-material-ui-react-dialog--open-a-mui-dialog",
@@ -211,7 +237,8 @@
       "state": "open a mui dialog",
       "kind": "demo",
       "file": "mui-com-material-ui-react-dialog--open-a-mui-dialog.png",
-      "sha256": "0b7ef754b7320f605eaba9f62636e8f2f72ca1d46036f25bcb78e42cadf01495"
+      "sha256": "0b7ef754b7320f605eaba9f62636e8f2f72ca1d46036f25bcb78e42cadf01495",
+      "heaviness": 0.715
     },
     "P27": {
       "page": "mui-com-material-ui-react-drawer--open-a-bottom-sheet",
@@ -219,7 +246,8 @@
       "state": "open a bottom sheet",
       "kind": "demo",
       "file": "mui-com-material-ui-react-drawer--open-a-bottom-sheet.png",
-      "sha256": "6f6351ac7c9d206a5cd9d1aeeed42e6bdcb0fe7c60aff6099d45e9d2a099b531"
+      "sha256": "6f6351ac7c9d206a5cd9d1aeeed42e6bdcb0fe7c60aff6099d45e9d2a099b531",
+      "heaviness": 0.683
     },
     "P28": {
       "page": "news-ycombinator-com",
@@ -227,7 +255,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "news-ycombinator-com.png",
-      "sha256": "8288aa4414326d0289e6621842c0c1634fe795add4c86eb8ac566944028ce3b2"
+      "sha256": "8288aa4414326d0289e6621842c0c1634fe795add4c86eb8ac566944028ce3b2",
+      "heaviness": 0.478
     },
     "P29": {
       "page": "opensource-demo-orangehrmlive-com-web-index-php-auth-login",
@@ -235,7 +264,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "opensource-demo-orangehrmlive-com-web-index-php-auth-login.png",
-      "sha256": "890d75df7193910b662aca5da2fcf061cbb2141b293e9203985e09033cb53956"
+      "sha256": "890d75df7193910b662aca5da2fcf061cbb2141b293e9203985e09033cb53956",
+      "heaviness": 0.451
     },
     "P30": {
       "page": "parabank-parasoft-com-parabank-index-htm",
@@ -243,7 +273,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "parabank-parasoft-com-parabank-index-htm.png",
-      "sha256": "1a3b0e607d3707c9b129445da58ee5f5147bf3d9cb28fd1a2b67d7fe0cd652e7"
+      "sha256": "1a3b0e607d3707c9b129445da58ee5f5147bf3d9cb28fd1a2b67d7fe0cd652e7",
+      "heaviness": 0.383
     },
     "P31": {
       "page": "practice-expandtesting-com",
@@ -251,7 +282,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "practice-expandtesting-com.png",
-      "sha256": "4eaa9b2494078323f09bd2f8a7ae912da8d13714a5b3a81386419ea679b540f1"
+      "sha256": "4eaa9b2494078323f09bd2f8a7ae912da8d13714a5b3a81386419ea679b540f1",
+      "heaviness": 0.627
     },
     "P32": {
       "page": "pypi-org",
@@ -259,7 +291,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "pypi-org.png",
-      "sha256": "403a63eb9170373eb7e9dc2f1b27b27fc940dac38adb2109531fb55cee593576"
+      "sha256": "403a63eb9170373eb7e9dc2f1b27b27fc940dac38adb2109531fb55cee593576",
+      "heaviness": 0.455
     },
     "P33": {
       "page": "quotes-toscrape-com",
@@ -267,7 +300,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "quotes-toscrape-com.png",
-      "sha256": "5e07243d33f9261bd9a2ff7795258c91706d1f264e9dce6e987d3467cc26e130"
+      "sha256": "5e07243d33f9261bd9a2ff7795258c91706d1f264e9dce6e987d3467cc26e130",
+      "heaviness": 0.313
     },
     "P34": {
       "page": "sweetalert2-github-io--open-a-sweetalert",
@@ -275,7 +309,8 @@
       "state": "open a sweetalert",
       "kind": "demo",
       "file": "sweetalert2-github-io--open-a-sweetalert.png",
-      "sha256": "235a2b168a39c527b97628d8c0011a57edf40c14918218daba0e09e1412bf140"
+      "sha256": "235a2b168a39c527b97628d8c0011a57edf40c14918218daba0e09e1412bf140",
+      "heaviness": 0.528
     },
     "P35": {
       "page": "text-npr-org",
@@ -283,7 +318,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "text-npr-org.png",
-      "sha256": "ac85336007b67d11731a08866784a6d363c71089e77d12baf8eb8e790eba79ce"
+      "sha256": "ac85336007b67d11731a08866784a6d363c71089e77d12baf8eb8e790eba79ce",
+      "heaviness": 0.341
     },
     "P36": {
       "page": "the-internet-herokuapp-com",
@@ -291,7 +327,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "the-internet-herokuapp-com.png",
-      "sha256": "ed8dd09b16d7fd49ebf5be5f4e4a69abef80761fc63772490d2bf71d1c93acea"
+      "sha256": "ed8dd09b16d7fd49ebf5be5f4e4a69abef80761fc63772490d2bf71d1c93acea",
+      "heaviness": 0.35
     },
     "P37": {
       "page": "the-internet-herokuapp-com-entry-ad",
@@ -299,7 +336,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "the-internet-herokuapp-com-entry-ad.png",
-      "sha256": "eda28bd3261518154a9a07d03265bf6eaca984a36d57e5a2e8d53cd70b4ef55e"
+      "sha256": "eda28bd3261518154a9a07d03265bf6eaca984a36d57e5a2e8d53cd70b4ef55e",
+      "heaviness": 0.259
     },
     "P38": {
       "page": "the-internet-herokuapp-com-login",
@@ -307,7 +345,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "the-internet-herokuapp-com-login.png",
-      "sha256": "93303bbbf2c8f0e12c75f4c04cdfc673b27655a746904040a75d41bc0bfc05c5"
+      "sha256": "93303bbbf2c8f0e12c75f4c04cdfc673b27655a746904040a75d41bc0bfc05c5",
+      "heaviness": 0.395
     },
     "P39": {
       "page": "todomvc-com-examples-react-dist--add-a-todo",
@@ -315,7 +354,8 @@
       "state": "add a todo",
       "kind": "demo",
       "file": "todomvc-com-examples-react-dist--add-a-todo.png",
-      "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a"
+      "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a",
+      "heaviness": 0.359
     },
     "P40": {
       "page": "www-bbc-co-uk-news",
@@ -323,7 +363,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-bbc-co-uk-news.png",
-      "sha256": "99cb623b80cca9df7542d905161e856a9eb2b29184072f88a43e0351b9b46e2a"
+      "sha256": "99cb623b80cca9df7542d905161e856a9eb2b29184072f88a43e0351b9b46e2a",
+      "heaviness": 0.452
     },
     "P41": {
       "page": "www-gov-uk",
@@ -331,7 +372,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-gov-uk.png",
-      "sha256": "0df6bd8e2808f4a5c6b1b5ba080b4b07985eb85eb7f567aa4b851423bbc0e7d3"
+      "sha256": "0df6bd8e2808f4a5c6b1b5ba080b4b07985eb85eb7f567aa4b851423bbc0e7d3",
+      "heaviness": 0.472
     },
     "P42": {
       "page": "www-gov-uk-browse-benefits",
@@ -339,7 +381,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-gov-uk-browse-benefits.png",
-      "sha256": "12b35a52e6a19ab52933326087804a1e4696965c5d2258ad2c96926422e6cd9b"
+      "sha256": "12b35a52e6a19ab52933326087804a1e4696965c5d2258ad2c96926422e6cd9b",
+      "heaviness": 0.437
     },
     "P43": {
       "page": "www-nhs-uk",
@@ -347,7 +390,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-nhs-uk.png",
-      "sha256": "5d69ffe55bc789cf9c97728d8b353adf4d2d50be54343aa664db0af4f14ff8af"
+      "sha256": "5d69ffe55bc789cf9c97728d8b353adf4d2d50be54343aa664db0af4f14ff8af",
+      "heaviness": 0.397
     },
     "P44": {
       "page": "www-pakrailways-gov-pk-train",
@@ -355,7 +399,8 @@
       "state": "as it loads",
       "kind": "target",
       "file": "www-pakrailways-gov-pk-train.png",
-      "sha256": "c5f6fa32d5167a07bb1e31d577f13823ceb2d538e7b1a9b9c9a7ebab7c530d00"
+      "sha256": "c5f6fa32d5167a07bb1e31d577f13823ceb2d538e7b1a9b9c9a7ebab7c530d00",
+      "heaviness": 0.54
     },
     "P45": {
       "page": "www-pakrailways-gov-pk-train--open-the-calendar",
@@ -363,7 +408,8 @@
       "state": "open the calendar",
       "kind": "target",
       "file": "www-pakrailways-gov-pk-train--open-the-calendar.png",
-      "sha256": "580d69f64c951eb0e572bab7437a4838a3baf4ed9b27c456e9f264fa1da6f858"
+      "sha256": "580d69f64c951eb0e572bab7437a4838a3baf4ed9b27c456e9f264fa1da6f858",
+      "heaviness": 0.646
     },
     "P46": {
       "page": "www-pakrailways-gov-pk-train--open-the-station-list",
@@ -371,7 +417,8 @@
       "state": "open the station list",
       "kind": "target",
       "file": "www-pakrailways-gov-pk-train--open-the-station-list.png",
-      "sha256": "b64273081db3dab451e0584140ca159d41ef7877069e634f79c30fd82c14054b"
+      "sha256": "b64273081db3dab451e0584140ca159d41ef7877069e634f79c30fd82c14054b",
+      "heaviness": 0.616
     },
     "P47": {
       "page": "www-python-org",
@@ -379,7 +426,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-python-org.png",
-      "sha256": "aaec659e575e2042855bd68a73901b5236463790c3ced67edde20514959337ce"
+      "sha256": "aaec659e575e2042855bd68a73901b5236463790c3ced67edde20514959337ce",
+      "heaviness": 0.551
     },
     "P48": {
       "page": "www-saucedemo-com",
@@ -387,7 +435,8 @@
       "state": "as it loads",
       "kind": "demo",
       "file": "www-saucedemo-com.png",
-      "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d"
+      "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d",
+      "heaviness": 0.373
     },
     "P49": {
       "page": "www-spiegel-de",
@@ -395,7 +444,8 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-spiegel-de.png",
-      "sha256": "ea881e8e16be2b15e1e953a008d4207869cd70ac804313cdbdce9448ee719389"
+      "sha256": "ea881e8e16be2b15e1e953a008d4207869cd70ac804313cdbdce9448ee719389",
+      "heaviness": 0.673
     },
     "P50": {
       "page": "www-theguardian-com-international",
@@ -403,174 +453,270 @@
       "state": "as it loads",
       "kind": "public",
       "file": "www-theguardian-com-international.png",
-      "sha256": "d8443d6898359b4df6d4f5945c328fd1a6708cc059a0943e3a03d659a8273d7a"
+      "sha256": "d8443d6898359b4df6d4f5945c328fd1a6708cc059a0943e3a03d659a8273d7a",
+      "heaviness": 0.591
     },
     "P51": {
-      "page": "opensource-demo-orangehrmlive-com-web-index-php-auth-login",
-      "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
-      "state": "as it loads",
-      "kind": "demo",
-      "file": "opensource-demo-orangehrmlive-com-web-index-php-auth-login.png",
-      "sha256": "890d75df7193910b662aca5da2fcf061cbb2141b293e9203985e09033cb53956",
-      "of": "P29"
+      "page": "www-pakrailways-gov-pk-train--open-the-station-list",
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "open the station list",
+      "kind": "target",
+      "file": "www-pakrailways-gov-pk-train--open-the-station-list.png",
+      "sha256": "b64273081db3dab451e0584140ca159d41ef7877069e634f79c30fd82c14054b",
+      "heaviness": 0.616,
+      "of": "P46"
     },
     "P52": {
-      "page": "todomvc-com-examples-react-dist--add-a-todo",
-      "url": "https://todomvc.com/examples/react/dist/",
-      "state": "add a todo",
-      "kind": "demo",
-      "file": "todomvc-com-examples-react-dist--add-a-todo.png",
-      "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a",
-      "of": "P39"
-    },
-    "P53": {
-      "page": "ant-design-components-modal--open-an-antd-modal",
-      "url": "https://ant.design/components/modal",
-      "state": "open an antd modal",
-      "kind": "demo",
-      "file": "ant-design-components-modal--open-an-antd-modal.png",
-      "sha256": "828b89749395fda9cc9f5c198ea77678886e9ba3f35bad280c5744f94b92cb84",
-      "of": "P07"
-    },
-    "P54": {
-      "page": "news-ycombinator-com",
-      "url": "https://news.ycombinator.com/",
+      "page": "example-com",
+      "url": "https://example.com/",
       "state": "as it loads",
       "kind": "public",
-      "file": "news-ycombinator-com.png",
-      "sha256": "8288aa4414326d0289e6621842c0c1634fe795add4c86eb8ac566944028ce3b2",
-      "of": "P28"
+      "file": "example-com.png",
+      "sha256": "400bd0d9a9c528464c7c818976c0d17b24086cbe9afb9e4c2a0e91b8b7c35bbe",
+      "heaviness": 0.331,
+      "of": "P20"
     },
-    "P55": {
-      "page": "www-saucedemo-com",
-      "url": "https://www.saucedemo.com/",
+    "P53": {
+      "page": "demoqa-com-modal-dialogs--open-a-demoqa-modal",
+      "url": "https://demoqa.com/modal-dialogs",
+      "state": "open a demoqa modal",
+      "kind": "demo",
+      "file": "demoqa-com-modal-dialogs--open-a-demoqa-modal.png",
+      "sha256": "64804ffea7114a08db6758b711bfc72a41062d61ed98d8447fb445da7d1cfd1f",
+      "heaviness": 0.457,
+      "of": "P15"
+    },
+    "P54": {
+      "page": "practice-expandtesting-com",
+      "url": "https://practice.expandtesting.com/",
       "state": "as it loads",
       "kind": "demo",
-      "file": "www-saucedemo-com.png",
-      "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d",
-      "of": "P48"
+      "file": "practice-expandtesting-com.png",
+      "sha256": "4eaa9b2494078323f09bd2f8a7ae912da8d13714a5b3a81386419ea679b540f1",
+      "heaviness": 0.627,
+      "of": "P31"
+    }
+  },
+  "sets": {
+    "1": {
+      "own": [
+        "P01",
+        "P04",
+        "P06",
+        "P07",
+        "P08",
+        "P09",
+        "P11",
+        "P20",
+        "P21",
+        "P22",
+        "P23",
+        "P27",
+        "P28",
+        "P29",
+        "P32",
+        "P33",
+        "P34",
+        "P37",
+        "P38",
+        "P39",
+        "P41",
+        "P42",
+        "P46",
+        "P47",
+        "P49"
+      ],
+      "lends": [
+        "P11",
+        "P28",
+        "P21"
+      ],
+      "anchors": [
+        "P10",
+        "P25",
+        "P45"
+      ],
+      "repeats": [
+        "P51",
+        "P52"
+      ]
+    },
+    "2": {
+      "own": [
+        "P02",
+        "P03",
+        "P05",
+        "P10",
+        "P12",
+        "P13",
+        "P14",
+        "P15",
+        "P16",
+        "P17",
+        "P18",
+        "P19",
+        "P24",
+        "P25",
+        "P26",
+        "P30",
+        "P31",
+        "P35",
+        "P36",
+        "P40",
+        "P43",
+        "P44",
+        "P45",
+        "P48",
+        "P50"
+      ],
+      "lends": [
+        "P10",
+        "P25",
+        "P45"
+      ],
+      "anchors": [
+        "P11",
+        "P28",
+        "P21"
+      ],
+      "repeats": [
+        "P53",
+        "P54"
+      ]
     }
   },
   "orders": {
-    "A": [
+    "1": [
+      "P39",
+      "P11",
+      "P25",
+      "P08",
+      "P07",
+      "P49",
+      "P23",
+      "P37",
+      "P41",
+      "P47",
+      "P46",
       "P27",
-      "P14",
       "P29",
-      "P21",
-      "P11",
-      "P40",
-      "P26",
-      "P06",
-      "P39",
-      "P24",
-      "P32",
-      "P51",
-      "P33",
-      "P31",
-      "P08",
-      "P03",
-      "P22",
-      "P18",
-      "P52",
-      "P02",
-      "P42",
-      "P49",
-      "P25",
-      "P05",
-      "P46",
-      "P30",
-      "P28",
-      "P41",
-      "P43",
-      "P47",
-      "P34",
-      "P48",
-      "P17",
-      "P10",
-      "P36",
-      "P07",
       "P20",
-      "P37",
-      "P13",
+      "P28",
+      "P22",
       "P45",
-      "P09",
-      "P35",
-      "P53",
-      "P01",
-      "P54",
-      "P55",
-      "P50",
-      "P15",
-      "P16",
+      "P33",
       "P04",
-      "P12",
-      "P19",
+      "P32",
+      "P10",
+      "P51",
+      "P01",
+      "P52",
       "P38",
-      "P23",
-      "P44"
+      "P21",
+      "P06",
+      "P42",
+      "P09",
+      "P34"
     ],
-    "B": [
-      "P44",
-      "P23",
-      "P38",
-      "P19",
-      "P12",
-      "P04",
-      "P16",
-      "P15",
-      "P50",
-      "P55",
-      "P54",
-      "P01",
-      "P53",
-      "P35",
-      "P09",
-      "P45",
-      "P13",
-      "P37",
-      "P20",
-      "P07",
-      "P36",
-      "P10",
-      "P17",
+    "2": [
       "P48",
-      "P34",
-      "P47",
-      "P43",
-      "P41",
       "P28",
-      "P30",
-      "P46",
-      "P05",
-      "P25",
-      "P49",
-      "P42",
-      "P02",
-      "P52",
-      "P18",
-      "P22",
-      "P03",
-      "P08",
       "P31",
-      "P33",
-      "P51",
-      "P32",
-      "P24",
-      "P39",
-      "P06",
-      "P26",
+      "P35",
+      "P25",
+      "P10",
+      "P15",
+      "P16",
       "P40",
+      "P03",
+      "P17",
+      "P43",
+      "P45",
+      "P12",
+      "P02",
+      "P26",
       "P11",
-      "P21",
-      "P29",
+      "P18",
+      "P50",
+      "P05",
+      "P53",
+      "P54",
+      "P24",
+      "P30",
+      "P36",
+      "P13",
       "P14",
-      "P27"
+      "P44",
+      "P19",
+      "P21"
     ]
   },
+  "balance": {
+    "largest_rank_difference": 0.023,
+    "means": {
+      "interactive": [
+        32.4,
+        17.72
+      ],
+      "links": [
+        118.28,
+        109.64
+      ],
+      "inferred": [
+        18.44,
+        16.08
+      ],
+      "text_density": [
+        1.112,
+        1.186
+      ],
+      "max_depth": [
+        15.04,
+        15.92
+      ],
+      "overlays": [
+        0.48,
+        0.4
+      ],
+      "form_fields": [
+        1.76,
+        3.24
+      ],
+      "dead_link_ratio": [
+        0.125,
+        0.133
+      ],
+      "reading_grade": [
+        8.056,
+        8.046
+      ]
+    }
+  },
+  "examples": [
+    {
+      "name": "E1",
+      "file": "E1.png",
+      "url": "https://www.gov.uk/bank-holidays",
+      "sha256": "02af63002c2cf65a938a31fcc7b25ee51180bcada4501079f5cf80b7d9115ef2",
+      "answer": 1,
+      "label": "Not at all",
+      "says": "One clear heading, a few links and plenty of space."
+    },
+    {
+      "name": "E2",
+      "file": "E2.png",
+      "url": "https://www.newegg.com/",
+      "sha256": "4f0601140182a3214d44807f561bef1c25693e92a67724d6fe4eab6c3609db21",
+      "answer": 4,
+      "label": "Very",
+      "says": "A pop-up covers a crowded shop page full of menus and offers."
+    }
+  ],
   "questions": {
+    "intro": "About 5-7 minutes. Please fill this in on a laptop or desktop computer, not a phone: the pictures are too small on a phone to judge.",
     "consent": {
       "title": "Do you agree to take part?",
-      "help": "This is part of a final-year university project on making websites easier to use. You will see 55 pictures of web pages and rate each one from 1 to 7. It takes about 15 minutes. We do not ask for your name or email address: we record only your answers, the time you send them, and the three questions on the next page. Your answers are used to train and test the project's software and may be reported in summary in the project's write-up. You must be 18 or over. You can stop at any time by closing this page, and nothing is sent.",
+      "help": "This is part of a final-year university project on making websites easier to use. You will see 30 pictures of web pages and answer one question about each, choosing one of five answers. It takes about 5-7 minutes. We do not ask for your name or email address: we record only your answers, the time you send them, and the three questions on the next page. Your answers are used to train and test the project's software and may be reported in summary in the project's write-up. You must be 18 or over. You can stop at any time by closing this page, and nothing is sent.",
       "yes": "Yes, I agree to take part",
       "no": "No"
     },
@@ -601,17 +747,27 @@
         "no": "No"
       }
     },
+    "examples": {
+      "title": "Two examples first",
+      "help": "For each picture, imagine you had to use that page to get something done, and choose the answer that fits. Here are two pages that are not in the form, with the answer we would give.",
+      "answer": "Answer: {label}."
+    },
     "rating": {
-      "title": "How overwhelming would this page be to use?",
+      "title": "How overwhelming does this page feel?",
       "help": "Imagine you had to use this page to get something done. Go with your first impression; there are no right answers.",
-      "low": "Not at all",
-      "high": "Extremely",
+      "labels": [
+        "Not at all",
+        "A little",
+        "Somewhat",
+        "Very",
+        "Extremely"
+      ],
       "scale": [
         1,
-        7
+        5
       ]
     }
   },
   "rating_title": "{question} [{name}]",
-  "exported_at": "2026-10-22T23:34:00+05:00"
+  "exported_at": "2026-10-23T17:23:14+05:00"
 }

@@ -1,20 +1,22 @@
 /**
- * Makes SIMBA's two rating forms, A and B, from a Google Drive folder of
- * pictures. Run makeFormA, then makeFormB: one form per run, because each
- * takes a minute or two and a script may run for six.
+ * Makes SIMBA's two rating forms, Set 1 and Set 2, from a Google Drive folder
+ * of pictures. Run makeFormSet1, then makeFormSet2: one form per run.
  *
- * The folder is .scratch/rating-form/ uploaded as it is: P01.png to P55.png
- * and mapping.json, written by `python -m tools.rating.export_form`. Every
- * question's wording, and the order the pictures are shown in, come from
- * mapping.json, so the form and tools/rating/from_form.py agree on them.
+ * The folder is .scratch/rating-form/ uploaded as it is: P01.png to P54.png,
+ * E1.png and E2.png, and mapping.json, written by
+ * `python -m tools.rating.export_form`. Every question's wording, which
+ * pictures each set shows and in what order, and the two worked examples come
+ * from mapping.json, so the forms and tools/rating/from_form.py agree on them.
  *
- * Each form: a consent question (answering "No" ends it), three questions
- * about the person, a page of instructions, then one page per picture: the
- * picture and a 1-7 question. A picture cannot be shuffled together with its
- * question in a form made by a script, so each form has a fixed order: A the
- * random order in mapping.json, B the same reversed, each repeated picture
- * well apart from its other showing in both. Send half the raters A and half
- * B. The two look the same to a rater; only their names in Drive differ.
+ * Each form: "about 5-7 minutes" at the top, a consent question (answering
+ * "No" ends it), three questions about the person, a page with two worked
+ * examples (a calm page and a cluttered one, neither among the 50, each with
+ * its answer), then one page per picture: the picture and one question with
+ * five labelled answers, Not at all / A little / Somewhat / Very / Extremely.
+ * 30 pictures: the set's 25 pages, three anchor pages from the other set,
+ * and two repeats. The progress bar is on. A picture cannot be shuffled
+ * together with its question in a form made by a script, so each form has
+ * the fixed order in mapping.json. Send half the raters Set 1 and half Set 2.
  *
  * Each rating question's title ends in the picture's name, "[P07]". That is
  * how from_form.py knows which answer is which picture: do not edit those
@@ -27,29 +29,30 @@
 const FOLDER_ID = 'PASTE-THE-FOLDER-ID-HERE';
 const FORM_TITLE = 'How overwhelming is this web page?';
 
-function makeFormA() { makeForm('A'); }
+function makeFormSet1() { makeForm('1'); }
 
-function makeFormB() { makeForm('B'); }
+function makeFormSet2() { makeForm('2'); }
 
-function makeForm(letter) {
+function makeForm(set) {
   if (FOLDER_ID.indexOf('PASTE') === 0) {
     throw new Error('Set FOLDER_ID at the top of the script to your folder\'s id first.');
   }
   const folder = DriveApp.getFolderById(FOLDER_ID);
   const mapping = JSON.parse(fileNamed(folder, 'mapping.json').getBlob().getDataAsString('UTF-8'));
   const q = mapping.questions;
-  const order = mapping.orders[letter];
-  if (!order) throw new Error('mapping.json has no form ' + letter + '. Upload the latest rating-form folder.');
+  const order = mapping.orders && mapping.orders[set];
+  if (!order) throw new Error('mapping.json has no Set ' + set + '. Upload the latest rating-form folder.');
   // Every picture is checked for before anything is made, so a missing one
   // does not leave half a form behind.
   const pictures = {};
   order.forEach(function (name) { pictures[name] = fileNamed(folder, name + '.png'); });
+  const examples = mapping.examples.map(function (example) {
+    return { file: fileNamed(folder, example.file), says: example.says, label: example.label };
+  });
 
-  const form = FormApp.create('SIMBA rating form ' + letter)
+  const form = FormApp.create('SIMBA rating form, Set ' + set)
     .setTitle(FORM_TITLE)
-    .setDescription(
-      'Please fill this in on a laptop or desktop computer, not a phone: the pictures ' +
-      'are too small on a phone to judge. It takes about 15 minutes.')
+    .setDescription(q.intro)
     .setCollectEmail(false)
     .setProgressBar(true)
     .setShuffleQuestions(false)
@@ -76,14 +79,16 @@ function makeForm(letter) {
   form.addMultipleChoiceItem().setTitle(q.computing.title)
     .setChoiceValues(Object.values(q.computing.choices)).setRequired(true);
 
-  // 3. What to do.
-  form.addPageBreakItem().setTitle('The pictures').setHelpText(
-    'You will see ' + order.length + ' pictures of web pages, one at a time. For each ' +
-    'one, imagine you had to use that page to get something done, and answer one ' +
-    'question: ' + q.rating.title + ' Answer from ' + q.rating.scale[0] + ' (' +
-    q.rating.low.toLowerCase() + ' overwhelming) to ' + q.rating.scale[1] + ' (' +
-    q.rating.high.toLowerCase() + ' overwhelming). Go with your first impression - ' +
-    'there are no right answers. Some pages may come up more than once.');
+  // 3. What to do, and two worked examples: each picture, one sentence, its answer.
+  form.addPageBreakItem().setTitle(q.examples.title).setHelpText(
+    q.examples.help + ' The question for every picture: ' + q.rating.title + ' ' +
+    'There are ' + order.length + ' pictures. Some pages may come up more than once.');
+  examples.forEach(function (example) {
+    form.addImageItem()
+      .setImage(example.file.getBlob())
+      .setHelpText(example.says + ' ' + q.examples.answer.replace('{label}', example.label))
+      .setAlignment(FormApp.Alignment.CENTER);
+  });
 
   // 4. One page per picture.
   order.forEach(function (name, index) {
@@ -91,18 +96,17 @@ function makeForm(letter) {
     form.addImageItem()
       .setImage(pictures[name].getBlob())
       .setAlignment(FormApp.Alignment.CENTER);
-    form.addScaleItem()
+    form.addMultipleChoiceItem()
       .setTitle(mapping.rating_title.replace('{question}', q.rating.title).replace('{name}', name))
       .setHelpText(q.rating.help)
-      .setBounds(q.rating.scale[0], q.rating.scale[1])
-      .setLabels(q.rating.low, q.rating.high)
+      .setChoiceValues(q.rating.labels)
       .setRequired(true);
     if ((index + 1) % 10 === 0) Logger.log('%s of %s pictures added', index + 1, order.length);
   });
 
   DriveApp.getFileById(form.getId()).moveTo(folder);
-  Logger.log('Done: form %s. Edit it at: %s', letter, form.getEditUrl());
-  Logger.log("Send form %s's raters this link: %s", letter, form.getPublishedUrl());
+  Logger.log('Done: Set %s. Edit it at: %s', set, form.getEditUrl());
+  Logger.log("Send Set %s's raters this link: %s", set, form.getPublishedUrl());
 }
 
 function fileNamed(folder, name) {
