@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-23 · **1531 passing, 12 skipped, 0 failed** · backend 953 in 941s, frontend 578 in 1245s, as two halves, every half on mains, on `feat/personal` brought up to date with `main` and **merged into `main`**; and `frontend/test_window_fit.py` with `SIMBA_HOST_TESTS=1`, 3 passed (100%, 125%, 150%), each host opening as for a new person. The first run of the same tree had 1 failure, a clock tie in the trace store, fixed before the rerun (EVALUATION.md, 2026-10-23). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves and were run separately above, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; steps, counts and pass rates are the figures to read here (EVALUATION.md, 2026-09-17h, 2026-10-17e)
+**Last updated:** 2026-10-23 · **1557 passing, 12 skipped, 0 failed** · backend 979 in 997s, frontend 578 in 1276s, as two halves on mains, on `feat/rating-sets` (two sets of 30 rating pictures), then merged into `main`; the rating and training tests, 101, rerun on the final tree after a one-line tidy of `train.py` made during the backend half. The host fit test (`SIMBA_HOST_TESTS=1`) was not rerun: nothing the host shows changed; it was 3 of 3 earlier the same day. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; the backend half ran with `-q`, which hides them, so its power was read just before and after it (on mains both times) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-10-23b)
 
 ---
 
@@ -119,6 +119,31 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-23 (later): two sets of 30 — `feat/rating-sets`
+
+- **The rating forms are 30 pictures, not 55**, online and in person: the 50
+  pages split into Set 1 and Set 2, 25 each, balanced on the nine features
+  (worst feature's mean rank 0.023 apart; random halvings have a median of
+  0.133), each set showing three anchor pages of the other and two repeats.
+  The A/B reverse-order forms are gone. In person, odd rater numbers rate Set
+  1 and even Set 2 (DECISIONS.md, *Two sets of 30*).
+- **One fully labelled question**: "How overwhelming does this page feel?" —
+  Not at all / A little / Somewhat / Very / Extremely, 1–5. Two worked
+  examples first (GOV.UK's bank holidays, Not at all; Newegg under a pop-up,
+  Very), neither among the 50 (`python -m tools.rating.examples`). "About 5-7
+  minutes" at the top and a progress bar, on both. The 5-7 minutes is an
+  estimate; nobody has filled in a form yet.
+- **Training needs 8 ratings on every page**, not 10 raters overall, and when
+  it refuses it says how many more ratings, and raters of each set, are
+  needed; the converter says the same after every run. That is at least 16
+  usable raters, 8 per set. Agreement works on the incomplete table (alpha
+  overall and per set; each rater against the others on their own pages), and
+  the six anchors check the two groups rate alike (EVALUATION.md, 2026-10-23b).
+- **Tests**: rating and training 101 passed (was 75); `make_form.gs` run
+  against stand-ins for Google's services, not in Google: 98 items per form,
+  was 171.
+- **Still no ratings.** Neither form has been made in Google.
 
 ### Changed on 2026-10-23: `feat/personal` merged into `main`
 
@@ -1258,11 +1283,14 @@ On `feat/railways-ask`, **not merged**.
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
-- **Ratings online** (2026-10-22): the pictures exported for a Google Form
-  (`tools/rating/export_form.py`, `tools/rating/form/`), and its CSV read back
-  into `data/ratings.jsonl` with `"online": true` (`tools/rating/from_form.py`).
-  Two forms, A and B in reverse order, each rater's form recorded. 22 tests.
-  No ratings collected yet.
+- **Two sets of 30** (2026-10-23, replacing the A/B forms of 2026-10-22): the
+  50 pages in two balanced sets of 25 (`tools/rating/session.split`), three
+  anchors each way and two repeats, a five-point labelled question, two worked
+  examples, the same online (`export_form.py`, `form/make_form.gs`,
+  `from_form.py`) and in person (`serve.py`). Rows carry `set` and `anchor`.
+  28 tests in `test_form.py`, 23 in `test_rating.py`. No ratings collected yet.
+- **Ratings online** (2026-10-22): the pictures exported for Google Forms, and
+  their CSVs read back into `data/ratings.jsonl` with `"online": true`.
 - **Pictures and features from one load** (2026-10-03): `tools/rating/capture`
   writes the rating pictures and `data/corpus.json` in one run, both dated;
   `train.py` uses a rating only when its picture is current and its features
@@ -1272,10 +1300,12 @@ On `feat/railways-ask`, **not merged**.
   within them (the repeated pages), per-page means with every rater counted
   once, ridge regression on the nine headless features, 5-fold R² beside
   predicting the mean, held-out permutation importance, the model saved with
-  what it was trained on, and a section appended to EVALUATION.md. Refuses
-  fewer than ten raters, too few pages, and synthetic rows mixed with real
-  ones. 24 tests, all on synthetic ratings. **Nothing trained: there are no
-  ratings.**
+  what it was trained on, and a section appended to EVALUATION.md. Since
+  2026-10-23: 1–5, each rater rating one set, agreement on the incomplete
+  table, the two groups compared on the anchors, and a refusal below 8
+  ratings on any page that says how many more are needed. Refuses too few
+  pages, and synthetic rows mixed with real ones. 37 tests, all on synthetic
+  ratings. **Nothing trained: there are no ratings.**
 - **The page-side features**, raw: `interactive`, `links`, `inferred`,
   `text_density` (characters per 1000px² of the viewport), `max_depth`,
   `overlays`, `form_fields`, `dead_link_ratio`, `reading_grade` — nine — plus
@@ -1343,6 +1373,11 @@ On `feat/railways-ask`, **not merged**.
    3s timer, "re-read" as the pointer re-entering the text. All in
    `frontend/src/telemetry.ts` so they can be moved together.
 8. **`data/steps.jsonl` grows without bound** and has no rotation.
+9. **The two-sets design is in Nahail's area and Nahail has not reviewed it**
+   (2026-10-23): the floor of 8 ratings per page, agreement on an incomplete
+   table, and what "the groups rate alike" means — a mean anchor difference
+   under 0.5 and Mann–Whitney p not below 0.05, reported but not acted on.
+   What to do if they are not alike is open (DECISIONS.md, *Two sets of 30*).
 
 **Blocked**
 - Nothing.

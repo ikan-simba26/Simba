@@ -6233,3 +6233,121 @@ as text in time order.
 failed** (941s); frontend half **578 passed, 3 skipped, 0 failed** (1245s);
 host fit test **3 passed** at 100%, 125% and 150% (455s). **1531 passed, 12
 skipped, 0 failed.** Merged into `main`.
+
+## 2026-10-23b — two sets of 30: a shorter, clearer rating form
+
+`feat/rating-sets`. **No ratings were collected; nothing here is a result
+about pages.** What was measured is the instrument: how alike the two sets
+are, what each rater now sees, and that answers in the new shape reach
+training. Why the forms changed, and what it costs: DECISIONS.md, *Two sets of
+30*.
+
+**What a rater does, before and after** (counted, not timed):
+
+| | Before (2026-10-22b) | After |
+|---|---|---|
+| Pictures per rater, online | 55 | **30** (25 own + 3 anchors + 2 repeats) |
+| Pictures per rater, in person | 52 | **30** |
+| The question | "...would this page be to use?", 1–7, ends named | "How overwhelming does this page feel?", 5 answers, every one named |
+| Before the first picture | instructions | instructions and **two worked examples** with their answers |
+| Time stated at the top | "about 15 minutes" (in the description) | "**about 5-7 minutes**" (an estimate, not measured) |
+| Items in each Google Form (stand-ins) | 171 | **98** |
+| Raters needed to train | 10, each rating every page | **16**, 8 per set: 8 ratings on every page |
+| Ratings collected at that floor | 520 | 480 |
+
+**The split** (`session.split`, seed 20261023, 4,000 tries), on the 50 pages
+of run `58dc053cdac7`. Each feature as ranks from 0 to 1; the largest
+difference between the two sets' mean rank on any feature:
+
+| | Largest mean-rank difference |
+|---|---|
+| **The split** | **0.023** |
+| 2,000 random halvings: median | 0.133 |
+| 2,000 random halvings: 5th percentile | 0.074 |
+| 2,000 random halvings: best | 0.042 |
+
+Heaviness (mean rank over the nine) runs 0.259–0.834 in Set 1 (median 0.478)
+and 0.298–0.760 in Set 2 (median 0.480). Kinds: Set 1 11 demo, 11 public, 2
+ours, 1 target; Set 2 10, 10, 3, 2. Raw feature means, Set 1 / Set 2:
+
+| `interactive` | `links` | `inferred` | `text_density` | `max_depth` | `overlays` | `form_fields` | `dead_link_ratio` | `reading_grade` |
+|---|---|---|---|---|---|---|---|---|
+| 32.4 / 17.7 | 118.3 / 109.6 | 18.4 / 16.1 | 1.11 / 1.19 | 15.0 / 15.9 | 0.48 / 0.40 | 1.76 / 3.24 | 0.125 / 0.133 | 8.06 / 8.05 |
+
+The ranks are even; two raw means are not, because a few pages hold most of
+`interactive` and `form_fields`. Balanced by rank on purpose (DECISIONS.md).
+
+**Anchors** (a sixth, a half and five sixths up each set's heaviness), with
+heaviness: Set 1 lends demo.applitools.com (0.373), Hacker News (0.478) and
+Bootstrap's open modal (0.629), shown in Set 2 at positions 21, 3 and 17;
+Set 2 lends danluu.com (0.365), lite.cnn.com (0.480) and the live railway site
+with its calendar open (0.646), shown in Set 1 at 17, 2 and 30.
+**Repeats**, with the positions of the two showings: Set 1 P51 = the railway
+site's station list (11 → 22), P52 = example.com (14 → 24); Set 2 P53 =
+demoqa's modal (7 → 21), P54 = practice.expandtesting.com (3 → 22). Gaps of
+10 to 19 pictures.
+
+**`make_form.gs`, run in Node against stand-ins for `FormApp`, `DriveApp` and
+`Logger`** over the real exported folder (not Google itself): each form has 98
+items — consent, three page breaks, three questions, two example pictures,
+then a page break, picture and question for each of 30. Every rating question
+is required with the five labels in order, sits directly under its own
+picture, and the order matches the mapping in both forms; both examples come
+before the first picture with their sentence and answer; the description
+starts "About 5-7 minutes"; the progress bar is on. A real run in Google is
+still the check (`tools/rating/form/README.md`, step 4).
+
+**Synthetic CSVs through the converter and into training**, against the real
+mapping, corpus and manifest, every file in `.scratch/` (random answers, so
+there is nothing to find):
+
+- 8 Set 1 responses (1 on a phone) and 6 Set 2: 13 usable, 390 rows. Both the
+  converter and `train.py` said **44 of 50 pages have fewer than 8 ratings; 66
+  more ratings are needed — at least 1 more Set 1 rater and 2 more Set 2
+  raters**, and training refused. Correct: 7 and 6 raters, the six anchors
+  at 13.
+- 9 and 9 responses (one phone each): 16 usable, 480 rows; ratings per page 8
+  / 8 / 16 (fewest / median / most). Trained: alpha 0.012 (Set 1 0.014, Set 2
+  −0.011), R² −0.152 ± 0.278 against −0.108 for predicting the mean, and the
+  groups **alike** on the six anchors (difference 0.02, Mann–Whitney p = 0.916).
+  Correct for random answers, and shows only that the pipeline runs.
+
+**The in-person page**, drawn in a headless browser page (not the screen) at
+1266x606, the content area of a 1080p laptop at 150%, with the real pictures:
+the start, the two examples and their button, and each rating screen fit
+without scrolling, the picture 598px wide. The first layout did not: the
+examples ran 99px past the bottom, the start screen's Begin button was cut
+off, and two-line answer buttons took the picture down to 552px. Fixed before
+commit (smaller example pictures, tighter gaps, the number beside each label).
+
+**Synthetic agreement on the coarser scale.** The training tests' synthetic
+raters had the 1–7 noise (0.6 of a point); on 1–5 that is relatively more, and
+alpha fell to 0.625, failing the test's 0.7. With the noise scaled by 4/6
+(0.4) alpha is 0.698: rounding to five points costs agreement by itself. The
+noise is now scaled and the threshold 0.6, with a note in the test.
+
+**Tests**: `tools/rating/test_form.py` 28 functions (was 20),
+`tools/rating/test_rating.py` 23 (was 14), `backend/estimator/test_train.py`
+37 (was 28); together **101 passed** (was 75), three runs in a row, 55–77s.
+Three test expectations were wrong on first run and corrected: a set's own
+lent pages are anchors too (both sets show them), so a row's `anchor` covers
+six pages, not three — caught once only when the random order put a lent page
+first — and `inner_text` puts a blank line between paragraphs.
+
+**The examples.** Fourteen live pages were tried for the two pictures: gov.uk's
+bank holidays (taken, after its cookie banner was turned down), and for the
+cluttered one CNN (politics throughout), timeanddate.com (looked "Somewhat"),
+AliExpress (blank), rediff.com (connection reset), Arngren (Norwegian, and
+"Extremely" more than "Very"), lingscars.com, AccuWeather and Argos (blocked),
+Sports Direct (HTTP/2 error), eBay .com and .co.uk (error pages), Yahoo (politics), and
+Newegg (taken, under its sale pop-up).
+
+**The suite**, on mains: backend half **979 passed, 9 skipped, 0 failed**
+(997s), frontend half **578 passed, 3 skipped, 0 failed** (1276s): **1557
+passed, 12 skipped, 0 failed**, the 1531 of 2026-10-23 plus the 26 new
+rating and training tests. The backend half was run with `-q`, which hides
+the power header; the power was read just before it and just after it, on
+mains both times. One line of `train.py` was tidied while it ran (a double
+assignment folded into one), so the 101 rating and training tests were run
+again on the final tree: 101 passed. The host fit test was not rerun; nothing
+the host shows changed.

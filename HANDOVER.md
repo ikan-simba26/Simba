@@ -23,7 +23,11 @@ and the person's profile, their own tiles, the starting level as an estimator
 signal, and a reset — items 5 to 7 below. And on 2026-10-23 for ratings
 collected online: two Google Forms, A and B in reverse order, and a converter
 for their answers (`tools/rating/form/README.md`); and for the trace store's
-times, which tied on Windows and are now strictly increasing (STATUS.md). Section 9 is still the 2026-09-17 capture, and says so.
+times, which tied on Windows and are now strictly increasing (STATUS.md). And
+later on 2026-10-23 for `feat/rating-sets`: the forms replaced, before any
+rating was collected, by two sets of 30 pictures with a five-point labelled
+question, worked examples and anchors, and training's floor changed to 8
+ratings per page (DECISIONS.md, *Two sets of 30*). Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -289,7 +293,7 @@ interactive elements, and the readable content.
 | A corpus of 50 pages, read headless and in the window | `data/corpus.json`, recaptured with the rating pictures in one run (EVALUATION.md, 2026-10-03) |
 | Each step's telemetry is paired with that step's page features and logged | `pairing.py`, `data/steps.jsonl` (not committed: it holds what people typed) |
 | A training pipeline: agreement between raters, per-page means, ridge regression, 5-fold cross-validation, feature importance | `train.py`, `test_train.py` — **on synthetic ratings only. Nothing is trained, because nobody has rated a page yet** |
-| A rating tool: 50 pictures at 1280x800, rated 1–7 with repeats | `tools/rating/`, in person; and the same pictures as two Google Forms for raters who cannot come in, A and B in reverse order, read back by `tools/rating/from_form.py` (`tools/rating/form/README.md`). No ratings collected |
+| A rating tool: 50 pictures at 1280x800 in two balanced sets of 25, each rater seeing one set, three anchors of the other and two repeats — 30 pictures — answering "How overwhelming does this page feel?" from Not at all to Extremely (1–5), after two worked examples | `tools/rating/`, in person; and the same two sets as two Google Forms for raters who cannot come in, read back by `tools/rating/from_form.py` (`tools/rating/form/README.md`). Training needs 8 ratings on every page: at least 16 raters, 8 per set. No ratings collected |
 
 ---
 
@@ -677,7 +681,7 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **Ratings from people** | People rating the 50 pictures, in person (`tools/rating/`) or online (`tools/rating/form/README.md`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
+| **Ratings from people** | At least 16 people, 8 per set, rating 30 pictures each, in person (`tools/rating/`) or online (`tools/rating/form/README.md`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
 | **Early sessions with two or three people** | People, including someone who works with people with cognitive disabilities | Nobody from the audience has seen the interface. Second and third October priorities |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
