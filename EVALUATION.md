@@ -63,6 +63,8 @@ from the version that produced its table.
 | 2026-09-20b | The 34-page corpus, driven states included | `collect_corpus` (starts the replicas itself; two live reads of the railways page) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
+| 2026-10-30 | The estimator: agreement, the model, the cut points | `python -m backend.estimator.train`, or `python -m tools.rating.retrain` for this and the next row (`--min-ratings 5` until every page has 8) |
+| 2026-10-30b | The model against the rules, the logged decisions, the two environments, the data's handling, each page's reasons | `estimator_compare` (reads local files; no model quota, no site) |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -6621,3 +6623,97 @@ The model as shipped, `trained 2026-10-30T21:05:28+05:00`. Level is the page's o
 | www.pakrailways.gov.pk/train (open the station list) | target | 1.59 | 1 | 2 | little text on screen, few links (12), a deeply nested layout |
 | www.pakrailways.gov.pk/train | target | 1.55 | 1 | 2 | little text on screen, few links (12), a deeply nested layout |
 | demoqa.com/automation-practice-form | demo | 1.53 | 1 | 2 | little text on screen, few links (2), many things to fill in |
+
+---
+
+## 2026-10-30c — what the estimator is worth, read plainly
+
+`feat/estimator-trained`. The two sections above are what `tools.rating.retrain`
+wrote; this is what they mean, what was checked by hand, and the suite. The
+training section ran on a clean commit, `19db24949e4b`. The comparison's conditions
+block says DIRTY TREE because the same command had just written the model and the
+section above it, and nothing else had changed. Both ran on battery, which moves
+no figure here: the seeds are fixed, and the model's numbers came out the same in
+every run. Retraining took 116s.
+
+**The ratings.** 24 responses, 14 to Set 1 and 10 to Set 2, 2026-10-23 to
+2026-10-29. Dropped: 9, all for being on a phone (5001, 5004, 5010, 5011, 6001,
+6002, 6005, 6007, 6009). None declined and none was incomplete. Usable: **15**, 10
+and 5, 450 rows. Ratings per page: 5 on 22 pages, 10 on 22, 15 on the six anchors.
+
+**Agreement is weak.** Alpha 0.318 is well below the 0.667 usually asked of data
+to draw even tentative conclusions from, and below 0.8 by further. Two things
+soften what that means for this model, and neither repairs it. People are
+consistent with themselves: 30 repeated pairs correlate 0.803, 57% identical and
+93% within one answer. So the disagreement is mostly between people, not noise
+within them, and that is a finding: **how overwhelming a page feels differs from
+person to person**, which is the argument for the person's own level and live
+behaviour staying in charge of the screen. And a mean smooths what single ratings
+do not: the page means' reliability is 0.779. Fewer raters would have been a
+smaller problem had they agreed more; with this alpha, more raters is what buys
+stable means.
+
+**Accuracy is moderate, and real.** It beats predicting the mean at every cut:
+5-fold R² 0.491 ± 0.240 against −0.110, and held-out error 0.480 of a point
+against 0.768. The folds run from 0.06 to 0.72, so one number hides a lot: on
+50 pages, which ten are held out matters. Over 40 shuffles it is 0.572 ± 0.047,
+with error 0.498, against a ceiling of about 0.78. Half a point is half a word
+on the form: it can tell "Not at all" from "Very" and cannot be trusted between
+neighbouring words. Into three bands, held out throughout, it is right on 64% of
+pages. In the middle band it is little better than a coin, which is what the
+predicted-against-rated chart shows.
+
+**What this measures, and what it does not.** 13 of the 15 are aged 18–24 and 10
+are in computing. They rated a picture seen at about half size, on their own, for
+how it felt. None is from the audience this is for, and nobody used a page. So
+this is how a page looks to these people, and whether that predicts struggling
+is unmeasured. Two features say so directly: pages with more form fields scored
+lower, and SIMBA exists for forms. It is a better guess than the rules, and it is
+a guess about the first impression.
+
+**The features.** `text_density` does most of the work (Spearman 0.82 with the
+means, R² lost 0.61), and it is the one feature read from the viewport raters
+saw. `links` counts the whole page: BBC News has 106 and its picture is calm, and
+raters said so. `overlays` adds nothing (+0.004), though the rules count it as a
+sign, and six of the rules' eight false alarms are component libraries showing
+something open.
+Shallower pages score heavier (−0.217): a page of plain old HTML reads as heavier
+than a modern one with the same links. Importances are wide: 0.61 ± 0.48.
+
+**Three pictures show something other than the page's name.** Seen while checking
+surprising ratings: `demo.opencart.com` is a Cloudflare check, not a shop;
+`example.com` is now seven languages of text, and raters put it far above its
+reputation; BBC News's adverts had not loaded. All three are what raters saw and
+what the features read, one load
+each, so nothing is wrong, and they are not the pages their names suggest.
+
+**In the real window**, on `main`'s stack with this branch, at this machine's 150%
+(1266x632), keyword routing, no model quota: the health check said `trained model`.
+Billing's first question at level 3, nothing past the window. Registration started
+at 3 from the model (3.54) and the guard took it to level 1, sign-in on screen,
+nothing past the window, as `test_sign_in.py` found. Each row held `judged_by`, the
+model's rating and reasons, and the rules' signs beside them. This window's saved
+profile also chose level 3, so level 3 alone proved nothing there;
+`test_with_a_model_the_app_starts_from_the_page_and_says_so` is the same with no
+profile, and starts at 3 from the page.
+
+**Failed, and fixed.** A test written for this work found the sign-in screen 60px
+past the window at 150% (632), 86px at 150% (606) and over at 100% when a task
+started at level 3: the guard's one hop went to level 2, which cannot help. It now
+goes to level 1; 47 of 47 in `test_sign_in.py` and `test_first_screen.py`. A first
+draft of the heavy-page comparison marked the model with a cut chosen on the same
+pages, which flatters it (recall 0.89); the fair row, with the cut held out too, is
+0.75. A first draft of the 28-page check reported alpha over all 50 pages. Importing
+scikit-learn to do a sum took 5.6s per backend start, so the app reads plain
+numbers. One of my tests expected a heavy start back at level 1 in three steps; it
+takes five.
+
+**The suite**, on mains, at `24510b2`, the overlay rebuilt first: backend half
+**1062 passed, 9 skipped, 0 failed** (964s), frontend half **582 passed, 3 skipped,
+0 failed** (1261s): **1644 passed, 12 skipped, 0 failed**, the 1557 of 2026-10-23
+plus 87 new, 83 of them estimator, rules, comparison and app tests and 4 the
+sign-in from level 3. The host fit test, `SIMBA_HOST_TESTS=1`: **3 of 3** (453s).
+The 12 skips are the same 12. The suite waited for mains: the machine was on
+battery until 21:17. The backend half was run with `--no-header` by mistake, which
+hides its power line, so the power was logged each minute instead, 21:17 to 22:02:
+45 readings, all on mains. Only these records changed afterwards.

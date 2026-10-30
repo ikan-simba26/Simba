@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-23 · **1557 passing, 12 skipped, 0 failed** · backend 979 in 997s, frontend 578 in 1276s, as two halves on mains, on `feat/rating-sets` (two sets of 30 rating pictures), then merged into `main`; the rating and training tests, 101, rerun on the final tree after a one-line tidy of `train.py` made during the backend half. The host fit test (`SIMBA_HOST_TESTS=1`) was not rerun: nothing the host shows changed; it was 3 of 3 earlier the same day. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; the backend half ran with `-q`, which hides them, so its power was read just before and after it (on mains both times) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-10-23b)
+**Last updated:** 2026-10-30 · **1644 passing, 12 skipped, 0 failed** · backend 1062 in 964s, frontend 582 in 1261s, as two halves on mains, on `feat/estimator-trained`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 453s. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; the backend half ran with `--no-header`, which hides them, so its power was logged each minute instead: 45 readings, all on mains (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-10-30c)
 
 ---
 
@@ -176,6 +176,9 @@ application's state (EVALUATION.md).
   `adapt` clip needs `SIMBA_PAGE_MODEL=0` to re-record.
 - **Needs the other owners**: DECISIONS.md, 2026-10-30, six entries; HANDOVER.md,
   *For Nahail (2026-10-30)*.
+- **The suite, on mains**: 1644 passed, 12 skipped, 0 failed (backend 1062 in 964s,
+  frontend 582 in 1261s); the host fit test 3/3 (453s). Merged into `main` and
+  pushed.
 
 ### Changed on 2026-10-23 (later): two sets of 30 — `feat/rating-sets`
 
