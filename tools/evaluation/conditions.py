@@ -62,6 +62,7 @@ SWITCHES = (
     "SIMBA_LLM_EFFORT",
     "SIMBA_REPLICA_URL",
     "SIMBA_ADAPT",
+    "SIMBA_PAGE_MODEL",
 )
 
 

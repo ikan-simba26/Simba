@@ -20,6 +20,7 @@ import pytest
 
 from backend.estimator import train as pipeline
 from backend.estimator.train import (
+    COEFFICIENTS,
     EVALUATION,
     FEATURES,
     MIN_RATINGS,
@@ -616,3 +617,167 @@ def test_it_reads_the_sets_of_the_committed_forms() -> None:
     assert len(design) == 50
     assert sorted(len(s) for s in design.values()).count(2) == 6
     assert sum(s == {1} for s in design.values()) == sum(s == {2} for s in design.values()) == 22
+
+
+# --- error, held out, and from a score to a level (2026-10-30) -----------------------
+
+
+def trained_on_synthetic() -> pipeline.Trained:
+    corpus = synthetic_corpus()
+    return train(as_ratings(synthetic_ratings(corpus)), corpus)
+
+
+def test_error_is_reported_beside_the_same_for_predicting_the_mean() -> None:
+    trained = trained_on_synthetic()
+    assert len(trained.fold_mae) == len(trained.fold_rmse) == pipeline.FOLDS
+    assert np.mean(trained.fold_mae) < np.mean(trained.baseline_mae)
+    assert np.mean(trained.fold_rmse) < np.mean(trained.baseline_rmse)
+    text = report(trained)
+    assert "Mean absolute error" in text and "Root mean squared error" in text
+
+
+def test_a_held_out_prediction_never_saw_its_own_page() -> None:
+    trained = trained_on_synthetic()
+    before, _ = pipeline.held_out_predictions(trained.x, trained.y, repeats=1)
+    moved = trained.y.copy()
+    moved[7] += 3.0
+    after, _ = pipeline.held_out_predictions(trained.x, moved, repeats=1)
+    assert after[0, 7] == pytest.approx(before[0, 7])
+    assert not np.allclose(np.delete(after[0], 7), np.delete(before[0], 7))
+
+
+def test_held_out_predictions_stay_on_the_scale() -> None:
+    trained = trained_on_synthetic()
+    predicted, baseline = pipeline.held_out_predictions(trained.x, trained.y, repeats=2)
+    assert predicted.min() >= 1 and predicted.max() <= 5
+    assert predicted.shape == baseline.shape == (2, len(trained.y))
+
+
+def test_a_person_mean_is_more_reliable_when_raters_agree() -> None:
+    corpus = synthetic_corpus()
+    steady = as_ratings(synthetic_ratings(corpus, noise=0.3))
+    noise = as_ratings(synthetic_ratings(corpus, signal=False))
+    assert pipeline.reliability(steady, splits=50) > 0.9
+    assert pipeline.reliability(noise, splits=50) < 0.5
+
+
+def test_reliability_needs_pages_with_two_raters() -> None:
+    assert pipeline.reliability(as_ratings(synthetic_ratings(
+        synthetic_corpus(), raters=1))) is None
+
+
+def test_quadratic_kappa_is_sklearns() -> None:
+    from sklearn.metrics import cohen_kappa_score
+    rng = np.random.default_rng(3)
+    a, b = rng.integers(0, 3, 40), rng.integers(0, 3, 40)
+    assert pipeline.quadratic_kappa(a, b) == pytest.approx(
+        cohen_kappa_score(a, b, weights="quadratic"))
+    assert pipeline.quadratic_kappa(a, a) == 1.0
+
+
+def test_quadratic_kappa_of_two_bandings_that_never_vary_is_zero() -> None:
+    assert pipeline.quadratic_kappa(np.zeros(5, dtype=int), np.zeros(5, dtype=int)) == 0.0
+
+
+def test_a_value_on_a_cut_goes_up() -> None:
+    assert pipeline.band(np.array([2.4, 2.5, 3.4, 3.5]), (2.5, 3.5)).tolist() == [0, 1, 1, 2]
+
+
+def test_natural_breaks_find_three_groups_that_are_there() -> None:
+    values = np.array([1.0, 1.1, 1.2, 3.0, 3.1, 3.2, 4.8, 4.9, 5.0])
+    assert pipeline.natural_breaks(values) == pytest.approx((2.1, 4.0))
+
+
+def test_the_cuts_follow_a_score_squeezed_towards_the_mean() -> None:
+    """The reason the cuts are not the raters' own: a held-out score has less
+    spread than the ratings, so 3.5 would hardly ever be reached."""
+    y = np.linspace(1.2, 4.8, 37)
+    squeezed = 3.0 + (y - 3.0) * 0.4
+    (calm, heavy), kappa = pipeline.choose_cuts(squeezed[None, :], y)
+    assert heavy < 3.5 and calm > 2.5
+    assert kappa == pytest.approx(1.0)
+    assert pipeline.quadratic_kappa(pipeline.band(y, pipeline.BANDS),
+                                    pipeline.band(squeezed, pipeline.BANDS)) < kappa
+
+
+def test_cut_points_are_chosen_and_held_out() -> None:
+    trained = trained_on_synthetic()
+    predicted, _ = pipeline.held_out_predictions(trained.x, trained.y, repeats=4)
+    levels = pipeline.choose_levels(trained.x, trained.y, predicted, repeats=2, inner=2)
+    assert levels.cuts[0] < levels.cuts[1]
+    assert sum(levels.rated) == len(trained.y)
+    assert sum(map(sum, levels.confusion)) == len(trained.y)
+    assert len(levels.nested_bands) == 2 and len(levels.nested_bands[0]) == len(trained.y)
+    # Chosen on the same scores, so it can only flatter the held-out figure.
+    assert levels.kappa >= levels.plain_kappa
+    assert -1 <= levels.nested_kappa <= 1 and 0 <= levels.nested_exact <= 1
+
+
+# --- the floor, lowered for one run, and saying so ------------------------------------
+
+
+def corpus_at_five() -> tuple[dict, list[dict], dict]:
+    corpus = synthetic_corpus()
+    design = two_sets(corpus)
+    rows = synthetic_ratings(corpus, raters=20, design=design)
+    # Set 2's raters, the even numbers, cut to five.
+    keep = {r for r in {row["rater"] for row in rows} if r % 2 or r <= 10}
+    return corpus, [row for row in rows if row["rater"] in keep], design
+
+
+def test_by_default_the_floor_still_refuses() -> None:
+    corpus, rows, design = corpus_at_five()
+    with pytest.raises(RefusedToTrain, match="fewer than 8 ratings"):
+        train(as_ratings(rows), corpus, design=design)
+
+
+def test_a_lower_floor_trains_and_the_report_says_which_pages_are_under_the_real_one() -> None:
+    corpus, rows, design = corpus_at_five()
+    trained = train(as_ratings(rows), corpus, min_ratings=5, design=design)
+    assert trained.min_ratings == 5
+    assert len(trained.below_floor) > 0
+    text = report(trained)
+    assert "**Below the study's floor.**" in text and "--min-ratings 5" in text
+    assert text.index("Below the study's floor") < text.index("How far the raters agree")
+    assert trained.below_floor[0][0] in text
+
+
+def test_a_lower_floor_still_refuses_below_itself() -> None:
+    corpus, rows, design = corpus_at_five()
+    with pytest.raises(RefusedToTrain):
+        train(as_ratings(rows), corpus, min_ratings=6, design=design)
+
+
+def test_a_run_that_met_the_floor_says_nothing_about_it() -> None:
+    assert "Below the study's floor" not in report(trained_on_synthetic())
+
+
+def test_a_lower_floor_is_written_into_the_saved_model(here: Path) -> None:
+    corpus, rows, _ = corpus_at_five()
+    ratings = write_jsonl(here / "ratings.jsonl", rows)
+    evaluation = here / "EVALUATION.md"
+    evaluation.write_text("# scratch\n", encoding="utf-8")
+    trained = run(ratings, write_corpus(here / "corpus.json", corpus), here / "estimator.joblib",
+                  evaluation, pictures_path=write_pictures(here / "pages.json", corpus),
+                  design_path=None, min_ratings=5)
+
+    saved = joblib.load(here / "estimator.joblib")
+    numbers = json.loads((here / "estimator.json").read_text(encoding="utf-8"))
+    assert saved["min_ratings"] == numbers["min_ratings"] == 5
+    assert saved["pages_below_floor"] == numbers["pages_below_floor"] == len(trained.below_floor) > 0
+    assert numbers["synthetic"] is True
+    assert numbers["cuts"]["calm"] < numbers["cuts"]["heavy"]
+    assert len(numbers["coefficients"]) == len(numbers["means"]) == len(FEATURES)
+    text = evaluation.read_text(encoding="utf-8")
+    assert "From a score to a level" in text and "taken at" in text
+
+
+def test_a_synthetic_model_never_reaches_the_file_the_app_reads() -> None:
+    trained = trained_on_synthetic()
+    with pytest.raises(RefusedToTrain, match="synthetic"):
+        pipeline.save_coefficients(trained, COEFFICIENTS)
+
+
+def test_coefficients_need_the_cuts_that_run_chooses(here: Path) -> None:
+    with pytest.raises(RefusedToTrain, match="cut points"):
+        pipeline.save_coefficients(trained_on_synthetic(), here / "estimator.json")
