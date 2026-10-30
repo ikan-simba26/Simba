@@ -59,12 +59,16 @@ def test_logged_decisions_are_grouped_by_page_and_replayed(tmp_path: Path) -> No
             {"kind": "decision", "at": "start", "level": 3, "inputs": {"page": page_row}},
             {"kind": "decision", "at": "step", "level": 3, "inputs": {"page": page_row}},
             {"kind": "decision", "at": "start", "level": 2, "inputs": {"page": None}},
+            {"kind": "decision", "at": "start", "level": 3, "judged_by": "trained today",
+             "inputs": {"page": page_row}},
+            {"kind": "decision", "at": "start", "level": 2, "judged_by": "provisional",
+             "inputs": {"page": page_row}},
             {"kind": "telemetry"}]
     path = tmp_path / "steps.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
     found = compare.replay_logged(MODEL, path)
     assert len(found) == 1
-    assert found[0]["rows"] == 2 and found[0]["levels"] == {2: 1, 3: 1}
+    assert found[0]["rows"] == 3 and found[0]["levels"] == {2: 2, 3: 1}
     assert found[0]["rating"] == 2.0 and found[0]["level"] == 1
 
 

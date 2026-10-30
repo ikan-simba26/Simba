@@ -43,7 +43,7 @@ from scipy.stats import spearmanr
 from backend.estimator import page_model, train
 from backend.estimator.page_features import PageFeatures
 from backend.estimator.pairing import DEFAULT_PATH as STEPS, read_rows
-from backend.estimator.rules import THRESHOLDS, page_signs
+from backend.estimator.rules import RULES_VERSION, THRESHOLDS, page_signs
 from tools.evaluation.conditions import banner, conditions
 from tools.rating import from_form
 
@@ -158,6 +158,10 @@ def replay_logged(model: page_model.PageModel, steps: Path) -> list[dict[str, An
     seen: dict[str, dict[str, Any]] = {}
     for row in read_rows(steps):
         if row.get("kind") != "decision" or row.get("at") != "start":
+            continue
+        # Only what the rules decided: a row from before 2026-10-30 has no
+        # `judged_by`, and one the model judged is not theirs to compare.
+        if row.get("judged_by", RULES_VERSION) != RULES_VERSION:
             continue
         page = (row.get("inputs") or {}).get("page")
         if not page:
