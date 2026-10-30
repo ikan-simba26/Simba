@@ -60,6 +60,10 @@ data/steps.jsonl
 # answers and stay on the machine that recorded them, like data/steps.jsonl.
 data/rating/pages/
 data/ratings.jsonl
+# The forms' downloads, wherever they were saved: people's answers, with the
+# time each was sent (tools/rating/form/README.md).
+SIMBA rating form*.csv
+responses-*.csv
 
 # Saved sign-in details (backend/orchestrator/vault.py). Encrypted with this
 # Windows account's own key, and still never committed.
