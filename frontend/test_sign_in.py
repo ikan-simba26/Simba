@@ -109,3 +109,36 @@ def test_the_sign_in_screen_fits(browser, overlay: str, backend: Backend,  # noq
         assert over <= 0, (size, over)
     finally:
         page.close()
+
+
+@pytest.mark.parametrize("size", list(SIZES), ids=list(SIZES))
+def test_the_sign_in_screen_fits_when_the_page_starts_it_at_level_3(
+        browser, overlay: str, backend: Backend, size: str) -> None:  # noqa: F811
+    """The trained estimator scores the portal's sign-in page heavy, so the
+    task starts at level 3 (2026-10-30). The guard moves one level per step
+    and then lets a page scroll, so a screen that needed two hops would not
+    fit from there."""
+    width, height, scale = SIZES[size]
+    page = browser.new_page(viewport={"width": width, "height": height},
+                            device_scale_factor=scale)
+    backend.script = [
+        ("task.started", {"goal": "course", "estimated_steps": 4, "stages": STAGES}),
+        ("load.updated", {"score": 0.63, "level": 3, "reason": "3.5 of 5"}),
+        ("state.changed", {"state": "waiting"}), ("step.presented", SIGN_IN),
+        (AWAIT_RESPONSE, {}),
+    ]
+    backend.responses.clear()
+    try:
+        page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+        page.fill("input[aria-label='What would you like me to do?']", "course")
+        page.get_by_role("button", name="Start").click()
+        page.get_by_text("Let me sign you in first.").first.wait_for(timeout=10000)
+        page.wait_for_timeout(1800)  # past the guard
+        over = page.evaluate("document.scrollingElement.scrollHeight - innerHeight")
+        level = level_on_screen(page)
+        print(f"sign-in from level 3, {size}: level {level}, over {over}")
+        assert over <= 0, (size, level, over)
+        assert page.locator("input[type='password']").count() == 1
+        assert page.locator("input[type='text']").count() >= 1
+    finally:
+        page.close()

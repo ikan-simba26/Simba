@@ -146,7 +146,13 @@ export function firstSentence(text: string): string {
  *
  * So overflow moves *towards* level 1, not away from it. Simplifying and
  * fitting are different axes, and only one of them is about height.
+ *
+ * From level 3 it goes straight to level 1 (2026-10-30). The guard has one hop
+ * per step, and level 3 is never taller than level 2 (`test_first_screen.py`),
+ * so a step that does not fit at 3 cannot fit at 2 and a hop there is the hop
+ * wasted. It was: once the trained estimator started a heavy page at level 3,
+ * the sign-in screen stopped at level 2, 60px to 86px past the window.
  */
 export function denser(level: Level): Level | null {
-  return level === 3 ? 2 : level === 2 ? 1 : null;
+  return level === 1 ? null : 1;
 }
