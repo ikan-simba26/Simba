@@ -2,9 +2,11 @@
 
 Start the stack first, from the repo root:
 
-    .\\run.ps1 billing          # both replicas, the host, the backend
+    $env:SIMBA_PAGE_MODEL = "0"; .\\run.ps1 billing
 
-then:
+(both replicas, the host, the backend, and the rules judging the page: the
+trained estimator starts billing at level 3 since 2026-10-30, and nothing folds
+from there) then:
 
     python -m tools.evaluation.adaptation_stack_run          # pointer wandering
     python -m tools.evaluation.adaptation_stack_run still    # pointer at rest

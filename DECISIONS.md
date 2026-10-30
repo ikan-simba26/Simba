@@ -5450,3 +5450,173 @@ in-person sessions, whose rows carry each answer's time.
 - **The in-person page's answer buttons put the number beside the words**,
   so they stay one line and the picture keeps its size: 598px wide in a
   1266x606 window.
+
+## The estimator is trained under the floor, on all 50 pages, and says so
+
+**Date:** 2026-10-30 (asked for: train on the real ratings, say which pages
+have fewer than 8 ratings and how that was handled; the handling was not
+specified). **Nahail to confirm**: the two-sets design and its floor are in
+Nahail's area and unreviewed.
+
+**The situation.** 24 responses came back, 14 to Set 1 and 10 to Set 2. Nine
+were on a phone, which the forms say are not used: 10 usable raters in Set 1,
+5 in Set 2. So 22 of 50 pages have 5 ratings, 22 have 10 and the six anchors 15.
+`train.py` refused, correctly: 66 more ratings, at least three more Set 2
+raters.
+
+**Decision.** Train on all 50 pages with `--min-ratings 5`, a new flag, under a
+default that still refuses. The run says it is under the floor before any
+number in EVALUATION.md, names the 22 pages, and writes `min_ratings` and
+`pages_below_floor` into both model files. With three more usable Set 2 raters
+the flag goes.
+
+**Alternatives, each measured** (EVALUATION.md, 2026-10-30b):
+
+- *Stop and collect more.* The honest default, and it leaves priority 1 at
+  nothing with the freeze two days off. Rejected because the data is good
+  enough to beat the rules and a retrain is one command.
+- *Train only on the 28 pages at the floor.* Keeps the rule to the letter.
+  Pooled held-out R² 0.435 against 0.572, and on those same 28 pages the error
+  is **0.477 fitted to them alone and 0.412 with the 22 under-floor pages added
+  to the fit**: the noisier pages help. It also drops the page rated heaviest.
+- *Put the nine phone raters back*, which meets the floor at once: fewest 10
+  ratings. R² 0.579 against 0.572, so the model hardly moves, but the rule was
+  set before anyone answered, for a reason that may hold (a 1280x800 page on a
+  phone): phone raters agree less (alpha 0.238, repeats 0.652 against 0.803)
+  and rate 0.35 higher. Left to the owners, below.
+
+**Cost.** A page rated by five people has a mean one person can move by 0.8 of
+a point. Every one of those 22 pages is Set 2's own, so its mean rests on one
+small group, four of whom do not work in computing where nine of Set 1's ten
+do. The six anchors say the groups rate alike (difference 0.02), with five
+raters on one side, which is little power.
+
+**Raters who ran against everyone were kept.** Rater 5007 correlates −0.58 with
+the others and 5013 0.10. No exclusion rule was set before the ratings came in,
+so none was invented after: alpha rises from 0.318 to 0.447 without them because
+taking out disagreement raises agreement, and that would not be a finding. It
+changes R² from 0.572 to 0.621. Whether −0.58 is a reversed scale is not
+known; their repeats do not say. **Cost:** Set 1's means carry one tenth of
+someone who may have read the scale backwards.
+
+## The app reads the model as plain numbers, not the joblib
+
+**Date:** 2026-10-30 (not asked for)
+
+**Decision.** `train.py` also writes `data/estimator.json`: means, spreads,
+coefficients, intercept, cut points. `page_model.py` reads that and does the sum
+with no numpy and no scikit-learn. `data/estimator.joblib` stays, committed, as
+*The trained model is committed; the ratings are not* decided.
+
+**Why.** Importing scikit-learn took 5.6s here, on battery, and the backend
+starts often: once per launch, and many times in the suite. The model is nine
+multiplications. The JSON can also be read and diffed, which the report needs.
+
+**Alternatives.** Load the joblib at start-up, costing that on every start.
+Load it in a thread, which is more machinery than the sum.
+
+**Cost.** Two files that must say the same thing. `save_model` and
+`save_coefficients` run together, and `test_the_committed_json_gives_what_the_
+committed_pipeline_gives` holds them equal on all 50 pages. And "the model file"
+now means the JSON: deleting only the joblib does not fall back to the rules
+(RUNNING.md says so).
+
+## A page can start a person simpler, never with more detail
+
+**Date:** 2026-10-30 (asked for: the person's starting level and live behaviour
+still adjust the level; how was not specified). **Flagged for Nahail and Aly.**
+
+**Decision.** A task starts at `max(the person's own level, the page's level)`,
+where the person's level is the one chosen in the welcome, or 2. Calm is 1,
+middle 2, heavy 3. So someone who has not said sees level 2 or 3; someone who
+chose 1 sees 1, 2 or 3 by the page; someone who chose 3 always sees 3.
+Everything after the first screen is as before: a clear signal folds one level,
+two calm steps return one level towards the person's own, a lock holds.
+
+**Why.** It keeps what the rules already said (`test_the_estimator_never_chooses_
+level_1`): more detail is something a person chooses, not something inferred.
+For this audience a wrong guess towards more is worse than one towards less.
+
+**Alternatives.** *The full mapping for someone who has not said*, calm to level
+1: the calm cut would then do something for everyone, and people would be shown
+more than the default because a model thought they could take it. *An offset*,
+the page's level moved by the person's: someone who chose 3 would be shown 2 on
+a calm page, and someone who chose 1 would be shown 2 on a heavy one.
+
+**Cost.** For someone who has not said, the calm cut does nothing: only the heavy
+cut matters. Someone who chose 1 is moved off it by a middle page, where the
+rules left them alone; two calm steps bring them back.
+
+**Only the first page moves the level.** That is what the rules did. Later pages
+are scored and logged on every step, so whether a heavier page mid-task should
+move the level can be measured; moving it now would be a new behaviour, two days
+before the freeze, on a screen that may fold anyway. **Flagged.**
+
+## The cut points are chosen on held-out scores, from the raters' own bands
+
+**Date:** 2026-10-30 (asked for: cut points chosen from the data and justified;
+the method was not specified)
+
+**Decision.** Two steps. *The raters' bands* are the form's own words: a mean
+under 2.5 is nearest Not at all or A little, under 3.5 nearest Somewhat, and from
+3.5 nearest Very or Extremely. They are fixed, so retrainings can be compared.
+The ratings' own natural breaks fall at 2.40 and 3.45 and put the 50 pages in
+the same 24, 18 and 8. *The score's cuts* are the pair, from every pair 1.5 to 4.5
+by 0.05, that best reproduce those bands on held-out scores by quadratic weighted
+kappa, mean over 40 shuffles of the folds: **2.45 and 2.90**.
+
+**Why not the same numbers on the score.** A held-out score is squeezed towards
+the mean. Used unchanged, 2.5 and 3.5 give kappa 0.666 against 0.751, and a heavy
+cut of 3.5 catches 30% of heavy pages. Fitted scores spread wider than a new
+page's will, so cuts read from them would mislead the same way.
+
+**Worth, on unseen pages.** With the cuts held out as well: kappa 0.691, the right
+band on 64.4% of pages, cuts averaging 2.43 ± 0.14 and 2.95 ± 0.13. So they are
+good to about a tenth. Heavy calls, held out: 75% of heavy pages caught, about half
+the calls right.
+
+**Why a heavy cut this low is acceptable.** The errors are not equal. A false
+heavy shows a simpler step, which the person can undo with a dot. A missed heavy
+shows more on a page that overwhelms, and waits for them to struggle.
+
+**Cost.** The model calls 14 of 50 pages heavy where raters put 8 there, including
+the first pages of billing (rated Somewhat) and registration. Those two tasks now
+start at level 3, so they no longer fold, and the demo's fold on billing needs
+`SIMBA_PAGE_MODEL=0` (DEMO.md, `demo/README.md`). **Flagged for Aly.**
+
+## The overflow guard's one hop from level 3 goes to level 1
+
+**Date:** 2026-10-30 (not asked for; **Aly to review**, `frontend/src/levels.ts`)
+
+**Decision.** `denser(3)` is 1, where it was 2.
+
+**Why.** Found by a test written for this work. Starting registration at level 3
+put the sign-in screen 60px to 86px past the window at 100% and 150%: the guard
+has one hop per step, it hopped to 2, and level 3 is never taller than level 2,
+so a step that does not fit at 3 cannot fit at 2.
+
+**Alternatives.** Two hops, which is the reshaping twice in a second the guard was
+limited to stop. Keeping the sign-in out of level 3 in the backend, which would be
+the page's load deciding something about one screen's height.
+
+**Cost.** A heavy page's person can go straight from the simplest screen to the
+densest on a step that does not fit. It is what level 2 did already, and it is
+what registration did before this change; and with no calm-step return below the
+person's own level, the rest of that task stays at level 1 at 100% and 150%, as
+it already did.
+
+## Committed about a page: its score and reasons, not its rating
+
+**Date:** 2026-10-30 (follows *The trained model is committed; the ratings are
+not*; not asked for)
+
+**Decision.** `data/estimator_pages.json` and EVALUATION.md's page table hold each
+page's model score, level and reasons. Per-page rated means stay in
+`.scratch/estimator/pages_with_ratings.md` and in the predicted-against-rated
+chart, neither committed. The six anchors' means are in EVALUATION.md, because
+`train.py` has reported them since 2026-10-23 and they are what the groups
+comparison is. The two forms' CSVs are now gitignored by name, because they sat
+in the repository root untracked.
+
+**Cost.** Anyone with only the repository cannot redraw the chart, or check a
+page's score against its rating, without the ratings.

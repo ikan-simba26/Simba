@@ -190,12 +190,55 @@ are in `data/rating/pages/` and are not committed; their hashes are in
 `data/rating/pages.json`, which is. Capture once and rate that set: a
 re-capture of live pages is a different set of pictures.
 
+### Retraining the estimator
+
+When more ratings come in, download both forms' responses again and run one
+command from the repository root:
+
+```powershell
+backend\venv\Scripts\python -m tools.rating.retrain "SIMBA rating form, Set 1.csv" "SIMBA rating form, Set 2.csv"
+```
+
+```bash
+backend/venv/bin/python -m tools.rating.retrain "SIMBA rating form, Set 1.csv" "SIMBA rating form, Set 2.csv"
+```
+
+It reads the CSVs into `data/ratings.jsonl` (keeping any in-person rows), trains,
+chooses the cut points, holds the new model against the rules, and writes
+`data/estimator.joblib`, `data/estimator.json`, `data/estimator_pages.json`, two
+new sections of EVALUATION.md and the charts in `.scratch/estimator/`. The next
+connection to the backend uses the new model; nothing needs restarting. About a
+minute and a half. With no CSVs it trains on the ratings already there.
+
+**It refuses while any page has fewer than 8 ratings**, and says how many more
+raters of each set it takes. The model on `main` was trained under that floor,
+so as it stands the command needs `--min-ratings 5`, which is written into the
+model and into EVALUATION.md, naming every page under 8. Once Set 2 has three
+more usable raters, drop the flag. Add the three new model files by name, and
+the two sections; the CSVs and `data/ratings.jsonl` are never committed.
+
 ### The level adapts in a real run
 
-Since 2026-09-25 the real backend moves the detail level itself, by
-**provisional** rules that stand in until the trained estimator exists
+Since 2026-09-25 the real backend moves the detail level itself. Since
+2026-10-30 **the first page is judged by the trained estimator**
+(`backend/estimator/page_model.py`): a page scoring from the heavy cut point
+upward starts at level 3, and a calm or middle page leaves the person at their
+own level, or at 2 if they have not said. The page can start someone simpler
+than the level they chose, never with more detail.
+`curl http://127.0.0.1:8000/` says `"level": "trained model"`.
+
+**With no model, the rules judge the page**, by their three signs, and the
+health check says `"provisional rules"`. That happens if `data/estimator.json`
+is missing, unreadable, synthetic or for other features (the backend logs why),
+or with `SIMBA_PAGE_MODEL=0`. Only that file matters to the running app:
+`data/estimator.joblib` is the same model for scikit-learn, and the app does
+not read it.
+
+**Everything after the first page is still the provisional rules**
 (`backend/estimator/rules.py`; every threshold is a guess, listed in
-DECISIONS.md). To see it on any start page:
+DECISIONS.md). To see them, on the trains, whose first page is calm; billing and
+registration start at level 3 and have no further to fold, unless started with
+`SIMBA_PAGE_MODEL=0`:
 
 - **Fold.** On any step, do nothing for 15 seconds — or press "What are you
   doing?", or wander the pointer after 6 seconds. The step on screen folds to
@@ -206,9 +249,10 @@ DECISIONS.md). To see it on any start page:
 - **Lock.** Pick a level with the dots and nothing moves it until you press
   "let it choose".
 
-`SIMBA_ADAPT=0` turns the rules off and the level stays where the overlay
-puts it. Every decision, with its inputs, is written to `data/steps.jsonl`
-beside the telemetry (`"kind": "decision"`); the file is not committed.
+`SIMBA_ADAPT=0` turns all of it off and the level stays where the overlay
+puts it. Every decision, with its inputs, who judged the page and what the
+rules would have said, is written to `data/steps.jsonl` beside the telemetry
+(`"kind": "decision"`); the file is not committed.
 
 ### mock is for the interface
 

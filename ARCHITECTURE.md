@@ -383,7 +383,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `backend/orchestrator/traces.py` | SQLite trace storage |
 | `backend/orchestrator/replay.py` | `TracePlanner` |
 | `backend/orchestrator/app.py` | FastAPI `/ws` endpoint, `history.offered`, the flow switches |
-| `backend/estimator/` | Page features (`page_features.py`), step/telemetry/decision rows (`pairing.py`), and the provisional level rules (`rules.py`). No trained score |
+| `backend/estimator/` | Page features (`page_features.py`), step/telemetry/decision rows (`pairing.py`), training (`train.py`), the trained model as the app reads it (`page_model.py`), and the level rules (`rules.py`), which take the model's judgement of the page and fall back on their own signs |
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
 | `frontend/electron/main.ts` | The window: site view, then overlay on top of it |
@@ -410,14 +410,17 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 
 ## What is not built yet
 
-The **estimator** — nothing trained computes a load score. Since 2026-09-25 a
-real run's level is moved by **provisional hand-written rules**
-(`backend/estimator/rules.py`): a starting level from the first page, one
-level simpler on a clear telemetry signal, back after two calm steps. They
-stand in until the model exists, and every decision they make is logged to
-`data/steps.jsonl` so the model can be checked against them. The **credential
-vault** — values arrive in `step.response` rather than being injected from a
-store the model cannot see. **Voice input**, and **replay tuning**.
+**Half of the estimator.** Since 2026-10-30 a model trained on people's ratings
+judges the first page of a task (`backend/estimator/page_model.py`, reading
+`data/estimator.json`), and with no model the rules' three signs do. What the
+person does in a step — one level simpler on a clear telemetry signal, back
+after two calm steps — is still read by **provisional hand-written rules**
+(`backend/estimator/rules.py`), and no person's behaviour is behind their
+thresholds. Pages after the first are scored and logged, and do not move the
+level. Every decision is logged to `data/steps.jsonl`, with who judged the page
+and what the rules would have said. The **credential vault** — values arrive
+in `step.response` rather than being injected from a store the model cannot
+see. **Voice input**, and **replay tuning**.
 
 See `STATUS.md` for where each module actually stands.
 
