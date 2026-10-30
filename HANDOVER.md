@@ -27,7 +27,9 @@ times, which tied on Windows and are now strictly increasing (STATUS.md). And
 later on 2026-10-23 for `feat/rating-sets`: the forms replaced, before any
 rating was collected, by two sets of 30 pictures with a five-point labelled
 question, worked examples and anchors, and training's floor changed to 8
-ratings per page (DECISIONS.md, *Two sets of 30*). Section 9 is still the 2026-09-17 capture, and says so.
+ratings per page (DECISIONS.md, *Two sets of 30*). And on 2026-10-30 for
+`feat/estimator-trained`: the estimator trained on people's ratings and judging
+the first page of a task. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -42,6 +44,38 @@ Also read [CLAUDE.md](CLAUDE.md) (the project's rules, which bind people and
 tools alike), [CONTRACT.md](CONTRACT.md) (every message between the two
 processes) and [RUNNING.md](RUNNING.md) (the launcher, and what to do when it
 fails).
+
+**For Nahail (2026-10-30): the estimator is trained, and it is yours to review.**
+Raham asked for it to go in before the freeze, so it went in without you. Nothing
+below is settled against your judgement; each has an entry in DECISIONS.md, with
+what it costs to change.
+
+- **What is on `main`.** A ridge regression on your nine features, 15 raters, 50
+  pages (`train.py`, unchanged in method). `backend/estimator/page_model.py`
+  turns features into a score and a level; `rules.py` uses that for the first
+  page and falls back on its three signs. Telemetry still goes through the
+  provisional rules. Nothing fuses the two channels yet.
+- **It is under your floor.** Set 2 has 5 usable raters, so 22 pages have 5
+  ratings. `--min-ratings 5` is new and is written into the model. Three more
+  usable Set 2 raters, then `python -m tools.rating.retrain "<Set 1>.csv"
+  "<Set 2>.csv"` with no flag replaces everything (RUNNING.md).
+- **Six things to confirm or change**: training under the floor on all 50 pages;
+  keeping raters 5007 (−0.58 with everyone) and 5013 (0.10), since no exclusion
+  rule existed; keeping the nine phone raters out, though they would meet the floor
+  at once and move R² by only 0.007; the start level as `max(person, page)`;
+  the cut points' method; and judging only the first page.
+- **What surprised me, and you may read differently.** `text_density` does most of
+  the work, and it is the only feature measured on what raters could see; `links`
+  and `interactive` count the whole page, which may be why they do less. `overlays`
+  carries nothing (coefficient +0.004), though the rules count it as a sign.
+  Deeper pages score lower, and pages with more form fields score lower: raters
+  judged how a picture looked, not how hard it was to fill in. Your call whether
+  `form_fields` should stay in a model for a product that fills in forms.
+- **`read_aloud` and `start_level` are not features**, as your decisions left
+  them: the ratings have no person attached. `start_level` is used as the rules
+  used it, as the person's own floor.
+- **Every decision row now has `judged_by` and `inputs.judged`**, beside what the
+  rules would have said, so the two can be compared on real sessions.
 
 **For Nahail (2026-10-15): two changes that reach the estimator.**
 
@@ -292,8 +326,11 @@ interactive elements, and the readable content.
 | Nine raw page features per page read — counts, a text density, a depth, a dead-link ratio, a reading grade | `page_features.py`, `test_page_features.py` |
 | A corpus of 50 pages, read headless and in the window | `data/corpus.json`, recaptured with the rating pictures in one run (EVALUATION.md, 2026-10-03) |
 | Each step's telemetry is paired with that step's page features and logged | `pairing.py`, `data/steps.jsonl` (not committed: it holds what people typed) |
-| A training pipeline: agreement between raters, per-page means, ridge regression, 5-fold cross-validation, feature importance | `train.py`, `test_train.py` — **on synthetic ratings only. Nothing is trained, because nobody has rated a page yet** |
-| A rating tool: 50 pictures at 1280x800 in two balanced sets of 25, each rater seeing one set, three anchors of the other and two repeats — 30 pictures — answering "How overwhelming does this page feel?" from Not at all to Extremely (1–5), after two worked examples | `tools/rating/`, in person; and the same two sets as two Google Forms for raters who cannot come in, read back by `tools/rating/from_form.py` (`tools/rating/form/README.md`). Training needs 8 ratings on every page: at least 16 raters, 8 per set. No ratings collected |
+| A training pipeline: agreement between raters, per-page means, ridge regression, 5-fold cross-validation, feature importance, cut points | `train.py`, `test_train.py`; on real ratings 2026-10-30 |
+| **A model trained on 15 people's ratings judges a task's first page**, better than the rules and better than the mean: 5-fold R² 0.49, error 0.48 of a point. Raters agree weakly (alpha 0.318), and 22 pages are under the floor of 8 | `page_model.py`, `test_page_model.py`, `test_rules.py`; EVALUATION.md, 2026-10-30 to 2026-10-30c |
+| Falls back to the rules with no usable model | `test_page_model.py`, `test_rules.py`, `test_adaptation.py` |
+| Each page's score and reasons in plain words | `data/estimator_pages.json`; EVALUATION.md, 2026-10-30b |
+| A rating tool: 50 pictures at 1280x800 in two balanced sets of 25, each rater seeing one set, three anchors of the other and two repeats — 30 pictures — answering "How overwhelming does this page feel?" from Not at all to Extremely (1–5), after two worked examples | `tools/rating/`, in person; and the same two sets as two Google Forms for raters who cannot come in, read back by `tools/rating/from_form.py` (`tools/rating/form/README.md`). Training needs 8 ratings on every page: at least 16 raters, 8 per set. 15 usable raters so far: 10 and 5 |
 
 ---
 
@@ -301,7 +338,7 @@ interactive elements, and the readable content.
 
 | Not built | Why not |
 |---|---|
-| **A trained estimator** (a load score learned from people's ratings) | The features, the corpus, the pairing and the training pipeline exist; **no person has rated a page**, so there is nothing to train on. Until there is, hand-written provisional rules (`rules.py`) choose the level, and are logged so the trained model can be checked against them. CLAUDE.md's first October priority |
+| **An estimator of the person** (a load score from what someone does, fused with the page's) | The page side is trained (2026-10-30). Hand-written provisional rules still read telemetry, with no person's behaviour behind their thresholds, because no person from the audience has used it |
 | **A credential store beyond the minimum** | One saved password per site, Windows only, forgettable only from a sign-in step during a task. Deleting it from the home screen would need a new contract message |
 | **Voice input** | In the contract, out of scope for now |
 | **Replay tuning** (when to trust a trace over fresh planning) | Not started. Trace memory is off by default |
@@ -632,7 +669,8 @@ backend/orchestrator/          the loop, the three planners, the plans for each 
                                router.py and details.py (reading the goal), vault.py,
                                voice.py (every fixed string the backend puts on screen)
 backend/estimator/             page features, the provisional level rules, telemetry
-                               pairing, the training pipeline (nothing trained yet)
+                               pairing, the training pipeline, the trained model as the
+                               app reads it (page_model.py)
 
 frontend/electron/             the window: website view below, overlay on top
 frontend/src/                  the React overlay; copy.ts holds every word it writes
@@ -648,8 +686,8 @@ tools/rating/                  the rating pictures, the session that collects ra
 tools/record_demo.py           records the demo's fallback clips into demo/
 spike/                         the original Electron + CDP experiment
 
-data/                          the corpus and rating pictures (committed); steps.jsonl,
-                               ratings.jsonl, vault.json (never committed)
+data/                          the corpus, rating pictures and trained model (committed);
+                               steps.jsonl, ratings.jsonl, vault.json (never committed)
 .scratch/, logs/, traces.db,   gitignored: scratch and test temp files, LLM transcripts,
 demo/*.webm                    the trace store, the demo clips
 ```
@@ -681,7 +719,7 @@ blocked on quota, days after the quota had reset.
 
 | Item | What it needs | Notes |
 |---|---|---|
-| **Ratings from people** | At least 16 people, 8 per set, rating 30 pictures each, in person (`tools/rating/`) or online (`tools/rating/form/README.md`) | Everything downstream — the trained estimator, its cross-validation, its comparison with the provisional rules — waits on this. CLAUDE.md's first October priority |
+| **Three more usable Set 2 raters** | Three people on a laptop, in person (`tools/rating/`, even numbers) or on the Set 2 form | 15 usable raters so far, 10 and 5. Then `python -m tools.rating.retrain` with no flag, and the model is no longer under the floor. Priority 1's last step |
 | **Early sessions with two or three people** | People, including someone who works with people with cognitive disabilities | Nobody from the audience has seen the interface. Second and third October priorities |
 | **The stronger-model ablation** | About 100 model requests | Free-tier limits spread that over days; a paid key does it in one sitting. The biggest gap in the evaluation |
 | **An honest baseline for the LLM** | A goal neither planner has seen | |
