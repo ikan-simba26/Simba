@@ -207,8 +207,9 @@ It reads the CSVs into `data/ratings.jsonl` (keeping any in-person rows), trains
 chooses the cut points, holds the new model against the rules, and writes
 `data/estimator.joblib`, `data/estimator.json`, `data/estimator_pages.json`, two
 new sections of EVALUATION.md and the charts in `.scratch/estimator/`. The next
-connection to the backend uses the new model; nothing needs restarting. About a
-minute and a half. With no CSVs it trains on the ratings already there.
+connection to the backend uses the new model; nothing needs restarting. About
+two minutes (116s on battery, 2026-10-30). With no CSVs it trains on the
+ratings already there.
 
 **It refuses while any page has fewer than 8 ratings**, and says how many more
 raters of each set it takes. The model on `main` was trained under that floor,
