@@ -10,8 +10,11 @@ The four runs the task named are the first four tests. Everything after them
 pins down one rule each.
 """
 
+from dataclasses import replace
+
 from backend.estimator.page_features import PageFeatures
-from backend.estimator.rules import THRESHOLDS, Decision, LevelRules
+from backend.estimator.page_model import PageModel
+from backend.estimator.rules import RULES_VERSION, THRESHOLDS, Decision, LevelRules
 
 #: Billing's first page as the host reads it (`data/corpus.json`): an
 #: ordinary page, not a heavy one.
@@ -469,3 +472,126 @@ def test_the_level_cannot_be_changed_once_the_task_has_started() -> None:
     rules.start_step(1, LIGHT)
     rules.start_from(1)
     assert (rules.baseline, rules.level) == (2, 2)
+
+
+# --- with the trained model judging the page (2026-10-30) ---------------------------
+
+
+#: The rating is 1 plus the text density, so a page's band can be read off it.
+MODEL = PageModel(
+    version="trained test", means=(0.0,) * 9, spreads=(1.0,) * 9,
+    coefficients=(0, 0, 0, 1.0, 0, 0, 0, 0, 0), intercept=1.0, calm=2.45, heavy=2.9)
+CALM = replace(LIGHT, text_density=0.5)  # 1.5
+MIDDLE = replace(LIGHT, text_density=1.6)  # 2.6
+#: Plain to the rules, with none of their signs, and heavy to the model.
+HEAVY_TO_THE_MODEL = replace(LIGHT, text_density=2.2)  # 3.2
+#: Two of the rules' signs, and calm to the model.
+HEAVY_TO_THE_RULES = replace(LIGHT, controls=200, overlays=1, text_density=0.5)
+
+
+def judged(level: int | None = None) -> Run:
+    rules = LevelRules(page_model=MODEL)
+    rules.start_from(level)
+    return Run(rules)
+
+
+def test_the_model_starts_a_heavy_page_at_3_where_the_rules_would_not() -> None:
+    assert LevelRules().start_step(1, HEAVY_TO_THE_MODEL).level == 2
+    decision = LevelRules(page_model=MODEL).start_step(1, HEAVY_TO_THE_MODEL)
+    assert decision.level == 3
+    assert decision.send is True
+    assert decision.reason.startswith("3.2 of 5")
+
+
+def test_the_model_overrules_the_rules_signs() -> None:
+    assert LevelRules().start_step(1, HEAVY_TO_THE_RULES).level == 3
+    assert LevelRules(page_model=MODEL).start_step(1, HEAVY_TO_THE_RULES).level == 2
+
+
+def test_a_calm_page_does_not_bring_more_detail_than_the_person_has_said() -> None:
+    """The model's level is 1. More detail is something a person chooses."""
+    assert LevelRules(page_model=MODEL).start_step(1, CALM).level == 2
+
+
+def test_a_person_who_chose_more_detail_gets_it_on_a_calm_page() -> None:
+    run = judged(1)
+    run.step(1, calm_step(1), CALM)
+    assert run.levels[1] == 1
+
+
+def test_a_page_can_start_someone_simpler_than_the_level_they_chose() -> None:
+    for level, page, expected in ((1, MIDDLE, 2), (1, HEAVY_TO_THE_MODEL, 3),
+                                  (2, HEAVY_TO_THE_MODEL, 3)):
+        run = judged(level)
+        run.step(1, calm_step(1), page)
+        assert run.levels[1] == expected, (level, page.text_density)
+
+
+def test_a_page_never_starts_someone_with_more_than_the_level_they_chose() -> None:
+    for page in (CALM, MIDDLE, HEAVY_TO_THE_MODEL):
+        run = judged(3)
+        run.step(1, calm_step(1), page)
+        assert run.levels[1] == 3
+
+
+def test_their_own_level_is_named_when_it_is_what_decided() -> None:
+    assert "the person's own level, 3" in judged(3).rules.start_step(1, CALM).reason
+
+
+def test_hesitation_still_folds_a_step_the_model_started() -> None:
+    run = judged()
+    run.step(1, hesitant_step(1), MIDDLE)
+    assert run.levels[1] == 3
+
+
+def test_calm_steps_still_bring_a_heavy_start_back_to_the_persons_own_level() -> None:
+    """One level for every two calm steps, however heavy the first page was."""
+    for level, back in ((None, 2), (1, 1)):
+        run = judged(level)
+        for index in range(1, 6):
+            run.step(index, calm_step(index), HEAVY_TO_THE_MODEL)
+        assert run.levels[1] == 3 and run.levels[3] == 2 and run.levels[5] == back
+
+
+def test_a_lock_holds_against_the_model() -> None:
+    rules = LevelRules(page_model=MODEL)
+    rules.override(1, True)
+    decision = rules.start_step(1, HEAVY_TO_THE_MODEL)
+    assert decision.level == 1 and decision.send is False
+    assert "would start at 3" in decision.reason
+
+
+def test_a_page_with_no_features_starts_where_the_person_is() -> None:
+    decision = LevelRules(page_model=MODEL).start_step(1, None)
+    assert decision.level == 2
+
+
+def test_the_score_sent_is_the_models_and_a_strong_signal_still_beats_it() -> None:
+    rules = LevelRules(page_model=MODEL)
+    assert rules.start_step(1, MIDDLE).score == 0.4
+    assert rules.telemetry(sample(1, 15000)).score == 1.0
+
+
+def test_with_no_model_every_decision_is_what_the_rules_alone_decided() -> None:
+    """The fallback is the old behaviour, row for row: nothing is judged."""
+    for page in (LIGHT, HEAVY, None):
+        plain, none = LevelRules(), LevelRules(page_model=None)
+        one, two = plain.start_step(1, page), none.start_step(1, page)
+        assert one.as_row() == two.as_row()
+        assert one.judged_by == RULES_VERSION
+
+
+def test_every_decision_says_who_judged_the_page() -> None:
+    run = judged()
+    run.step(1, hesitant_step(1), MIDDLE)
+    run.end()
+    rows = [d.as_row() for d in run.decisions]
+    assert {row["judged_by"] for row in rows} == {"trained test"}
+    assert {row["rules"] for row in rows} == {RULES_VERSION}
+
+
+def test_a_step_row_holds_the_judgement_and_what_the_rules_would_have_said() -> None:
+    """So that the two can be compared on every real run from now on."""
+    inputs = LevelRules(page_model=MODEL).start_step(1, HEAVY).inputs
+    assert inputs["judged"]["level"] == 3 and inputs["judged"]["reasons"]
+    assert inputs["heavy_signs"]
