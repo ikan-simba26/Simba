@@ -4,7 +4,7 @@
 
 Reads the page features (`data/corpus.json`) and the ratings people gave the
 pictures of those pages (`data/ratings.jsonl`, written by `tools/rating`),
-and does four things in order, stopping with a reason at the first one that
+and does five things in order, stopping with a reason at the first one that
 cannot be done honestly:
 
 1. **Says how far the raters agree** before anything is fitted, because a
@@ -28,8 +28,13 @@ cannot be done honestly:
    number for predicting the training mean — the score a model has to beat to
    have learned anything. Permutation importance is measured on the held-out
    fold of each split, not on the pages the model was fitted to.
-4. **Saves the model** (`data/estimator.joblib`) and **appends a results
-   section to EVALUATION.md**.
+4. **Chooses where the score changes the detail level** (`choose_cuts`), on
+   held-out scores. A fitted score spreads wider than a score on a page the
+   model has not seen, so cut points read off the fitted scores, or off the
+   rating scale itself, would rarely fire on a new page.
+5. **Saves the model** (`data/estimator.joblib`, and the same numbers as plain
+   JSON in `data/estimator.json`, which is the file the running app reads:
+   `page_model.py`) and **appends a results section to EVALUATION.md**.
 
 **It refuses to train until every page has at least eight ratings** — eight
 raters, each counted once however often they saw the page (2026-10-23; until
@@ -43,6 +48,12 @@ many more raters of each set. The pages counted are the ones that can be
 trained on: a picture current in the manifest, with features from its run.
 It also refuses with too few pages to fold, and refuses ratings that mix
 synthetic rows with real ones.
+
+**The floor can be lowered for one run, and it says so** (2026-10-30):
+`--min-ratings 5` trains on what there is. The default stays eight; a run
+under it names every page below eight in its EVALUATION.md section, and the
+saved model carries the count, so a model from fewer ratings can never pass for
+one that met the floor. Retrained with enough ratings, the flag goes.
 
 **Synthetic ratings are never reported as a result.** Rows carrying
 `"synthetic": true` — the tests make them — can be trained on, so the pipeline
@@ -62,9 +73,11 @@ picture it was given for is the one in the manifest now (`image_sha256`), and
 only if that picture and the page's corpus row came from the same run; the
 rest are left out and listed, with why.
 
-**What it does not do.** It does not replace the provisional level rules; that
-is a separate step, to be checked against the rules' logged decisions
-(CLAUDE.md, current phase).
+**What it does not do.** It does not say how the level moves in a run: that is
+`rules.py`, which reads `data/estimator.json` through `page_model.py`, and
+`tools/evaluation/estimator_compare.py` holds the model against the rules.
+`python -m tools.rating.retrain` runs the converter, this and that comparison
+as one command (RUNNING.md).
 """
 
 from __future__ import annotations
@@ -85,15 +98,19 @@ import numpy as np
 from scipy.stats import mannwhitneyu, pearsonr, spearmanr
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import RidgeCV
-from sklearn.metrics import r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
+
+from tools.evaluation.conditions import banner, conditions
 
 REPO = Path(__file__).resolve().parents[2]
 CORPUS = REPO / "data" / "corpus.json"
 RATINGS = REPO / "data" / "ratings.jsonl"
 MODEL = REPO / "data" / "estimator.joblib"
+#: The same model as plain numbers: what the running app reads (`page_model.py`).
+COEFFICIENTS = REPO / "data" / "estimator.json"
 PICTURES = REPO / "data" / "rating" / "pages.json"
 #: The two sets the rating forms show (`tools/rating/export_form.py`).
 DESIGN = REPO / "data" / "rating" / "form.json"
@@ -119,6 +136,18 @@ MIN_PAGES = 2 * FOLDS
 ALPHAS = tuple(float(a) for a in np.logspace(-2, 3, 26))
 PERMUTATION_REPEATS = 50
 SEED = 0
+#: Where the form's own words divide a page's mean rating: nearest "Not at all"
+#: or "A little", nearest "Somewhat", nearest "Very" or "Extremely". Fixed, so
+#: one retraining can be compared with the next; `natural_breaks` checks them
+#: against where the ratings themselves divide.
+BANDS = (2.5, 3.5)
+#: Shuffles of the five folds. One split of 50 pages into five is a small
+#: sample of the possible splits: each is a different ten held-out pages.
+REPEATS = 40
+#: The score cut points tried, on the 1-5 scale.
+CUT_GRID = tuple(round(float(v), 2) for v in np.arange(1.5, 4.51, 0.05))
+#: Random halvings of each page's raters, for the ceiling.
+SPLITS = 500
 
 
 class RefusedToTrain(Exception):
@@ -505,9 +534,25 @@ class Trained:
     coefficients: dict[str, float]
     alpha: float
     model: Pipeline
-    #: Ratings per page against `MIN_RATINGS`, every page passing.
+    #: Ratings per page against the floor this run was given.
     coverage: Shortfall | None = None
     sources: dict[str, Any] = field(default_factory=dict)
+    #: The floor this run was given; below `MIN_RATINGS` only when asked for.
+    min_ratings: int = MIN_RATINGS
+    #: Error on each held-out fold, and the same for predicting the training
+    #: mean, in points of the 1-5 scale.
+    fold_mae: list[float] = field(default_factory=list)
+    fold_rmse: list[float] = field(default_factory=list)
+    baseline_mae: list[float] = field(default_factory=list)
+    baseline_rmse: list[float] = field(default_factory=list)
+    #: The features and the mean ratings, row by row with `pages`.
+    x: np.ndarray | None = None
+    y: np.ndarray | None = None
+    #: Set by `run`: what the luck of the folds is worth, and the cuts.
+    repeated: Repeated | None = None
+    levels: Levels | None = None
+    #: How far the page means can be predicted at all (`reliability`).
+    ceiling: float | None = None
 
     @property
     def r2(self) -> tuple[float, float]:
@@ -516,6 +561,12 @@ class Trained:
     @property
     def baseline(self) -> tuple[float, float]:
         return float(np.mean(self.baseline_r2)), float(np.std(self.baseline_r2))
+
+    @property
+    def below_floor(self) -> list[tuple[str, str]]:
+        """The pages trained on with fewer than `MIN_RATINGS` ratings."""
+        counts = self.coverage.counts if self.coverage else {}
+        return sorted(k for k, n in counts.items() if n < MIN_RATINGS)
 
 
 def _model() -> Pipeline:
@@ -571,12 +622,18 @@ def train(ratings: list[Rating], corpus: dict, min_ratings: int = MIN_RATINGS,
 
     folds = KFold(n_splits=FOLDS, shuffle=True, random_state=SEED)
     fold_r2, baseline_r2 = [], []
+    fold_mae, fold_rmse, baseline_mae, baseline_rmse = [], [], [], []
     lost: dict[str, list[float]] = {f: [] for f in FEATURES}
     for train_index, test_index in folds.split(x):
         model = _model().fit(x[train_index], y[train_index])
-        fold_r2.append(float(r2_score(y[test_index], model.predict(x[test_index]))))
+        predicted = model.predict(x[test_index])
+        fold_r2.append(float(r2_score(y[test_index], predicted)))
         baseline = np.full(len(test_index), y[train_index].mean())
         baseline_r2.append(float(r2_score(y[test_index], baseline)))
+        fold_mae.append(float(mean_absolute_error(y[test_index], predicted)))
+        fold_rmse.append(float(np.sqrt(mean_squared_error(y[test_index], predicted))))
+        baseline_mae.append(float(mean_absolute_error(y[test_index], baseline)))
+        baseline_rmse.append(float(np.sqrt(mean_squared_error(y[test_index], baseline))))
         # On the held-out fold: how much worse the model does there when one
         # feature's values are shuffled. Measured on pages it was fitted to,
         # this would reward whatever it had memorised.
@@ -594,7 +651,197 @@ def train(ratings: list[Rating], corpus: dict, min_ratings: int = MIN_RATINGS,
         fold_r2=fold_r2, baseline_r2=baseline_r2,
         importance={f: (float(np.mean(v)), float(np.std(v))) for f, v in lost.items()},
         coefficients={f: float(c) for f, c in zip(FEATURES, ridge.coef_)},
-        alpha=float(ridge.alpha_), model=final, coverage=coverage,
+        alpha=float(ridge.alpha_), model=final, coverage=coverage, min_ratings=min_ratings,
+        fold_mae=fold_mae, fold_rmse=fold_rmse, baseline_mae=baseline_mae,
+        baseline_rmse=baseline_rmse, x=x, y=y,
+    )
+
+
+# --- held out, and from a score to a level ------------------------------------------
+
+
+@dataclass
+class Repeated:
+    """Pooled held-out figures over `REPEATS` shuffles of the five folds: the
+    mean and standard deviation of each measure, for the model and for
+    predicting the training mean."""
+
+    r2: tuple[float, float]
+    mae: tuple[float, float]
+    rmse: tuple[float, float]
+    baseline_r2: tuple[float, float]
+    baseline_mae: tuple[float, float]
+    baseline_rmse: tuple[float, float]
+
+
+def held_out_predictions(x: np.ndarray, y: np.ndarray, repeats: int = REPEATS,
+                         seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
+    """One row per shuffle of the folds. Every page is predicted once in each,
+    by a model that never saw it; the second array is the same for predicting
+    the training mean. Clipped to the scale, as the running app clips."""
+    predicted = np.zeros((repeats, len(y)))
+    baseline = np.zeros((repeats, len(y)))
+    for repeat in range(repeats):
+        folds = KFold(n_splits=FOLDS, shuffle=True, random_state=seed + repeat)
+        for train_index, test_index in folds.split(x):
+            model = _model().fit(x[train_index], y[train_index])
+            predicted[repeat, test_index] = model.predict(x[test_index])
+            baseline[repeat, test_index] = y[train_index].mean()
+    return np.clip(predicted, *SCALE), baseline
+
+
+def repeated(y: np.ndarray, predicted: np.ndarray, baseline: np.ndarray) -> Repeated:
+    def spread(metric: Any, rows: np.ndarray) -> tuple[float, float]:
+        values = [float(metric(y, row)) for row in rows]
+        return float(np.mean(values)), float(np.std(values))
+
+    def rmse(a: np.ndarray, b: np.ndarray) -> float:
+        return float(np.sqrt(mean_squared_error(a, b)))
+
+    return Repeated(r2=spread(r2_score, predicted),
+                    mae=spread(mean_absolute_error, predicted), rmse=spread(rmse, predicted),
+                    baseline_r2=spread(r2_score, baseline),
+                    baseline_mae=spread(mean_absolute_error, baseline),
+                    baseline_rmse=spread(rmse, baseline))
+
+
+def reliability(ratings: list[Rating], splits: int = SPLITS, seed: int = SEED) -> float | None:
+    """How far a page's mean is a fact about the page, not about who rated it:
+    each page's raters are halved at random, the two halves' means correlated
+    over pages, and Spearman-Brown steps that up to all the raters. About the
+    most R² any model of these means could reach. A rater's two answers to a
+    repeated page count as one."""
+    per_page: dict[tuple[str, str], dict[int, list[int]]] = {}
+    for r in ratings:
+        per_page.setdefault(r.key, {}).setdefault(r.rater, []).append(r.rating)
+    means = [[float(np.mean(answers)) for answers in raters.values()]
+             for raters in per_page.values() if len(raters) >= 2]
+    if len(means) < 3:
+        return None
+    rng = np.random.default_rng(seed)
+    found = []
+    for _ in range(splits):
+        one, two = [], []
+        for page in means:
+            order = rng.permutation(len(page))
+            half = len(page) // 2
+            one.append(np.mean([page[i] for i in order[:half]]))
+            two.append(np.mean([page[i] for i in order[half:]]))
+        if len(set(one)) > 1 and len(set(two)) > 1:
+            found.append(float(pearsonr(one, two)[0]))
+    if not found:
+        return None
+    half = float(np.mean(found))
+    return 2 * half / (1 + half) if half > -1 else None
+
+
+def band(values: np.ndarray, cuts: tuple[float, float]) -> np.ndarray:
+    """0 calm, 1 middle, 2 heavy. A value on a cut goes up, as `page_model` does."""
+    return np.digitize(values, cuts)
+
+
+def quadratic_kappa(a: np.ndarray, b: np.ndarray, classes: int = 3) -> float:
+    """Agreement between two bandings beyond chance, a miss of two bands
+    counting four times a miss of one. 1 is perfect and 0 is chance."""
+    a, b = np.asarray(a, dtype=int), np.asarray(b, dtype=int)
+    observed = np.bincount(classes * a + b, minlength=classes ** 2).reshape(classes, classes)
+    expected = np.outer(observed.sum(axis=1), observed.sum(axis=0)) / len(a)
+    weights = (np.arange(classes)[:, None] - np.arange(classes)[None, :]) ** 2
+    against = float((weights * expected).sum())
+    return 1.0 - float((weights * observed).sum()) / against if against else 0.0
+
+
+def natural_breaks(values: np.ndarray) -> tuple[float, float]:
+    """Where `values` fall most naturally into three groups: the two cuts that
+    leave the least squared distance to each group's own mean (Jenks). A check
+    on `BANDS`, not the bands: it would move with every retraining."""
+    ordered = np.sort(np.asarray(values, dtype=float))
+    best: tuple[float, float, float] | None = None
+    for i in range(1, len(ordered) - 1):
+        for j in range(i + 1, len(ordered)):
+            within = sum(float(((g - g.mean()) ** 2).sum())
+                         for g in (ordered[:i], ordered[i:j], ordered[j:]))
+            if best is None or within < best[0]:
+                best = (within, float(ordered[i - 1] + ordered[i]) / 2,
+                        float(ordered[j - 1] + ordered[j]) / 2)
+    assert best is not None
+    return best[1], best[2]
+
+
+def choose_cuts(predicted: np.ndarray, y: np.ndarray) -> tuple[tuple[float, float], float]:
+    """The two score cut points that best reproduce the raters' own bands on
+    held-out scores (`predicted`, one row per shuffle), and that agreement: the
+    mean quadratic kappa. A tie goes to the lower cuts, so that the miss which
+    is rarer is the one on a heavy page."""
+    target = band(y, BANDS)
+    best: tuple[tuple[float, float], float] = (BANDS, -2.0)
+    for i, calm in enumerate(CUT_GRID):
+        for heavy in CUT_GRID[i + 1:]:
+            kappa = float(np.mean([quadratic_kappa(target, band(row, (calm, heavy)))
+                                   for row in predicted]))
+            if kappa > best[1]:
+                best = ((calm, heavy), kappa)
+    return best
+
+
+@dataclass
+class Levels:
+    """Where the score changes the level, and what that is worth."""
+
+    cuts: tuple[float, float]
+    #: Mean quadratic kappa of `cuts` on held-out scores. Chosen on those same
+    #: scores, so it flatters: `nested_kappa` is the number to quote.
+    kappa: float
+    #: `BANDS` used as the cuts, unchanged: the choice this has to beat.
+    plain_kappa: float
+    #: The whole procedure held out: cut points chosen without the page scored.
+    nested_kappa: float
+    nested_exact: float
+    #: Mean and standard deviation of each cut over those nested choices.
+    nested_cuts: tuple[tuple[float, float], tuple[float, float]]
+    #: Where the page means fall into three by themselves.
+    breaks: tuple[float, float]
+    #: Pages rated calm, middle and heavy.
+    rated: tuple[int, int, int]
+    #: Rows are the raters' band, columns the band of the mean held-out score.
+    confusion: list[list[int]]
+    #: Each page's band from the nested choice, one row per shuffle.
+    nested_bands: list[list[int]] = field(default_factory=list)
+
+
+def choose_levels(x: np.ndarray, y: np.ndarray, predicted: np.ndarray,
+                  repeats: int = 5, inner: int = 3) -> Levels:
+    """`choose_cuts`, and how it does on pages it did not choose on: for each
+    of `repeats` shuffles of five folds the cuts are chosen from the other four
+    folds alone, then used on the fifth."""
+    cuts, kappa = choose_cuts(predicted, y)
+    target = band(y, BANDS)
+    plain = float(np.mean([quadratic_kappa(target, band(row, BANDS)) for row in predicted]))
+    kappas, exact, chosen, nested_bands = [], [], [], []
+    for repeat in range(repeats):
+        folds = KFold(n_splits=FOLDS, shuffle=True, random_state=SEED + 100 + repeat)
+        bands = np.zeros(len(y), dtype=int)
+        for train_index, test_index in folds.split(x):
+            inside, _ = held_out_predictions(x[train_index], y[train_index], inner, SEED + repeat)
+            picked, _ = choose_cuts(inside, y[train_index])
+            chosen.append(picked)
+            scores = _model().fit(x[train_index], y[train_index]).predict(x[test_index])
+            bands[test_index] = band(np.clip(scores, *SCALE), picked)
+        kappas.append(quadratic_kappa(target, bands))
+        exact.append(float(np.mean(bands == target)))
+        nested_bands.append(bands.tolist())
+    table = np.zeros((3, 3), dtype=int)
+    for rated_band, scored_band in zip(target, band(predicted.mean(axis=0), cuts)):
+        table[rated_band, scored_band] += 1
+    picks = np.array(chosen)
+    return Levels(
+        cuts=cuts, kappa=kappa, plain_kappa=plain, nested_kappa=float(np.mean(kappas)),
+        nested_exact=float(np.mean(exact)),
+        nested_cuts=((float(picks[:, 0].mean()), float(picks[:, 0].std())),
+                     (float(picks[:, 1].mean()), float(picks[:, 1].std()))),
+        breaks=natural_breaks(y),
+        rated=(int((target == 0).sum()), int((target == 1).sum()), int((target == 2).sum())),
+        confusion=table.tolist(), nested_bands=nested_bands,
     )
 
 
@@ -622,9 +869,46 @@ def save_model(trained: Trained, path: Path = MODEL) -> None:
         "scale": SCALE,
         "pages": trained.pages,
         "cv_r2": trained.r2,
+        "min_ratings": trained.min_ratings,
+        "pages_below_floor": len(trained.below_floor),
+        "cuts": trained.levels.cuts if trained.levels else None,
         "trained_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "sources": trained.sources,
     }, path)
+
+
+def save_coefficients(trained: Trained, path: Path = COEFFICIENTS) -> None:
+    """The model as plain numbers, for the running app and for reading: a
+    linear model is a mean and a spread per feature, a coefficient per feature
+    and an intercept. The app reads this rather than the joblib because
+    importing scikit-learn took 5.6s here (2026-10-30), on every backend start,
+    to do a sum. Never a synthetic model at the project's own path."""
+    if trained.synthetic and _is_the_projects(path, COEFFICIENTS):
+        raise RefusedToTrain(
+            f"refusing to save a model trained on synthetic ratings to {COEFFICIENTS}: "
+            f"that is what the running app reads.")
+    if trained.levels is None:
+        raise RefusedToTrain("no cut points to save: they are chosen by `run`.")
+    scaler: StandardScaler = trained.model[0]
+    ridge: RidgeCV = trained.model[-1]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "version": "trained " + datetime.now().astimezone().isoformat(timespec="seconds"),
+        "synthetic": trained.synthetic,
+        "scale": list(SCALE),
+        "features": list(FEATURES),
+        "means": [float(v) for v in scaler.mean_],
+        "spreads": [float(v) for v in scaler.scale_],
+        "coefficients": [float(v) for v in ridge.coef_],
+        "intercept": float(ridge.intercept_),
+        "ridge_alpha": float(ridge.alpha_),
+        "cuts": {"calm": trained.levels.cuts[0], "heavy": trained.levels.cuts[1]},
+        "raters": trained.agreement.raters,
+        "pages": len(trained.pages),
+        "min_ratings": trained.min_ratings,
+        "pages_below_floor": len(trained.below_floor),
+        "cv_r2": trained.r2[0],
+    }, indent=2) + "\n", encoding="utf-8")
 
 
 def _number(value: float | None, places: int = 3) -> str:
@@ -651,6 +935,7 @@ def report(trained: Trained, when: datetime | None = None) -> str:
     base, base_sd = trained.baseline
     title = (f"## {when:%Y-%m-%d} — the estimator, trained on {a.raters} raters' ratings")
     lines = [title, ""]
+    conditions_block = trained.sources.get("conditions")
     if trained.synthetic:
         lines += [
             "**SYNTHETIC — a test of the pipeline, not a result.** Every rating below "
@@ -663,6 +948,8 @@ def report(trained: Trained, when: datetime | None = None) -> str:
         f"`{str(s.get('ratings_sha256', ''))[:12]}`. Features: the {ENVIRONMENT} rows of "
         f"`{s.get('corpus', '?')}`, collected {s.get('corpus_taken_at', '?')}. "
         f"Model: `{s.get('model', '?')}`.", "",
+        *([f"```text\n{conditions_block}\n```", ""] if conditions_block else []),
+        *_floor_section(trained),
         "### How far the raters agree", "",
         "| | |", "|---|---|",
         f"| Raters | {a.raters}"
@@ -694,6 +981,12 @@ def report(trained: Trained, when: datetime | None = None) -> str:
         f"{', '.join(f'{v:.2f}' for v in trained.fold_r2)} |",
         f"| Predicting the training mean | {base:.3f} ± {base_sd:.3f} | "
         f"{', '.join(f'{v:.2f}' for v in trained.baseline_r2)} |", "",
+        "Error on the held-out folds, in points of the 1-5 scale:", "",
+        "| | Mean absolute error | Root mean squared error |", "|---|---|---|",
+        f"| Ridge | **{_spread(trained.fold_mae)}** | **{_spread(trained.fold_rmse)}** |",
+        f"| Predicting the training mean | {_spread(trained.baseline_mae)} | "
+        f"{_spread(trained.baseline_rmse)} |", "",
+        *_repeated_section(trained),
         f"Permutation importance on the held-out fold of each split, "
         f"{PERMUTATION_REPEATS} shuffles each: the R² lost when one feature is shuffled.", "",
         "| Feature | R² lost, mean ± sd | Coefficient (standardised) |", "|---|---|---|",
@@ -701,6 +994,10 @@ def report(trained: Trained, when: datetime | None = None) -> str:
     ranked = sorted(FEATURES, key=lambda f: trained.importance[f][0], reverse=True)
     lines += [f"| `{f}` | {trained.importance[f][0]:.3f} ± {trained.importance[f][1]:.3f} | "
               f"{trained.coefficients[f]:+.3f} |" for f in ranked]
+    lines += ["", f"The score is {float(trained.model[-1].intercept_):.3f} plus each "
+              f"coefficient times its feature's distance from the corpus mean in standard "
+              f"deviations, clipped to {SCALE[0]}-{SCALE[1]}."]
+    lines += _levels_section(trained.levels)
     if trained.unpaired:
         lines += ["", f"**Ratings of {len(trained.unpaired)} pages did not pair** with a "
                   "current picture and features from its run, and were left out: "
@@ -709,6 +1006,77 @@ def report(trained: Trained, when: datetime | None = None) -> str:
         lines += ["", f"**{len(trained.unmatched)} rated pages had no {ENVIRONMENT} features** "
                   "and were left out: " + ", ".join(f"{u} [{s}]" for u, s in trained.unmatched)]
     return "\n".join(lines) + "\n"
+
+
+def _spread(values: list[float]) -> str:
+    return f"{np.mean(values):.3f} ± {np.std(values):.3f}"
+
+
+def _floor_section(trained: Trained) -> list[str]:
+    """A run under the study's floor says so before any number."""
+    short = trained.below_floor
+    if not short:
+        return []
+    counts = trained.coverage.counts if trained.coverage else {}
+    return [
+        f"**Below the study's floor.** {len(short)} of {len(counts)} pages have fewer than "
+        f"{MIN_RATINGS} ratings, so this ran with `--min-ratings {trained.min_ratings}`, "
+        f"which only a person asks for: " + "; ".join(
+            f"{u} [{st}] ({counts[(u, st)]})" for u, st in short) + ".", ""]
+
+
+def _repeated_section(trained: Trained) -> list[str]:
+    found = trained.repeated
+    if found is None:
+        return []
+    lines = [
+        f"One split of {len(trained.pages)} pages into five is one draw. Over {REPEATS} "
+        f"shuffles of the folds, every page held out once in each, pooled:", "",
+        "| | R² | Mean absolute error | Root mean squared error |", "|---|---|---|---|",
+        f"| Ridge | **{found.r2[0]:.3f} ± {found.r2[1]:.3f}** | "
+        f"**{found.mae[0]:.3f} ± {found.mae[1]:.3f}** | "
+        f"**{found.rmse[0]:.3f} ± {found.rmse[1]:.3f}** |",
+        f"| Predicting the training mean | {found.baseline_r2[0]:.3f} ± "
+        f"{found.baseline_r2[1]:.3f} | {found.baseline_mae[0]:.3f} ± "
+        f"{found.baseline_mae[1]:.3f} | {found.baseline_rmse[0]:.3f} ± "
+        f"{found.baseline_rmse[1]:.3f} |", ""]
+    if trained.ceiling is not None:
+        lines += [f"How far these page means can be predicted at all: their reliability, "
+                  f"halving each page's raters {SPLITS} times and stepping up with "
+                  f"Spearman-Brown, is **{trained.ceiling:.3f}**, about the most R² any "
+                  f"model of them could reach.", ""]
+    return lines
+
+
+def _levels_section(found: Levels | None) -> list[str]:
+    """How the cut points were chosen, and what that is worth on unseen pages."""
+    if found is None:
+        return []
+    labels = ("calm", "middle", "heavy")
+    calm, heavy = found.cuts
+    return [
+        "", "### From a score to a level", "",
+        f"**The raters' own bands**: a mean under {BANDS[0]} is nearest \"Not at all\" or "
+        f"\"A little\", {BANDS[0]} to {BANDS[1]} nearest \"Somewhat\", and {BANDS[1]} or more "
+        f"nearest \"Very\" or \"Extremely\": {found.rated[0]}, {found.rated[1]} and "
+        f"{found.rated[2]} pages. The ratings' natural breaks (three groups, least squared "
+        f"distance) are {found.breaks[0]:.2f} and {found.breaks[1]:.2f}.", "",
+        f"**The score's cut points are {calm:.2f} and {heavy:.2f}**, chosen by trying every "
+        f"pair from {CUT_GRID[0]} to {CUT_GRID[-1]} in steps of 0.05 and keeping the pair "
+        f"that best reproduces those bands on held-out scores (quadratic weighted kappa, "
+        f"mean over {REPEATS} shuffles: {found.kappa:.3f}; the rating cuts used unchanged: "
+        f"{found.plain_kappa:.3f}). A held-out score is squeezed towards the mean, which is "
+        f"why the heavy cut sits under {BANDS[1]}.", "",
+        f"**On pages the cuts were not chosen on**, the whole procedure held out: kappa "
+        f"**{found.nested_kappa:.3f}**, the right band on **{found.nested_exact:.1%}** of "
+        f"pages. The cuts chosen there average {found.nested_cuts[0][0]:.2f} ± "
+        f"{found.nested_cuts[0][1]:.2f} and {found.nested_cuts[1][0]:.2f} ± "
+        f"{found.nested_cuts[1][1]:.2f}: quote them to a tenth at best.", "",
+        "Raters' band against the band of each page's mean held-out score:", "",
+        "| Raters said | Scored calm | Scored middle | Scored heavy |", "|---|---|---|---|",
+        *[f"| {labels[i]} | " + " | ".join(str(n) for n in row) + " |"
+          for i, row in enumerate(found.confusion)],
+    ]
 
 
 def _groups_section(found: Groups | None) -> list[str]:
@@ -748,12 +1116,18 @@ def write_evaluation(trained: Trained, path: Path = EVALUATION) -> str:
 
 def run(ratings_path: Path = RATINGS, corpus_path: Path = CORPUS, model_path: Path = MODEL,
         evaluation_path: Path = EVALUATION, environment: str = ENVIRONMENT,
-        pictures_path: Path | None = PICTURES, design_path: Path | None = DESIGN) -> Trained:
+        pictures_path: Path | None = PICTURES, design_path: Path | None = DESIGN,
+        min_ratings: int = MIN_RATINGS) -> Trained:
     ratings = read_ratings(ratings_path)
     corpus, corpus_conditions = read_corpus(corpus_path, environment)
     pictures = read_pictures(pictures_path) if pictures_path is not None else None
     design = read_design(design_path) if design_path is not None else None
-    trained = train(ratings, corpus, pictures=pictures, design=design)
+    trained = train(ratings, corpus, min_ratings=min_ratings, pictures=pictures, design=design)
+    assert trained.x is not None and trained.y is not None
+    predicted, baseline = held_out_predictions(trained.x, trained.y)
+    trained.repeated = repeated(trained.y, predicted, baseline)
+    trained.levels = choose_levels(trained.x, trained.y, predicted)
+    trained.ceiling = reliability(paired(ratings, corpus, pictures)[0] if pictures else ratings)
     trained.sources = {
         "commit": _commit(),
         "ratings": str(ratings_path.relative_to(REPO)) if ratings_path.is_relative_to(REPO)
@@ -765,8 +1139,10 @@ def run(ratings_path: Path = RATINGS, corpus_path: Path = CORPUS, model_path: Pa
         "corpus_taken_at": corpus_conditions.get("taken_at", "?"),
         "model": str(model_path.relative_to(REPO)) if model_path.is_relative_to(REPO)
         else str(model_path),
+        "conditions": banner(conditions()),
     }
     save_model(trained, model_path)
+    save_coefficients(trained, model_path.with_suffix(".json"))
     write_evaluation(trained, evaluation_path)
     return trained
 
@@ -778,9 +1154,13 @@ def main() -> None:
     parser.add_argument("--corpus", type=Path, default=CORPUS)
     parser.add_argument("--model", type=Path, default=MODEL)
     parser.add_argument("--evaluation", type=Path, default=EVALUATION)
+    parser.add_argument("--min-ratings", type=int, default=MIN_RATINGS,
+                        help=f"train with fewer than {MIN_RATINGS} ratings on a page; "
+                             "the run says so wherever it reports")
     args = parser.parse_args()
     try:
-        trained = run(args.ratings, args.corpus, args.model, args.evaluation)
+        trained = run(args.ratings, args.corpus, args.model, args.evaluation,
+                      min_ratings=args.min_ratings)
     except RefusedToTrain as reason:
         print(f"Not training: {reason}")
         raise SystemExit(2) from None

@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -176,8 +177,12 @@ def app_url(billing: str) -> Iterator[str]:
         [sys.executable, "-m", "uvicorn", "backend.orchestrator.app:app",
          "--port", str(PORT)],
         cwd=REPO_ROOT,
+        # The rules' signs judge the page here, so that a person's fold from
+        # level 2 can be seen on a page they call ordinary. With the trained
+        # model, billing's first page starts at 3: the test after these.
         env={**os.environ, "SIMBA_ROUTER": "keywords", "SIMBA_USE_HARDCODED_PLAN": "1",
-             "SIMBA_BILLING_URL": billing, "SIMBA_RECORD_STEPS": "0", "SIMBA_FLOW": ""},
+             "SIMBA_BILLING_URL": billing, "SIMBA_RECORD_STEPS": "0", "SIMBA_FLOW": "",
+             "SIMBA_PAGE_MODEL": "0"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -268,3 +273,34 @@ def test_the_level_the_person_chose_is_where_the_task_starts_and_returns(
 
     assert received[-1]["type"] == "task.completed", [m["type"] for m in received]
     assert levels_of(received) == [1, 2, 1]
+
+
+def test_with_a_model_the_app_starts_from_the_page_and_says_so(billing: str) -> None:
+    """Through the real endpoint, reading `data/estimator.json`. Billing's first
+    page is one of those the model calls heavy and the rules do not, so a
+    person who has not said starts at 3, and two calm steps bring them back."""
+    port = PORT + 1
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "backend.orchestrator.app:app",
+         "--port", str(port)],
+        cwd=REPO_ROOT,
+        env={**os.environ, "SIMBA_ROUTER": "keywords", "SIMBA_USE_HARDCODED_PLAN": "1",
+             "SIMBA_BILLING_URL": billing, "SIMBA_RECORD_STEPS": "0", "SIMBA_FLOW": ""},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_for(f"http://127.0.0.1:{port}")
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/") as answer:
+            assert json.load(answer)["level"] == "trained model"
+        received = converse(f"ws://127.0.0.1:{port}/ws", [])
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
+
+    assert received[-1]["type"] == "task.completed", [m["type"] for m in received]
+    assert levels_of(received)[0] == 3
+    assert levels_of(received)[-1] == 2
+    first = next(m["payload"] for m in received if m["type"] == "load.updated")
+    assert 0.0 <= first["score"] <= 1.0
+    assert " of 5: " in first["reason"]

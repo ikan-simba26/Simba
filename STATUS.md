@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-10-23 · **1557 passing, 12 skipped, 0 failed** · backend 979 in 997s, frontend 578 in 1276s, as two halves on mains, on `feat/rating-sets` (two sets of 30 rating pictures), then merged into `main`; the rating and training tests, 101, rerun on the final tree after a one-line tidy of `train.py` made during the backend half. The host fit test (`SIMBA_HOST_TESTS=1`) was not rerun: nothing the host shows changed; it was 3 of 3 earlier the same day. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; the backend half ran with `-q`, which hides them, so its power was read just before and after it (on mains both times) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-10-23b)
+**Last updated:** 2026-10-30 · **1644 passing, 12 skipped, 0 failed** · backend 1062 in 964s, frontend 582 in 1261s, as two halves on mains, on `feat/estimator-trained`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 453s. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`). Every run's first lines say whether the machine was on battery; the backend half ran with `--no-header`, which hides them, so its power was logged each minute instead: 45 readings, all on mains (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-10-30c)
 
 ---
 
@@ -16,6 +16,16 @@ items sat under "blocked on quota" for eight days after the quota had reset.
 
 The walking skeleton runs end to end on three flows — three replicas we wrote,
 and one live public site.
+
+**The first page of a task is judged from people's ratings now** (2026-10-30).
+A ridge regression on nine page features, trained on 15 raters' answers to "How
+overwhelming does this page feel?", replaces the rules' guess at a heavy page.
+It beats predicting the mean (R² 0.49 against −0.11, off by 0.48 of a point
+against 0.77) and it beats the rules, which caught 2 of the 8 pages raters put at
+"Very" or more, against 6 of 8 held out. **Raters agree weakly** (alpha 0.318),
+and the model was trained **under the study's floor**: 22 pages have 5 ratings,
+not 8, because Set 2 has 5 usable raters. Three more fix that, and retraining
+is one command (EVALUATION.md, 2026-10-30 to 2026-10-30c).
 
 **Every flow runs on the person's own details now, and asks for what they did
 not say** (2026-09-30). Until today a goal was a label: "trains to Rawalpindi
@@ -119,6 +129,56 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-10-30: the estimator, trained on people's ratings — `feat/estimator-trained`
+
+- **Ratings are in.** 24 responses, 9 dropped for being on a phone: **15 usable
+  raters**, 10 in Set 1 and 5 in Set 2. 450 rows. 22 pages have 5 ratings, 22
+  have 10, the six anchors 15.
+- **Under the floor, and saying so.** `train.py` refused, as it should. Trained
+  on all 50 pages with a new `--min-ratings 5`, which is written into the model
+  and names the 22 pages. The default still refuses. Measured: fitted to the 28
+  pages at the floor alone, the error on those pages is 0.477; with the 22 added
+  it is 0.412, so the thinner pages help (DECISIONS.md, *The estimator is trained
+  under the floor*).
+- **Agreement is weak, and it is a result.** Alpha 0.318 (Set 1 0.284, Set 2
+  0.357). People are far more consistent with themselves (repeats correlate
+  0.803, 93% within one answer) than with each other. Rater 5007 runs against
+  everyone (−0.58), 5013 alongside no one (0.10); both kept, since no exclusion
+  rule was set beforehand. The two sets rate the anchors alike (0.02 apart, p =
+  1.000, on five raters a side at best).
+- **The model is worth something and has a ceiling.** 5-fold R² 0.491 ± 0.240
+  (folds 0.06 to 0.72), error 0.480; over 40 shuffles of the folds 0.572, error
+  0.498. The page means' own reliability is 0.779, about the most any model could
+  reach. `text_density` carries most of it, then `links`, then a negative
+  `max_depth`; `overlays`, `reading_grade` and `inferred` carry nothing.
+- **Against the rules**: agree on 36 of 50 pages; of the 14 they differ on, raters
+  side with the model on 11. Rank correlation with the ratings 0.778 against
+  0.492. On heavy pages, held out: precision 0.49 and recall 0.75 against 0.20
+  and 0.25. The rules' count of covering pop-ups carried no weight with raters.
+- **In SIMBA**: `backend/estimator/page_model.py` reads `data/estimator.json`,
+  features in, a score and level out, cut points **2.45 and 2.90**, chosen on
+  held-out scores (held-out kappa 0.691). A task starts at the simpler of the
+  page's level and the person's own; a page never brings more detail than they
+  chose. Live behaviour and a lock work as before. No model, an unreadable one
+  or `SIMBA_PAGE_MODEL=0`: the rules judge the page. The health check says
+  which. Every decision row says who judged the page and what the rules would
+  have said. `load.updated` is unchanged: no contract change.
+- **Retraining is one command**: `python -m tools.rating.retrain` (RUNNING.md).
+  116s.
+- **Each page's score and reasons in plain words**: `data/estimator_pages.json`,
+  and EVALUATION.md, 2026-10-30b. Rated means are not committed.
+- **Found and fixed**: from level 3 the sign-in screen ran 60px to 86px past the
+  window at 100% and 150%, because the guard's one hop went to level 2. It now
+  goes to level 1 (`levels.ts`; **Aly to review**).
+- **Behaviour that changed**: billing and registration now start at level 3, and
+  so have nowhere to fold. DEMO.md and `demo/README.md` say what to do. The
+  `adapt` clip needs `SIMBA_PAGE_MODEL=0` to re-record.
+- **Needs the other owners**: DECISIONS.md, 2026-10-30, six entries; HANDOVER.md,
+  *For Nahail (2026-10-30)*.
+- **The suite, on mains**: 1644 passed, 12 skipped, 0 failed (backend 1062 in 964s,
+  frontend 582 in 1261s); the host fit test 3/3 (453s). Merged into `main` and
+  pushed.
 
 ### Changed on 2026-10-23 (later): two sets of 30 — `feat/rating-sets`
 
@@ -1283,12 +1343,20 @@ On `feat/railways-ask`, **not merged**.
 ## Estimator — Nahail · `backend/estimator/`
 
 **Done**
+- **A trained estimator** (2026-10-30): ridge regression on the nine features,
+  15 raters, 50 pages, `data/estimator.joblib` and `data/estimator.json`,
+  **trained under the floor of 8 ratings**. `page_model.py` is what the app reads;
+  `rules.py` takes its judgement of the first page and falls back on its own
+  signs; `tools/evaluation/estimator_compare.py` holds it against the rules;
+  `tools/rating/retrain.py` is one command for all of it. Page side only: it is
+  not yet fused with what the person does (EVALUATION.md, 2026-10-30 to c).
 - **Two sets of 30** (2026-10-23, replacing the A/B forms of 2026-10-22): the
   50 pages in two balanced sets of 25 (`tools/rating/session.split`), three
   anchors each way and two repeats, a five-point labelled question, two worked
   examples, the same online (`export_form.py`, `form/make_form.gs`,
   `from_form.py`) and in person (`serve.py`). Rows carry `set` and `anchor`.
-  28 tests in `test_form.py`, 23 in `test_rating.py`. No ratings collected yet.
+  28 tests in `test_form.py`, 23 in `test_rating.py`. 24 responses collected,
+  15 usable (2026-10-30).
 - **Ratings online** (2026-10-22): the pictures exported for Google Forms, and
   their CSVs read back into `data/ratings.jsonl` with `"online": true`.
 - **Pictures and features from one load** (2026-10-03): `tools/rating/capture`
@@ -1305,7 +1373,7 @@ On `feat/railways-ask`, **not merged**.
   table, the two groups compared on the anchors, and a refusal below 8
   ratings on any page that says how many more are needed. Refuses too few
   pages, and synthetic rows mixed with real ones. 37 tests, all on synthetic
-  ratings. **Nothing trained: there are no ratings.**
+  ratings, 2026-10-23; on real ratings since 2026-10-30.
 - **The page-side features**, raw: `interactive`, `links`, `inferred`,
   `text_density` (characters per 1000px² of the viewport), `max_depth`,
   `overlays`, `form_fields`, `dead_link_ratio`, `reading_grade` — nine — plus
@@ -1329,8 +1397,19 @@ On `feat/railways-ask`, **not merged**.
   tests: 8 on the pairing, 6 driving the built overlay in a browser.
 
 **Open — Nahail's call**
-1. **No score, and deliberately so.** Weights need a calibration and there is
-   no user data at all. What exists is measurement (DECISIONS.md).
+1. ~~**No score, and deliberately so.**~~ **A page score exists since
+   2026-10-30**, from people's ratings of pictures. There is still no score from
+   what a person does, and nothing fuses the two: the rules take the stronger of
+   them. CLAUDE.md's table says "fuses"; that is not built.
+1b. **Three more usable Set 2 raters** bring every page to the floor (RUNNING.md,
+   *Retraining the estimator*). Until then the model on `main` is under it.
+1c. **Who the raters are.** 13 of 15 aged 18–24, 10 of 15 in computing, judging a
+   picture rather than using a page, and none from the audience. Set 2's five
+   are the less technical group (four of five, against one of Set 1's ten).
+1d. **The features and what raters saw do not line up.** Raters judge the
+   viewport; `links` and `interactive` count the whole page. BBC News has 106
+   links and looks calm. Counting them per viewport is untested, and would
+   mean recapturing the corpus.
 2. **One feature still carries almost no signal**: `overlays` is 0 on 37 of
    45 pages. Down from 20 of 20, and the remaining thinness is honest — five
    of the eight nonzero rows are component libraries asked to show a dialog,
@@ -1362,10 +1441,10 @@ On `feat/railways-ask`, **not merged**.
    syllable counter (DECISIONS.md).
 5. ~~**Nothing consumes either channel.**~~ **Provisional rules consume both
    (2026-09-25)**: page features set the starting level, telemetry folds and
-   restores it (`rules.py`, DECISIONS.md). Still **no score**: the rules'
-   `score` is distance to a threshold. **Nahail has not reviewed them.** The
-   trained model is meant to replace them and be checked against their logged
-   decisions.
+   restores it (`rules.py`, DECISIONS.md). Since 2026-10-30 the trained model
+   sets the starting level, checked against the rules' 48 logged start decisions
+   (EVALUATION.md, 2026-10-30b), and the telemetry half is unchanged: every number
+   in it is still a guess. **Nahail has not reviewed either.**
 6. **No user data exists.** Every telemetry number so far came from a test
    driving a browser. Whether any of the five separates a page someone coped
    with from one they did not is the whole question and is unmeasured.
@@ -1454,7 +1533,8 @@ On `feat/railways-ask`, **not merged**.
   `MIN_COVERAGE` (0.27 since 2026-09-30, the middle of the gap) and `MIN_STACK_LEVEL` (5, bounded
   3–2001) against 50 pages (2026-09-20e); the telemetry constants and every
   definition in `page_features` remain as chosen.
-- **The first `y` exists and is not usable yet**: 4 of 50 pages.
+- ~~**The first `y` exists and is not usable yet**: 4 of 50 pages.~~ **People's
+  ratings are the `y`** since 2026-10-30, on all 50.
 - ~~Evaluation scripts record a number and nothing about the conditions.~~
   **Fixed 2026-09-17**: every script prints its conditions and the three that
   write result files record them (`tools/evaluation/conditions.py`). It

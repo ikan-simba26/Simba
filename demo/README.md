@@ -14,7 +14,7 @@ re-recorded rather than read. Record them the day before showing anything.
 | `billing.webm` | real | `What do I owe on my electricity bill?` | The billing replica. The reference asked for, cookies asked Yes or No, the lookup as a checklist, "Rs 14,382, due 15 September 2026", "Pay this bill" offered, and the real page. | 3.3 MB, 39s |
 | `hello.webm` | real | `hello` | A greeting and the three things SIMBA can do. **No task starts.** | 0.7 MB, 8s |
 | `fold.webm` | mock | `Register for CS-401` | The scripted run, including the fold from one detail level to the next. | 3.1 MB, 43s |
-| `adapt.webm` | real | `What do I owe on my electricity bill?` | The same fold, **not scripted**: the reference is given, then the pointer drifts over the cookie question without pressing, and the provisional rules fold it to level 3 (8.2s in). No notice is shown on a task's first screen, so the drift is on the second. | 3.1 MB, 46s |
+| `adapt.webm` | real | `What do I owe on my electricity bill?` | The same fold, **not scripted**: the reference is given, then the pointer drifts over the cookie question without pressing, and the provisional rules fold it to level 3 (8.2s in). No notice is shown on a task's first screen, so the drift is on the second. **Since 2026-10-30 the trained estimator starts billing at level 3, so re-recording this clip needs `SIMBA_PAGE_MODEL=0`, or nothing folds.** | 3.1 MB, 46s |
 
 Recorded 2026-10-16/17 with the stack's host forced to 100% (railways at
 150%: at 100% the still of the site view used for "See it on the real page"

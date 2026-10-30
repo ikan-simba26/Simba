@@ -63,6 +63,8 @@ from the version that produced its table.
 | 2026-09-20b | The 34-page corpus, driven states included | `collect_corpus` (starts the replicas itself; two live reads of the railways page) |
 | 2026-09-17 | The suite, and the terminal test's control | `pytest`; the control swapped `App.tsx` by hand |
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
+| 2026-10-30 | The estimator: agreement, the model, the cut points | `python -m backend.estimator.train`, or `python -m tools.rating.retrain` for this and the next row (`--min-ratings 5` until every page has 8) |
+| 2026-10-30b | The model against the rules, the logged decisions, the two environments, the data's handling, each page's reasons | `estimator_compare` (reads local files; no model quota, no site) |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -6351,3 +6353,367 @@ mains both times. One line of `train.py` was tidied while it ran (a double
 assignment folded into one), so the 101 rating and training tests were run
 again on the final tree: 101 passed. The host fit test was not rerun; nothing
 the host shows changed.
+
+---
+
+## 2026-10-30 — the estimator, trained on 15 raters' ratings
+
+`python -m backend.estimator.train` at `19db24949e4b`. Ratings: `data\ratings.jsonl`, 450 rows, sha256 `c75da3a667ad`. Features: the headless rows of `data\corpus.json`, collected 2026-10-03T16:57:34+05:00. Model: `data\estimator.joblib`.
+
+```text
+========================================================================
+taken at    2026-10-30T21:05:22+05:00
+git         19db24949e4b on feat/estimator-trained
+python      3.12.3 at D:\simba\backend\venv\Scripts\python.exe
+playwright  1.62.0
+model       openai gemini-3.1-flash-lite (from .env)
+machine     Windows-11-10.0.26200-SP0, 8 cpus, load 63%
+power       ON BATTERY (64%), processor at 61% of rated speed, 611 MB memory free
+switches    none set
+========================================================================
+```
+
+**Below the study's floor.** 22 of 50 pages have fewer than 8 ratings, so this ran with `--min-ratings 5`, which only a person asks for: http://127.0.0.1:5000/ [sign in] (5); http://127.0.0.1:5000/stubborn [as it loads] (5); http://127.0.0.1:5100/bill?reference=04141234567890 [as it loads] (5); http://demo.testfire.net/ [as it loads] (5); http://info.cern.ch/hypertext/WWW/TheProject.html [as it loads] (5); https://demo.opencart.com/ [as it loads] (5); https://demoqa.com/automation-practice-form [as it loads] (5); https://demoqa.com/modal-dialogs [open a demoqa modal] (5); https://developer.mozilla.org/en-US/docs/Web/HTML [as it loads] (5); https://element-plus.org/en-US/component/dialog.html [open an element plus dialog] (5); https://en.wikipedia.org/wiki/Cognitive_load [as it loads] (5); https://en.wikipedia.org/wiki/Main_Page [as it loads] (5); https://mui.com/material-ui/react-dialog/ [open a mui dialog] (5); https://parabank.parasoft.com/parabank/index.htm [as it loads] (5); https://practice.expandtesting.com/ [as it loads] (5); https://text.npr.org/ [as it loads] (5); https://the-internet.herokuapp.com/ [as it loads] (5); https://www.bbc.co.uk/news [as it loads] (5); https://www.nhs.uk/ [as it loads] (5); https://www.pakrailways.gov.pk/train [as it loads] (5); https://www.saucedemo.com/ [as it loads] (5); https://www.theguardian.com/international [as it loads] (5).
+
+### How far the raters agree
+
+| | |
+|---|---|
+| Raters | 15 (Set 1: 10, Set 2: 5) |
+| Pages rated | 50 |
+| Ratings per page, fewest / median / most | 5 / 10 / 15 (at least 8 needed) |
+| Krippendorff's alpha (interval), first showings | 0.318 |
+| Krippendorff's alpha, Set 1 only | 0.284 |
+| Krippendorff's alpha, Set 2 only | 0.357 |
+| Repeated pages: pairs | 30 |
+| Repeated pages: mean difference | 0.50 |
+| Repeated pages: identical / within one | 0.57 / 0.93 |
+| Repeated pages: correlation | 0.803 |
+
+Each rater against the mean of the others (Spearman):
+
+| Rater | ρ |
+|---|---|
+| 5002 | 0.750 |
+| 5003 | 0.378 |
+| 5005 | 0.661 |
+| 5006 | 0.635 |
+| 5007 | -0.584 |
+| 5008 | 0.867 |
+| 5009 | 0.720 |
+| 5012 | 0.788 |
+| 5013 | 0.102 |
+| 5014 | 0.661 |
+| 6003 | 0.669 |
+| 6004 | 0.736 |
+| 6006 | 0.695 |
+| 6008 | 0.649 |
+| 6010 | 0.490 |
+
+The two groups on the 6 anchor pages both rated: **alike** (Set 2 minus Set 1, mean over anchors, 0.02; alike means within 0.5 and Mann–Whitney U on each rater's anchor mean not below 0.05: p = 1.000).
+
+| Anchor | Set 1 mean (raters) | Set 2 mean (raters) |
+|---|---|---|
+| https://danluu.com/ [as it loads] | 3.00 (10) | 3.20 (5) |
+| https://demo.applitools.com/ [as it loads] | 1.40 (10) | 1.00 (5) |
+| https://getbootstrap.com/docs/5.3/components/modal/ [open a bootstrap modal] | 2.70 (10) | 3.00 (5) |
+| https://lite.cnn.com/ [as it loads] | 3.40 (10) | 4.00 (5) |
+| https://news.ycombinator.com/ [as it loads] | 3.90 (10) | 3.40 (5) |
+| https://www.pakrailways.gov.pk/train [open the calendar] | 1.30 (10) | 1.20 (5) |
+
+### The model
+
+Ridge regression on the nine features, standardised; alpha chosen inside each training fold from 26 values, 0.01–1000; 6.30957 on all 50 pages.
+
+| | R², 5-fold, mean ± sd | Folds |
+|---|---|---|
+| Ridge | **0.491 ± 0.240** | 0.56, 0.06, 0.44, 0.72, 0.68 |
+| Predicting the training mean | -0.110 ± 0.136 | -0.13, -0.00, -0.37, -0.05, -0.01 |
+
+Error on the held-out folds, in points of the 1-5 scale:
+
+| | Mean absolute error | Root mean squared error |
+|---|---|---|
+| Ridge | **0.480 ± 0.041** | **0.561 ± 0.029** |
+| Predicting the training mean | 0.768 ± 0.184 | 0.890 ± 0.194 |
+
+One split of 50 pages into five is one draw. Over 40 shuffles of the folds, every page held out once in each, pooled:
+
+| | R² | Mean absolute error | Root mean squared error |
+|---|---|---|---|
+| Ridge | **0.572 ± 0.047** | **0.498 ± 0.022** | **0.586 ± 0.030** |
+| Predicting the training mean | -0.046 ± 0.034 | 0.778 ± 0.013 | 0.917 ± 0.015 |
+
+How far these page means can be predicted at all: their reliability, halving each page's raters 500 times and stepping up with Spearman-Brown, is **0.779**, about the most R² any model of them could reach.
+
+Permutation importance on the held-out fold of each split, 50 shuffles each: the R² lost when one feature is shuffled.
+
+| Feature | R² lost, mean ± sd | Coefficient (standardised) |
+|---|---|---|
+| `text_density` | 0.611 ± 0.475 | +0.535 |
+| `links` | 0.411 ± 0.689 | +0.312 |
+| `max_depth` | 0.184 ± 0.323 | -0.217 |
+| `interactive` | 0.010 ± 0.055 | +0.082 |
+| `dead_link_ratio` | 0.010 ± 0.033 | +0.072 |
+| `form_fields` | 0.007 ± 0.074 | -0.074 |
+| `overlays` | -0.002 ± 0.013 | +0.004 |
+| `reading_grade` | -0.006 ± 0.015 | -0.002 |
+| `inferred` | -0.007 ± 0.050 | -0.033 |
+
+The score is 2.512 plus each coefficient times its feature's distance from the corpus mean in standard deviations, clipped to 1-5.
+
+### From a score to a level
+
+**The raters' own bands**: a mean under 2.5 is nearest "Not at all" or "A little", 2.5 to 3.5 nearest "Somewhat", and 3.5 or more nearest "Very" or "Extremely": 24, 18 and 8 pages. The ratings' natural breaks (three groups, least squared distance) are 2.40 and 3.45.
+
+**The score's cut points are 2.45 and 2.90**, chosen by trying every pair from 1.5 to 4.5 in steps of 0.05 and keeping the pair that best reproduces those bands on held-out scores (quadratic weighted kappa, mean over 40 shuffles: 0.751; the rating cuts used unchanged: 0.666). A held-out score is squeezed towards the mean, which is why the heavy cut sits under 3.5.
+
+**On pages the cuts were not chosen on**, the whole procedure held out: kappa **0.691**, the right band on **64.4%** of pages. The cuts chosen there average 2.43 ± 0.14 and 2.95 ± 0.13: quote them to a tenth at best.
+
+Raters' band against the band of each page's mean held-out score:
+
+| Raters said | Scored calm | Scored middle | Scored heavy |
+|---|---|---|---|
+| calm | 21 | 3 | 0 |
+| middle | 5 | 7 | 6 |
+| heavy | 0 | 1 | 7 |
+
+---
+
+## 2026-10-30b — the trained estimator against the provisional rules
+
+`python -m tools.evaluation.estimator_compare`. Which judges a page more as people do, for a person who has not said what level they want: the model's heavy call (level 3) or the rules' (two of three signs). The model is marked on held-out predictions throughout; rated heavy means a mean of 3.5 or more.
+
+```text
+========================================================================
+taken at    2026-10-30T21:06:26+05:00
+git         19db24949e4b on feat/estimator-trained — DIRTY TREE, the commit does not describe this run
+python      3.12.3 at D:\simba\backend\venv\Scripts\python.exe
+playwright  1.62.0
+model       openai gemini-3.1-flash-lite (from .env)
+machine     Windows-11-10.0.26200-SP0, 8 cpus, load 32%
+power       ON BATTERY (63%), processor at 95% of rated speed, 1660 MB memory free
+switches    none set
+========================================================================
+```
+
+### Which is closer to the ratings
+
+| | Pages called heavy | Rated heavy too | False alarms | Rated heavy, missed | Precision | Recall | Right on heavy or not |
+|---|---|---|---|---|---|---|---|
+| Provisional rules | 10 | 2 | 8 | 6 | 0.20 | 0.25 | 0.72 |
+| Trained model, held out, the shipped cut | 13.2 | 7.1 | 6.2 | 0.9 | 0.54 | 0.89 | 0.86 |
+| Trained model, held out, the cut held out too | 12.4 | 6.0 | 6.4 | 2.0 | 0.49 | 0.75 | 0.83 |
+
+Rank correlation with the mean ratings: rules (signs shown, 0 to 3) **0.492**, held-out model **0.778**. The difference, bootstrapped over pages 2000 times, has a 95% interval of +0.117 to +0.503. The pages the rules call heavy average 3.00 against 2.39 for the rest. The rules' thresholds were never fitted to ratings, but they were read off this corpus's spread, so neither side is wholly on unseen ground for its thresholds. The second model row is the fair one: its cut was chosen without the page it scores.
+
+### Where they agree and where they differ
+
+The model as shipped, fitted to all 50 pages, for a person who has not said:
+
+| | Rules: ordinary, level 2 | Rules: heavy, level 3 |
+|---|---|---|
+| Model: level 2 | **31** | 5 |
+| Model: level 3 | 9 | **5** |
+
+They agree on **36 of 50**. Of the 14 where they differ, the raters side with the model on 11 and with the rules on 3, the raters' side being heavy for a mean of 3.5 or more and not heavy otherwise.
+
+| Page | Model | Rules | The rules' signs |
+|---|---|---|---|
+| httpbin.org/html | 3.83, level 3 | level 2 | text density 3.509 |
+| arxiv.org/list/cs.HC/recent | 3.61, level 3 | level 2 | 462 controls |
+| 127.0.0.1:5100/bill?reference=04141234567890 | 3.54, level 3 | level 2 | text density 2.635 |
+| 127.0.0.1:5000 | 3.54, level 3 | level 2 | text density 2.569 |
+| news.ycombinator.com | 3.35, level 3 | level 2 | 231 controls |
+| demo.testfire.net | 3.09, level 3 | level 2 | none |
+| danluu.com | 3.05, level 3 | level 2 | 210 controls |
+| lite.cnn.com | 3.05, level 3 | level 2 | none |
+| 127.0.0.1:5100 | 3.04, level 3 | level 2 | none |
+| ant.design/components/drawer (open an antd drawer) | 2.82, level 2 | level 3 | 453 controls, 3 covering |
+| mui.com/material-ui/react-dialog (open a mui dialog) | 2.80, level 2 | level 3 | 308 controls, 2 covering |
+| mui.com/material-ui/react-drawer (open a bottom sheet) | 2.72, level 2 | level 3 | 269 controls, 3 covering |
+| www.theguardian.com/international | 2.31, level 2 | level 3 | 268 controls, 3 covering |
+| element-plus.org/en-US/component/dialog.html (open an element plus dialog) | 2.24, level 2 | level 3 | 300 controls, 2 covering |
+
+### The rules' logged decisions, replayed
+
+Every `start` decision in `data/steps.jsonl`: 48 rows, 6 distinct pages, from replicas and scripts, no person's choice of page. The level logged includes any level the person chose.
+
+| Rows | Controls | Text density | Logged levels | Rules: heavy | Model | Model's page level |
+|---|---|---|---|---|---|---|
+| 26 | 37 | 1.728 | 1: 1, 2: 25 | no | 3.04 | 3 |
+| 6 | 18 | 0.096 | 2: 6 | no | 1.58 | 1 |
+| 5 | 11 | 0.169 | 2: 5 | no | 2.05 | 1 |
+| 5 | 11 | 0.169 | 1: 1, 2: 3, 3: 1 | no | 2.01 | 1 |
+| 4 | 49 | 2.569 | 2: 4 | no | 3.54 | 3 |
+| 2 | 18 | 0.096 | 2: 2 | no | 1.55 | 1 |
+
+### The environment the product runs in
+
+The model was fitted to the headless rows. Of 49 pages read in both environments, the score differs by 0.019 on average and 0.480 at most, and the page's level changes on **2**: https://ant.design/components/drawer [open an antd drawer], 2.82 (level 2) headless, 2.95 (level 3) in the host; https://ant.design/components/modal [open an antd modal], 2.67 (level 2) headless, 3.15 (level 3) in the host.
+
+### How much the handling of the data matters
+
+Pooled held-out figures over 40 shuffles of the folds. Only the first row is the model; the others are checks, and taking raters out because they disagree raises alpha by construction.
+
+| Data | Raters | Pages | Fewest ratings | Alpha | R² | Mean absolute error |
+|---|---|---|---|---|---|---|
+| As shipped: every usable rater, every page | 15 | 50 | 5 | 0.318 | 0.572 ± 0.047 | 0.498 ± 0.022 |
+| Only the pages with 8 ratings or more | 15 | 28 | 10 | 0.306 | 0.435 ± 0.127 | 0.477 ± 0.046 |
+| Without the 2 raters under ρ 0.2 (5007, 5013) | 13 | 50 | 5 | 0.447 | 0.621 ± 0.034 | 0.522 ± 0.023 |
+| With the 9 phone raters put back | 24 | 50 | 10 | 0.298 | 0.579 ± 0.056 | 0.431 ± 0.024 |
+
+Do the pages under the floor help or hurt? Scored only on the 28 pages at the floor, the same held-out pages either way, mean absolute error is **0.477** fitted to those pages alone and **0.412** with the pages under the floor added to the fit.
+
+Phone raters against the others, page by page: Pearson 0.76, and +0.35 on the scale on average. Alone their alpha is 0.238 and their repeats correlate 0.652.
+
+### Each page, and why
+
+The model as shipped, `trained 2026-10-30T21:05:28+05:00`. Level is the page's own: 2.45 and 2.90 divide it. The reasons are what moved the score most from the average page (2.51). `data/estimator_pages.json` has the same. Per-page rated means are not committed (DECISIONS.md, *The trained model is committed; the ratings are not*).
+
+| Page | Kind | Score | Level | Rules' level | Why |
+|---|---|---|---|---|---|
+| 127.0.0.1:5000 (sign in) | ours | 4.76 | 3 | 3 | a lot of text on screen, many links that go nowhere, a shallow, plain layout |
+| httpbin.org/html | public | 3.83 | 3 | 2 | a lot of text on screen, a shallow, plain layout |
+| arxiv.org/list/cs.HC/recent | public | 3.61 | 3 | 2 | many links (462), a lot of text on screen, a shallow, plain layout |
+| 127.0.0.1:5100/bill?reference=04141234567890 | ours | 3.54 | 3 | 2 | a lot of text on screen, a shallow, plain layout, many links that go nowhere |
+| 127.0.0.1:5000 | ours | 3.54 | 3 | 2 | a lot of text on screen, a shallow, plain layout, many links that go nowhere |
+| en.wikipedia.org/wiki/Cognitive_load | public | 3.52 | 3 | 3 | many links (715), a lot of text on screen |
+| news.ycombinator.com | public | 3.35 | 3 | 2 | a lot of text on screen, many links (230) |
+| getbootstrap.com/docs/5.3/components/modal (open a bootstrap modal) | demo | 3.15 | 3 | 3 | a lot of text on screen, many links (226), many buttons and boxes |
+| www.spiegel.de | public | 3.14 | 3 | 3 | many links (553), many buttons and boxes |
+| getbootstrap.com/docs/5.3/components/offcanvas (open a side drawer) | demo | 3.11 | 3 | 3 | a lot of text on screen, many links (197) |
+| demo.testfire.net | demo | 3.09 | 3 | 2 | a lot of text on screen, a shallow, plain layout |
+| danluu.com | public | 3.05 | 3 | 2 | a shallow, plain layout, many links (210), a lot of text on screen |
+| lite.cnn.com | public | 3.05 | 3 | 2 | a lot of text on screen, a shallow, plain layout |
+| 127.0.0.1:5100 | ours | 3.04 | 3 | 2 | a lot of text on screen, many links that go nowhere, a shallow, plain layout |
+| ant.design/components/drawer (open an antd drawer) | demo | 2.82 | 2 | 3 | many links (256), many buttons and boxes, a lot of text on screen |
+| mui.com/material-ui/react-dialog (open a mui dialog) | demo | 2.80 | 2 | 3 | a lot of text on screen, many buttons and boxes, many links (154) |
+| en.wikipedia.org/wiki/Main_Page | public | 2.79 | 2 | 2 | a lot of text on screen, many links (238) |
+| developer.mozilla.org/en-US/docs/Web/HTML | public | 2.78 | 2 | 2 | a lot of text on screen |
+| mui.com/material-ui/react-drawer (open a bottom sheet) | demo | 2.72 | 2 | 3 | a lot of text on screen, many buttons and boxes |
+| ant.design/components/modal (open an antd modal) | demo | 2.67 | 2 | 2 | many buttons and boxes, many links (200), a lot of text on screen |
+| 127.0.0.1:5000/stubborn | ours | 2.59 | 2 | 2 | a shallow, plain layout, many links that go nowhere |
+| practice.expandtesting.com | demo | 2.58 | 2 | 2 | many links (249) |
+| www.python.org | public | 2.45 | 1 | 2 | little text on screen |
+| info.cern.ch/hypertext/WWW/TheProject.html | public | 2.44 | 1 | 2 | few links (25), little text on screen |
+| text.npr.org | public | 2.43 | 1 | 2 | few links (28), little text on screen |
+| example.com | public | 2.37 | 1 | 2 | few links (1), little text on screen |
+| quotes.toscrape.com | public | 2.32 | 1 | 2 | little text on screen, few links (55) |
+| www.theguardian.com/international | public | 2.31 | 1 | 3 | little text on screen, a deeply nested layout |
+| element-plus.org/en-US/component/dialog.html (open an element plus dialog) | demo | 2.24 | 1 | 3 | many things to fill in, a deeply nested layout, little text on screen |
+| books.toscrape.com | public | 2.18 | 1 | 2 | little text on screen |
+| todomvc.com/examples/react/dist (add a todo) | demo | 2.15 | 1 | 2 | little text on screen, few links (14) |
+| the-internet.herokuapp.com | demo | 2.14 | 1 | 2 | little text on screen, few links (46) |
+| sweetalert2.github.io (open a sweetalert) | demo | 2.12 | 1 | 2 | little text on screen, many controls built from plain page parts |
+| parabank.parasoft.com/parabank/index.htm | demo | 2.06 | 1 | 2 | little text on screen, few links (33) |
+| pypi.org | public | 2.05 | 1 | 2 | little text on screen, few links (52) |
+| www.nhs.uk | public | 1.97 | 1 | 2 | little text on screen, few links (47) |
+| the-internet.herokuapp.com/entry_ad | demo | 1.97 | 1 | 2 | little text on screen, few links (3) |
+| www.bbc.co.uk/news | public | 1.93 | 1 | 2 | little text on screen, a deeply nested layout |
+| demo.applitools.com | demo | 1.91 | 1 | 2 | little text on screen, few links (5) |
+| demo.opencart.com | demo | 1.91 | 1 | 2 | little text on screen, few links (2) |
+| www.gov.uk | public | 1.89 | 1 | 2 | little text on screen, a deeply nested layout, few links (79) |
+| www.gov.uk/browse/benefits | public | 1.88 | 1 | 2 | little text on screen, few links (49), a deeply nested layout |
+| the-internet.herokuapp.com/login | demo | 1.88 | 1 | 2 | little text on screen, few links (2) |
+| www.saucedemo.com | demo | 1.75 | 1 | 2 | little text on screen, few links (0) |
+| demoqa.com/modal-dialogs (open a demoqa modal) | demo | 1.71 | 1 | 2 | little text on screen, few links (6), a deeply nested layout |
+| www.pakrailways.gov.pk/train (open the calendar) | target | 1.66 | 1 | 2 | little text on screen, few links (12), a deeply nested layout |
+| opensource-demo.orangehrmlive.com/web/index.php/auth/login | demo | 1.66 | 1 | 2 | little text on screen, few links (5) |
+| www.pakrailways.gov.pk/train (open the station list) | target | 1.59 | 1 | 2 | little text on screen, few links (12), a deeply nested layout |
+| www.pakrailways.gov.pk/train | target | 1.55 | 1 | 2 | little text on screen, few links (12), a deeply nested layout |
+| demoqa.com/automation-practice-form | demo | 1.53 | 1 | 2 | little text on screen, few links (2), many things to fill in |
+
+---
+
+## 2026-10-30c — what the estimator is worth, read plainly
+
+`feat/estimator-trained`. The two sections above are what `tools.rating.retrain`
+wrote; this is what they mean, what was checked by hand, and the suite. The
+training section ran on a clean commit, `19db24949e4b`. The comparison's conditions
+block says DIRTY TREE because the same command had just written the model and the
+section above it, and nothing else had changed. Both ran on battery, which moves
+no figure here: the seeds are fixed, and the model's numbers came out the same in
+every run. Retraining took 116s.
+
+**The ratings.** 24 responses, 14 to Set 1 and 10 to Set 2, 2026-10-23 to
+2026-10-29. Dropped: 9, all for being on a phone (5001, 5004, 5010, 5011, 6001,
+6002, 6005, 6007, 6009). None declined and none was incomplete. Usable: **15**, 10
+and 5, 450 rows. Ratings per page: 5 on 22 pages, 10 on 22, 15 on the six anchors.
+
+**Agreement is weak.** Alpha 0.318 is well below the 0.667 usually asked of data
+to draw even tentative conclusions from, and below 0.8 by further. Two things
+soften what that means for this model, and neither repairs it. People are
+consistent with themselves: 30 repeated pairs correlate 0.803, 57% identical and
+93% within one answer. So the disagreement is mostly between people, not noise
+within them, and that is a finding: **how overwhelming a page feels differs from
+person to person**, which is the argument for the person's own level and live
+behaviour staying in charge of the screen. And a mean smooths what single ratings
+do not: the page means' reliability is 0.779. Fewer raters would have been a
+smaller problem had they agreed more; with this alpha, more raters is what buys
+stable means.
+
+**Accuracy is moderate, and real.** It beats predicting the mean at every cut:
+5-fold R² 0.491 ± 0.240 against −0.110, and held-out error 0.480 of a point
+against 0.768. The folds run from 0.06 to 0.72, so one number hides a lot: on
+50 pages, which ten are held out matters. Over 40 shuffles it is 0.572 ± 0.047,
+with error 0.498, against a ceiling of about 0.78. Half a point is half a word
+on the form: it can tell "Not at all" from "Very" and cannot be trusted between
+neighbouring words. Into three bands, held out throughout, it is right on 64% of
+pages. In the middle band it is little better than a coin, which is what the
+predicted-against-rated chart shows.
+
+**What this measures, and what it does not.** 13 of the 15 are aged 18–24 and 10
+are in computing. They rated a picture seen at about half size, on their own, for
+how it felt. None is from the audience this is for, and nobody used a page. So
+this is how a page looks to these people, and whether that predicts struggling
+is unmeasured. Two features say so directly: pages with more form fields scored
+lower, and SIMBA exists for forms. It is a better guess than the rules, and it is
+a guess about the first impression.
+
+**The features.** `text_density` does most of the work (Spearman 0.82 with the
+means, R² lost 0.61), and it is the one feature read from the viewport raters
+saw. `links` counts the whole page: BBC News has 106 and its picture is calm, and
+raters said so. `overlays` adds nothing (+0.004), though the rules count it as a
+sign, and six of the rules' eight false alarms are component libraries showing
+something open.
+Shallower pages score heavier (−0.217): a page of plain old HTML reads as heavier
+than a modern one with the same links. Importances are wide: 0.61 ± 0.48.
+
+**Three pictures show something other than the page's name.** Seen while checking
+surprising ratings: `demo.opencart.com` is a Cloudflare check, not a shop;
+`example.com` is now seven languages of text, and raters put it far above its
+reputation; BBC News's adverts had not loaded. All three are what raters saw and
+what the features read, one load
+each, so nothing is wrong, and they are not the pages their names suggest.
+
+**In the real window**, on `main`'s stack with this branch, at this machine's 150%
+(1266x632), keyword routing, no model quota: the health check said `trained model`.
+Billing's first question at level 3, nothing past the window. Registration started
+at 3 from the model (3.54) and the guard took it to level 1, sign-in on screen,
+nothing past the window, as `test_sign_in.py` found. Each row held `judged_by`, the
+model's rating and reasons, and the rules' signs beside them. This window's saved
+profile also chose level 3, so level 3 alone proved nothing there;
+`test_with_a_model_the_app_starts_from_the_page_and_says_so` is the same with no
+profile, and starts at 3 from the page.
+
+**Failed, and fixed.** A test written for this work found the sign-in screen 60px
+past the window at 150% (632), 86px at 150% (606) and over at 100% when a task
+started at level 3: the guard's one hop went to level 2, which cannot help. It now
+goes to level 1; 47 of 47 in `test_sign_in.py` and `test_first_screen.py`. A first
+draft of the heavy-page comparison marked the model with a cut chosen on the same
+pages, which flatters it (recall 0.89); the fair row, with the cut held out too, is
+0.75. A first draft of the 28-page check reported alpha over all 50 pages. Importing
+scikit-learn to do a sum took 5.6s per backend start, so the app reads plain
+numbers. One of my tests expected a heavy start back at level 1 in three steps; it
+takes five.
+
+**The suite**, on mains, at `24510b2`, the overlay rebuilt first: backend half
+**1062 passed, 9 skipped, 0 failed** (964s), frontend half **582 passed, 3 skipped,
+0 failed** (1261s): **1644 passed, 12 skipped, 0 failed**, the 1557 of 2026-10-23
+plus 87 new, 83 of them estimator, rules, comparison and app tests and 4 the
+sign-in from level 3. The host fit test, `SIMBA_HOST_TESTS=1`: **3 of 3** (453s).
+The 12 skips are the same 12. The suite waited for mains: the machine was on
+battery until 21:17. The backend half was run with `--no-header` by mistake, which
+hides its power line, so the power was logged each minute instead, 21:17 to 22:02:
+45 readings, all on mains. Only these records changed afterwards.

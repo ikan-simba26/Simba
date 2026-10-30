@@ -1,18 +1,28 @@
-"""PROVISIONAL. Which detail level to show, by hand-written rules.
+"""Which detail level to show: the page, judged, then the person's own doing.
 
-**This is not the estimator.** It is a stand-in so that the level adapts in a
-real run at all — until it existed only the mock sent `load.updated`, so the
-fold between levels never happened outside a script. The trained model
-replaces it. Every threshold below is a guess, recorded as one in
-DECISIONS.md, and every decision is written down with what it was made from
-(`pairing.Recorder.note_decision`) so the model can later be checked against
-these rules rather than against nothing.
+**Who judges the page** (2026-10-30). The trained estimator, when there is one
+(`page_model.py`, passed in as `page_model`): it scores the page from people's
+ratings, and from that score the page is calm, middle or heavy. Without a
+model the page is judged by the three hand-written signs below, the provisional
+rules that stood in before there were ratings: guesses, recorded as guesses in
+DECISIONS.md. They remain the fallback, and they are still worked out beside
+the model on every step, so each decision row says what they would have said.
+
+**Everything else here is still hand-written and provisional**: the signals
+from the person and the thresholds on them. No person's behaviour is behind
+any of those numbers yet. Every decision is written down with what it was made
+from (`pairing.Recorder.note_decision`), which is how the model was checked
+against these rules rather than against nothing.
 
 What it does:
 
-- **A starting level from the page.** Before the first step, a page with at
-  least two of the three signs of a heavy page — many controls, dense text,
-  something covering it — starts at level 3. Anything else starts at 2.
+- **A starting level from the page.** Before the first step. The model's level
+  for the page, or with no model level 3 for a page with at least two of the
+  three signs of a heavy page — many controls, dense text, something covering
+  it — and 2 for anything else. **A page can start a person simpler than the
+  level they chose as comfortable, never with more detail:** more detail is
+  something a person chooses, not something inferred, so a calm page leaves
+  them where they were.
 - **Simpler, during a step, on one clear signal.** A long pause, a pointer
   wandering or doubling back, or a press of "What are you doing?" moves one
   level simpler, straight away, while the step is still on screen.
@@ -29,9 +39,11 @@ What it does:
   a calm run, and it never becomes the lock: a lock is only ever the person's
   own choice, and each new step is shown at it again.
 
-The score is the strongest signal's distance to its threshold, 0–1, so 1.0
-means "a rule fired". It is a readout of these rules, not a measure of load,
-and the contract's `reason` is never shown to the person.
+With a model, the page's part of the score is the model's load score. Without
+one it is how many signs of a heavy page it shows, as a share of those needed.
+Either way the score sent is the stronger of that and the person's strongest
+signal, as a distance to its threshold, so 1.0 means "a rule fired". The
+contract's `reason` is never shown to the person.
 
 Pure: no I/O, no clock. The loop calls it and does the sending and writing.
 """
@@ -42,10 +54,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 from backend.estimator.page_features import PageFeatures
+from backend.estimator.page_model import Judgement, PageModel
 from shared.schema import LoadUpdated
 
-#: Written into every decision row, so a row from these rules can never be
-#: mistaken for one from the model that replaces them.
+#: Written into every decision row, with `judged_by` beside it, so a row whose
+#: page these rules judged can never be mistaken for one the model judged.
 RULES_VERSION = "provisional"
 
 SIMPLEST = 3
@@ -116,6 +129,8 @@ class Decision:
     reason: str
     send: bool
     inputs: dict[str, Any] = field(default_factory=dict)
+    #: Who judged the page: `RULES_VERSION`, or the model's version.
+    judged_by: str = RULES_VERSION
 
     @property
     def changed(self) -> bool:
@@ -127,6 +142,7 @@ class Decision:
     def as_row(self) -> dict[str, Any]:
         return {
             "rules": RULES_VERSION,
+            "judged_by": self.judged_by,
             "at": self.at,
             "step_index": self.step_index,
             "score": self.score,
@@ -183,8 +199,12 @@ class LevelRules:
     `level.override`, and `end` before the task completes.
     """
 
-    def __init__(self, thresholds: Thresholds = THRESHOLDS) -> None:
+    def __init__(self, thresholds: Thresholds = THRESHOLDS,
+                 page_model: PageModel | None = None) -> None:
         self.t = thresholds
+        #: Judges the page when there is one; the three signs otherwise.
+        self.page_model = page_model
+        self.judged_by = page_model.version if page_model is not None else RULES_VERSION
         #: Where a task starts and where calm steps bring it back: 2, or the
         #: level the person chose as comfortable in the welcome (2026-10-18,
         #: `start_from`).
@@ -224,18 +244,17 @@ class LevelRules:
         if self.locked and self.locked_level is not None:
             self.level = self.locked_level
         signs = page_signs(features, self.t)
-        self.page_score = min(1.0, len(signs) / self.t.heavy_signs)
+        judged = (self.page_model.judge(features)
+                  if self.page_model is not None and features is not None else None)
+        self.page_score = (judged.score if judged is not None
+                           else min(1.0, len(signs) / self.t.heavy_signs))
         inputs = {"page": features.as_dict() if features else None,
-                  "heavy_signs": signs}
+                  "heavy_signs": signs,
+                  "judged": judged.as_row() if judged is not None else None}
 
         if not self.started:
             self.started = True
-            heavy = len(signs) >= self.t.heavy_signs
-            wanted = SIMPLEST if heavy else self.baseline
-            why = (f"heavy page: {', '.join(signs)}" if heavy
-                   else f"ordinary page{': ' + ', '.join(signs) if signs else ''}")
-            if not heavy and self.baseline != BASELINE:
-                why += f"; the person's own level, {self.baseline}"
+            wanted, why = self._from_page(judged, signs)
             if self.locked:
                 return self._hold("start", "locked",
                                   f"locked at {self.locked_level}; would start at {wanted}: {why}",
@@ -298,7 +317,7 @@ class LevelRules:
                 at="override", step_index=self.step_index, score=self.page_score,
                 level_before=before, level=level, rule="overflow",
                 reason=f"step did not fit; overlay moved to {level}{lock}", send=False,
-                inputs=self._state(inputs),
+                inputs=self._state(inputs), judged_by=self.judged_by,
             )
         self.locked = locked
         self.locked_level = level if locked else None
@@ -307,7 +326,7 @@ class LevelRules:
             at="override", step_index=self.step_index, score=self.page_score,
             level_before=before, level=level, rule="override",
             reason=f"{'locked' if locked else 'handed back'} at {level}", send=False,
-            inputs=self._state(inputs),
+            inputs=self._state(inputs), judged_by=self.judged_by,
         )
 
     def end(self) -> Decision:
@@ -315,6 +334,22 @@ class LevelRules:
         return self._between_steps("end", {})
 
     # --- helpers ---------------------------------------------------------------------------
+
+    def _from_page(self, judged: Judgement | None, signs: list[str]) -> tuple[int, str]:
+        """The level a task starts at, and why in words for the log. The page
+        can only make it simpler than the person's own level."""
+        if judged is not None:
+            wanted = max(self.baseline, judged.level)
+            why = judged.says()
+            if wanted == self.baseline and self.baseline != BASELINE:
+                why += f"; the person's own level, {self.baseline}"
+            return wanted, why
+        heavy = len(signs) >= self.t.heavy_signs
+        why = (f"heavy page: {', '.join(signs)}" if heavy
+               else f"ordinary page{': ' + ', '.join(signs) if signs else ''}")
+        if not heavy and self.baseline != BASELINE:
+            why += f"; the person's own level, {self.baseline}"
+        return (SIMPLEST if heavy else self.baseline), why
 
     def _between_steps(self, at: When, inputs: dict[str, Any]) -> Decision:
         """The only place the level goes back: two calm steps, then one level."""
@@ -342,7 +377,8 @@ class LevelRules:
               inputs: dict[str, Any]) -> Decision:
         return Decision(at=at, step_index=self.step_index, score=round(score, 3),
                         level_before=self.level, level=self.level, rule=rule,
-                        reason=reason, send=False, inputs=self._state(inputs))
+                        reason=reason, send=False, inputs=self._state(inputs),
+                        judged_by=self.judged_by)
 
     def _move(self, at: When, level: int, rule: str, reason: str, score: float,
               inputs: dict[str, Any], always_send: bool = False) -> Decision:
@@ -353,4 +389,5 @@ class LevelRules:
         self.changed_on = 0 if at == "start" else self.step_index
         return Decision(at=at, step_index=self.step_index, score=round(score, 3),
                         level_before=before, level=level, rule=rule, reason=reason,
-                        send=always_send or level != before, inputs=state)
+                        send=always_send or level != before, inputs=state,
+                        judged_by=self.judged_by)

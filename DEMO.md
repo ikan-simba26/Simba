@@ -79,13 +79,19 @@ curl http://127.0.0.1:8000/
 - `router: model` means the typed goal is classified by the model, which takes
   1–6 seconds. With no key or no quota it says `keywords`, and the demo works
   exactly the same.
-- `level: provisional rules` means **the screen adapts to you while you
-  present** (since 2026-09-25). Talking over a step for 15 seconds, or
-  pressing "What are you doing?" — which the script below does — folds that
-  step to the simplest level, with "I'm showing less for a moment". That is
-  the feature working; say so if it happens. To keep the level still, press
-  the middle level dot once at the first step (it locks until "let it
-  choose"), or start with `$env:SIMBA_ADAPT = "0"`.
+- `level: trained model` means **the first page is judged from people's
+  ratings** (since 2026-10-30). It says `provisional rules` if
+  `data/estimator.json` is missing, which still works. **Billing and
+  registration now start at the simplest level**, because the model scores
+  their first pages heavy, so they have no further to fold: to show a fold,
+  use the trains, or start with `$env:SIMBA_PAGE_MODEL = "0"`.
+- **The screen adapts to you while you present** (since 2026-09-25). Talking
+  over a step for 15 seconds, or pressing "What are you doing?" — which the
+  script below does — folds a step that is not already at the simplest level,
+  with "I'm showing less for a moment". That is the feature working; say so if
+  it happens. To keep the level still, press the middle level dot once at the
+  first step (it locks until "let it choose"), or start with
+  `$env:SIMBA_ADAPT = "0"`.
 
 Open a second, ordinary browser window at
 `https://www.pakrailways.gov.pk/train` and leave it on screen one. Leave the

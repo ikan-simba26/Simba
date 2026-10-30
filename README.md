@@ -279,7 +279,8 @@ All environment variables, all read at the backend.
 | `SIMBA_USE_HARDCODED_PLAN` | off | Run the flow's written plan instead of the LLM |
 | `SIMBA_BROWSER` | `chromium` | `electron` attaches to a running host over CDP |
 | `SIMBA_TRACE_MEMORY` | off | Replay a goal already done on this site from SQLite |
-| `SIMBA_ADAPT` | on | The provisional level rules choose the detail level as a run goes and send `load.updated`; `0` keeps the level where the overlay puts it |
+| `SIMBA_ADAPT` | on | The detail level moves as a run goes, and `load.updated` is sent; `0` keeps the level where the overlay puts it |
+| `SIMBA_PAGE_MODEL` | on | The trained estimator judges the first page (`data/estimator.json`); `0`, or no such file, leaves that to the provisional rules' three signs |
 | `SIMBA_RECORD_STEPS` | on | Write each step's page features, telemetry and level decisions to `data/steps.jsonl`; the test suite turns it off |
 | `SIMBA_REPLICA_URL` | per flow | Legacy: the site of the flow named in `SIMBA_FLOW`, or of registration when none is |
 | `SIMBA_OVERLAY_DETECTION` | on | Ablation switch for structural blocker detection |

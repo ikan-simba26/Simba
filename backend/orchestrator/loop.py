@@ -11,9 +11,11 @@ different strategy; if that also fails, control goes back to the user via
 
 The detail level adapts when the caller passes `rules`: a starting level
 from the first page, a fold on one clear signal while a step waits, a return
-after two calm steps, each sent as `load.updated`. Those rules are provisional
-and stand in for the estimator (`backend/estimator/rules.py`); a caller that
-passes none — most tests — never sends `load.updated` at all.
+after two calm steps, each sent as `load.updated`. The trained estimator judges
+the page when there is a model, and the rules' signs when there is not; what
+the person does is still read by the provisional rules
+(`backend/estimator/rules.py`). A caller that passes none — most tests — never
+sends `load.updated` at all.
 """
 
 import asyncio

@@ -1,0 +1,673 @@
+{
+  "model": "trained 2026-10-30T21:05:28+05:00",
+  "cuts": [
+    2.45,
+    2.9
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:5000/",
+      "state": "sign in",
+      "kind": "ours",
+      "score": 4.758,
+      "level": 3,
+      "rules_level": 3,
+      "reasons": [
+        "a lot of text on screen",
+        "many links that go nowhere",
+        "a shallow, plain layout"
+      ],
+      "sentence": "4.8 of 5, level 3: a lot of text on screen, many links that go nowhere, a shallow, plain layout."
+    },
+    {
+      "url": "https://httpbin.org/html",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.835,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "a shallow, plain layout"
+      ],
+      "sentence": "3.8 of 5, level 3: a lot of text on screen, a shallow, plain layout."
+    },
+    {
+      "url": "https://arxiv.org/list/cs.HC/recent",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.614,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "many links (462)",
+        "a lot of text on screen",
+        "a shallow, plain layout"
+      ],
+      "sentence": "3.6 of 5, level 3: many links (462), a lot of text on screen, a shallow, plain layout."
+    },
+    {
+      "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
+      "state": "as it loads",
+      "kind": "ours",
+      "score": 3.544,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "a shallow, plain layout",
+        "many links that go nowhere"
+      ],
+      "sentence": "3.5 of 5, level 3: a lot of text on screen, a shallow, plain layout, many links that go nowhere."
+    },
+    {
+      "url": "http://127.0.0.1:5000/",
+      "state": "as it loads",
+      "kind": "ours",
+      "score": 3.535,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "a shallow, plain layout",
+        "many links that go nowhere"
+      ],
+      "sentence": "3.5 of 5, level 3: a lot of text on screen, a shallow, plain layout, many links that go nowhere."
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Cognitive_load",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.525,
+      "level": 3,
+      "rules_level": 3,
+      "reasons": [
+        "many links (715)",
+        "a lot of text on screen"
+      ],
+      "sentence": "3.5 of 5, level 3: many links (715), a lot of text on screen."
+    },
+    {
+      "url": "https://news.ycombinator.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.355,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "many links (230)"
+      ],
+      "sentence": "3.4 of 5, level 3: a lot of text on screen, many links (230)."
+    },
+    {
+      "url": "https://getbootstrap.com/docs/5.3/components/modal/",
+      "state": "open a bootstrap modal",
+      "kind": "demo",
+      "score": 3.149,
+      "level": 3,
+      "rules_level": 3,
+      "reasons": [
+        "a lot of text on screen",
+        "many links (226)",
+        "many buttons and boxes"
+      ],
+      "sentence": "3.1 of 5, level 3: a lot of text on screen, many links (226), many buttons and boxes."
+    },
+    {
+      "url": "https://www.spiegel.de/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.14,
+      "level": 3,
+      "rules_level": 3,
+      "reasons": [
+        "many links (553)",
+        "many buttons and boxes"
+      ],
+      "sentence": "3.1 of 5, level 3: many links (553), many buttons and boxes."
+    },
+    {
+      "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
+      "state": "open a side drawer",
+      "kind": "demo",
+      "score": 3.111,
+      "level": 3,
+      "rules_level": 3,
+      "reasons": [
+        "a lot of text on screen",
+        "many links (197)"
+      ],
+      "sentence": "3.1 of 5, level 3: a lot of text on screen, many links (197)."
+    },
+    {
+      "url": "http://demo.testfire.net/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 3.093,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "a shallow, plain layout"
+      ],
+      "sentence": "3.1 of 5, level 3: a lot of text on screen, a shallow, plain layout."
+    },
+    {
+      "url": "https://danluu.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.054,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a shallow, plain layout",
+        "many links (210)",
+        "a lot of text on screen"
+      ],
+      "sentence": "3.1 of 5, level 3: a shallow, plain layout, many links (210), a lot of text on screen."
+    },
+    {
+      "url": "https://lite.cnn.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 3.05,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "a shallow, plain layout"
+      ],
+      "sentence": "3.0 of 5, level 3: a lot of text on screen, a shallow, plain layout."
+    },
+    {
+      "url": "http://127.0.0.1:5100/",
+      "state": "as it loads",
+      "kind": "ours",
+      "score": 3.037,
+      "level": 3,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "many links that go nowhere",
+        "a shallow, plain layout"
+      ],
+      "sentence": "3.0 of 5, level 3: a lot of text on screen, many links that go nowhere, a shallow, plain layout."
+    },
+    {
+      "url": "https://ant.design/components/drawer",
+      "state": "open an antd drawer",
+      "kind": "demo",
+      "score": 2.816,
+      "level": 2,
+      "rules_level": 3,
+      "reasons": [
+        "many links (256)",
+        "many buttons and boxes",
+        "a lot of text on screen"
+      ],
+      "sentence": "2.8 of 5, level 2: many links (256), many buttons and boxes, a lot of text on screen."
+    },
+    {
+      "url": "https://mui.com/material-ui/react-dialog/",
+      "state": "open a mui dialog",
+      "kind": "demo",
+      "score": 2.804,
+      "level": 2,
+      "rules_level": 3,
+      "reasons": [
+        "a lot of text on screen",
+        "many buttons and boxes",
+        "many links (154)"
+      ],
+      "sentence": "2.8 of 5, level 2: a lot of text on screen, many buttons and boxes, many links (154)."
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Main_Page",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.79,
+      "level": 2,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen",
+        "many links (238)"
+      ],
+      "sentence": "2.8 of 5, level 2: a lot of text on screen, many links (238)."
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.782,
+      "level": 2,
+      "rules_level": 2,
+      "reasons": [
+        "a lot of text on screen"
+      ],
+      "sentence": "2.8 of 5, level 2: a lot of text on screen."
+    },
+    {
+      "url": "https://mui.com/material-ui/react-drawer/",
+      "state": "open a bottom sheet",
+      "kind": "demo",
+      "score": 2.719,
+      "level": 2,
+      "rules_level": 3,
+      "reasons": [
+        "a lot of text on screen",
+        "many buttons and boxes"
+      ],
+      "sentence": "2.7 of 5, level 2: a lot of text on screen, many buttons and boxes."
+    },
+    {
+      "url": "https://ant.design/components/modal",
+      "state": "open an antd modal",
+      "kind": "demo",
+      "score": 2.665,
+      "level": 2,
+      "rules_level": 2,
+      "reasons": [
+        "many buttons and boxes",
+        "many links (200)",
+        "a lot of text on screen"
+      ],
+      "sentence": "2.7 of 5, level 2: many buttons and boxes, many links (200), a lot of text on screen."
+    },
+    {
+      "url": "http://127.0.0.1:5000/stubborn",
+      "state": "as it loads",
+      "kind": "ours",
+      "score": 2.586,
+      "level": 2,
+      "rules_level": 2,
+      "reasons": [
+        "a shallow, plain layout",
+        "many links that go nowhere"
+      ],
+      "sentence": "2.6 of 5, level 2: a shallow, plain layout, many links that go nowhere."
+    },
+    {
+      "url": "https://practice.expandtesting.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 2.584,
+      "level": 2,
+      "rules_level": 2,
+      "reasons": [
+        "many links (249)"
+      ],
+      "sentence": "2.6 of 5, level 2: many links (249)."
+    },
+    {
+      "url": "https://www.python.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.448,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen"
+      ],
+      "sentence": "2.4 of 5, level 1: little text on screen."
+    },
+    {
+      "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.437,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "few links (25)",
+        "little text on screen"
+      ],
+      "sentence": "2.4 of 5, level 1: few links (25), little text on screen."
+    },
+    {
+      "url": "https://text.npr.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.427,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "few links (28)",
+        "little text on screen"
+      ],
+      "sentence": "2.4 of 5, level 1: few links (28), little text on screen."
+    },
+    {
+      "url": "https://example.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.369,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "few links (1)",
+        "little text on screen"
+      ],
+      "sentence": "2.4 of 5, level 1: few links (1), little text on screen."
+    },
+    {
+      "url": "https://quotes.toscrape.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.322,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (55)"
+      ],
+      "sentence": "2.3 of 5, level 1: little text on screen, few links (55)."
+    },
+    {
+      "url": "https://www.theguardian.com/international",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.309,
+      "level": 1,
+      "rules_level": 3,
+      "reasons": [
+        "little text on screen",
+        "a deeply nested layout"
+      ],
+      "sentence": "2.3 of 5, level 1: little text on screen, a deeply nested layout."
+    },
+    {
+      "url": "https://element-plus.org/en-US/component/dialog.html",
+      "state": "open an element plus dialog",
+      "kind": "demo",
+      "score": 2.241,
+      "level": 1,
+      "rules_level": 3,
+      "reasons": [
+        "many things to fill in",
+        "a deeply nested layout",
+        "little text on screen"
+      ],
+      "sentence": "2.2 of 5, level 1: many things to fill in, a deeply nested layout, little text on screen."
+    },
+    {
+      "url": "https://books.toscrape.com/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.181,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen"
+      ],
+      "sentence": "2.2 of 5, level 1: little text on screen."
+    },
+    {
+      "url": "https://todomvc.com/examples/react/dist/",
+      "state": "add a todo",
+      "kind": "demo",
+      "score": 2.152,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (14)"
+      ],
+      "sentence": "2.2 of 5, level 1: little text on screen, few links (14)."
+    },
+    {
+      "url": "https://the-internet.herokuapp.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 2.141,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (46)"
+      ],
+      "sentence": "2.1 of 5, level 1: little text on screen, few links (46)."
+    },
+    {
+      "url": "https://sweetalert2.github.io/",
+      "state": "open a sweetalert",
+      "kind": "demo",
+      "score": 2.115,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "many controls built from plain page parts"
+      ],
+      "sentence": "2.1 of 5, level 1: little text on screen, many controls built from plain page parts."
+    },
+    {
+      "url": "https://parabank.parasoft.com/parabank/index.htm",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 2.065,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (33)"
+      ],
+      "sentence": "2.1 of 5, level 1: little text on screen, few links (33)."
+    },
+    {
+      "url": "https://pypi.org/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 2.047,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (52)"
+      ],
+      "sentence": "2.0 of 5, level 1: little text on screen, few links (52)."
+    },
+    {
+      "url": "https://www.nhs.uk/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 1.971,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (47)"
+      ],
+      "sentence": "2.0 of 5, level 1: little text on screen, few links (47)."
+    },
+    {
+      "url": "https://the-internet.herokuapp.com/entry_ad",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.966,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (3)"
+      ],
+      "sentence": "2.0 of 5, level 1: little text on screen, few links (3)."
+    },
+    {
+      "url": "https://www.bbc.co.uk/news",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 1.934,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, a deeply nested layout."
+    },
+    {
+      "url": "https://demo.applitools.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.913,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (5)"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, few links (5)."
+    },
+    {
+      "url": "https://demo.opencart.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.907,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (2)"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, few links (2)."
+    },
+    {
+      "url": "https://www.gov.uk/",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 1.89,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "a deeply nested layout",
+        "few links (79)"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, a deeply nested layout, few links (79)."
+    },
+    {
+      "url": "https://www.gov.uk/browse/benefits",
+      "state": "as it loads",
+      "kind": "public",
+      "score": 1.878,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (49)",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, few links (49), a deeply nested layout."
+    },
+    {
+      "url": "https://the-internet.herokuapp.com/login",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.877,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (2)"
+      ],
+      "sentence": "1.9 of 5, level 1: little text on screen, few links (2)."
+    },
+    {
+      "url": "https://www.saucedemo.com/",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.751,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (0)"
+      ],
+      "sentence": "1.8 of 5, level 1: little text on screen, few links (0)."
+    },
+    {
+      "url": "https://demoqa.com/modal-dialogs",
+      "state": "open a demoqa modal",
+      "kind": "demo",
+      "score": 1.711,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (6)",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.7 of 5, level 1: little text on screen, few links (6), a deeply nested layout."
+    },
+    {
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "open the calendar",
+      "kind": "target",
+      "score": 1.658,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (12)",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.7 of 5, level 1: little text on screen, few links (12), a deeply nested layout."
+    },
+    {
+      "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.656,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (5)"
+      ],
+      "sentence": "1.7 of 5, level 1: little text on screen, few links (5)."
+    },
+    {
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "open the station list",
+      "kind": "target",
+      "score": 1.594,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (12)",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.6 of 5, level 1: little text on screen, few links (12), a deeply nested layout."
+    },
+    {
+      "url": "https://www.pakrailways.gov.pk/train",
+      "state": "as it loads",
+      "kind": "target",
+      "score": 1.546,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (12)",
+        "a deeply nested layout"
+      ],
+      "sentence": "1.5 of 5, level 1: little text on screen, few links (12), a deeply nested layout."
+    },
+    {
+      "url": "https://demoqa.com/automation-practice-form",
+      "state": "as it loads",
+      "kind": "demo",
+      "score": 1.529,
+      "level": 1,
+      "rules_level": 2,
+      "reasons": [
+        "little text on screen",
+        "few links (2)",
+        "many things to fill in"
+      ],
+      "sentence": "1.5 of 5, level 1: little text on screen, few links (2), many things to fill in."
+    }
+  ]
+}

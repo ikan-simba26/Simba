@@ -158,5 +158,8 @@ write-up.
    whether the two groups rate the six anchor pages alike. If it refuses,
    it says how many more ratings, and raters of each set, are needed.
 
+   Or do steps 2 and 3 in one command, with the comparison against the rules
+   as well: `RUNNING.md`, *Retraining the estimator*.
+
 The CSVs and `data/ratings.jsonl` hold people's answers. Neither is committed;
 keep them on this machine.

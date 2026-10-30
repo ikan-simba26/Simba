@@ -39,10 +39,14 @@ The switches, all environment variables:
 - `SIMBA_BROWSER` is `chromium` (default, launches its own headless browser)
   or `electron` (attaches over CDP to a running host and drives its hidden
   site view). See `browser.py`.
-- `SIMBA_ADAPT` is on by default: the provisional level rules
-  (`backend/estimator/rules.py`) choose the detail level as the run goes and
-  send `load.updated`. `SIMBA_ADAPT=0` sends none, so the level stays where
-  the overlay put it — the fixed-level condition, and a way out on demo day.
+- `SIMBA_ADAPT` is on by default: `backend/estimator/rules.py` chooses the
+  detail level as the run goes and sends `load.updated`. `SIMBA_ADAPT=0` sends
+  none, so the level stays where the overlay put it — the fixed-level
+  condition, and a way out on demo day.
+- `SIMBA_PAGE_MODEL` is on by default: the trained estimator
+  (`backend/estimator/page_model.py`) judges the page, if `data/estimator.json`
+  is there and readable. `SIMBA_PAGE_MODEL=0`, or no such file, leaves that to
+  the provisional rules' three signs.
 """
 
 import logging
@@ -59,6 +63,7 @@ from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
+from backend.estimator import page_model
 from backend.estimator.pairing import Recorder, recording_enabled
 from backend.estimator.rules import Decision, LevelRules
 from backend.orchestrator.loop import Connection, follow_override, run_brief, run_task
@@ -144,6 +149,13 @@ def adapt_level() -> bool:
     return os.environ.get("SIMBA_ADAPT", "1").strip().lower() not in {"0", "false", "no"}
 
 
+def level_source() -> str:
+    """What is choosing the detail level, for the health check."""
+    if not adapt_level():
+        return "fixed"
+    return "trained model" if page_model.active() is not None else "provisional rules"
+
+
 log = logging.getLogger("simba.app")
 
 
@@ -182,7 +194,7 @@ async def health() -> dict[str, str]:
         "router": "model" if use_model() else "keywords",
         "planner": "hardcoded" if use_hardcoded_plan() else "llm",
         "trace_memory": "on" if use_trace_memory() else "off",
-        "level": "provisional rules" if adapt_level() else "fixed",
+        "level": level_source(),
         "browser": browser_source(),
         "replica": "per flow",
         # Where a train goal would run: the live site, or our own copy when
@@ -266,7 +278,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # One set of rules per connection, made before anything is asked for: a
     # level the person locked on the home screen arrives ahead of the
     # `task.start`, and has to hold from the first step.
-    rules = LevelRules() if adapt_level() else None
+    rules = LevelRules(page_model=page_model.active()) if adapt_level() else None
 
     async def before_the_task(message: dict) -> None:
         # The person's tiles changed on the home screen: answered with the
