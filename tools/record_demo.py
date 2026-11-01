@@ -82,7 +82,9 @@ CLIPS: list[tuple[str, str, str, str]] = [
      "the scripted run, including the fold from one detail level to the next"),
     # No notice is shown on a task's first screen (2026-10-14), so the clip
     # answers the first — the reference number — and hesitates on the second,
-    # the cookie question, until it folds.
+    # the cookie question, until it folds. Needs a stack with
+    # SIMBA_PAGE_MODEL=0: the trained estimator starts billing at level 3, and
+    # nothing folds from there (DEMO.md).
     ("adapt", "real", "What do I owe on my electricity bill?",
      "billing, hesitating on the cookie question until it folds, then calm, and back"),
 ]
