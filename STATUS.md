@@ -130,6 +130,23 @@ re-run since; the live page's structure was unchanged when re-read on
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
 
+### Changed on 2026-11-01: after the training — `fix/after-training`, under the freeze
+
+- **The guard's move lasts one screen.** After the overflow guard dropped a step to
+  fit, every later step stayed at the guard's level unless a lock was on, so a heavy
+  task ran at the densest level from the sign-in on. The next step now goes back to
+  the level it came from, on both sides, with nothing sent. In the real window at
+  150% and forced 100%, registration went 3, 1 for the sign-in, 3 for the next
+  question, nothing past the window, and the backend's row agreed. At 1266x606 the
+  next question goes back to 3, does not fit, and takes its own hop with the notice
+  (EVALUATION.md, 2026-11-01b; **Aly and Nahail to review**, DECISIONS.md).
+- **`billing.webm` and `adapt.webm` re-recorded**, stills checked. Billing opens at
+  level 3; adapt needs `SIMBA_PAGE_MODEL=0` and folds at 5.3s. The other four clips
+  were not. DEMO.md says how to make both.
+- **The figures with and without raters 5007 and 5013, side by side**
+  (EVALUATION.md, 2026-11-01). Alpha 0.318 to 0.447, R² 0.572 to 0.621, and the heavy
+  call differs on at most 1 of 50 pages. Both raters stay.
+
 ### Changed on 2026-10-30: the estimator, trained on people's ratings — `feat/estimator-trained`
 
 - **Ratings are in.** 24 responses, 9 dropped for being on a phone: **15 usable

@@ -29,7 +29,8 @@ rating was collected, by two sets of 30 pictures with a five-point labelled
 question, worked examples and anchors, and training's floor changed to 8
 ratings per page (DECISIONS.md, *Two sets of 30*). And on 2026-10-30 for
 `feat/estimator-trained`: the estimator trained on people's ratings and judging
-the first page of a task. Section 9 is still the 2026-09-17 capture, and says so.
+the first page of a task. And on 2026-11-01 for `fix/after-training`: the overflow
+guard's move lasts one screen. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -76,6 +77,10 @@ what it costs to change.
   used it, as the person's own floor.
 - **Every decision row now has `judged_by` and `inputs.judged`**, beside what the
   rules would have said, so the two can be compared on real sessions.
+- **Since 2026-11-01 the rules undo a guard move on the next step** (`before_guard`,
+  `inputs.after_guard`), as the overlay does. The figures with and without raters
+  5007 and 5013 are side by side in EVALUATION.md, 2026-11-01, for your call on
+  keeping them.
 
 **For Nahail (2026-10-15): two changes that reach the estimator.**
 
