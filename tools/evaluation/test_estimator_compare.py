@@ -120,6 +120,70 @@ def test_phone_raters_can_be_put_back_for_the_check_only(tmp_path: Path) -> None
     assert len(from_form.convert([header, *answers], mapping, "1").raters) == 1
 
 
+# --- with and without named raters -------------------------------------------------
+
+
+def synthetic(raters: int = 12) -> tuple[dict, list[train.Rating]]:
+    rng = np.random.default_rng(5)
+    corpus: dict = {}
+    for i in range(30):
+        corpus[(f"https://s.test/{i}", "as it loads")] = {
+            "interactive": int(rng.integers(0, 50)), "links": int(rng.integers(0, 300)),
+            "inferred": 0, "text_density": float(rng.uniform(0, 4)),
+            "max_depth": int(rng.integers(4, 30)), "overlays": 0, "form_fields": 1,
+            "dead_link_ratio": 0.0, "reading_grade": 8.0, "run": "r"}
+    ratings = []
+    for rater in range(1, raters + 1):
+        for (url, state), row in corpus.items():
+            answer = 1 + row["text_density"] + rng.normal(0, 0.4)
+            if rater == 1:  # reads the scale backwards
+                answer = 6 - answer
+            ratings.append(train.Rating(rater=rater, url=url, state=state, page=url, repeat=False,
+                                        rating=int(min(5, max(1, round(answer)))),
+                                        synthetic=True, set=1 + rater % 2))
+    return corpus, ratings
+
+
+@pytest.fixture(scope="module")
+def columns() -> list[compare.Side]:
+    corpus, ratings = synthetic()
+    return compare.sides(ratings, corpus, None, 8, [1, 2])
+
+
+def test_every_rater_alone_and_together_gets_a_column(columns: list[compare.Side]) -> None:
+    assert [c.label for c in columns] == ["All raters", "Without 1", "Without 2",
+                                          "Without 1 and 2"]
+    assert [sum(c.raters) for c in columns] == [12, 11, 11, 10]
+
+
+def test_taking_out_someone_who_reads_backwards_raises_agreement(
+        columns: list[compare.Side]) -> None:
+    assert columns[1].alpha > columns[0].alpha
+    assert columns[3].alpha > columns[2].alpha
+
+
+def test_the_table_labels_every_column_and_says_what_is_the_model(
+        columns: list[compare.Side]) -> None:
+    corpus, ratings = synthetic()
+    text = compare.sides_section(columns, train.agreement(ratings), "conditions",
+                                 compare.datetime(2026, 11, 1))
+    assert "| | All raters | Without 1 | Without 2 | Without 1 and 2 |" in text
+    assert "**The first column is the model on `main`" in text
+    assert "by construction" in text and "```text\nconditions\n```" in text
+    width = text.count("| | All raters")
+    assert width == 1
+    rows = [line for line in text.splitlines() if line.startswith("| ")]
+    assert {line.count("|") for line in rows} == {6}
+
+
+def test_a_check_writes_no_model_and_no_page_file(tmp_path: Path) -> None:
+    """It answers what if. The model stays what it was trained on."""
+    before = {p: p.read_bytes() for p in (train.COEFFICIENTS, train.MODEL, compare.PAGES)}
+    corpus, ratings = synthetic(10)
+    compare.side("All raters", ratings, corpus, None, 8)
+    assert all(p.read_bytes() == was for p, was in before.items())
+
+
 # --- the one command -------------------------------------------------------------
 
 

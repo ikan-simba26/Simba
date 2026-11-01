@@ -18,7 +18,11 @@ Spends no model quota and touches no site: it reads `data/ratings.jsonl`,
 4. **How much the handling of the data matters**: the pages at the floor only,
    the phone raters let back in (needs `--csv`), and the raters who ran against
    everyone else taken out. All three are checks, none is the model.
-5. **Writes** `data/estimator_pages.json`, each page's score and reasons in
+5. **With and without named raters**, side by side (`--without 5007 5013`,
+   2026-11-01): every figure again with each of them out and with all of them
+   out. It writes no model and no page file: it answers "what if", and the model
+   stays what it was trained on.
+6. **Writes** `data/estimator_pages.json`, each page's score and reasons in
    plain words (committed: no rating in it); `.scratch/estimator/`, the two
    charts and each page beside its rated mean (not committed, DECISIONS.md, *The
    trained model is committed; the ratings are not*); and a section of
@@ -299,6 +303,141 @@ def sensitivity(ratings: list[train.Rating], corpus: dict, trained: train.Traine
     return cases, against, helped
 
 
+# --- with and without named raters ----------------------------------------------
+
+
+@dataclass
+class Side:
+    """One column of `sides_section`: the same training on a subset of raters."""
+
+    label: str
+    raters: tuple[int, int]
+    alpha: float | None
+    alpha_by_set: dict[int, float | None]
+    ceiling: float | None
+    fold_r2: tuple[float, float]
+    fold_mae: float
+    fold_rmse: float
+    r2: tuple[float, float]
+    mae: tuple[float, float]
+    rmse: tuple[float, float]
+    baseline_mae: float
+    spread: float
+    cuts: tuple[float, float]
+    nested_kappa: float
+    nested_exact: float
+    bands: tuple[int, int, int]
+    heavy_called: int
+    levels_changed: int
+    heavy_changed: int
+    coefficients: dict[str, float]
+
+
+def side(label: str, ratings: list[train.Rating], corpus: dict, pictures: dict | None,
+         floor: int, shipped: page_model.PageModel | None = None) -> Side:
+    """Everything `train.run` measures, on `ratings`, written nowhere. A page's
+    level is compared with the level the shipped model gives it, each model by
+    its own cut points."""
+    trained = train.train(ratings, corpus, min_ratings=floor, pictures=pictures)
+    assert trained.x is not None and trained.y is not None
+    predicted, baseline = train.held_out_predictions(trained.x, trained.y)
+    found = train.repeated(trained.y, predicted, baseline)
+    levels = train.choose_levels(trained.x, trained.y, predicted)
+    scores = np.clip(trained.model.predict(trained.x), *train.SCALE)
+    mine = train.band(scores, levels.cuts)
+    changed = heavier = 0
+    if shipped is not None:
+        theirs = [shipped.judge(features_of(corpus[k])).level - 1 for k in trained.pages]
+        changed = int(sum(a != b for a, b in zip(mine, theirs)))
+        heavier = int(sum((a == 2) != (b == 2) for a, b in zip(mine, theirs)))
+    usable = train.paired(ratings, corpus, pictures)[0] if pictures is not None else ratings
+    a = trained.agreement
+    return Side(
+        label=label, raters=(a.raters_by_set.get(1, 0), a.raters_by_set.get(2, 0)),
+        alpha=a.alpha, alpha_by_set=a.alpha_by_set, ceiling=train.reliability(usable),
+        fold_r2=trained.r2, fold_mae=float(np.mean(trained.fold_mae)),
+        fold_rmse=float(np.mean(trained.fold_rmse)), r2=found.r2, mae=found.mae,
+        rmse=found.rmse, baseline_mae=found.baseline_mae[0], spread=float(trained.y.std()),
+        cuts=levels.cuts, nested_kappa=levels.nested_kappa, nested_exact=levels.nested_exact,
+        bands=levels.rated, heavy_called=int((mine == 2).sum()), levels_changed=changed,
+        heavy_changed=heavier, coefficients=trained.coefficients)
+
+
+def sides(ratings: list[train.Rating], corpus: dict, pictures: dict | None, floor: int,
+          without: list[int], shipped: page_model.PageModel | None = None) -> list[Side]:
+    """All the raters, then each named one out, then all the named ones out."""
+    groups: list[tuple[str, set[int]]] = [("All raters", set())]
+    groups += [(f"Without {rater}", {rater}) for rater in without]
+    if len(without) > 1:
+        groups.append((f"Without {' and '.join(map(str, without))}", set(without)))
+    return [side(label, [r for r in ratings if r.rater not in out], corpus, pictures, floor,
+                 shipped) for label, out in groups]
+
+
+def sides_section(columns: list[Side], first: train.Agreement, conditions_block: str,
+                  when: datetime) -> str:
+    def row(name: str, value: Any) -> str:
+        return f"| {name} | " + " | ".join(value(c) for c in columns) + " |"
+
+    def number(v: float | None, places: int = 3) -> str:
+        return "—" if v is None else f"{v:.{places}f}"
+
+    ranked = sorted(train.FEATURES, key=lambda f: -abs(columns[0].coefficients[f]))
+    named = [c for c in columns[1:] if " and " not in c.label]
+    return "\n".join([
+        f"## {when:%Y-%m-%d} — the estimator with and without raters "
+        f"{' and '.join(c.label.split()[-1] for c in named)}", "",
+        "`python -m tools.evaluation.estimator_compare --without "
+        f"{' '.join(c.label.split()[-1] for c in named)}`. **The first column is the model "
+        "on `main`, and it stays the model.** The other columns are the same training with "
+        "those raters' answers removed, for reading beside it: nothing here is saved.", "",
+        f"```text\n{conditions_block}\n```", "",
+        "Rank correlation of each with the mean of the others: "
+        + ", ".join(f"{c.label.split()[-1]} {first.rater_vs_rest[int(c.label.split()[-1])]:.2f}"
+                    for c in named)
+        + ". No exclusion rule was set before the ratings came in, so neither is excluded.",
+        "",
+        "**Read the three alpha rows with care.** Taking out the raters who disagree most "
+        "raises agreement by construction, so a higher alpha here is not evidence that "
+        "anything improved. Error is not comparable between columns on its own either: "
+        "without them the page means spread wider, so there is more to get wrong and the "
+        "mean absolute error can rise while the model improves. The row beside the mean's "
+        "own error is the fair one.", "",
+        "| | " + " | ".join(c.label for c in columns) + " |",
+        "|---|" + "---|" * len(columns),
+        row("Raters (Set 1 + Set 2)", lambda c: f"{c.raters[0]} + {c.raters[1]}"),
+        "| **Agreement** |" + " |" * len(columns),
+        row("Krippendorff's alpha, all", lambda c: number(c.alpha)),
+        row("Alpha, Set 1", lambda c: number(c.alpha_by_set.get(1))),
+        row("Alpha, Set 2", lambda c: number(c.alpha_by_set.get(2))),
+        row("Reliability of the page means (the ceiling on R²)", lambda c: number(c.ceiling)),
+        row("Spread of the page means (sd)", lambda c: f"{c.spread:.3f}"),
+        "| **Accuracy, 5-fold** |" + " |" * len(columns),
+        row("R², mean ± sd of folds", lambda c: f"{c.fold_r2[0]:.3f} ± {c.fold_r2[1]:.3f}"),
+        row("Mean absolute error", lambda c: f"{c.fold_mae:.3f}"),
+        row("Root mean squared error", lambda c: f"{c.fold_rmse:.3f}"),
+        f"| **Accuracy, {train.REPEATS} shuffles of the folds** |" + " |" * len(columns),
+        row("R²", lambda c: f"{c.r2[0]:.3f} ± {c.r2[1]:.3f}"),
+        row("Mean absolute error", lambda c: f"{c.mae[0]:.3f} ± {c.mae[1]:.3f}"),
+        row("Root mean squared error", lambda c: f"{c.rmse[0]:.3f} ± {c.rmse[1]:.3f}"),
+        row("Error of predicting the mean", lambda c: f"{c.baseline_mae:.3f}"),
+        row("**Model's error as a share of that**",
+            lambda c: f"**{c.mae[0] / c.baseline_mae:.2f}**"),
+        "| **Levels** |" + " |" * len(columns),
+        row("Pages rated calm / middle / heavy", lambda c: " / ".join(map(str, c.bands))),
+        row("Cut points chosen", lambda c: f"{c.cuts[0]:.2f}, {c.cuts[1]:.2f}"),
+        row("Kappa, cuts held out too", lambda c: f"{c.nested_kappa:.3f}"),
+        row("Right band, cuts held out too", lambda c: f"{c.nested_exact:.1%}"),
+        row("Pages called heavy, as fitted", lambda c: str(c.heavy_called)),
+        row("Pages at a different level from the shipped model",
+            lambda c: str(c.levels_changed)),
+        row("Of those, heavy on one side only (all that changes for someone who has "
+            "not chosen a level)", lambda c: str(c.heavy_changed)),
+        "| **Coefficients** |" + " |" * len(columns),
+        *[row(f"`{name}`", lambda c, n=name: f"{c.coefficients[n]:+.3f}") for name in ranked],
+    ]) + "\n"
+
+
 # --- charts, as plain SVG: matplotlib is not a dependency here -----------------
 
 
@@ -535,6 +674,31 @@ def save_with_ratings(pages: list[Page], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def run_without(raters: list[int], ratings_path: Path = train.RATINGS,
+                corpus_path: Path = train.CORPUS, model_path: Path = train.COEFFICIENTS,
+                evaluation: Path | None = train.EVALUATION,
+                pictures_path: Path | None = train.PICTURES) -> str:
+    """The side-by-side table, printed and appended. Writes no model."""
+    model = page_model.load(model_path)
+    if model is None:
+        raise SystemExit(f"no usable model at {model_path}; train one first")
+    floor = json.loads(model_path.read_text(encoding="utf-8"))["min_ratings"]
+    ratings = train.read_ratings(ratings_path)
+    corpus, _ = train.read_corpus(corpus_path)
+    pictures = train.read_pictures(pictures_path) if pictures_path is not None else None
+    missing = sorted(set(raters) - {r.rater for r in ratings})
+    if missing:
+        raise SystemExit(f"no ratings from {missing}")
+    usable = train.paired(ratings, corpus, pictures)[0] if pictures is not None else ratings
+    text = sides_section(sides(ratings, corpus, pictures, floor, raters, model),
+                         train.agreement(usable), banner(conditions()),
+                         datetime.now().astimezone())
+    if evaluation is not None:
+        with evaluation.open("a", encoding="utf-8") as out:
+            out.write("\n---\n\n" + text)
+    return text
+
+
 def run(csvs: list[Path], ratings_path: Path = train.RATINGS, corpus_path: Path = train.CORPUS,
         model_path: Path = train.COEFFICIENTS, evaluation: Path | None = train.EVALUATION,
         pages_path: Path = PAGES, scratch: Path = SCRATCH, steps: Path = STEPS,
@@ -581,8 +745,14 @@ def main() -> None:
     parser.add_argument("--csv", type=Path, action="append", default=[],
                         help="a form's responses, for the check with phone raters put back")
     parser.add_argument("--no-write", action="store_true", help="print; leave EVALUATION.md alone")
+    parser.add_argument("--without", type=int, nargs="+", metavar="RATER",
+                        help="only the side-by-side table with and without these raters")
     args = parser.parse_args()
-    print(run(args.csv, evaluation=None if args.no_write else train.EVALUATION))
+    where = None if args.no_write else train.EVALUATION
+    if args.without:
+        print(run_without(args.without, evaluation=where))
+        return
+    print(run(args.csv, evaluation=where))
 
 
 if __name__ == "__main__":
