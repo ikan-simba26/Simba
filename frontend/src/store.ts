@@ -227,6 +227,12 @@ interface Store {
   simplifyForOverflow: (to: Level) => void;
   /** True once this step has already been moved for overflow. One hop only. */
   overflowHopped: boolean;
+  /**
+   * The level the overflow guard moved this step away from, or null if it did
+   * not. The move is for this screen: the next step goes back to this level
+   * (2026-11-01), unless the rules or the person have said otherwise since.
+   */
+  overflowFrom: Level | null;
   dismissLevelNotice: () => void;
   dismissStepFailure: () => void;
   /** Back to the home screen without dropping the connection. */
@@ -364,6 +370,7 @@ export const useStore = create<Store>((set, get) => {
     offersToSkip: 0,
     levelLocked: false,
     chosenLevel: STARTING_PROFILE.level ?? 2,
+    overflowFrom: null,
     levelNotice: null,
     overflowHopped: false,
     debug: false,
@@ -479,13 +486,15 @@ export const useStore = create<Store>((set, get) => {
 
     chooseLevel: (level) => {
       // The user's own choice needs no notice: they are looking at it.
-      set({ level, chosenLevel: level, levelLocked: true, levelNotice: null });
+      set({ level, chosenLevel: level, levelLocked: true, levelNotice: null,
+            overflowFrom: null });
       connection.overrideLevel(level, true);
     },
 
     unlockLevel: () => {
       set({ levelLocked: false, levelNotice: null });
-      connection.overrideLevel(get().level, false);
+      // What is handed back is the level the person had, never the guard's.
+      connection.overrideLevel(get().overflowFrom ?? get().level, false);
     },
 
     simplifyForOverflow: (to) => {
@@ -498,6 +507,7 @@ export const useStore = create<Store>((set, get) => {
       set({
         level: to,
         overflowHopped: true,
+        overflowFrom: from,
         // Never on the task's first screen.
         levelNotice: get().firstScreen ? null
           : { from, to, because: "this step was too long to fit", fitted: true },
@@ -654,6 +664,11 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // lock it starts at the person's own level again, whatever the guard
       // did to the last one. No notice: this is a new screen, not the old one
       // reshaping.
+      //
+      // Unlocked, it goes back to the level the guard moved it from, which is
+      // what the page model and the person chose (2026-11-01): the guard's
+      // level is for the screen that did not fit. The backend's rules do the
+      // same at the same moment, so nothing is sent.
       set((current) => ({
         step: message.payload as StepPresented,
         stageNow: (message.payload as StepPresented).stage ?? current.stageNow,
@@ -663,14 +678,18 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         pausing: false,
         answered: false,
         overflowHopped: false,
-        ...(current.levelLocked ? { level: current.chosenLevel } : {}),
+        overflowFrom: null,
+        ...(current.levelLocked ? { level: current.chosenLevel }
+          : current.overflowFrom !== null ? { level: current.overflowFrom } : {}),
         // The picture was of the previous step; it is stale now.
         preview: null,
         trustOpen: false,
         // A final screen keeps its own layout at every level (2026-10-16):
         // "I've made this smaller so it fits", carried over from the screen
         // before, was untrue on it, and hid where the person is.
-        ...((message.payload as StepPresented).final ? { levelNotice: null } : {}),
+        // The same goes for any screen after the one that was made to fit.
+        ...((message.payload as StepPresented).final || current.levelNotice?.fitted
+          ? { levelNotice: null } : {}),
       }));
       return;
     case "history.offered": {
@@ -701,16 +720,19 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // The estimator proposes; a locked level refuses. `reason` is for logs
       // and ablation only and is never shown to the user (CONTRACT.md).
       set((current) => {
-        if (current.levelLocked || current.level === load.level) {
-          return { load };
-        }
+        if (current.levelLocked) return { load };
+        // The rules have spoken, so there is nothing left to go back to, and
+        // what changed is from the level they knew, not the guard's.
+        const from = current.overflowFrom ?? current.level;
+        if (current.level === load.level) return { load, overflowFrom: null };
         return {
           load,
           level: load.level,
+          overflowFrom: null,
           // The estimator's own reason. Not shown to the user (CONTRACT.md).
           // Never on the task's first screen, nor before it.
-          levelNotice: current.firstScreen ? null
-            : { from: current.level, to: load.level, because: load.reason },
+          levelNotice: current.firstScreen || from === load.level ? null
+            : { from, to: load.level, because: load.reason },
         };
       });
       return;

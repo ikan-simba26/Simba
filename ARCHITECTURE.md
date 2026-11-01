@@ -331,8 +331,9 @@ while what remains slides up.
 three dots at the foot of the column, which sends `level.override`. Any
 change the user did not make raises a dismissible notice — one of two
 sentences, chosen by direction alone. If a step would not fit, the level
-drops one step towards level 1 (the compact layout) rather than growing a
-scrollbar; one hop per step, then it scrolls.
+drops to level 1 (the compact layout) rather than growing a scrollbar; one hop
+per step, then it scrolls. That move is for that screen: the next step goes
+back to the level it came from, on both sides, with nothing sent.
 
 `step.failed` raises a quiet notice — "I couldn't do that. I'm carrying on."
 — that outlives the step it belongs to, since the next step arrives

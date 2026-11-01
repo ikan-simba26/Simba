@@ -384,10 +384,11 @@ def test_a_guard_move_is_followed_and_is_the_steps_one_change() -> None:
     # The same step does not also fold: the interface has moved once already.
     fold = rules.telemetry(sample(1, 16000))
     assert (fold.rule, rules.level) == ("once-per-step", 1)
-    # The next step may.
+    # The next step is back where it was, and may fold from there.
     rules.start_step(2, LIGHT)
-    rules.telemetry(sample(2, 16000))
     assert rules.level == 2
+    rules.telemetry(sample(2, 16000))
+    assert rules.level == 3
 
 
 def test_a_guard_move_never_becomes_the_lock() -> None:
@@ -412,6 +413,81 @@ def test_a_guard_move_does_not_count_against_a_calm_run() -> None:
     run.rules.override(2, locked=False, by="overflow")   # 3 -> 2, for fit
     run.step(3, calm_step(3))
     assert run.rules.calm_streak == 2
+
+
+def test_the_next_step_goes_back_to_the_level_the_guard_moved_from() -> None:
+    """2026-11-01. It was only ever true under a lock, so a heavy task stayed
+    at the guard's level 1 from the sign-in on."""
+    rules = LevelRules(page_model=MODEL)
+    assert rules.start_step(1, HEAVY_TO_THE_MODEL).level == 3
+    rules.override(1, locked=False, by="overflow")
+    assert rules.level == 1
+
+    decision = rules.start_step(2, HEAVY_TO_THE_MODEL)
+    assert (rules.level, decision.level, decision.send) == (3, 3, False)
+    assert decision.inputs["after_guard"] == {"guard": 1, "back_to": 3}
+
+
+def test_it_goes_back_to_a_level_the_person_chose_too() -> None:
+    rules = LevelRules()
+    rules.start_from(1)
+    rules.start_step(1, LIGHT)
+    rules.override(1, locked=False, by="overflow")      # already 1: nothing moves
+    rules.start_step(2, LIGHT)
+    assert rules.level == 1
+
+    rules = LevelRules()
+    rules.start_from(3)
+    rules.start_step(1, LIGHT)
+    rules.override(1, locked=False, by="overflow")
+    rules.start_step(2, LIGHT)
+    assert rules.level == 3
+
+
+def test_a_step_the_guard_did_not_touch_says_nothing_about_it() -> None:
+    rules = LevelRules()
+    rules.start_step(1, LIGHT)
+    assert "after_guard" not in rules.start_step(2, LIGHT).inputs
+
+
+def test_each_step_gets_its_own_hop_and_the_same_way_back() -> None:
+    rules = LevelRules(page_model=MODEL)
+    rules.start_step(1, HEAVY_TO_THE_MODEL)
+    for index in (2, 3):
+        rules.override(1, locked=False, by="overflow")
+        rules.start_step(index, HEAVY_TO_THE_MODEL)
+        assert rules.level == 3
+
+
+def test_two_calm_steps_return_from_the_level_the_guard_moved_from() -> None:
+    """Not from the guard's: 3, not 1, is what the calm run brings down."""
+    run = judged()
+    run.rules.start_step(1, HEAVY_TO_THE_MODEL)
+    run.rules.override(1, locked=False, by="overflow")
+    run.rules.telemetry(sample(1, 2000, answered=True))
+    run.rules.start_step(2, HEAVY_TO_THE_MODEL)
+    run.rules.telemetry(sample(2, 2000, answered=True))
+    decision = run.rules.start_step(3, HEAVY_TO_THE_MODEL)
+    assert (decision.rule, decision.level_before, decision.level) == ("restore", 3, 2)
+    assert decision.send is True
+
+
+def test_a_level_the_person_picks_replaces_the_way_back() -> None:
+    rules = LevelRules(page_model=MODEL)
+    rules.start_step(1, HEAVY_TO_THE_MODEL)
+    rules.override(1, locked=False, by="overflow")
+    rules.override(2, locked=True)
+    rules.override(2, locked=False)
+    rules.start_step(2, HEAVY_TO_THE_MODEL)
+    assert rules.level == 2
+
+
+def test_the_ending_goes_back_too() -> None:
+    rules = LevelRules(page_model=MODEL)
+    rules.start_step(1, HEAVY_TO_THE_MODEL)
+    rules.override(1, locked=False, by="overflow")
+    rules.end()
+    assert rules.level == 3
 
 
 # --- the person's own level, from the welcome (2026-10-18) -------------------------

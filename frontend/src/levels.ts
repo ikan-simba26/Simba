@@ -151,7 +151,8 @@ export function firstSentence(text: string): string {
  * per step, and level 3 is never taller than level 2 (`test_first_screen.py`),
  * so a step that does not fit at 3 cannot fit at 2 and a hop there is the hop
  * wasted. It was: once the trained estimator started a heavy page at level 3,
- * the sign-in screen stopped at level 2, 60px to 86px past the window.
+ * the sign-in screen stopped at level 2, 60px to 86px past the window. The next
+ * step goes back (`overflowFrom` in `store.ts`).
  */
 export function denser(level: Level): Level | null {
   return level === 1 ? null : 1;
