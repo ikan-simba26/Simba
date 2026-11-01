@@ -37,7 +37,9 @@ What it does:
   level because a step does not fit, it says so (`level.override` with
   `by: "overflow"`). That is the step's one change, it does not count against
   a calm run, and it never becomes the lock: a lock is only ever the person's
-  own choice, and each new step is shown at it again.
+  own choice, and each new step is shown at it again. **The move is for that
+  screen**: unlocked as well, the next step goes back to the level the guard
+  moved from (2026-11-01), as the overlay does, so nothing is sent.
 
 With a model, the page's part of the score is the model's load score. Without
 one it is how many signs of a heavy page it shows, as a share of those needed.
@@ -218,6 +220,8 @@ class LevelRules:
         self.step_index = 0
         #: The step the level last changed on. The start counts as step 0.
         self.changed_on: int | None = None
+        #: The level the overflow guard moved this step away from, if it did.
+        self.before_guard: int | None = None
         self.calm_streak = 0
         #: A signal reached its threshold on the current step, whether or not
         #: the level could move for it. Such a step is not calm.
@@ -239,8 +243,9 @@ class LevelRules:
         """Before step `step_index` goes on screen: the start, or a return."""
         self.step_index = step_index
         self.signalled = False
-        # A guard move under a lock lasts one step; the next is shown at the
-        # person's own level again, as the overlay does.
+        # A guard move lasts one step; the next is shown as it would have been,
+        # at the person's own level under a lock, as the overlay does.
+        undone = self._undo_guard()
         if self.locked and self.locked_level is not None:
             self.level = self.locked_level
         signs = page_signs(features, self.t)
@@ -251,6 +256,8 @@ class LevelRules:
         inputs = {"page": features.as_dict() if features else None,
                   "heavy_signs": signs,
                   "judged": judged.as_row() if judged is not None else None}
+        if undone is not None:
+            inputs["after_guard"] = {"guard": undone, "back_to": self.level}
 
         if not self.started:
             self.started = True
@@ -310,6 +317,7 @@ class LevelRules:
         self.level = level
         inputs = {"override": {"level": level, "locked": locked, "by": by}}
         if by == "overflow":
+            self.before_guard = before if self.before_guard is None else self.before_guard
             if not self.locked:
                 self.changed_on = self.step_index
             lock = f"; lock stays at {self.locked_level}" if self.locked else ""
@@ -321,6 +329,7 @@ class LevelRules:
             )
         self.locked = locked
         self.locked_level = level if locked else None
+        self.before_guard = None
         self.calm_streak = 0
         return Decision(
             at="override", step_index=self.step_index, score=self.page_score,
@@ -331,9 +340,18 @@ class LevelRules:
 
     def end(self) -> Decision:
         """Before the ending: a return that was due has no next step to wait for."""
+        self._undo_guard()
         return self._between_steps("end", {})
 
     # --- helpers ---------------------------------------------------------------------------
+
+    def _undo_guard(self) -> int | None:
+        """Back to the level the guard moved the last step from; the level it
+        had moved to, or None if it had not."""
+        if self.before_guard is None:
+            return None
+        guard, self.level, self.before_guard = self.level, self.before_guard, None
+        return guard
 
     def _from_page(self, judged: Judgement | None, signs: list[str]) -> tuple[int, str]:
         """The level a task starts at, and why in words for the log. The page

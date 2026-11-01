@@ -5620,3 +5620,45 @@ in the repository root untracked.
 
 **Cost.** Anyone with only the repository cannot redraw the chart, or check a
 page's score against its rating, without the ratings.
+
+## After the guard, the next step goes back to the level it came from
+
+**Date:** 2026-11-01 (asked for, by Raham: a bug fix under the freeze). **Corrects
+the cost stated in *The overflow guard's one hop from level 3 goes to level 1*,**
+which said the rest of a task stays at level 1 at 100% and 150%, as if that were
+acceptable because it was not new. **Aly to review** `store.ts`; **Nahail**
+`rules.py`.
+
+**Decision.** The guard's move lasts one step, locked or not. The overlay keeps the
+level it moved from (`overflowFrom`) and the rules keep the same (`before_guard`);
+each goes back as the next decision step arrives, and nothing is sent, because
+both sides do it at the same moment. CONTRACT.md has said this since 2026-09-25
+("the next step is shown at the person's own level again"), so no contract text
+changes; only a locked level ever did it.
+
+**Inside it (not asked for):**
+
+- **The next step means the next one that asks.** A checklist line is not a
+  decision and has no level, so a sign-in followed by checklist lines goes back at
+  the question after them.
+- **The rules win if they speak first.** A return that falls due as the next step
+  arrives is sent before that step, and the step must not undo it. Its notice is
+  worked out from the level the rules knew, not the guard's.
+- **The person wins too.** A level they pick during the hopped step replaces the
+  way back, and pressing "let it choose" hands back their level, not the guard's.
+- **"I've made this smaller so it fits" goes with the screen it was true of.**
+- **A screen that does not fit at the level it comes back to takes its own hop**,
+  and says so. Registration's course question does this at 1266x606, the shortest
+  window measured: 3, then 1, with the notice. It does not at 1266x632, the real
+  window at 150%, or at 100%.
+
+**Alternatives.** Have the backend send `load.updated` to restore the level: it
+would raise a notice on a screen nobody reshaped, and the overlay would show the
+guard's level for a moment first. Have the overlay alone go back: the rules would
+believe level 1 was on screen, and their next fold would go to 2, more detail than
+the person is looking at.
+
+**Cost.** A screen that needs the guard reshapes in front of the person each time
+it happens, rather than once a task. And level 3 and level 1 can now alternate
+down a task on a short window, which is a change of density between screens the
+person did not ask for. On the measured sizes it happens only at 1266x606.

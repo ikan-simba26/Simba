@@ -8,11 +8,12 @@ problem SIMBA exists for, and nobody feels it from a description. Then the same
 task, in SIMBA, in one window.
 
 Everything below has been run end to end. The recordings in `demo/` were made
-on 2026-10-16 on our own copies, and show the overlay as it is now: named
+on 2026-10-16 and 17 on our own copies, billing and adapt again on 2026-11-01,
+and show the overlay as it is now: named
 stages in place of a count, the safe moves running as a checklist, the
 trains as tickets, the answer on the real page ("See it on the real page"),
 and a booking through its final screen to the site's confirmation. At a
-watchable pace: railways 35 seconds, a booking 78, billing 39, a greeting
+watchable pace: railways 35 seconds, a booking 78, billing 29, a greeting
 8. **The live railways run is slower** — about 55 seconds of task
 time against 26 on the copy (EVALUATION.md, 2026-10-16), before any pauses
 for narration.
@@ -82,9 +83,13 @@ curl http://127.0.0.1:8000/
 - `level: trained model` means **the first page is judged from people's
   ratings** (since 2026-10-30). It says `provisional rules` if
   `data/estimator.json` is missing, which still works. **Billing and
-  registration now start at the simplest level**, because the model scores
-  their first pages heavy, so they have no further to fold: to show a fold,
-  use the trains, or start with `$env:SIMBA_PAGE_MODEL = "0"`.
+  registration start at the simplest level**, the third dot lit on the first
+  screen, because the model scores their first pages heavy. So they have no
+  further to fold: to show a fold live, use the trains, or start with
+  `$env:SIMBA_PAGE_MODEL = "0"`; `demo/adapt.webm` shows one, made that way.
+- **At 100% and 150% the sign-in drops to the first dot to fit**, without a
+  word, and the next screen goes back to the third (since 2026-11-01). That is
+  the screen making room for two boxes, not the level changing its mind.
 - **The screen adapts to you while you present** (since 2026-09-25). Talking
   over a step for 15 seconds, or pressing "What are you doing?" — which the
   script below does — folds a step that is not already at the simplest level,
@@ -102,9 +107,23 @@ for every failure below. They are not committed — record them the day before,
 with the stack on our copy of the train search:
 
 ```powershell
-.\run.ps1 railways-local            # in one terminal
-python -m tools.record_demo          # in another: all five clips
+.\run.ps1 railways-local                                  # in one terminal
+python -m tools.record_demo railways booking billing hello fold   # in another
 ```
+
+**`adapt` needs a stack of its own.** The trained estimator starts billing at
+the simplest level, so with the model on nothing can fold and the clip shows no
+fold. Stop that stack, then:
+
+```powershell
+$env:SIMBA_PAGE_MODEL = "0"; .\run.ps1 railways-local     # in one terminal
+python -m tools.record_demo adapt                          # in another
+```
+
+Clear it afterwards (`Remove-Item Env:SIMBA_PAGE_MODEL`), or the rules go on
+judging pages in that terminal. `adapt` prints `folded after` a few seconds; the
+health check at `http://127.0.0.1:8000/` should say `provisional rules` for this
+clip and `trained model` for the others.
 
 It prints what each clip did. Every task clip should end on "found an answer";
 one that ends on "I'm stuck" is not a fallback for a run that worked.
@@ -184,7 +203,9 @@ It says it cannot, in one sentence, and offers what it can.
 ### 3:40 — a second task, finished on our copy (1 minute)
 
 Press the card **"Check my electricity bill"**. The card's words do not say
-*which* bill, so the first screen asks for the reference number. Type
+*which* bill, so the first screen asks for the reference number. It opens at the
+simplest level, the third dot lit: people rated this page as busy, and SIMBA has
+read that from the page before you touch anything. Type
 `04141234567890`. It asks about cookies — "This site asks about cookies.
 Shall I say yes?" — press Yes; then it looks the bill up by itself. The
 ending says it plainly: **Rs 14,382, due 15 September 2026**.

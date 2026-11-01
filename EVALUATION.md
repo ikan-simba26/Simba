@@ -65,6 +65,7 @@ from the version that produced its table.
 | 2026-09-17 | Copy-test mutations | **not preserved** — applied by hand, listed in the entry |
 | 2026-10-30 | The estimator: agreement, the model, the cut points | `python -m backend.estimator.train`, or `python -m tools.rating.retrain` for this and the next row (`--min-ratings 5` until every page has 8) |
 | 2026-10-30b | The model against the rules, the logged decisions, the two environments, the data's handling, each page's reasons | `estimator_compare` (reads local files; no model quota, no site) |
+| 2026-11-01 | The estimator with and without raters 5007 and 5013 | `estimator_compare --without 5007 5013` (writes no model) |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -6717,3 +6718,134 @@ The 12 skips are the same 12. The suite waited for mains: the machine was on
 battery until 21:17. The backend half was run with `--no-header` by mistake, which
 hides its power line, so the power was logged each minute instead, 21:17 to 22:02:
 45 readings, all on mains. Only these records changed afterwards.
+
+---
+
+## 2026-11-01 — the estimator with and without raters 5007 and 5013
+
+`python -m tools.evaluation.estimator_compare --without 5007 5013`. **The first column is the model on `main`, and it stays the model.** The other columns are the same training with those raters' answers removed, for reading beside it: nothing here is saved.
+
+```text
+========================================================================
+taken at    2026-11-01T07:27:14+05:00
+git         fe5f54cb5bf5 on fix/after-training
+python      3.12.3 at D:\simba\backend\venv\Scripts\python.exe
+playwright  1.62.0
+model       openai gemini-3.1-flash-lite (from .env)
+machine     Windows-11-10.0.26200-SP0, 8 cpus, load 12%
+power       on mains, processor at 66% of rated speed, 1294 MB memory free
+switches    none set
+========================================================================
+```
+
+Rank correlation of each with the mean of the others: 5007 -0.58, 5013 0.10. No exclusion rule was set before the ratings came in, so neither is excluded.
+
+**Read the three alpha rows with care.** Taking out the raters who disagree most raises agreement by construction, so a higher alpha here is not evidence that anything improved. Error is not comparable between columns on its own either: without them the page means spread wider, so there is more to get wrong and the mean absolute error can rise while the model improves. The row beside the mean's own error is the fair one.
+
+| | All raters | Without 5007 | Without 5013 | Without 5007 and 5013 |
+|---|---|---|---|---|
+| Raters (Set 1 + Set 2) | 10 + 5 | 9 + 5 | 9 + 5 | 8 + 5 |
+| **Agreement** | | | | |
+| Krippendorff's alpha, all | 0.318 | 0.398 | 0.355 | 0.447 |
+| Alpha, Set 1 | 0.284 | 0.414 | 0.339 | 0.503 |
+| Alpha, Set 2 | 0.357 | 0.357 | 0.357 | 0.357 |
+| Reliability of the page means (the ceiling on R²) | 0.779 | 0.813 | 0.792 | 0.823 |
+| Spread of the page means (sd) | 0.897 | 0.966 | 0.919 | 0.997 |
+| **Accuracy, 5-fold** | | | | |
+| R², mean ± sd of folds | 0.491 ± 0.240 | 0.518 ± 0.224 | 0.497 ± 0.263 | 0.532 ± 0.252 |
+| Mean absolute error | 0.480 | 0.506 | 0.485 | 0.515 |
+| Root mean squared error | 0.561 | 0.593 | 0.571 | 0.599 |
+| **Accuracy, 40 shuffles of the folds** | | | | |
+| R² | 0.572 ± 0.047 | 0.589 ± 0.041 | 0.593 ± 0.045 | 0.621 ± 0.034 |
+| Mean absolute error | 0.498 ± 0.022 | 0.524 ± 0.024 | 0.498 ± 0.022 | 0.522 ± 0.023 |
+| Root mean squared error | 0.586 ± 0.030 | 0.619 ± 0.030 | 0.585 ± 0.031 | 0.613 ± 0.027 |
+| Error of predicting the mean | 0.778 | 0.846 | 0.802 | 0.880 |
+| **Model's error as a share of that** | **0.64** | **0.62** | **0.62** | **0.59** |
+| **Levels** | | | | |
+| Pages rated calm / middle / heavy | 24 / 18 / 8 | 24 / 18 / 8 | 25 / 19 / 6 | 24 / 18 / 8 |
+| Cut points chosen | 2.45, 2.90 | 2.45, 2.95 | 2.15, 2.95 | 2.30, 3.00 |
+| Kappa, cuts held out too | 0.691 | 0.710 | 0.632 | 0.676 |
+| Right band, cuts held out too | 64.4% | 66.4% | 59.2% | 63.6% |
+| Pages called heavy, as fitted | 14 | 14 | 13 | 13 |
+| Pages at a different level from the shipped model | 0 | 2 | 8 | 7 |
+| Of those, heavy on one side only (all that changes for someone who has not chosen a level) | 0 | 0 | 1 | 1 |
+| **Coefficients** | | | | |
+| `text_density` | +0.535 | +0.568 | +0.567 | +0.607 |
+| `links` | +0.312 | +0.355 | +0.317 | +0.364 |
+| `max_depth` | -0.217 | -0.270 | -0.230 | -0.291 |
+| `interactive` | +0.082 | +0.089 | +0.076 | +0.084 |
+| `form_fields` | -0.074 | -0.075 | -0.063 | -0.062 |
+| `dead_link_ratio` | +0.072 | +0.065 | +0.039 | +0.028 |
+| `inferred` | -0.033 | -0.033 | -0.042 | -0.044 |
+| `overlays` | +0.004 | +0.003 | +0.034 | +0.037 |
+| `reading_grade` | -0.002 | +0.017 | -0.004 | +0.018 |
+
+**What the columns say.** Agreement stays weak either way: alpha 0.447 with both out
+is still under the 0.667 usually asked for. Accuracy moves a little: R² 0.572 to
+0.621, about one standard deviation of the shuffles, and the model's error from 64%
+of the mean's to 59%. Taking a rater out does not simply help: without 5013 alone
+the cuts held out do worse, kappa 0.632 against 0.691. **What people would see
+hardly moves.** The heavy call, which is all that changes for someone who has not
+chosen a level, is the same on all 50 pages without 5007, and differs on one page
+without 5013 or without both. The other different levels are pages either side of a
+calm cut that moves from 2.45 to as low as 2.15, and that cut matters only to someone
+who chose level 1. So keeping both raters costs little, and the case for dropping
+either would have to rest on something other than these numbers: 5007's two repeats
+are each within one answer, which does not show a reversed scale. Rater-level
+figures only: no individual answer is reported.
+
+---
+
+## 2026-11-01b — after the guard, the clips, and the suite
+
+`fix/after-training`, under the freeze.
+
+**The bug.** After the overflow guard moved a step to fit, an unlocked level stayed
+at the guard's level on every step after it, though CONTRACT.md has said since
+2026-09-25 that the next step goes back. Reproduced first, on the unfixed code,
+through the real backend, the registration replica and the built overlay: level 1
+after sign-in at all three window sizes. After the fix, registration with nobody
+having said a level:
+
+| Window | Sign-in | Next question | Past the window | Guard moves |
+|---|---|---|---|---|
+| Real window, 150% (1266x632) | 1 | **3** | 0px | 1 |
+| Real window, forced 100% (1280x800) | 1 | **3** | 0px | 1 |
+| Headless, 100% (1280x800) | 1 | **3** | 0px | 1 |
+| Headless, 150% (1266x632) | 1 | **3** | 0px | 1 |
+| Headless, 150% (1266x606) | 1 | 1, its own hop from 3, with the notice | 0px | 2 |
+
+In the real window the backend's rows agreed at both scales: 3 at the start, 1 by
+the guard, and `after_guard {guard: 1, back_to: 3}` on the next asked step, which
+is step 3 because step 2 was a checklist line. 1266x606 is the shortest window
+measured and the real window has been 632px tall since the menu bar went.
+
+**The clips**, at the machine's own 150%, through the real backend, keyword routing,
+no model quota. `billing.webm`, model on: 3.0 MB, 29s, opens with the third dot lit,
+ends on the bill. `adapt.webm`, `SIMBA_PAGE_MODEL=0`: 2.6 MB, 32s, folds from 2 to 3
+at 5.3s with "I'm showing less for a moment", ends on the bill. Both checked on
+stills taken from the files. Not committed, as ever. The other four were not
+re-recorded: the trains' first page is calm, and hello and the mock are untouched.
+
+**Failed, and fixed.** My first run of the new tests failed for my own reasons:
+arguments in the wrong order, and "Password" matching the "Save my password" box as
+well. One expectation was wrong: a lock pressed after the hop leaves the screen at
+the locked level. The real-flow test first required level 3 at 1266x606, which is
+wrong there: the frames showed two guard moves, so the level had gone back and the
+question took its own hop. `test_a_guard_move_is_followed_and_is_the_steps_one_change`
+had pinned the old behaviour and now says the new.
+
+**The suite**, at `2532e10`, the overlay rebuilt first: backend half **1073 passed, 9
+skipped, 0 failed** (1013s), frontend half **592 passed, 3 skipped, 0 failed** (1327s):
+**1665 passed, 12 skipped, 0 failed**, the 1644 of 2026-10-30 plus 21 new, 11 backend
+and 10 frontend. The host fit test, `SIMBA_HOST_TESTS=1`: **3 of 3** (515s). The 12
+skips are the same 12.
+
+**This run was not all on mains.** The machine went to battery about 07:59, at 99%
+charge: the backend half (07:28 to 07:45) was wholly on mains, the frontend half
+(07:45 to 08:07) on mains until its last 8 minutes or so, and the host fit test
+(08:07 to 08:15) wholly on battery, by its own header and by 17 of 48 minute
+readings. Raham accepted that for this bug fix, since pass or fail does not depend
+on power, and the rerun on mains was cancelled. So the frontend and host wall clocks
+here are not comparable with mains runs, and the frontend half's 1327s and the host's
+515s should not be quoted as such.
