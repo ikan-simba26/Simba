@@ -6793,3 +6793,59 @@ who chose level 1. So keeping both raters costs little, and the case for droppin
 either would have to rest on something other than these numbers: 5007's two repeats
 are each within one answer, which does not show a reversed scale. Rater-level
 figures only: no individual answer is reported.
+
+---
+
+## 2026-11-01b — after the guard, the clips, and the suite
+
+`fix/after-training`, under the freeze.
+
+**The bug.** After the overflow guard moved a step to fit, an unlocked level stayed
+at the guard's level on every step after it, though CONTRACT.md has said since
+2026-09-25 that the next step goes back. Reproduced first, on the unfixed code,
+through the real backend, the registration replica and the built overlay: level 1
+after sign-in at all three window sizes. After the fix, registration with nobody
+having said a level:
+
+| Window | Sign-in | Next question | Past the window | Guard moves |
+|---|---|---|---|---|
+| Real window, 150% (1266x632) | 1 | **3** | 0px | 1 |
+| Real window, forced 100% (1280x800) | 1 | **3** | 0px | 1 |
+| Headless, 100% (1280x800) | 1 | **3** | 0px | 1 |
+| Headless, 150% (1266x632) | 1 | **3** | 0px | 1 |
+| Headless, 150% (1266x606) | 1 | 1, its own hop from 3, with the notice | 0px | 2 |
+
+In the real window the backend's rows agreed at both scales: 3 at the start, 1 by
+the guard, and `after_guard {guard: 1, back_to: 3}` on the next asked step, which
+is step 3 because step 2 was a checklist line. 1266x606 is the shortest window
+measured and the real window has been 632px tall since the menu bar went.
+
+**The clips**, at the machine's own 150%, through the real backend, keyword routing,
+no model quota. `billing.webm`, model on: 3.0 MB, 29s, opens with the third dot lit,
+ends on the bill. `adapt.webm`, `SIMBA_PAGE_MODEL=0`: 2.6 MB, 32s, folds from 2 to 3
+at 5.3s with "I'm showing less for a moment", ends on the bill. Both checked on
+stills taken from the files. Not committed, as ever. The other four were not
+re-recorded: the trains' first page is calm, and hello and the mock are untouched.
+
+**Failed, and fixed.** My first run of the new tests failed for my own reasons:
+arguments in the wrong order, and "Password" matching the "Save my password" box as
+well. One expectation was wrong: a lock pressed after the hop leaves the screen at
+the locked level. The real-flow test first required level 3 at 1266x606, which is
+wrong there: the frames showed two guard moves, so the level had gone back and the
+question took its own hop. `test_a_guard_move_is_followed_and_is_the_steps_one_change`
+had pinned the old behaviour and now says the new.
+
+**The suite**, at `2532e10`, the overlay rebuilt first: backend half **1073 passed, 9
+skipped, 0 failed** (1013s), frontend half **592 passed, 3 skipped, 0 failed** (1327s):
+**1665 passed, 12 skipped, 0 failed**, the 1644 of 2026-10-30 plus 21 new, 11 backend
+and 10 frontend. The host fit test, `SIMBA_HOST_TESTS=1`: **3 of 3** (515s). The 12
+skips are the same 12.
+
+**This run was not all on mains.** The machine went to battery about 07:59, at 99%
+charge: the backend half (07:28 to 07:45) was wholly on mains, the frontend half
+(07:45 to 08:07) on mains until its last 8 minutes or so, and the host fit test
+(08:07 to 08:15) wholly on battery, by its own header and by 17 of 48 minute
+readings. Raham accepted that for this bug fix, since pass or fail does not depend
+on power, and the rerun on mains was cancelled. So the frontend and host wall clocks
+here are not comparable with mains runs, and the frontend half's 1327s and the host's
+515s should not be quoted as such.
