@@ -24,9 +24,20 @@ stacked at a point, from the top down, and clipping and stacking are already don
 Going down that stack, something opaque ends the search, so a picture behind a
 solid panel is not on screen. A partly see-through backdrop does not end it.
 
-**`covered` uses the rule `overlays.candidates` uses**: fixed, sticky, or absolute
-at a z-index of `MIN_STACK_LEVEL` or more, whatever the size. So a fixed site header
-counts, as the brief asks: it is on top of the page, whether or not it is in the way.
+**The screen is asked twice, and both were found the hard way** (2026-11-02). Hit
+testing skips anything marked `pointer-events: none`, which is how slider plugins
+lay out their slides, so `image_area` read 0.01 on Quaid-i-Azam's page, nearly all
+photograph. So pictures are asked for with that switched off for the length of the
+pass, by a style that is then removed. `covered` keeps the ordinary hit test, or
+every decorative layer nobody can touch would count as covering the page.
+
+**`covered` is fixed, sticky, or absolute at a z-index of `MIN_STACK_LEVEL` or more
+and attached to the body**, whatever the size. `overlays.candidates` has no such last
+condition, and it matters here: a slider's own layers are absolute and stacked high,
+and they put 0.79 on Quaid-i-Azam and 0.72 on Ufone with no pop-up on either. A pop-up
+is attached to the page; a slide's layer is inside the page. A fixed site header
+counts, as the brief asks, and so does a hero built as a fixed layer, as NUST's is:
+position cannot tell that from a modal.
 
 **`motion` compares two pictures, so it is only as good as its gap.** A slider that
 changes every five seconds is caught by a 3s gap about three times in five, and a
@@ -84,8 +95,9 @@ RECORD = REPO / "data" / "visual_features.json"
 OUT = REPO / ".scratch" / "visual-features"
 #: Seconds between the two captures `motion` compares.
 GAP_S = 3.0
-#: Pixels between the points the screen is asked about. Ten is 10,240 points.
-STEP = 10
+#: Pixels between the points the screen is asked about: 5,000 points a pass. Ten
+#: was slow enough on a heavy page, at two passes, to stretch `motion`'s gap.
+STEP = 16
 #: A pixel has changed when a channel moved by more than this of 255: enough to
 #: leave out the re-encoding of a video frame, and nothing a person would see.
 TOLERANCE = 16
@@ -110,7 +122,7 @@ VISUAL_JS = """([step, stackLevel, named]) => {
     };
     const opaque = e => {
         const found = style(e).backgroundColor.match(/^rgba?\\(([^)]+)\\)$/);
-        if (!found) return false;
+        if (!found || parseFloat(style(e).opacity) < 1) return false;
         const parts = found[1].split(/[\\s,\\/]+/).filter(Boolean);
         return parts.length < 4 || parseFloat(parts[3]) === 1;
     };
@@ -129,28 +141,41 @@ VISUAL_JS = """([step, stackLevel, named]) => {
             const s = style(e);
             const z = parseInt(s.zIndex, 10);
             if (s.position === 'fixed' || s.position === 'sticky'
-                || (s.position === 'absolute' && z >= stackLevel)) found = e;
+                || (s.position === 'absolute' && z >= stackLevel
+                    && e.parentElement === document.body)) found = e;
             else if (e.parentElement) found = lifter(e.parentElement);
         }
         lifters.set(e, found);
         return found;
     };
+    const everyPoint = visit => {
+        for (let y = step / 2; y < height; y += step)
+            for (let x = step / 2; x < width; x += step)
+                visit(document.elementsFromPoint(x, y).filter(seen));
+    };
     let points = 0, images = 0, covered = 0;
     const covering = new Map();
-    for (let y = step / 2; y < height; y += step) {
-        for (let x = step / 2; x < width; x += step) {
-            points += 1;
-            const stack = document.elementsFromPoint(x, y).filter(seen);
+    everyPoint(stack => {
+        points += 1;
+        const above = stack.length ? lifter(stack[0]) : null;
+        if (above) {
+            covered += 1;
+            covering.set(above, (covering.get(above) || 0) + 1);
+        }
+    });
+    // What is painted, whether or not anyone could press it.
+    const reachable = document.createElement('style');
+    reachable.textContent = '* { pointer-events: auto !important; }';
+    document.documentElement.appendChild(reachable);
+    try {
+        everyPoint(stack => {
             for (const e of stack) {
                 if (picture(e)) { images += 1; break; }
                 if (opaque(e)) break;
             }
-            const above = stack.length ? lifter(stack[0]) : null;
-            if (above) {
-                covered += 1;
-                covering.set(above, (covering.get(above) || 0) + 1);
-            }
-        }
+        });
+    } finally {
+        reachable.remove();
     }
     // Whether a person can see this element at this point of the screen.
     const reaches = (e, x, y) => {
@@ -275,15 +300,18 @@ def on_screen(read: dict[str, Any]) -> dict[str, Any]:
 
 async def observed(page: Page, first: bytes, gap_s: float = GAP_S) -> dict[str, Any]:
     """The five features of the page in front of `page`, just photographed as
-    `first`, then the captures `motion` needs. The page is only looked at."""
+    `first`. The page is only looked at, and the style `VISUAL_JS` adds to do
+    that is gone when it returns."""
     started = time.monotonic()
-    seen = on_screen(await page.evaluate(VISUAL_JS, [STEP, MIN_STACK_LEVEL, NAMED]))
 
     async def after(seconds: float) -> tuple[bytes, float]:
         await asyncio.sleep(max(0.0, started + seconds - time.monotonic()))
         return await still(page), time.monotonic() - started
 
+    # The clock first: the read below took 12s on one bank's page, on battery,
+    # and a gap of 12s is not the gap `motion` is defined by.
     second, gap = await after(gap_s)
+    seen = on_screen(await page.evaluate(VISUAL_JS, [STEP, MIN_STACK_LEVEL, NAMED]))
     third, late = await after(2 * gap_s)
     return {**seen, "motion": await changed(page, first, second),
             "motion_late": await changed(page, first, third),

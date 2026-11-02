@@ -119,6 +119,29 @@ def test_every_kind_of_picture_counts(host: str, element: str) -> None:
     assert read_page(host, PLAIN + element)["image_area"] == pytest.approx(0.5, abs=0.01)
 
 
+def test_a_picture_a_slider_has_made_untouchable_is_still_a_picture(host: str) -> None:
+    """Hit testing skips `pointer-events: none`, which is how slider plugins lay
+    out their slides: Quaid-i-Azam's page, nearly all photograph, read 0.01."""
+    style = box(0, 0, 1280, 400, f"pointer-events:none;background-image:url({WIDE})")
+    above = box(0, 0, 1280, 400, "z-index:3")
+    html = f"{PLAIN}<div style='{style}'></div><a href='/x' style='{above}'></a>"
+    assert read_page(host, html)["image_area"] == pytest.approx(0.5, abs=0.01)
+
+
+def test_the_read_leaves_the_page_as_it_found_it(host: str) -> None:
+    Pages.pages["/left"] = (200, f"{PLAIN}<p style='pointer-events:none'>x</p>")
+
+    async def step(page: Page) -> list[Any]:
+        await page.goto(host + "/left", wait_until="load")
+        before = await page.evaluate("document.documentElement.outerHTML")
+        await page.evaluate(visual.VISUAL_JS, [visual.STEP, MIN_STACK_LEVEL, visual.NAMED])
+        return [before, await page.evaluate("document.documentElement.outerHTML"),
+                await page.evaluate("getComputedStyle(document.querySelector('p')).pointerEvents")]
+
+    before, after, events = in_browser(step)
+    assert before == after and events == "none"
+
+
 def test_a_gradient_is_not_a_picture(host: str) -> None:
     style = box(0, 0, 1280, 800, "background-image:linear-gradient(#fff,#eee)")
     assert read_page(host, f"{PLAIN}<div style='{style}'></div>")["image_area"] == 0
@@ -161,6 +184,13 @@ def test_a_picture_behind_a_see_through_backdrop_still_shows(host: str) -> None:
     assert read_page(host, html)["image_area"] == pytest.approx(1, abs=0.01)
 
 
+def test_a_backdrop_faded_as_a_whole_is_still_see_through(host: str) -> None:
+    """Bootstrap's: solid black, at opacity .5. MCB's hero read 0.01 behind one."""
+    html = (f"{PLAIN}<img src='{WIDE}' style='{box(0, 0, 1280, 800)}'>"
+            f"<div style='{box(0, 0, 1280, 800, 'background:#000;opacity:.5')}'></div>")
+    assert read_page(host, html)["image_area"] == pytest.approx(1, abs=0.01)
+
+
 def test_words_over_a_picture_leave_it_a_picture(host: str) -> None:
     html = (f"{PLAIN}<div style='{box(0, 0, 1280, 800, f'background-image:url({WIDE})')}'>"
             "<h1>Words across the top of it</h1></div>")
@@ -178,7 +208,7 @@ def test_a_picture_that_did_not_load_is_not_one(host: str) -> None:
 def test_a_chat_bubble_covers_exactly_its_own_share(host: str) -> None:
     style = "position:fixed;right:0;bottom:0;width:320px;height:200px;background:#eee"
     found = read_page(host, f"{PLAIN}<div id='chat' style='{style}'>Ask us</div>")
-    assert found["covered"] == pytest.approx(320 * 200 / AREA, abs=0.002)
+    assert found["covered"] == pytest.approx(320 * 200 / AREA, abs=0.005)
     assert found["covering"][0]["element"] == "div#chat fixed"
 
 
@@ -207,6 +237,20 @@ def test_stacked_counts_by_the_rule_overlay_detection_uses(host: str) -> None:
     low = box(640, 0, 640, 800, f"z-index:{MIN_STACK_LEVEL - 1};background:#eee")
     html = f"{PLAIN}<div style='{high}'>on top</div><div style='{low}'>in the page</div>"
     assert read_page(host, html)["covered"] == pytest.approx(0.5, abs=0.01)
+
+
+def test_a_sliders_own_layers_are_not_covering_the_page(host: str) -> None:
+    """Stacked inside the page, over its own slide: a slide is not a pop-up. This
+    put 0.79 on Quaid-i-Azam's page and 0.72 on Ufone's with nothing on top of them."""
+    layer = box(0, 0, 1280, 500, "z-index:20")
+    html = (f"{PLAIN}<section style='position:relative;height:500px'><img src='{WIDE}' "
+            f"style='{box(0, 0, 1280, 500)}'><a href='/x' style='{layer}'></a></section>")
+    assert read_page(host, html)["covered"] == 0
+
+
+def test_a_decorative_layer_nobody_can_touch_is_not_a_cover(host: str) -> None:
+    style = "position:fixed;inset:0;pointer-events:none"
+    assert read_page(host, f"{PLAIN}<div style='{style}'></div><p>x</p>")["covered"] == 0
 
 
 def test_a_page_with_nothing_on_top_of_it_is_not_covered(host: str) -> None:
