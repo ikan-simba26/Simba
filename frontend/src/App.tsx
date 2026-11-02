@@ -14,6 +14,7 @@
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { HomeLogo, Splash, useSplash } from "./components/Brand";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
 import { FinalCheck } from "./components/FinalCheck";
@@ -79,25 +80,40 @@ export default function App() {
   // where it is ignored (2026-10-16, `pressGuard.ts`).
   useEffect(() => watchPresses(() => useStore.getState().level), []);
 
+  // The logo while the backend comes up (`Brand.tsx`). The screens wait until
+  // it starts to leave, so the home screen's entrance plays as it fades.
+  const opening = useSplash();
+
   return (
     // The bottom padding is the one space on every screen nothing reads:
     // 32px, and 4px in a short window, since the step row and the real page's
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
-      <PresenceBar />
-      {/* Most of the window, not a third of it: 880 of 1280. The first
-          column was 680, which at this type size left the person reading
-          a narrow strip down the middle of an empty screen. */}
-      <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
-        <NoticeTimers />
-        <Column />
-      </div>
+      {!opening && (
+        <>
+          <CornerLogo />
+          <PresenceBar />
+          {/* Most of the window, not a third of it: 880 of 1280. The first
+              column was 680, which at this type size left the person reading
+              a narrow strip down the middle of an empty screen. */}
+          <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
+            <NoticeTimers />
+            <Column />
+          </div>
+        </>
+      )}
       <TrustPanel />
       <ProofPanel />
       <DebugPanel />
+      <Splash up={opening} />
     </div>
   );
+}
+
+/** The small logo, on the home screen and no other. */
+function CornerLogo() {
+  return <HomeLogo shown={useScreen() === "idle"} />;
 }
 
 /** Which of the presence mark's six shapes the current screen means. */
@@ -142,20 +158,20 @@ function PresenceBar() {
   );
 }
 
-function Column() {
-  const { step, help, completed, failed, stoppedByPerson, task, trustOpen, reply, state,
+/**
+ * One screen at a time, and only one: which, by name. "idle" is the home
+ * screen. `Column`'s key, so it drives the crossfade.
+ *
+ * The person's own stop comes first: once they have pressed it, the backend's
+ * `task.failed` that follows is the stop being carried out, not a failure to
+ * show them.
+ */
+function useScreen(): string {
+  const { step, help, completed, failed, stoppedByPerson, task, reply, state,
           asking, checklist, declined, welcomeOpen, tilesOpen } = useStore();
-  // Put aside while the real page is shown: the trust panel's picture.
-  const aside = trustOpen;
-
   const stuck = state === "stuck" || Boolean(help);
 
-  // One screen at a time, and only one. The key drives the crossfade.
-  //
-  // The person's own stop comes first: once they have pressed it, the
-  // backend's `task.failed` that follows is the stop being carried out, not a
-  // failure to show them.
-  const screen = declined
+  return declined
     ? "declined"
     : stoppedByPerson
     ? "stopped"
@@ -180,6 +196,13 @@ function Column() {
                 : tilesOpen
                   ? "tiles"
                   : "idle";
+}
+
+function Column() {
+  const trustOpen = useStore((state) => state.trustOpen);
+  const screen = useScreen();
+  // Put aside while the real page is shown: the trust panel's picture.
+  const aside = trustOpen;
 
   return (
     <motion.div

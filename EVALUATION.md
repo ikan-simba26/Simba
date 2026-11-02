@@ -6849,3 +6849,93 @@ readings. Raham accepted that for this bug fix, since pass or fail does not depe
 on power, and the rerun on mains was cancelled. So the frontend and host wall clocks
 here are not comparable with mains runs, and the frontend half's 1327s and the host's
 515s should not be quoted as such.
+
+## 2026-11-02 — the brand, and what the logo waits for
+
+`feat/brand`, asked for by Raham as visual polish under the freeze. No model quota
+and no live site. The overlay, the host and the fit run, on one machine.
+
+```
+git         d60f015 on feat/brand (the suite ran with these same files, one commit before)
+python      3.12.3, playwright 1.62.0, electron 32.3.3
+machine     Windows-11-10.0.26200-SP0, 8 cpus
+power       the launcher runs and the first host run on battery, or mostly: 58% at the
+            start of the task and 55% at 15:05, by when it was on mains. The second host
+            run and the whole suite on mains (65% rising to 92%).
+```
+
+**The kit.** 28 files, unpacked and compared with the zip by SHA-256: 0 differ. The
+icon holds 16, 24, 32, 48, 64, 128 and 256px. Every PNG is the size its name says. No
+SVG has a script, an external reference, an embedded image or live text.
+
+**Two things in it do not work as supplied.**
+
+| | Measured | Consequence |
+|---|---|---|
+| Dark logos' background, #0F1A19 | 1.021:1 on canvas #0b1817, 1.066:1 on palette A's #14100c, in a capture a visible box round each | `assets/brand/derived/`, the rectangle deleted |
+| Tagline, 26 units tall in 300 | about 4px at the corner's 48px | `assets/brand/derived/`, the tagline deleted |
+
+The marks themselves stand well off every canvas: 6.66:1 at the least, teal on palette
+A's light canvas, and 10.40:1 for the mint on the dark one.
+
+**The window.** Read from Windows while the launcher's host was up: title `simba`;
+`WM_GETICON` returns the kit's lion at 24px and 48px; the title bar shows it in a
+picture of that one window. **The taskbar itself was not seen**: that would take a
+desktop capture, which CLAUDE.md forbids. What Windows was given is measured; what the
+taskbar drew from it is not.
+
+**How long the logo stays**, on the real launcher, timed from outside over CDP, in
+seconds from CDP first answering. Each socket that reached the backend is shown.
+
+| Start page | Logo leaves on | Backend listens | Socket | First message | Logo gone |
+|---|---|---|---|---|---|
+| billing | socket open | 2.97 | 3.20 | not timed | 4.03 |
+| billing | socket open | 3.50 | 3.62 | 9.01 | 4.45 |
+| billing | **first message** | 3.11 | 3.15 | 8.98 | **9.81** |
+| registration | **first message** | 2.53 | 3.01 | 6.84 | **7.79** |
+| mock (backend first) | first message | already up | already up | not seen | **2.20** |
+
+Two findings. The retry works: a socket reached the backend 0.04s to 0.48s after it
+began listening, where nothing tried again before. And **the first message came 3.83s
+to 5.83s after the socket opened**, which is why the logo leaves on it. The second row
+shows the home screen 4.6s before the person's tiles would arrive. **The cause is not
+known.** `past_goals` takes 0.00s and the health check 0.00s in a fresh
+process, and `Connection.send` does nothing but send, so neither is it; it may be the
+backend's first seconds of running, but that is a guess (STATUS.md, flagged for Raham).
+These timings come from a one-off script in `.scratch/`, not `tools/evaluation/`.
+
+**Fit**, `display_fit_run`, with the brand added: the logo while opening, whole and
+centred within 1px, and the small logo touching nothing on the fullest home screen
+(32,24 to 193,72 at 100%), in each theme at 100%, 125% and 150%, each from its theme's
+own file; a step with the shape and no logo; no logo under reduced motion; title `simba`.
+Pictures in `.scratch/brand/`, not committed. **3 of 3, 579s**, on mains.
+
+**The tests.** `frontend/test_brand.py`, 47. Ten deliberate breakages, each a mutation
+of the code and a run of the test that should catch it: **9 caught on the first pass**.
+The one that got away, retrying on the home screen too, passed because the test allowed
+one more attempt and watched for 3s, and a refused attempt takes about 2.5s on Windows;
+it now requires none in 6s. **10 of 10 caught.** The same pass found the file check
+could not tell a derived logo from the kit's, since they share a name, so it now reads
+what the build serves.
+
+**Failed, and fixed.**
+
+- The first design left on the socket opening. Measured on the launcher, that showed a
+  home screen 4.6s before its tiles; it leaves on the first message now.
+- The first host run failed at all three scales. At 100%, on a real defect in the
+  harness: a picture is taken over a second connection, which undoes the theme's
+  emulation as it attaches, so `splash-1-dark.png` was light, and the load after it
+  read the light file. Fixed in `capture_view`, and the pictures checked by eye.
+
+**Failed, and not explained.** In that first host run, at 125% and at 150%, a press on
+Start waited out its 30s on "visible, enabled and stable", at a different ending each
+time. The host logged no unresponsive page, crash or power event, and Playwright said
+nothing more. That wait turns on `requestAnimationFrame`, so a page getting no frames
+would do this, and a window covered by another is a candidate, as is the battery; **none
+of that is shown**. It did not happen in the second run, on mains. `display_fit_run` now
+asks the overlay whether it is getting frames when a press fails, so the next one says.
+
+**The suite**, at `f0b12bc` with the fit run's fix in the tree, the overlay rebuilt
+first: frontend half **639 passed, 3 skipped, 0 failed** (1420s), backend half **1073
+passed, 9 skipped, 0 failed** (981s): **1712 passed, 12 skipped, 0 failed**, the 1665
+of 2026-11-01 plus these 47. The 12 skips are the same 12.

@@ -238,8 +238,9 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
         record_video_size={"width": 1280, "height": 800},
     )
     # The clips start on the home screen: the welcome a first open shows
-    # (2026-10-18) is not what they are about.
-    context.add_init_script("window.__simbaWelcome = false")
+    # (2026-10-18) and the logo before it (2026-11-02) are not what they are
+    # about.
+    context.add_init_script("window.__simbaWelcome = false; window.__simbaSplash = false")
     page = context.new_page()
     page.goto(f"{page_url}?ws={ws}")
     page.wait_for_timeout(BEAT_MS)

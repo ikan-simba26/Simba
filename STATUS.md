@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-01 · **1665 passing, 12 skipped, 0 failed** · backend 1073 in 1013s on mains, frontend 592 in 1327s, its last 8 minutes or so on battery, as two halves, on `fix/after-training`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 515s, on battery. Raham accepted the battery for this bug fix: pass or fail does not depend on power, but those two wall clocks are not comparable with mains runs. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-02 · **1712 passing, 12 skipped, 0 failed** · backend 1073 in 981s, frontend 639 in 1420s, as two halves, on mains, on `feat/brand`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 579s, on mains. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -129,6 +129,37 @@ re-run since; the live page's structure was unchanged when re-read on
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
+
+### Changed on 2026-11-02: the brand — `feat/brand`, under the freeze
+
+- **The logo kit is in `assets/brand/`, as supplied.** The window has the app icon and
+  the title `simba`; README.md opens with the horizontal logo. The taskbar itself was
+  not seen, since that takes a desktop capture: Windows was given the icon, read back
+  at 24px and 48px, and the title bar shows it.
+- **The stacked logo shows while SIMBA opens**, then fades to the home screen; nothing
+  under reduced motion. It waits for the backend's first message, 15s at most, and was
+  up 7.8s and 9.8s on two real starts. **A connection change came with it**: the
+  launchers start the window first, so the first attempt failed and nothing tried again.
+  While the logo is up it does, so a person's own tiles are now on the home screen on a
+  real start, which they were not until a first task had ended.
+- **A small horizontal logo on the home screen and no other**, in the corner, touching
+  nothing on the fullest home screen at any scale, in either theme. The shape stays the
+  presence mark.
+- **Two logos are not the kit's files**: the dark ones sat in a visible box, and the
+  tagline was 4px in the corner. `assets/brand/derived/` has the same drawings without
+  them, held to that by a test (DECISIONS.md, *The brand*; EVALUATION.md, 2026-11-02).
+- **The suite**: 1712 passed, 12 skipped, 0 failed (backend 1073 in 981s, frontend 639
+  in 1420s); the host fit test 3/3 (579s), on mains.
+- **Open, for Raham: the backend's first message comes 3.8s to 5.8s after the socket
+  opens**, on a real start. The logo now covers it, so nobody sees it. The cause is not
+  known; `past_goals` and the health check are not it.
+- **Open: one host fit run stopped on a press at 125% and 150%**, with no frames as the
+  likeliest reading and nothing to show it, and the next run passed. The fit run now
+  says whether frames are arriving when that happens.
+- **Open: under reduced motion a real start still offers no tiles** until a first task
+  has ended, because there is no logo to wait behind. Retrying on the home screen would
+  need the attempt to stand aside for a press.
+- **Aly to review** `Brand.tsx` and its place in `App.tsx`.
 
 ### Changed on 2026-11-01: after the training — `fix/after-training`, under the freeze
 

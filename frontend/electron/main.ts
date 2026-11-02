@@ -68,6 +68,17 @@ const VIEWPORT = { x: 0, y: 0, width: 1280, height: 800 };
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OVERLAY_FILE = path.join(here, "..", "dist", "index.html");
 
+// The app icon (2026-11-02): the .ico on Windows, which holds every size from
+// 16 to 256 for the title bar and the taskbar; a PNG everywhere else, since
+// Linux takes no .ico and macOS's dock wants a picture.
+const BRAND = path.join(here, "..", "..", "assets", "brand");
+const ICON_PNG = path.join(BRAND, "png", "simba-app-icon-512.png");
+const ICON = process.platform === "win32" ? path.join(BRAND, "simba-app-icon.ico") : ICON_PNG;
+
+// Windows groups a taskbar button by this id. Without one this is any other
+// Electron app, under Electron's own id. Before the window, or it does not count.
+if (process.platform === "win32") app.setAppUserModelId("simba");
+
 /**
  * The largest content size, up to 1280x800, whose window — frame included —
  * fits inside `work`. Width and height are fitted separately: the overlay is
@@ -82,6 +93,7 @@ function fitted(work: Rectangle, frame: { width: number; height: number }) {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin") app.dock.setIcon(ICON_PNG);
   const win = new BaseWindow({
     width: VIEWPORT.width,
     height: VIEWPORT.height,
@@ -99,7 +111,8 @@ app.whenReady().then(() => {
     // removed, so Alt still shows it to a developer (2026-10-14).
     autoHideMenuBar: true,
     show: false,
-    title: "SIMBA",
+    title: "simba",
+    icon: ICON,
   });
 
   const siteView = new WebContentsView();

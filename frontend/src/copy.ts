@@ -46,6 +46,11 @@
 
 import type { FlowName, Level } from "@shared/schema";
 
+/* ----------------------------------------------------------------- brand */
+
+/** The name as the logo writes it: what a screen reader says for the logo. */
+export const BRAND = { name: "simba" } as const;
+
 /* --------------------------------------------------------------- onward */
 
 /**

@@ -174,6 +174,8 @@ def browser_page(playwright_instance: Playwright) -> Iterator[Page]:
     # And straight to the home screen: the real build opens on the welcome
     # the first time (2026-10-18), which `test_welcome.py` tests.
     page.add_init_script("window.__simbaWelcome = false")
+    # And past the logo shown while SIMBA opens (2026-11-02), `test_brand.py`.
+    page.add_init_script("window.__simbaSplash = false")
     yield page
     browser.close()
 

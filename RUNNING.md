@@ -79,8 +79,9 @@ Starting `./run.sh registration` prints, in order:
 Vite's build output and each server's own logging appear in between. The
 `==>` lines are the launcher; everything else belongs to the thing starting.
 
-A SIMBA window opens. Type a goal, press Start, and answer each step. On
-Ctrl+C:
+A SIMBA window opens, showing the logo until the backend has spoken: under 10s
+here, 15s at most, and then the home screen with or without one. Type a goal,
+press Start, and answer each step. On Ctrl+C:
 
 ```
 ==> stopping

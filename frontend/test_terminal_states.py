@@ -419,8 +419,9 @@ def overlay() -> Iterator[str]:
         # (`test_press_guard.py`), which turns it back on.
         env={**os.environ, "VITE_SIMBA_SETTLE_MS": "0",
              # Straight to the home screen: the welcome (2026-10-18) has its
-             # own tests, which turn it back on.
-             "VITE_SIMBA_WELCOME": "0"},
+             # own tests, which turn it back on. And past the logo shown while
+             # SIMBA opens (2026-11-02): `test_brand.py` does the same.
+             "VITE_SIMBA_WELCOME": "0", "VITE_SIMBA_SPLASH": "0"},
     )
     assert built.returncode == 0 and (BUILD / "index.html").exists(), built.stderr
 
