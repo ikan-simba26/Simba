@@ -19,6 +19,7 @@ import base64
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import subprocess
@@ -224,6 +225,8 @@ def build(out: Path) -> None:
     done = subprocess.run(
         [npx, "vite", "build", "--outDir", str(out), "--emptyOutDir", "--logLevel", "error"],
         cwd=FRONTEND, capture_output=True, text=True, timeout=300,
+        # Each screen is reached a moment after the page opens.
+        env={**os.environ, "VITE_SIMBA_SPLASH": "0"},
     )
     if done.returncode != 0:
         raise SystemExit(done.stderr)
