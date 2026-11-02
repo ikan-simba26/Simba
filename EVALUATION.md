@@ -66,6 +66,8 @@ from the version that produced its table.
 | 2026-10-30 | The estimator: agreement, the model, the cut points | `python -m backend.estimator.train`, or `python -m tools.rating.retrain` for this and the next row (`--min-ratings 5` until every page has 8) |
 | 2026-10-30b | The model against the rules, the logged decisions, the two environments, the data's handling, each page's reasons | `estimator_compare` (reads local files; no model quota, no site) |
 | 2026-11-01 | The estimator with and without raters 5007 and 5013 | `estimator_compare --without 5007 5013` (writes no model) |
+| 2026-11-02 | How long the logo stays, on the real launcher | **not preserved** -- one-off scripts in `.scratch/`, described in the entry |
+| 2026-11-02b | How overwhelming Pakistan's public websites are, as predicted | `overwhelm_index` (**one visit to each of 42 live sites; not for repeating**); `overwhelm_index --report` works it out again from what was saved and visits nothing |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -6939,3 +6941,145 @@ asks the overlay whether it is getting frames when a press fails, so the next on
 first: frontend half **639 passed, 3 skipped, 0 failed** (1420s), backend half **1073
 passed, 9 skipped, 0 failed** (981s): **1712 passed, 12 skipped, 0 failed**, the 1665
 of 2026-11-01 plus these 47. The 12 skips are the same 12.
+
+## 2026-11-02b — how overwhelming are Pakistan's public websites, as predicted
+
+`python -m tools.evaluation.overwhelm_index`, on `eval/overwhelm-index`, asked for by
+Raham. The question was "How overwhelming are Pakistan's public websites, and why?",
+put to the trained page model. **The answer it gives is calm, and that should not be
+believed yet.** Read the section *What it found* before quoting any row.
+
+```
+taken at    2026-11-02T16:16:00+05:00
+git         a02b7c38a67d on eval/overwhelm-index; marked dirty, by simba-logo-kit.zip
+            alone, untracked in the repo root: the code was the commit
+python      3.12.3 at backend\venv, playwright 1.62.0, chromium 151.0.7922.34
+model       trained 2026-10-30T21:05:28+05:00, the model on main. No language model
+machine     Windows-11-10.0.26200-SP0, 8 cpus, load 12%
+power       on mains, processor at 167% of rated speed, 1048 MB memory free
+switches    none set
+```
+
+**Method.** 42 main pages, each with its category and why in the script: 9 government
+services, 8 utilities, 6 universities, 5 banks, 5 telecoms, 4 transport, 5 health.
+robots.txt first, for the same user agent the page is then fetched with, then one load
+at the frozen 1280x800, through `tools/rating/capture.photograph`, the pipeline the rated
+pictures came through: `domcontentloaded`, 2.5s, scrollbars hidden, the nine features and
+the picture from one load. A 3s pause between sites. Nothing clicked, filled or submitted,
+and nothing retried. The score is `PageModel.judge`. The level is from the real
+`rules.LevelRules`, for a person who has set none. The pictures, the table and the report
+are in `.scratch/overwhelm-index/`, not committed: they are other people's sites.
+
+**What came back.** 42 listed, **35 scored**, 1 failed, 6 skipped.
+
+| Not scored | Why |
+|---|---|
+| NADRA, Government of Punjab, WASA Lahore, HBL, Telenor Pakistan | Skipped: robots.txt answered HTTP 403, read as a no |
+| LESCO | Skipped: disallowed by robots.txt |
+| K-Electric | Failed: first screen still empty, 99% one colour. Scored 1.13 and ranked last on the first pass (below) |
+
+**The table, for what it is worth.** Prediction of "How overwhelming does this page
+feel?", 1 to 5. Band is the model's: 1 calm, 2 middle, 3 heavy. All 35 open at SIMBA's level
+2, since a page can start a person simpler and never fuller, and only a heavy page moves
+that.
+
+| # | Highest ten | Category | Rating | Band |
+|---|---|---|---|---|
+| 1 | MCB | Banks | 2.54 | 2 |
+| 2 | Directorate of Passports | Government services | 2.38 | 1 |
+| 3 | University of the Punjab | Universities | 2.36 | 1 |
+| 4 | Government of Sindh | Government services | 2.29 | 1 |
+| 5 | Higher Education Commission | Universities | 2.25 | 1 |
+| 6 | SSGC | Utilities | 2.12 | 1 |
+| 7 | IESCO | Utilities | 2.04 | 1 |
+| 8 | Karachi Water | Utilities | 2.03 | 1 |
+| 9 | Bank Alfalah | Banks | 2.02 | 1 |
+| 10 | Meezan Bank | Banks | 2.02 | 1 |
+
+| # | Lowest five | Category | Rating | Band |
+|---|---|---|---|---|
+| 31 | University of Karachi | Universities | 1.64 | 1 |
+| 32 | National Bank of Pakistan | Banks | 1.64 | 1 |
+| 33 | Pakistan Railways | Transport | 1.64 | 1 |
+| 34 | Ufone | Telecoms | 1.51 | 1 |
+| 35 | Shaukat Khanum | Health | 1.46 | 1 |
+
+| Category | Listed | Scored | Mean | Heavy |
+|---|---|---|---|---|
+| Banks | 5 | 4 | 2.05 | 0 |
+| Government services | 9 | 7 | 2.01 | 0 |
+| Utilities | 8 | 5 | 1.96 | 0 |
+| Universities | 6 | 6 | 1.94 | 0 |
+| Health | 5 | 5 | 1.85 | 0 |
+| Transport | 4 | 4 | 1.78 | 0 |
+| Telecoms | 5 | 4 | 1.71 | 0 |
+
+The whole table spans 1.09 of a point and the categories 0.34, against the model's held-out
+error of 0.48. **The categories cannot be told apart, and neighbours in the table are not
+a ranking.**
+
+**The three most common reasons**: little text on screen (31 of 35), a deeply nested layout
+(26), few links (15). **These say why pages scored low, not why they overwhelm.** A reason
+follows the way a page's score went, and 34 of 35 went below the average rated page, 2.51.
+Depth counts against a score in this model (−0.217). What pushed pages up, where anything
+did: many links (10), many buttons and boxes (4).
+
+**What it found.** The model and the pictures disagree, and the disagreement is the result.
+
+| | The 35 pages | The 21 public pages in the rated corpus, same model |
+|---|---|---|
+| Median predicted rating | 1.87 | 2.44 |
+| Heavy | 0 | 7 |
+| Median text density | 0.38 | 0.91 |
+
+Laid side by side, the 36 pictures are busy: carousels, chat windows, and notices over the
+page, on some with their text set in the image, such as the Directorate of Passports' and
+MEPCO's. **That was seen by looking, and was not measured.** The model cannot see any of it. It
+leans hardest on `text_density` (+0.535), which counts characters and not pictures of them,
+and 14 pages had something covering them when read, on a feature it gives +0.004. So a page
+that says everything in images scores as a page with little to say. Calling that a finding
+about Pakistan's websites would be a mistake. It is a limit of the model, found by pointing
+it at pages unlike those it learned from, and it is the most useful thing this run produced.
+
+**Limits.**
+
+- These are predictions, from a model trained on 15 raters, 13 of them aged 18 to 24 and 10
+  in computing, none from the audience, agreeing weakly (alpha 0.318), under the study's
+  floor on 22 of 50 pages.
+- The raters judged a picture of the first screen. They did not use a page, and how hard a
+  site is to get something done on is another question, which this does not ask.
+- Of the 50 rated pages the only Pakistani ones are three states of one train search, a plain
+  page, and Pakistan Railways is a different page here, the site's front page.
+- `links` and `interactive` count the whole page, and raters saw one screen.
+- Reading grade is a formula for English. No page was mostly Urdu by its text (the most was
+  14.6%), though some of the Urdu on them is in images, which that number cannot see.
+- 3 of 35 pages are past anything the model saw on one feature: Quaid-i-Azam University on
+  `overlays`, MCB and Zong on `reading_grade`.
+- One visit, one moment, one machine, in Pakistan. A carousel shows what it was showing. A
+  page whose content appears after 2.5s was read without it, which is what happened to
+  K-Electric, and a page partly loaded is not caught unless it is nearly empty.
+- The skipped sites include some of the largest services, so the table is not a sample of
+  them. Five of the six were 403s on robots.txt, which may be a firewall rather than a
+  policy; a person asked to open those sites would be let in.
+
+**Failed, and fixed.** The first pass produced a report that read as a clean answer, and it
+was wrong in four ways, all found by reading it against the pictures rather than by a test.
+No site was visited again: `--report` works everything out from what was saved.
+
+- **K-Electric was "the calmest site in the country"** at 1.13, on a screen showing only a
+  menu, with 9,566 characters on the page not yet animated in. Text counts cannot see that, so
+  the picture is now measured: it was 99.4% one colour, and the next page 83.2%. `FLAT_LIMIT`
+  is 0.97, in that gap. The first pass is kept in `results-first-pass.json`.
+- **The reasons read as causes.** "Why" beside "a deeply nested layout" at rank 2 said the
+  opposite of what the model meant. Each row now says what pushed it up and what held it
+  down.
+- **"Among the 0 heavy pages alone: ."** was a line with nothing in it.
+- **My first limits were wrong.** "No rated page was Pakistani" is false: three are. Checked
+  against `data/corpus.json` before it went anywhere.
+
+**The tests.** `tools/evaluation/test_overwhelm_index.py`, 55, all against servers on this
+machine, in a real browser. Six deliberate breakages, each caught: opening a disallowed
+page, reading an unreachable robots.txt as permission, scoring a refusal, scoring an empty
+screen, reporting the model's band as SIMBA's level, and swapping the directions. Run on
+their own: the suite as a whole was not re-run for this branch, which adds one script and
+its tests and changes nothing else.

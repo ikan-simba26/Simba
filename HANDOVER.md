@@ -32,6 +32,9 @@ against commit `cc4704f`, and brought up to date since:
 - **2026-11-01, `fix/after-training`**: the overflow guard's move lasts one screen.
 - **2026-11-02, `feat/brand`**: the logo, the icon and the title.
 - **2026-11-02, `docs/tidy`**: this list, and what had gone stale in section 8.
+- **2026-11-02, `eval/overwhelm-index`**: the model on 42 Pakistani public sites, which
+  found a limit of the model more than anything about the sites (EVALUATION.md,
+  2026-11-02b).
 
 Section 9 is still the 2026-09-17 capture, and says so.
 
