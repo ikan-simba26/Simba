@@ -7014,7 +7014,7 @@ that.
 | Transport | 4 | 4 | 1.78 | 0 |
 | Telecoms | 5 | 4 | 1.71 | 0 |
 
-The whole table spans 1.09 of a point and the categories 0.34, against the model's held-out
+The whole table spans 1.08 of a point and the categories 0.34, against the model's held-out
 error of 0.48. **The categories cannot be told apart, and neighbours in the table are not
 a ranking.**
 
