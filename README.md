@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/derived/simba-logo-horizontal-dark.svg">
+  <img src="assets/brand/simba-logo-horizontal.svg" alt="simba" width="420">
+</picture>
+
 # SIMBA
 
 Desktop app that performs web tasks on behalf of users who find cluttered
