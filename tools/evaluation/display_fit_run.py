@@ -306,14 +306,15 @@ def read_brand(overlay: Page, scale: str) -> dict:
         overlay.get_by_test_id("splash").wait_for(timeout=15000)
         overlay.wait_for_timeout(900)  # the fade in
         splash = overlay.evaluate(LOGO_JS, "[data-testid=splash]")
-        capture_view(overlay, BRAND_OUT / f"splash-{scale}-{theme}.png")
+        capture_view(overlay, BRAND_OUT / f"splash-{scale}-{theme}.png", theme)
 
         said(scale, f"the small logo, {theme}")
+        overlay.emulate_media(color_scheme=theme)  # undone by that capture
         overlay.goto(f"{base}?ws=ws://127.0.0.1:{history.port}")
         overlay.get_by_test_id("own-tile").first.wait_for(timeout=30000)
         overlay.wait_for_timeout(1400)
         home = overlay.evaluate(LOGO_JS, "[data-testid=home-logo]")
-        capture_view(overlay, BRAND_OUT / f"home-{scale}-{theme}.png")
+        capture_view(overlay, BRAND_OUT / f"home-{scale}-{theme}.png", theme)
         measured[theme] = {"splash": splash, "home": home}
 
     overlay.emulate_media(color_scheme="no-override", reduced_motion="reduce")
@@ -329,7 +330,7 @@ def read_brand_steps(overlay: Page, scale: str) -> dict:
     measured = {}
     for theme in THEMES:
         overlay.emulate_media(color_scheme=theme)
-        step = read_sign_in(overlay, f"{scale}-{theme}", out=BRAND_OUT, name="step")
+        step = read_sign_in(overlay, f"{scale}-{theme}", out=BRAND_OUT, name="step", theme=theme)
         measured[theme] = {"home_logos": step["home_logos"], "shapes": step["shapes"],
                            "off_screen": step["off_screen"], "scrolls": step["scrolls"]}
     overlay.emulate_media(color_scheme="no-override")
@@ -347,7 +348,8 @@ def window_title() -> str | None:
     return done.stdout.strip()
 
 
-def read_sign_in(overlay: Page, scale: str, out: Path = OUT, name: str = "sign-in") -> dict:
+def read_sign_in(overlay: Page, scale: str, out: Path = OUT, name: str = "sign-in",
+                 theme: str | None = None) -> dict:
     """The registration's first screen, signing in (2026-10-16), played into
     the real window as the backend sends it: where its buttons are, whether
     anything scrolls, and the level it settled at once the overflow guard had
@@ -376,7 +378,7 @@ def read_sign_in(overlay: Page, scale: str, out: Path = OUT, name: str = "sign-i
         i => i.getBoundingClientRect().bottom <= innerHeight)""")
     measured["home_logos"] = overlay.get_by_test_id("home-logo").count()
     measured["shapes"] = overlay.get_by_test_id("shape").count()
-    capture_view(overlay, out / f"{name}-{scale}.png")
+    capture_view(overlay, out / f"{name}-{scale}.png", theme)
     return measured
 
 
@@ -415,8 +417,13 @@ def stop(proc: subprocess.Popen) -> None:
     time.sleep(1.5)
 
 
-def capture_view(page: Page, path: Path) -> None:
+def capture_view(page: Page, path: Path, theme: str | None = None) -> None:
     """Save what the overlay view is showing, at the size it is shown.
+
+    With `theme`, in that theme (2026-11-02). A theme here is an emulation, and
+    the connection below undoes the caller's as it attaches, so the first pass
+    of the brand's pictures came out light whatever they were named: the page
+    had said dark a moment before. The caller has to set it again afterwards.
 
     Not `page.screenshot()`. Playwright sizes its capture as the CSS viewport
     times the screen's scale and knows nothing of the overlay's zoom, so at
@@ -443,12 +450,27 @@ def capture_view(page: Page, path: Path) -> None:
             browser = await playwright.chromium.connect_over_cdp(CDP)
             try:
                 view = next(p for c in browser.contexts for p in c.pages if p.url == url)
+                if theme:
+                    await view.emulate_media(color_scheme=theme)
+                    await view.wait_for_timeout(300)  # the theme's own picture
                 return await capture_site(view)
             finally:
                 await browser.close()  # detaches; the host is the caller's to stop
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         path.write_bytes(pool.submit(asyncio.run, shoot()).result())
+
+
+#: Whether the page is getting frames, from inside it. Playwright's click waits
+#: on `requestAnimationFrame`, and a page with none times out on "visible,
+#: enabled and stable" with nothing to say why (2026-11-02).
+FRAMES_JS = """() => new Promise((answer) => {
+    const say = (frames) => answer({frames, hidden: document.hidden,
+                                    focused: document.hasFocus(),
+                                    window: window.__simbaWindow ?? null});
+    const none = setTimeout(() => say(false), 2000);
+    requestAnimationFrame(() => { clearTimeout(none); say(true); });
+})"""
 
 
 def host_line(log: Path) -> dict:
@@ -537,6 +559,10 @@ def measure(scale: str) -> dict:
             browser.close()
     except Exception as error:
         said(scale, f"failed: {error!r}"[:300])
+        try:
+            said(scale, f"the overlay at that moment: {overlay.evaluate(FRAMES_JS)}")
+        except Exception as gone:  # noqa: BLE001 - a dead page is itself the finding
+            said(scale, f"the overlay did not answer: {gone!r}"[:200])
         # The host's own account of why it went, if it said (frontend/electron/main.ts).
         text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
         for line in text.splitlines():
