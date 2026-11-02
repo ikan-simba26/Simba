@@ -20,6 +20,7 @@ from backend.estimator import train
 from tools.rating import examples as worked
 from tools.rating import export_form
 from tools.rating.export_form import ExportRefused, export, mapping
+from tools.rating.export_set3 import without_set3
 from tools.rating.from_form import (FORMS, ConversionRefused, convert, convert_all, merge,
                                     named, run, summary)
 from tools.rating.serve import LABELS, QUESTION
@@ -473,7 +474,7 @@ def test_the_committed_mapping_is_two_sets_of_30() -> None:
 def test_the_committed_mapping_is_what_the_seed_makes_again() -> None:
     """Re-deriving the sets, orders and repeats from the committed manifest
     and corpus gives the committed mapping — so nobody has to trust the file."""
-    made = json.loads(export_form.RECORD.read_text(encoding="utf-8"))
+    made = without_set3(json.loads(export_form.RECORD.read_text(encoding="utf-8")))
     if not all((export_form.MANIFEST.parent / "pages" / p["file"]).exists()
                for p in made["pictures"].values()):
         pytest.skip("the rating pictures are not on this machine (python -m tools.rating.capture)")

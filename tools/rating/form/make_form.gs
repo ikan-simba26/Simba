@@ -1,6 +1,7 @@
 /**
- * Makes SIMBA's two rating forms, Set 1 and Set 2, from a Google Drive folder
- * of pictures. Run makeFormSet1, then makeFormSet2: one form per run.
+ * Makes SIMBA's rating forms from a Google Drive folder of pictures, one form
+ * per run: makeFormSet1 and makeFormSet2 from the rating-form folder, and
+ * makeFormSet3 from the rating-form-set3 folder.
  *
  * The folder is .scratch/rating-form/ uploaded as it is: P01.png to P54.png,
  * E1.png and E2.png, and mapping.json, written by
@@ -18,6 +19,11 @@
  * together with its question in a form made by a script, so each form has
  * the fixed order in mapping.json. Send half the raters Set 1 and half Set 2.
  *
+ * Set 3 is the same form with 20 pictures, about 3-4 minutes: 15 Pakistani
+ * pages, three anchor pages and two repeats. Its folder has its own pictures,
+ * under the same kind of name, E1.png and E2.png, and the same mapping.json with
+ * Set 3 in it, and the words that differ are under mapping.overrides.
+ *
  * Each rating question's title ends in the picture's name, "[P07]". That is
  * how from_form.py knows which answer is which picture: do not edit those
  * titles in the form.
@@ -33,6 +39,8 @@ function makeFormSet1() { makeForm('1'); }
 
 function makeFormSet2() { makeForm('2'); }
 
+function makeFormSet3() { makeForm('3'); }
+
 function makeForm(set) {
   if (FOLDER_ID.indexOf('PASTE') === 0) {
     throw new Error('Set FOLDER_ID at the top of the script to your folder\'s id first.');
@@ -40,6 +48,7 @@ function makeForm(set) {
   const folder = DriveApp.getFolderById(FOLDER_ID);
   const mapping = JSON.parse(fileNamed(folder, 'mapping.json').getBlob().getDataAsString('UTF-8'));
   const q = mapping.questions;
+  const over = (mapping.overrides && mapping.overrides[set]) || {};
   const order = mapping.orders && mapping.orders[set];
   if (!order) throw new Error('mapping.json has no Set ' + set + '. Upload the latest rating-form folder.');
   // Every picture is checked for before anything is made, so a missing one
@@ -52,7 +61,7 @@ function makeForm(set) {
 
   const form = FormApp.create('SIMBA rating form, Set ' + set)
     .setTitle(FORM_TITLE)
-    .setDescription(q.intro)
+    .setDescription(over.intro || q.intro)
     .setCollectEmail(false)
     .setProgressBar(true)
     .setShuffleQuestions(false)
@@ -63,7 +72,7 @@ function makeForm(set) {
   // 1. Consent. "No" sends the form at once, with nothing in it.
   const consent = form.addMultipleChoiceItem()
     .setTitle(q.consent.title)
-    .setHelpText(q.consent.help)
+    .setHelpText(over.consent_help || q.consent.help)
     .setRequired(true);
   consent.setChoices([
     consent.createChoice(q.consent.yes, FormApp.PageNavigationType.CONTINUE),

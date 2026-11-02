@@ -1,5 +1,8 @@
 # The rating forms: step by step
 
+**Making Set 3?** Go to section 7. Sections 1 to 6 are Sets 1 and 2, and Set 3
+has its own folder, so nothing in them needs doing again.
+
 This folder becomes two Google Forms, **Set 1** and **Set 2**, that people
 fill in on their own computer in about 5-7 minutes: a consent question, three
 questions about them, two worked examples, then 30 pictures of web pages,
@@ -163,3 +166,75 @@ write-up.
 
 The CSVs and `data/ratings.jsonl` hold people's answers. Neither is committed;
 keep them on this machine.
+
+## 7. Set 3: Pakistani pages
+
+Set 3 is a third form, about **3-4 minutes**: 20 pictures, with the same question,
+the same five answers, the same two worked examples and a progress bar. Fifteen are
+pictures of Pakistani public pages, three are anchors already rated in Sets 1 and 2,
+and two are repeats. Why it exists: EVALUATION.md, 2026-11-02b and 2026-11-02c. Sets
+1 and 2 are not touched: leave those forms as they are.
+
+### Make it
+
+1. `.scratch/rating-form-set3/` is the folder, 25 files: the 20 pictures, `E1.png`,
+   `E2.png`, `mapping.json`, `make_form.gs` and this README. If it is not there, make
+   it from the repository root, which changes nothing else:
+
+       backend\venv\Scripts\python -m tools.rating.export_set3
+
+2. In <https://drive.google.com>, press **New → Folder upload** and choose
+   `rating-form-set3`. Wait until all 25 files are uploaded. Open the folder and copy
+   its id, the part of its address after `/folders/`.
+3. In <https://script.google.com>, open the "SIMBA rating form" project from before,
+   or make a new one and paste in the whole of `make_form.gs`. If you kept the old
+   project, paste this `make_form.gs` over the old one: the old one has no Set 3.
+4. On the line `const FOLDER_ID = '...';` put in the new folder's id. Keep the quotes.
+   Press **Save**.
+5. In the toolbar, choose the function **`makeFormSet3`** and press **Run**. Allow it
+   if Google asks, as in section 3.
+6. Wait about a minute. When the log says **Done: Set 3**, copy its two links, labelled
+   Set 3. The form is saved in the same Drive folder as "SIMBA rating form, Set 3".
+
+### Check it
+
+Do everything in section 4, with these differences:
+
+- the top of the form says **"About 3-4 minutes"**, and so does the consent question,
+  which also says 20 pictures;
+- there are **20** pictures, and the last says "Picture 20 of 20";
+- the two examples are the same two as the other forms.
+
+### Send it
+
+Send the link as in section 5: laptop or desktop, in one go, somewhere quiet.
+**Anyone may do Set 3, including people who did Set 1 or Set 2**, but ask them only
+once. Keep a note of who has already rated, because that belongs in the write-up.
+Every page needs **8 ratings**, and these pages are only in Set 3, so that is **at
+least 8 usable raters, and in practice 10**. Set 2 also still needs **3 more** usable
+raters, so the whole comparison needs those too.
+
+If you can reach anyone older, or anyone who is not in computing, they are worth more
+than another student: 13 of the 15 raters so far are 18 to 24, and 10 are in computing.
+
+### Bring the answers back
+
+1. In the Set 3 form, **Responses → ⋮ → Download responses (.csv)**. Open the `.zip`
+   and save the `.csv` as `.scratch/rating-form/responses-3.csv`. Download Sets 1 and 2
+   again as well, if any answers have come in.
+2. From the repository root, one command does everything:
+
+       backend\venv\Scripts\python -m backend.estimator.train_visual "SIMBA rating form, Set 1.csv" "SIMBA rating form, Set 2.csv" .scratch/rating-form/responses-3.csv
+
+   It works out each file's set from its questions (name one with `3=path.csv` if it
+   cannot), and **refuses until every page has 8 ratings, saying how many more raters of
+   which set**. Run it again whenever more answers come in. When there are enough, it
+   compares the old model, the new one and the new features alone on the same pages and
+   folds, and works the overwhelm index out again from what was saved.
+3. Read **the gate** at the end of what it prints, which is also added to EVALUATION.md.
+   Whatever it says, `data/estimator.json` is unchanged and SIMBA goes on running the
+   same model. Add `data/estimator_visual.json` and EVALUATION.md by name. The CSVs and
+   `data/ratings.jsonl` are never committed.
+
+To see the sums on the ratings there already, with no Set 3 and writing only to
+`.scratch/`: `backend\venv\Scripts\python -m backend.estimator.train_visual --preview`.

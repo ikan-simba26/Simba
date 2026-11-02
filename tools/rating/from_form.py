@@ -3,7 +3,7 @@
     python -m tools.rating.from_form .scratch/rating-form/responses-1.csv .scratch/rating-form/responses-2.csv
 
 Reads the CSVs that Google Forms downloads ("Download responses (.csv)"), one
-per form — Set 1 and Set 2 — and writes one row per answer to
+per form — Set 1, Set 2 and Set 3 — and writes one row per answer to
 `data/ratings.jsonl`, in the shape `tools/rating/serve.py` writes and
 `backend/estimator/train.py` reads. The picture each answer belongs to comes
 from its column's name, `[P07]`, looked up in the mapping `export_form.py`
@@ -27,10 +27,10 @@ needs `train.MIN_RATINGS` ratings, and the converter counts them over every
 row in the ratings file — in person and online — and says how many more are
 needed, and how many more raters of each set.
 
-**Online rows say so.** Each carries `"online": true` and its set, 1 or 2,
+**Online rows say so.** Each carries `"online": true` and its set, 1 to 3,
 with the device, age range and whether the person studies or works in
 computing, so in-person and online raters — and the two sets — can be told
-apart and compared. `anchor` marks the six pages both sets show. `position`
+apart and compared. `anchor` marks the pages more than one set shows. `position`
 is the picture's place in that rater's form, and `repeat` marks the later of
 a page's two showings in it. An online rater's number is their set's base in
 `FORMS` plus their row in its CSV, so numbers stay the same when the
@@ -61,7 +61,7 @@ MAPPING = REPO / "data" / "rating" / "form.json"
 RATINGS = REPO / "data" / "ratings.jsonl"
 #: Each set's online raters are numbered from here, a thousand apart; the
 #: in-person tool's are typed by the rater, 1 to 4999 (`serve.MAX_RATER`).
-FORMS = {"1": 5000, "2": 6000}
+FORMS = {"1": 5000, "2": 6000, "3": 7000}
 #: The picture's name at the end of a rating question's title.
 NAME = re.compile(r"\[(P\d{2,})\]\s*$")
 
@@ -126,7 +126,7 @@ def which_form(header: list[str], mapping: dict, named: str | None, source: str
         if found is None:
             raise ConversionRefused(
                 f"{source}: the questions are in neither set's order, so which set it "
-                f"is from cannot be told. Name it: 1={source} or 2={source}")
+                f"is from cannot be told. Name it: 1={source}, 2={source} or 3={source}")
         return found, None
     if named not in mapping["orders"]:
         raise ConversionRefused(f"{source}: there is no set {named!r}")
@@ -336,7 +336,8 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("csv", nargs="+",
-                        help="a form's responses, downloaded as CSV; 1=path or 2=path to name its set")
+                        help="a form's responses, downloaded as CSV; 1=path, 2=path or 3=path "
+                             "to name its set")
     parser.add_argument("--mapping", type=Path, default=MAPPING)
     parser.add_argument("--ratings", type=Path, default=RATINGS)
     args = parser.parse_args()

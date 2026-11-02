@@ -495,6 +495,161 @@
       "sha256": "4eaa9b2494078323f09bd2f8a7ae912da8d13714a5b3a81386419ea679b540f1",
       "heaviness": 0.627,
       "of": "P31"
+    },
+    "P55": {
+      "page": "daewoo-com-pk",
+      "url": "https://daewoo.com.pk/",
+      "state": "as it loads",
+      "kind": "Transport",
+      "file": "daewoo-com-pk.png",
+      "sha256": "8d05a81b9e2805ecda7e7e2695a56fff31061cd313708e6677698a45e3865c5c",
+      "heaviness": 0.457
+    },
+    "P56": {
+      "page": "hospitals-aku-edu",
+      "url": "https://hospitals.aku.edu/",
+      "state": "as it loads",
+      "kind": "Health",
+      "file": "hospitals-aku-edu.png",
+      "sha256": "5a54377a92999cd7110e8da22457973f2f69af900cb82be109360a5136ac691c",
+      "heaviness": 0.393
+    },
+    "P57": {
+      "page": "jazz-com-pk",
+      "url": "https://jazz.com.pk/",
+      "state": "as it loads",
+      "kind": "Telecoms",
+      "file": "jazz-com-pk.png",
+      "sha256": "bd8b2ec56d0c5e7e3c08bdb8cccf0a865d46e0a004b898a90bec0d318cfb56f7",
+      "heaviness": 0.15
+    },
+    "P58": {
+      "page": "kp-gov-pk",
+      "url": "https://kp.gov.pk/",
+      "state": "as it loads",
+      "kind": "Government services",
+      "file": "kp-gov-pk.png",
+      "sha256": "84555a298fe90fb4a7cd90bd759b3ad42718abed9cc554221922c85ac7ce0186",
+      "heaviness": 0.507
+    },
+    "P59": {
+      "page": "nha-gov-pk",
+      "url": "https://nha.gov.pk/",
+      "state": "as it loads",
+      "kind": "Transport",
+      "file": "nha-gov-pk.png",
+      "sha256": "c4bb0bf76c717742aef58ea79549b5fc1ba39926f270c6a461f74b054681552c",
+      "heaviness": 0.529
+    },
+    "P60": {
+      "page": "nust-edu-pk",
+      "url": "https://nust.edu.pk/",
+      "state": "as it loads",
+      "kind": "Universities",
+      "file": "nust-edu-pk.png",
+      "sha256": "35d314a34b5651ed61b6710d3b02da7c71f6fc3b26671557a048f381e9809a33",
+      "heaviness": 0.65
+    },
+    "P61": {
+      "page": "pu-edu-pk",
+      "url": "https://pu.edu.pk/",
+      "state": "as it loads",
+      "kind": "Universities",
+      "file": "pu-edu-pk.png",
+      "sha256": "840983fc946a4879ecb24554d40bd91dc7e608af0c604aef5cc52997497ed5a7",
+      "heaviness": 0.686
+    },
+    "P62": {
+      "page": "www-bankalfalah-com",
+      "url": "https://www.bankalfalah.com/",
+      "state": "as it loads",
+      "kind": "Banks",
+      "file": "www-bankalfalah-com.png",
+      "sha256": "ab346f4d0ccd815db60997a40787085861fb6c4a3fc00d9e296e9434ce185f17",
+      "heaviness": 0.5
+    },
+    "P63": {
+      "page": "www-ecp-gov-pk",
+      "url": "https://www.ecp.gov.pk/",
+      "state": "as it loads",
+      "kind": "Government services",
+      "file": "www-ecp-gov-pk.png",
+      "sha256": "83c725be73b2504328f95e4602ac8f9118cb8be25ad228e2bf5dae4b4607003d",
+      "heaviness": 0.293
+    },
+    "P64": {
+      "page": "www-iesco-com-pk",
+      "url": "https://www.iesco.com.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "file": "www-iesco-com-pk.png",
+      "sha256": "ce8d3dc921e82f353e6793fdd4ee4c464cc8826943876984c16062cd877c4c29",
+      "heaviness": 0.629
+    },
+    "P65": {
+      "page": "www-kwsc-gos-pk",
+      "url": "https://www.kwsc.gos.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "file": "www-kwsc-gos-pk.png",
+      "sha256": "db1b70d360392d9c9fad4ce8f334a376f29e83f888caf71066fac9b9485d185c",
+      "heaviness": 0.643
+    },
+    "P66": {
+      "page": "www-nbp-com-pk",
+      "url": "https://www.nbp.com.pk/",
+      "state": "as it loads",
+      "kind": "Banks",
+      "file": "www-nbp-com-pk.png",
+      "sha256": "bf968517610ab1b3680f68ce0ff94df582be5240fa3f7ee6c2c0323100b98fdd",
+      "heaviness": 0.407
+    },
+    "P67": {
+      "page": "www-nih-org-pk",
+      "url": "https://www.nih.org.pk/",
+      "state": "as it loads",
+      "kind": "Health",
+      "file": "www-nih-org-pk.png",
+      "sha256": "fedc94ca4016f9b3464821304238c460afcf7c67bde16c3e470a48a5c5a453c7",
+      "heaviness": 0.486
+    },
+    "P68": {
+      "page": "www-sngpl-com-pk",
+      "url": "https://www.sngpl.com.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "file": "www-sngpl-com-pk.png",
+      "sha256": "fdb0fb26a6fb62841cbff0fae1cbadc1fc29033deab9b2d93aa974ebf8c73b3b",
+      "heaviness": 0.557
+    },
+    "P69": {
+      "page": "www-zong-com-pk",
+      "url": "https://www.zong.com.pk/",
+      "state": "as it loads",
+      "kind": "Telecoms",
+      "file": "www-zong-com-pk.png",
+      "sha256": "f443d39e41e03ae033a774ebee69249555a35996bd49f39633c18fc5e0ea65f2",
+      "heaviness": 0.614
+    },
+    "P70": {
+      "page": "www-kwsc-gos-pk",
+      "url": "https://www.kwsc.gos.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "file": "www-kwsc-gos-pk.png",
+      "sha256": "db1b70d360392d9c9fad4ce8f334a376f29e83f888caf71066fac9b9485d185c",
+      "heaviness": 0.643,
+      "of": "P65"
+    },
+    "P71": {
+      "page": "jazz-com-pk",
+      "url": "https://jazz.com.pk/",
+      "state": "as it loads",
+      "kind": "Telecoms",
+      "file": "jazz-com-pk.png",
+      "sha256": "bd8b2ec56d0c5e7e3c08bdb8cccf0a865d46e0a004b898a90bec0d318cfb56f7",
+      "heaviness": 0.15,
+      "of": "P57"
     }
   },
   "sets": {
@@ -583,6 +738,35 @@
         "P53",
         "P54"
       ]
+    },
+    "3": {
+      "own": [
+        "P55",
+        "P56",
+        "P57",
+        "P58",
+        "P59",
+        "P60",
+        "P61",
+        "P62",
+        "P63",
+        "P64",
+        "P65",
+        "P66",
+        "P67",
+        "P68",
+        "P69"
+      ],
+      "lends": [],
+      "anchors": [
+        "P11",
+        "P21",
+        "P28"
+      ],
+      "repeats": [
+        "P70",
+        "P71"
+      ]
     }
   },
   "orders": {
@@ -649,6 +833,28 @@
       "P44",
       "P19",
       "P21"
+    ],
+    "3": [
+      "P68",
+      "P67",
+      "P69",
+      "P63",
+      "P61",
+      "P57",
+      "P66",
+      "P59",
+      "P60",
+      "P65",
+      "P56",
+      "P62",
+      "P55",
+      "P28",
+      "P11",
+      "P58",
+      "P70",
+      "P64",
+      "P21",
+      "P71"
     ]
   },
   "balance": {
@@ -769,5 +975,11 @@
     }
   },
   "rating_title": "{question} [{name}]",
-  "exported_at": "2026-10-23T17:23:14+05:00"
+  "exported_at": "2026-10-23T17:23:14+05:00",
+  "overrides": {
+    "3": {
+      "intro": "About 3-4 minutes. Please fill this in on a laptop or desktop computer, not a phone: the pictures are too small on a phone to judge.",
+      "consent_help": "This is part of a final-year university project on making websites easier to use. You will see 20 pictures of web pages and answer one question about each, choosing one of five answers. It takes about 3-4 minutes. We do not ask for your name or email address: we record only your answers, the time you send them, and the three questions on the next page. Your answers are used to train and test the project's software and may be reported in summary in the project's write-up. You must be 18 or over. You can stop at any time by closing this page, and nothing is sent."
+    }
+  }
 }

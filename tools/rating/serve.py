@@ -54,7 +54,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from tools.rating.session import plan, set_of
+from tools.rating.session import SETS, plan, set_of
 
 REPO = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -86,9 +86,12 @@ class Study:
         if made is None or "sets" not in made:
             raise ValueError(f"no sets in {design}; run python -m tools.rating.export_form")
         page_of = {name: p["page"] for name, p in made["pictures"].items()}
+        # Set 3 is an online form only: its pages are not in this manifest, and
+        # a rater here is given Set 1 or 2 by their number (`set_of`).
+        kept = {key: chosen for key, chosen in made["sets"].items() if int(key) in SETS}
         #: Set -> (the pages it shows, the pages it may repeat).
         self.sets: dict[int, tuple[list[str], set[str]]] = {}
-        for key, chosen in made["sets"].items():
+        for key, chosen in kept.items():
             shown = sorted(page_of[n] for n in chosen["own"] + chosen["anchors"])
             missing = [p for p in shown if p not in self.pages]
             if missing:
@@ -96,8 +99,7 @@ class Study:
                                  f"recapture or re-export")
             self.sets[int(key)] = (shown, {page_of[n] for n in chosen["own"]}
                                    - {page_of[n] for n in chosen["lends"]})
-        self.anchors = {page_of[n] for chosen in made["sets"].values()
-                        for n in chosen["anchors"]}
+        self.anchors = {page_of[n] for chosen in kept.values() for n in chosen["anchors"]}
         self.examples = [{"image": f"/examples/{e['file']}", "says": e["says"],
                           "answer": e["answer"], "label": e["label"]}
                          for e in made.get("examples", [])
