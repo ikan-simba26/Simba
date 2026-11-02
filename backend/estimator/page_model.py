@@ -50,6 +50,11 @@ FEATURES: tuple[str, ...] = (
     "interactive", "links", "inferred", "text_density", "max_depth",
     "overlays", "form_fields", "dead_link_ratio", "reading_grade",
 )
+#: The first screen's five (`tools/evaluation/visual_features.py`). No model the
+#: running app reads uses them: it measures only the nine.
+VISUAL_FEATURES: tuple[str, ...] = (
+    "image_area", "motion", "covered", "first_screen_links", "first_screen_text",
+)
 #: What a feature says when it is above and below the average page. Words for
 #: a page, not a verdict on it: a model can lean on a feature in a direction
 #: nobody would guess, and the sentence still says what the page is like.
@@ -64,6 +69,12 @@ WORDS: dict[str, tuple[str, str]] = {
     "form_fields": ("many things to fill in", "few things to fill in"),
     "dead_link_ratio": ("many links that go nowhere", "few links that go nowhere"),
     "reading_grade": ("hard words and long sentences", "easy words and short sentences"),
+    "image_area": ("much of the screen is pictures", "few pictures on screen"),
+    "motion": ("parts of the screen keep changing", "a screen that holds still"),
+    "covered": ("much of the screen covered by floating parts",
+                "little floating over the screen"),
+    "first_screen_links": ("many links in view", "few links in view"),
+    "first_screen_text": ("a lot of words in view", "few words in view"),
 }
 #: How many reasons a judgement gives.
 TOP = 3
