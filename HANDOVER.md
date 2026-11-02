@@ -35,6 +35,9 @@ against commit `cc4704f`, and brought up to date since:
 - **2026-11-02, `eval/overwhelm-index`**: the model on 42 Pakistani public sites, which
   found a limit of the model more than anything about the sites (EVALUATION.md,
   2026-11-02b).
+- **2026-11-02, `eval/visual-features`**: five first-screen features measured, Set 3's form,
+  and the comparison, built and waiting for ratings (EVALUATION.md, 2026-11-02c). The live
+  model is unchanged.
 
 Section 9 is still the 2026-09-17 capture, and says so.
 
@@ -50,6 +53,16 @@ Also read [CLAUDE.md](CLAUDE.md) (the project's rules, which bind people and
 tools alike), [CONTRACT.md](CONTRACT.md) (every message between the two
 processes) and [RUNNING.md](RUNNING.md) (the launcher, and what to do when it
 fails).
+
+**For Nahail (2026-11-02): the visual features, yours to review.** The page model cannot see
+pictures, and now we know how far that goes: 33 of the 35 Pakistani sites have more of their
+screen in pictures than any public page raters saw. `visual_features.py` measures five new
+numbers, and Set 3's form is ready to send (`tools/rating/form/README.md`, section 7). With
+ratings, `python -m backend.estimator.train_visual` compares old against new and applies a
+gate written before any of those ratings existed. Three things want your eye: whether adding
+`first_screen_text` is worth it at r = 0.98 with `text_density`; whether `motion` belongs in
+a model of stills; and what a pass should lead to, since the app measures only the nine
+(DECISIONS.md, *What the visual features can and cannot be*).
 
 **For Aly (2026-11-02): the brand, yours to review.** Raham approved it as visual
 polish under the freeze. `frontend/src/components/Brand.tsx` has the logo while SIMBA

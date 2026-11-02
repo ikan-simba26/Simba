@@ -72,6 +72,25 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
+### Changed on 2026-11-02 (visual features) — `eval/visual-features`
+
+- **The blindness is measured.** Five first-screen features (`visual_features.py`) on 48 of the
+  50 rated pages and all 35 sites. Median `image_area` 0.70 on the sites against 0.006 on public
+  rated pages, and 33 of 35 past any public page rated. The two left out now disallow us in
+  robots.txt (EVALUATION.md, 2026-11-02c).
+- **Set 3 is ready to send, and has no answers.** 20 pictures, about 3-4 minutes: `makeFormSet3`,
+  and every step in `tools/rating/form/README.md`, section 7.
+- **The comparison is built and cannot run yet.** `python -m backend.estimator.train_visual`
+  refuses today: 186 more ratings, at least 3 more Set 2 raters and 8 more Set 3 raters.
+- **So there is no new model, and the old one stays live.** `data/estimator.json` is unchanged.
+  A preview on Sets 1 and 2 got worse with the new features (R² 0.58 to 0.42), as pages with
+  almost no pictures would make it: that is no verdict either way.
+- **Blocked on people**: raters for Set 3, and three more for Set 2.
+- **Open, for all three owners**: a pass at the gate does not go live, because the app measures
+  only the nine. See DECISIONS.md, *What the visual features can and cannot be*.
+- **Flagged, for Nahail**: `first_screen_text` is nearly `text_density` (r = 0.98); no still can
+  show `motion`; and `capture.py` and `collect_corpus.py` do not ask robots.txt.
+
 ### Changed on 2026-11-02 (last): the overwhelm index — `eval/overwhelm-index`
 
 - **The trained model on 42 Pakistani public sites**, read once each, read-only:

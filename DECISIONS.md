@@ -5750,3 +5750,50 @@ review** what it says about the model (EVALUATION.md, 2026-11-02b).
 - **The ranking is reported as asked, with the warning first.** *Alternative:* no ranking,
   since the model's error is larger than the gaps between categories. It was asked for, so it
   is there, and the report says how far to trust it.
+
+## What the visual features can and cannot be
+
+**Date:** 2026-11-02 (asked for, by Raham: evaluation work, not a feature; the live model is
+unchanged). **Nahail to review**, since this is the estimator (EVALUATION.md, 2026-11-02c).
+
+**Settled inside it (not asked for):**
+
+- **A pass at the gate does not switch the live model.** The brief says to switch if the new one
+  is better, and the running app cannot run it: `loop.features_of` is synchronous and reads
+  only the snapshot, so the five would need a new read in the loop, and `motion` three seconds
+  of a person's time on a first page. That is past the freeze and is orchestrator and estimator
+  work together. So the new model goes to `data/estimator_visual.json` and a pass says so.
+  *Alternative:* build it now, unused. That is a change to the loop for a model that may never
+  pass. *Cost:* a pass needs that work, about a read in `perceive` and a choice about `motion`,
+  before anything changes for a person. `page_model.load` refuses a model of fourteen, so a
+  file copied over by hand gives the rules, not the old model.
+- **The gate's six conditions were set before any Set 3 rating**, including resampling pages for
+  the interval, because 40 shuffles of 65 pages are not 40 samples. *Cost:* a real gain on 65
+  pages may not clear it. A narrow miss then says "not shown", which is not "no gain".
+- **The sites were read again rather than Set 3 using the index's pictures.** A rated picture
+  and its features must be from one load (`train.paired`), and `motion` needs two captures. So
+  Set 3's pictures are from this read and not the index's. *Cost:* more visits, and the rows
+  differ a little from the index's.
+- **`first_screen_text` and `first_screen_links` are added beside `text_density` and `links`,
+  as asked**, and it turned out the first pair are nearly one number. See the flag in STATUS.md.
+- **Rated pages robots.txt now disallows are left out, not read**: `text.npr.org` and
+  `lite.cnn.com`. *Cost:* two of the plainest pages leave every arm. Measured, the old model's
+  pooled R² goes from 0.572 to 0.576, so it changes nothing that matters. `capture.py` and
+  `collect_corpus.py` still do not ask robots.txt, which is flagged and not changed.
+- **`covered` differs from `overlays.candidates` on one point**: an absolute element must be
+  attached to the body. The brief says fixed, sticky or overlaid, and a slider's layers are
+  stacked above the page's own slide. *Cost:* a pop-up absolute and deep in the page is missed.
+- **A fixed header counts as covered**, since the brief names fixed and sticky, whether or not
+  there is anything beneath it. *Alternative:* count only points with page beneath, which drops
+  headers and NUST's fixed hero, and an in-flow banner with them.
+- **MEPCO is excluded from Set 3 by name.** *Alternative:* a loader detector, on one example.
+- **Set 3 lives in `data/rating/set3.json`, beside `pages.json` and not in it**, or `train.py`
+  would ask for 8 ratings on its pages and stop the current model being retrained on Sets 1
+  and 2. Its pictures join the others in `data/rating/pages/`, uncommitted, as those are.
+- **Anyone may rate Set 3, including raters of Sets 1 and 2.** Fifteen pages are new, and people
+  are hard to find. *Cost:* those raters have seen the anchors before.
+- **The drift limit is 0.25**, set from pixels alone, in the empty band from 0.18 to 0.38.
+- **The form's in-person tool stays on Sets 1 and 2.** Set 3 is online only.
+- **A fourth arm, without `motion`**, because no still can show it, and because the loop could
+  have the other four for no wait at all.
+
