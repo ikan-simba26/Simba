@@ -5,10 +5,13 @@
 
 # SIMBA
 
-Desktop app that performs web tasks on behalf of users who find cluttered
-interfaces overwhelming. The real website loads in a hidden browser view; the
-user sees only a clean, one-step-at-a-time overlay that simplifies itself when
-the user appears to be struggling.
+## What SIMBA is
+
+SIMBA does web tasks for people who find busy websites overwhelming.
+You say what you want, such as "trains to Karachi tomorrow", and the real website opens out of sight.
+You see one plain step at a time, and it gets simpler if you seem to be struggling.
+You decide, SIMBA clicks, and it checks every click worked; if it can't go on, it stops and says so.
+On a real website it only reads: booking and paying happen only on practice copies we built.
 
 New here? Read this file top to bottom and you will have it running. It
 assumes nothing is installed yet. `DEMO.md` is for showing it to someone,

@@ -14,8 +14,85 @@ items sat under "blocked on quota" for eight days after the quota had reset.
 
 ## Where the project actually is
 
+*Rewritten on 2026-11-02. What it said until then is in the first log entry below.*
+
+**What SIMBA does.** It does web tasks for people who find cluttered websites
+overwhelming. The real site loads in a view nobody looks at; the person sees one
+plain step at a time, and the screen simplifies itself if they seem to be
+struggling. The person decides and SIMBA clicks: once they have chosen, safe moves
+run as a checklist with one Pause, and a real choice, anything to type, anything
+that went wrong and anything that changes a record still waits for them. Every
+action is checked on the page afterwards, tried once more another way, then handed
+back. Features froze on 1 November; this month is evaluation and writing.
+
+**The estimator is trained on the page side, and judges a task's first page.** A
+ridge regression on nine page features, from 15 raters' answers on 50 pages
+(`page_model.py`). 5-fold R² 0.49 against −0.11 for predicting the mean, off by
+0.48 of a point against 0.77, and of the 8 pages raters put at "Very" or more it
+caught 6 held out where the old rules caught 2. Read that with its limits: raters
+agree weakly (alpha 0.318), judged a picture rather than used a page, and none is
+from the audience; and it is under the study's floor, with 22 pages on 5 ratings
+rather than 8. Three more Set 2 raters and one command fix the floor. What a person
+does during a step still goes through hand-written rules with no person's behaviour
+behind them, and nothing fuses the two (EVALUATION.md, 2026-10-30 to 2026-10-30c).
+
+**Three flows, one of them on a live site.** Registering for a course and looking
+up a bill run on replicas we wrote. Train times run on the live Pakistan Railways
+site, read-only, or on our copy (`run.ps1 railways-local`). Each runs on the person's
+own details: the goal is read, what is missing is asked one question at a time, and a
+search for the wrong route or day fails rather than completes. The hand-written plan
+is the default, with a language-model planner and trace replay behind the same loop;
+the replica benchmarks are 50/50 with no model (EVALUATION.md, 2026-10-16d).
+
+**Booking and paying happen only on our replicas.** Under the final-step rule
+(2026-10-16) a change happens only on a page served from this machine, after a
+final screen saying what will happen, with what, how much and when as the page
+states them, and do it / don't, no default and no timer. `loop.carry_out` holds this
+for every planner. So a train can be booked, a bill paid with no card, and a course
+registered, each ending in practice words. On the live site SIMBA reads, and card or
+bank details are never typed anywhere.
+
+**Proof.** A closing screen with an answer offers "See it on the real page": a still
+of the page as the task closed, with what was read ringed. The page is read again
+before closing, and if it now says something else no answer is shown. Every closing
+screen says what was and was not done, and "done" needs the site's own confirmation,
+quoted. "What are you doing?" shows the page during a task.
+
+**The person's own.** A welcome of four skippable questions on first open; the name
+never leaves the overlay, and the level they choose is where the rules start. Up to
+three tiles of their own, encrypted with the vault's key and run by id, which ask
+only what changes. One saved password per site, Windows only. "Forget me and start
+again" clears the profile and the tiles, and hides the goals from before it.
+
+**The brand** (2026-11-02). The logo kit is in `assets/brand/`: the app icon, the title
+`simba`, the logo while the backend comes up, and a small one on the home screen alone.
+
+**What it cannot claim yet.** Nobody from the audience has used it. What the page
+shows is not what the application believes, and every check reads the page. The
+model-behaviour figures predate current perception, the stronger-model ablation has
+not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-02 (later): the opening rewritten — `docs/tidy`
+
+Documents only, so the suite was not re-run. HANDOVER.md's opening is a dated list,
+README.md opens with five lines for a stranger, and ARCHITECTURE.md's stages are
+corrected, with what had drifted listed at its end. Fifteen stale items in this
+file's module sections are corrected, most struck through beside what replaced them,
+and three superseded decisions now say so. Flagged, not fixed, because they are not these
+documents: `data/tiles.json` is not in `.gitignore`; CLAUDE.md's *Current phase* is
+October's; and CLAUDE.md and README.md say the estimator "fuses", and put the
+credential vault in `frontend/`.
+
+The section above was rewritten to say what is true today. Everything it said until now
+is here, in its own words and its old order, each paragraph under a line saying what
+became of it. Nothing below that line was edited.
+
+*Superseded: long past a skeleton. See the opening.*
+
 The walking skeleton runs end to end on three flows — three replicas we wrote,
 and one live public site.
+
+*Still true on 2026-11-02; said more shortly in the opening.*
 
 **The first page of a task is judged from people's ratings now** (2026-10-30).
 A ridge regression on nine page features, trained on 15 raters' answers to "How
@@ -26,6 +103,8 @@ against 0.77) and it beats the rules, which caught 2 of the 8 pages raters put a
 and the model was trained **under the study's floor**: 22 pages have 5 ratings,
 not 8, because Set 2 has 5 usable raters. Three more fix that, and retraining
 is one command (EVALUATION.md, 2026-10-30 to 2026-10-30c).
+
+*Still true on 2026-11-02; said more shortly in the opening.*
 
 **Every flow runs on the person's own details now, and asks for what they did
 not say** (2026-09-30). Until today a goal was a label: "trains to Rawalpindi
@@ -41,6 +120,8 @@ the one the live site searched — three trains back for Lahore Cantt to
 Rawalpindi on the 1st of October, all three on the closing screen
 (EVALUATION.md, 2026-09-30).
 
+*Still true as a record of that run. Not re-run since.*
+
 **An LLM run has finished a live task correctly, for the first time**
 (EVALUATION.md, 2026-09-17f). Railways, through the real Electron window, 8
 model calls, $0.000847: both stations committed, the calendar navigated to
@@ -50,6 +131,8 @@ verification on a date the page had only reformatted (2026-09-17b); a value
 matching the task's declared `About.holds` is now accepted, and that is the
 difference between the two runs.
 
+*Superseded in part: since 2026-10-14 results are tickets, five at 100% and three in a short window, and past that a count.*
+
 **A closing screen now shows the answer, and it shows all of it.** The live
 results' heading strip was extracted as a table of its own, so nothing paired
 `Train No.` with a train; joining them fixed it (2026-09-17i), and on
@@ -57,12 +140,16 @@ results' heading strip was extracted as a table of its own, so nothing paired
 so a two-train search reads `2DN, 14DN` (2026-09-18b). Since 2026-10-05 it
 shows the first six and counts the rest, so that the screen fits.
 
+*Still true as of its date. The host has laid pages out at 1280px since 2026-09-30.*
+
 **The perception figures are confirmed in the environment that runs them.**
 Every figure in EVALUATION.md before today was measured headless; the
 scrollbar-spacer defect existed only in the Electron host. All three sites
 were re-read both ways on 2026-09-18 and **no serialized figure differs** —
 though the host's raw markup does still carry the spacer, so it was a standing
 difference and not a bad day on the live site (2026-09-18c).
+
+*Still true. Its finding stands in HANDOVER.md, section 4.*
 
 **A published benchmark figure does not reproduce, by 2x, and the cause is
 the machine.** The hardcoded plan's 5.9s from 2026-09-06 re-runs at 3.0s on
@@ -73,6 +160,8 @@ its range (DECISIONS.md). Every conclusion in EVALUATION.md that rested on a
 time difference has been audited: none is withdrawn, one now stands on its
 mechanism rather than its seconds.
 
+*Superseded in part: since 2026-10-30 the trained model judges the first page. What a person does in a step is still read by these rules.*
+
 **The level adapts in a real run now, by provisional rules** (2026-09-25).
 A heavy first page starts at level 3; a long pause, a wandering pointer or a
 help press folds the step on screen one level simpler; two calm steps bring
@@ -80,6 +169,8 @@ it back; a lock holds. Checked live on billing through the Electron host:
 folded at 8.0s (pointer) and 18.3s (still), came back on the ending, lock
 held across two tasks (EVALUATION.md, 2026-09-25). The rules are hand-written
 guesses standing in for the estimator, not the estimator.
+
+*Superseded: "No score, no weights" ended on 2026-10-30 for the page side, and the rules have read both channels since 2026-09-25.*
 
 **Both channels exist now, and until 2026-09-25 nothing read either.** Channel A is the
 page: nine raw features per step. Channel B is the person: hesitation, cursor
@@ -90,6 +181,8 @@ beside the page features of the step it belongs to, in `data/steps.jsonl`,
 which is **not committed** because it carries the goals a person typed
 (2026-09-20c). No score, no weights, no user data collected yet.
 
+*Still true. `MIN_COVERAGE` has been 0.27 since 2026-09-30.*
+
 **Bounds are CSS pixels everywhere.** `snapshot.parse` converts on the way in,
 so overlays, interactivity, content and the estimator all read the same units
 as the frozen viewport. Every recorded perception figure was re-measured in
@@ -97,6 +190,8 @@ both environments afterwards and **not one moved** — but `MIN_COVERAGE = 0.30`
 has been behaving as **0.133 in the host** since the rule existed, because a
 box 1.5x too large covers 2.25x the area. The registration modal read a
 coverage of **2.220** before the fix and 0.986 after (2026-09-20).
+
+*Superseded: on 2026-10-30 for the page, which has a score and weights from people's ratings. Nothing about a person is measured by a model yet. The corpus has been 50 pages since 2026-09-21.*
 
 **The estimator measures nothing about a person yet.**
 `backend/estimator/page_features.py` reads nine raw features off one page
@@ -106,10 +201,14 @@ a corpus to calibrate against. `data/corpus.json` is the first one: 20 public
 pages, read in both environments, 0 failures. **Three of the nine features
 cannot tell those pages apart** and are flagged as such (2026-09-19b).
 
+*Superseded in part: past five tickets, or three in a short window, the rest are counted.*
+
 **A closing screen shows every result now, checked on the live site.** A
 finding carries both the one line the step screen shows and the list the
 ending shows; a two-train search put both trains and both journey times on the
 screen, and the site view confirmed nothing was missing (2026-09-19).
+
+*Still true. Its finding stands in HANDOVER.md, section 4.*
 
 **The project's headline perception finding is smaller than it read.**
 "What perception emits decides what a planner can use" is split in two: emitting
@@ -118,14 +217,20 @@ a distinction no prompt could supply) holds; moving words the prompt already
 carries above the element list is **falsified as stated** at 0 of 8 runs
 (EVALUATION.md, 2026-09-18).
 
+*Still true as history: fixed on 2026-09-17, and tested since.*
+
 **Every ending reached from a step was unpressable** — found and fixed on
 2026-09-17, present since at least `cc4704f`. After any step, an invisible
 leftover of the step screen covered the ending's buttons (EVALUATION.md,
 2026-09-17c).
 
+*Superseded: it completed the live flow again on 2026-09-18, 5 of 5 steps (EVALUATION.md, 2026-09-17i).*
+
 The hardcoded plan last completed the live flow on 2026-09-09 (54s). Not
 re-run since; the live page's structure was unchanged when re-read on
 2026-09-17.
+
+*Still true.*
 
 What the system cannot do is trust its own result: the DOM is not the
 application's state (EVALUATION.md).
@@ -1162,7 +1267,8 @@ On `feat/railways-ask`, **not merged**.
    kept. Label/value pairs have none.
 9. ~~`value_for` returns the first matching pair, so even when pairing works
    "which trains?" shows one train.~~ **Fixed 2026-09-18** (2026-09-18b).
-10. Page-side load features for the estimator: not started.
+10. ~~Page-side load features for the estimator: not started.~~ **Done**:
+   `backend/estimator/page_features.py`, nine features (see Estimator).
 
 **Blocked**
 - Nothing.
@@ -1237,12 +1343,13 @@ On `feat/railways-ask`, **not merged**.
 - **Replayed runs do not get the longer window.** Replay builds every move with
   an empty expectation. Trace memory is off by default, so nothing uses it
   today.
-- **A question the page raises is not in the count** (2026-09-30). The number on
+- ~~**A question the page raises is not in the count** (2026-09-30). The number on
   screen can end one or two above what was promised: which of two stations was
   meant cannot be known before the site answers. It only ever grows, and never
   goes below what is on screen. Options: budget for one station question per
   end, which overstates every unambiguous journey; or leave it.
-  Recommended: leave it.
+  Recommended: leave it.~~ **Gone since 2026-10-14**: named stages replaced the
+  count, and no frontend code reads `estimated_steps`.
 - **Durable verification still stops correct runs on undeclared fields.**
   Since 2026-09-17 a field that now holds its task-declared value is accepted;
   every other field is compared with what was typed, character for character,
@@ -1272,7 +1379,8 @@ On `feat/railways-ask`, **not merged**.
 - `task.completed.summary` is the goal plus a URL, read by tests, not shown.
 - The JS-click fallback clicks through a modal with overlay detection off.
 - Trace memory has never recorded and replayed a live model run. Not blocked.
-- `requires_confirmation` is always `true`.
+- ~~`requires_confirmation` is always `true`.~~ **Not since 2026-10-14**: `false` is
+  a line of the checklist.
 - Replay tuning: not started.
 
 **Blocked**
@@ -1297,9 +1405,10 @@ On `feat/railways-ask`, **not merged**.
 - Contract client; every backend-to-frontend type handled.
 - One column: home with remembered goals, working, a step at three levels
   folding between them, notices, the trust panel.
-- **Five endings, all with a way onward, all pressable after a step**:
-  found an answer, done, failed, stuck, stopped by the person.
-  `test_terminal_states.py` renders each, including three reached from a
+- **Six endings, all with a way onward, all pressable after a step**:
+  found an answer, done, failed, stuck, stopped by the person, and since
+  2026-10-16 "I didn't do it. Nothing was changed."
+  `test_terminal_states.py` renders each, including from a
   step, presses every button, and since 2026-10-05 checks every button is on
   screen at three window sizes.
 - **The stuck screen is true** (2026-09-17): the run has stopped, nothing
@@ -1327,9 +1436,10 @@ On `feat/railways-ask`, **not merged**.
   sentence in the lead-in's place, and the two buttons side by side.
 - **Every ending fits the window, and is checked to** (2026-10-05): with 1, 3
   and 9 results, at 100%, 125% and 150%, every button is wholly on screen and
-  nothing scrolls; tightest 34px. `test_terminal_states.py` checks all 17
-  endings at three window sizes on every run, and `test_window_fit.py` the
-  same 17 in the real host (EVALUATION.md, 2026-10-05 and 2026-10-05b).
+  nothing scrolls; tightest 34px. `test_terminal_states.py` checks all 38
+  endings (17 on 2026-10-05) at three window sizes on every run, and
+  `test_window_fit.py` the same 38 in the real host (EVALUATION.md, 2026-10-05
+  and 2026-10-05b).
 
 **In progress**
 - Nothing.
@@ -1374,13 +1484,20 @@ On `feat/railways-ask`, **not merged**.
 - **The step screen shows one finding**, as one line that stops at four
   values. That is the design, not an oversight — but it means a run in
   progress can show "and 2 more" for a while before the ending shows them.
-- "I'm showing a bit more again." is also what an overflow drop says.
-- "Step 2 of 6" uses a word `copy.ts` forbids.
+- ~~"I'm showing a bit more again." is also what an overflow drop says.~~
+  **Settled 2026-10-14**: an overflow drop says "I've made this smaller so it
+  fits.", and the rules' return "I'm showing a bit more now."
+- ~~"Step 2 of 6" uses a word `copy.ts` forbids.~~ **Gone since 2026-10-14**:
+  named stages.
 - ~~A found value is shown as the page wrote it (`15-09-2026`).~~ **A bill's are said in plain words since 2026-10-16**; a train's times are still the page's.
-- Home-screen history is stale after a task (`CONTRACT.md`).
+- ~~Home-screen history is stale after a task (`CONTRACT.md`).~~ **Fixed
+  2026-10-18**: "Back to start" opens a new connection, and is offered the goals
+  and tiles as they now stand (`store.startOver`).
 - A backend that dies mid-task leaves "Give me a moment." on screen with
   nothing to press.
-- Nothing chooses a level automatically; only the mock sends `load.updated`.
+- ~~Nothing chooses a level automatically; only the mock sends `load.updated`.~~
+  **The rules have since 2026-09-25**, and the trained model judges the first
+  page since 2026-10-30.
 - ~~The credential vault is not built.~~ **A minimal one, 2026-10-03**
   (`backend/orchestrator/vault.py`). What it is not: saved details can be
   forgotten only from a sign-in step, during a task — deleting them from the
@@ -1462,21 +1579,21 @@ On `feat/railways-ask`, **not merged**.
    viewport; `links` and `interactive` count the whole page. BBC News has 106
    links and looks calm. Counting them per viewport is untested, and would
    mean recapturing the corpus.
-2. **One feature still carries almost no signal**: `overlays` is 0 on 37 of
-   45 pages. Down from 20 of 20, and the remaining thinness is honest — five
-   of the eight nonzero rows are component libraries asked to show a dialog,
-   which is a corpus of demonstrations of modals rather than a sample of
-   pages that have them. `inferred` is no longer flat (14 of 45) but its mass
-   is three `demo` rows: MUI 305, SweetAlert2 107, Ant Design 59.
+2. **One feature still carries almost no signal**: `overlays` is 0 on 39 of the
+   50 pages headless (37 of 45 when this was written), and its coefficient in
+   the trained model is +0.004. The thinness is honest: it was a corpus of
+   demonstrations of modals rather than a sample of pages that have them.
+   `inferred` is nonzero on 17 of 50.
 3. ~~**`links` and `interactive` are nearly the same signal.**~~ **Settled
    2026-09-20d, twice.** Merged in the morning on the 20-page corpus, split
    again the same day on the 45-page one, where nine of the 44 pages with any
    controls sit under `link_share` 0.6 — a login at 0.00, a 15-field practice
    form at 0.083, the railways calendar at 0.182. Both counts still travel in
    every row either way.
-3b. **Nine features, 50 rows, 4 labels.** Nothing can be fitted to this. All
+3b. ~~**Nine features, 50 rows, 4 labels.** Nothing can be fitted to this. All
    four labels are passes; one is the rig built to fail and one is a single
-   live run. More labels need more *plans*, not more runs.
+   live run. More labels need more *plans*, not more runs.~~ **People's ratings
+   replaced labels as the target on 2026-10-30.**
 3c. ~~**`text_density` assumes the top of the page.**~~ **Fixed 2026-09-30**
    and the corpus re-collected: where a drive scrolled, density rose 20–88%
    with the same characters.
@@ -1576,9 +1693,9 @@ On `feat/railways-ask`, **not merged**.
 - **Two limitations are now stated rather than implied**: what environment a
   perception figure was measured in, and what a wall clock from this machine
   is worth.
-- **The corpus is 45 pages read once.** Enough to choose features, to show
-  which carry no signal, and to bound one threshold; nowhere near enough to
-  calibrate a score. Five rows are pages we wrote and **eighteen are demo
+- **The corpus is 50 pages.** Enough to choose features, to show which carry no
+  signal, and to bound one threshold; thin for a score, which is why the model's
+  folds run from 0.06 to 0.72. Five rows are pages we wrote and **21 are demo
   sites**, so a feature that separates them from the world may be measuring
   our HTML habits or a component gallery's. Every row says which it is.
 - **Both detector thresholds are measured and the rest are not.**
@@ -1615,7 +1732,7 @@ On `feat/railways-ask`, **not merged**.
   four failures a newcomer actually meets. `frontend/README.md` matches the
   project as of 2026-09-17.
 - **`DEMO.md`** — the five-minute demo, with a fallback for every part of it
-  that can fail, resting on the four recordings in `demo/`.
+  that can fail, resting on the six clips `tools/record_demo.py` makes in `demo/`.
 
 **Open**
 - No CI. The Electron tests skip silently without a host.
@@ -1639,12 +1756,12 @@ On `feat/railways-ask`, **not merged**.
 - ~~**Most existing tests write to the system temp directory.**~~ **Fixed
   2026-10-03**: the root `conftest.py` sets `--basetemp` to `.scratch/pytest`;
   `test_basetemp.py` holds it.
-- **`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
+- ~~**`feat/orchestrator-preview-capture` is committed and deliberately unmerged**:
   it keeps the site view repainting while it is photographed, and it stays out
   of `main` until the 100% capture rate is measured for real (see 2026-09-27
-  above). *Superseded 2026-10-17: measured again, the repainting made no
-  difference; `browser.capture_site` asks again instead. The branch need not
-  be merged.*
+  above).~~ *Superseded 2026-10-17: measured again, the repainting made no
+  difference; `browser.capture_site` asks again instead. The branch was deleted
+  the same day.*
 - **The demo recordings must be made before a demo**, on a machine with the
   stack up: `demo/*.webm` is gitignored, so a fresh clone has no fallbacks
   (DECISIONS.md, 2026-09-23).
@@ -1654,11 +1771,13 @@ On `feat/railways-ask`, **not merged**.
   `tools/evaluation/person_details_stack_run` is the one that can answer a
   question — it fills a box or presses a named answer — and is what the
   2026-09-30 live runs used.
-- **`replicas/railways/` is not started by the launcher**, deliberately:
+- ~~**`replicas/railways/` is not started by the launcher**, deliberately:
   `railways` means the live site. The tests start it themselves; by hand it is
   `PORT=5200 python replicas/railways/app.py`. Nothing in `run.ps1` or
   `run.sh` opens the window on it, so watching the trip planner in the real
-  overlay means watching it against the live site.
+  overlay means watching it against the live site.~~ **Both launchers do now**:
+  `railways-local` starts our copy and sends train goals to it; `railways` still
+  means the live site.
 - **The home screen's cards now lead into questions.** Each card sends its own
   words as the goal, and "Check my electricity bill" does not name a bill — so
   pressing it asks for the reference number, and a demo has someone type
