@@ -164,6 +164,9 @@ ordinal, which is order-dependent.
 
 ## Never execute an irreversible action
 
+*Superseded on 2026-10-16 by* The final-step rule replaces "never execute an
+irreversible action"*, and "every step waits" on 2026-10-14 by the checklist.*
+
 **Date:** 2026-09-04 (predates the repo; stated in `CLAUDE.md`)
 
 **Decision.** No payments, no form submissions that alter real records, no
@@ -3263,6 +3266,9 @@ asked for somewhere that is not on the railway.
 
 ## The count on screen is read once and kept
 
+*Superseded on 2026-10-14: named stages replaced the count on screen, and no
+frontend code reads it.*
+
 **Date:** 2026-09-30
 
 **Decision.** `_Run.total` is set when `task.started` goes out and never
@@ -3314,6 +3320,9 @@ measured off the live site; it is three times the window that failed.
 ---
 
 ## The home screen is one list of three, and a card holds two lines
+
+*Superseded on 2026-10-14 by the new home screen: three tiles always, at most two
+goals under them. `App.homeCards` is gone.*
 
 **Date:** 2026-09-30 (`frontend/`, Aly's area; asked for by Raham)
 

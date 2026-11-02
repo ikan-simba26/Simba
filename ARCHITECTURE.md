@@ -4,9 +4,9 @@ Plain language, naming the real files. Read `CLAUDE.md` first for the rules
 this has to obey, `CONTRACT.md` for the message shapes, and `DECISIONS.md`
 for why any of it is shaped this way.
 
-**Refreshed 2026-09-17** against the code as checked out that day. What had
-drifted is listed at the end, under *Drift found on 2026-09-17*, rather than
-corrected silently.
+**Refreshed 2026-09-17** against the code as checked out that day, and corrected
+on 2026-11-02. What had drifted is listed at the end, under *Drift found*, rather
+than corrected silently.
 
 ## The short version
 
@@ -27,11 +27,13 @@ corrected silently.
 Two processes, one WebSocket, and nothing crosses between them that is not
 in `CONTRACT.md`.
 
-Both live inside one Electron window holding two `WebContentsView`s at
-identical 1280x800 bounds: the **site view** with the real website, and the
-**overlay** — the React app — added after it so it covers the site view
-completely. The user only ever sees the overlay. The backend attaches to the
-site view over CDP on port 9222 and drives it.
+Both live inside one Electron window holding two `WebContentsView`s: the **site
+view** with the real website, always 1280x800 at the window's origin, and the
+**overlay** — the React app — added after it and filling the window's content
+area, which is smaller than the site view on a small screen. So it covers
+everything of the site view the window shows, and the user only ever sees the
+overlay. The backend attaches to the site view over CDP on port 9222 and drives
+it.
 
 ---
 
@@ -39,19 +41,22 @@ site view over CDP on port 9222 and drives it.
 
 ### 1. The overlay opens a task
 
-When the socket opens, the backend sends `history.offered` — up to three
-goals from the trace store — before anything is asked
-(`app.py:past_goals`). The home screen greets the person, shows those goals
-as cards, and keeps the text box behind "Ask for something new". With no
-history the text box is shown directly.
+When the socket opens, the backend sends `history.offered` — up to three goals
+from the trace store, and the person's own tiles by name — before anything is
+asked (`app.py:past_goals`). On opening, the overlay shows the logo until that
+message arrives, trying again meanwhile, because the launchers start the window
+first, and for 15s at most (`Brand.tsx`). The home screen greets the person, and
+shows their own tiles, the three things SIMBA can do, at most two of those goals,
+and the text box, which is always there.
 
-Choosing a card or typing a goal sends `task.start`. That text *is* the task:
+Choosing a tile or typing a goal sends `task.start`. That text *is* the task:
 the backend runs the goal as sent (`CONTRACT.md`), and only falls back to its
 configured goal if the message carries none.
 `backend/orchestrator/app.py:ws_endpoint` accepts the socket, wraps it in a
 `Connection` (`loop.py`), and waits for that message. **One socket carries
-one task**: the backend closes it when the task ends, and the overlay
-reconnects when the next one starts.
+one task**: the backend closes it when the task ends, or after `loop.OFFER_IDLE_S`
+if a closing screen's offer is keeping it open, and the overlay reconnects for
+the home screen.
 
 Environment variables decide what runs:
 
@@ -70,6 +75,10 @@ Environment variables decide what runs:
 | `SIMBA_LLM_EFFORT` | Thinking effort for the Anthropic provider |
 | `SIMBA_OVERLAY_DETECTION`, `SIMBA_INFERRED_ROLES` | Ablation switches in perception |
 | `SIMBA_SETBACK_PLACEMENT` | `above` (the design) or `after`, for comparing where a setback sits in the prompt |
+| `SIMBA_ADAPT` | On by default: the rules choose the level. `0` sends no `load.updated` |
+| `SIMBA_PAGE_MODEL` | On by default: the trained model judges the first page. `0`, or no model file, leaves that to the rules |
+| `SIMBA_RECORD_STEPS` | On by default: rows go to `data/steps.jsonl`. `0` turns it off |
+| `SIMBA_LOG_FILE` | Where the backend's run log goes (default `logs/backend.log`); empty keeps it to the console |
 
 `browser.open_page` yields the page to drive — either a fresh headless
 Chromium at the frozen viewport, or the Electron host's site view picked out
@@ -169,7 +178,9 @@ await planner.next_move(elements, history, setback)
 
 A `Move` (defined in `loop.py`) is what to show the user, what to do, and
 what must be true afterwards: `instruction`, `detail`, `operations`,
-`expect`, `fields`, `actions`.
+`expect`, `fields`, `actions`. Three more say how it is treated: `question`,
+`safe` (it may run without a press) and `changes` (it books, pays, registers or
+changes a record).
 
 Three planners produce them, and that is the *only* thing that differs
 between them:
@@ -200,8 +211,8 @@ replay for good and the wrapped planner takes over from there.
 
 ### 4. Present, and wait
 
-`run_task` sends `state.changed: waiting` then `step.presented` with the
-move's instruction, detail, any input fields, the two actions, and whatever
+The loop (`loop.carry_out`) sends `state.changed: waiting` then `step.presented`
+with the move's instruction, detail, any input fields, its actions, and whatever
 the task has found so far. It then blocks on `connection.receive` until a
 `step.response` for that step index arrives.
 
@@ -212,8 +223,18 @@ sentence describing a move a planner chose — comes from
 `backend/orchestrator/voice.py`. `frontend/test_copy.py` holds both to the
 same rules as the overlay's own `copy.ts`.
 
-Nothing acts on the page before the user confirms. A response whose
-`action_id` is not `confirm` ends the task with `task.failed`.
+**The person decides, SIMBA clicks** (2026-10-14). Not every move waits. Once the
+person has decided, a `safe` move runs by itself as a checklist line:
+`step.presented` with `requires_confirmation: false`, with Pause as its one answer.
+A real choice, anything to type, the next move after anything that went wrong, and
+any move that `changes` something still asks, and a person can ask to confirm every
+move (`task.start.confirm_each`).
+
+What an answer does depends on the step. On a **question**, every id it offers is an
+answer and only `cancel` stops (`loop.is_answer`). On an **ordinary step**, `confirm`
+goes on, `remember` goes on and keeps the password, `decline` on a yes-or-no question
+leaves that one move undone, and anything else stops. On a **final screen**, see
+stage 8. A stop reaches the overlay as `task.failed`.
 
 ### 5. Act
 
@@ -292,26 +313,42 @@ has searched with holds every value.
 
 When the planner has nothing more, the same check runs on the final page
 whenever the task has a `success` expectation *or* any `holds`. Unmet, the
-run ends in `help.requested` with the reason. Met, `run_task` hands the moves
+run ends in `help.requested` with the reason. Met, the loop hands the moves
 that worked to `planner.finished` if it has one — that is how `TracePlanner`
 records a trace — and sends `task.completed` with the step count, model calls,
 whether any step was replayed, and the findings.
+
+**The final-step rule** (2026-10-16, CLAUDE.md), held in `loop.carry_out` for every
+planner. A move that books, pays, registers or changes a record (`loop.would_change`)
+ends the run on a page not served from this machine (`loop.on_replica`), and
+otherwise goes through a final screen, which says what will happen, with the page's
+own details, and has two answers and no default. `confirm` does it, once: a second
+press could make the change twice. `decline` ends the task with "Nothing was changed."
+A page that asks for card or bank details ends the run on any site.
+
+**`task.completed` says what was and was not done.** `scope` is what was done;
+`confirmation` and `caveat` quote the site; `proof` is a still of the page as the task
+closed, with what was read ringed, or `proof_note` says why there is none. `offer`
+keeps the run open for a quiet "Book one of these" or "Pay this bill", on a replica
+only, and `keep` offers to keep the task as a tile.
 
 ---
 
 ## What the overlay does with all this
 
-The overlay is one column showing one screen at a time (`App.tsx`): home,
-working ("Let me open that for you." then "Give me a moment."), a step, or
-one of five endings — found an answer, done, failed, stuck, and stopped by
-the person. **Every ending offers "Back to start"**, which returns to the
-home screen; `frontend/test_terminal_states.py` renders each, including after
-a step, and fails if one has nothing to press or a button that goes nowhere.
+The overlay is one column showing one screen at a time (`App.tsx`): the welcome on a
+first open, home, working ("Let me open that for you." then "Give me a moment."), a
+step, the checklist, or one of six endings — found an answer, done, failed, stuck,
+stopped by the person, and "I didn't do it. Nothing was changed." **Every ending
+offers "Back to start"**, which returns to the home screen;
+`frontend/test_terminal_states.py` renders each, including after a step, and fails if
+one has nothing to press or a button that goes nowhere.
 
-The person's own stop is decided in the overlay, not read from the backend:
-any answer to a step other than `confirm` stops the task in `loop.run_task`,
-which reports it as `task.failed`, so the overlay shows its stop ending the
-moment the answer is sent and ignores the `task.failed` that follows. Every word it writes itself is in `frontend/src/copy.ts`.
+The person's own stop is decided in the overlay, not read from the backend. `cancel`
+stops the task, which the loop reports as `task.failed`, so the overlay shows its stop
+ending the moment the answer is sent (`store.respond`) and ignores the `task.failed`
+that follows. "Don't" on a final screen is handled the same way. Every word it writes
+itself is in `frontend/src/copy.ts`.
 
 `step.presented` is rendered by `StepShell`, at one of three detail levels
 described as data in `frontend/src/levels.ts`. The levels are ordered by
@@ -384,11 +421,13 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `backend/orchestrator/traces.py` | SQLite trace storage |
 | `backend/orchestrator/replay.py` | `TracePlanner` |
 | `backend/orchestrator/app.py` | FastAPI `/ws` endpoint, `history.offered`, the flow switches |
+| `backend/orchestrator/vault.py` | One saved password per site, encrypted with this Windows account's key |
+| `backend/orchestrator/tiles.py` | The person's own tiles, encrypted with the same key |
 | `backend/estimator/` | Page features (`page_features.py`), step/telemetry/decision rows (`pairing.py`), training (`train.py`), the trained model as the app reads it (`page_model.py`), and the level rules (`rules.py`), which take the model's judgement of the page and fall back on their own signs |
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
 | `frontend/electron/main.ts` | The window: site view, then overlay on top of it |
-| `frontend/src/App.tsx` | The overlay: home, working, step, and the five endings |
+| `frontend/src/App.tsx` | The overlay: home, working, step, the checklist and the six endings |
 | `frontend/src/copy.ts` | Every word the overlay writes itself |
 | `frontend/src/store.ts` | Every message applied, in one place |
 | `frontend/src/connection.ts` | The WebSocket, framed as envelopes; `?ws=` overrides the address |
@@ -396,7 +435,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `frontend/src/components/StepShell.tsx` | One step at any level, and the fold between them |
 | `frontend/src/components/StateSignal.tsx` | The four states shown without words; the stuck note |
 | `frontend/src/components/LevelControl.tsx` | The three dots, the lock, the level notice |
-| `frontend/src/components/StepNotice.tsx` | The skipped-step notice |
+| `frontend/src/components/Notices.tsx` | The skipped-step and level notices, and how long they stay |
 | `frontend/src/components/TrustPanel.tsx` | "What are you doing?" and the annotated capture |
 | `frontend/src/components/Debug.tsx` | The development view, Ctrl+Shift+D |
 | `frontend/src/components/Brand.tsx` | The logo while SIMBA opens, which waits for the backend's first message, and the small one on the home screen |
@@ -404,7 +443,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `frontend/src/useOverflowGuard.ts` | Drops a level when a step will not fit |
 | `frontend/test_copy.py` | The voice rules, for `copy.ts`, the components and the backend |
 | `frontend/test_levels.py`, `frontend/test_terminal_states.py` | Rendered tests in a real browser |
-| `replicas/registration/`, `replicas/billing/` | Local sites to run against |
+| `replicas/registration/`, `replicas/billing/`, `replicas/railways/` | Local sites to run against, and the only places anything is booked, paid or registered |
 | `tools/mock_backend.py` | Scripted backend so the overlay can be built alone |
 | `tools/screen_site.py` | Screen a site before pointing anything at it |
 | `tools/evaluation/` | The scripts behind EVALUATION.md's tables |
@@ -421,9 +460,10 @@ after two calm steps — is still read by **provisional hand-written rules**
 (`backend/estimator/rules.py`), and no person's behaviour is behind their
 thresholds. Pages after the first are scored and logged, and do not move the
 level. Every decision is logged to `data/steps.jsonl`, with who judged the page
-and what the rules would have said. The **credential vault** — values arrive
-in `step.response` rather than being injected from a store the model cannot
-see. **Voice input**, and **replay tuning**.
+and what the rules would have said. **A credential store past the minimum**: one
+saved password per site, Windows only, typed by the backend and never in a prompt
+(`vault.py`), and forgettable only from a sign-in step. **Voice input**, and
+**replay tuning**.
 
 See `STATUS.md` for where each module actually stands.
 
@@ -500,3 +540,28 @@ What this file said that was no longer true, and was changed:
 
 Changed by this task, so not drift: `Expectation.value_is` and
 `Task.answers` are now `Task.about`.
+
+## Drift found on 2026-11-02
+
+What this file said that was no longer true, and was changed:
+
+- **The two views** were described at identical 1280x800 bounds. The overlay has
+  been the window's own size since 2026-09-25.
+- **Stage 1** kept the text box behind "Ask for something new", which went on
+  2026-10-14, and did not mention tiles or the logo. One socket does not always
+  end with its task since closing-screen offers.
+- **Stage 4 and the overlay section** said any answer but `confirm` stops a task, and
+  that nothing runs before the person confirms. Both stopped being true on 2026-09-30
+  and 2026-10-14; what each kind of step does is now spelled out.
+- **Stage 8** said nothing of the final-step rule, proof or offers, all from 2026-10-16.
+- **The overlay section** counted five endings, with no welcome and no checklist.
+- **"What is not built"** said no credential vault, which has existed since
+  2026-10-03.
+- **`run_task`** was named for the loop's own work, which is in `carry_out`.
+- **The file table** named `StepNotice.tsx`, which is gone, and left out `vault.py`,
+  `tiles.py` and the railways replica. **The environment table** left out four
+  switches that decide what runs.
+
+Checked and left alone: the system prompt above, which matches the code word for
+word. The level table was compared with `levels.ts` on what it shows, not on its
+findings column.

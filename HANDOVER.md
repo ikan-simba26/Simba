@@ -1,38 +1,39 @@
 # SIMBA — handover
 
 For someone who has never seen this repository and needs to reason about it
-without reading the code. Written 2026-09-17 against commit `cc4704f`,
-updated on 2026-09-18, **refreshed on 2026-10-05** against `main` at
-`9fd09bc` plus `feat/multi-october-fifth` — sections 1 to 4, 6 to 8 and 10
-rewritten for what had changed — and brought up to date on 2026-10-06 for
-whole rows, the window waited for and the fastest train named, and on
-2026-10-15 for the interface work of 14 and 15 October (the checklist, named
-stages, the new home screen and colours, the review fixes), merged into
-`main` that day. Brought up to date again on 2026-10-17 for the
-final-step rule: booking, paying and registering on our replicas behind a
-final screen, the offer as a quiet button, the press guard, and what Nahail
-and Aly must agree (below). And once more on 2026-10-17 for `fix/stability`:
-the 100% picture fixed (`browser.capture_site`), the false window pause, the
-practice-copy endings, the full registration caveat, an offer that closes
-after ten minutes, the backend's run log (`logs/backend.log`), the host fit
-test's hang, and README checked against a fresh clone — STATUS.md has each. And on 2026-10-17 for `fix/final-touches`: a
-registration said as a practice copy, every dependency pinned, the whole
-suite run on a fresh clone (which found a press-guard bug, now fixed), the
-booking clip re-recorded, and the superseded preview-capture branch deleted. And on 2026-10-18 for `feat/personal`, **merged into `main` on 2026-10-23**: the welcome
-and the person's profile, their own tiles, the starting level as an estimator
-signal, and a reset — items 5 to 7 below. And on 2026-10-23 for ratings
-collected online: two Google Forms, A and B in reverse order, and a converter
-for their answers (`tools/rating/form/README.md`); and for the trace store's
-times, which tied on Windows and are now strictly increasing (STATUS.md). And
-later on 2026-10-23 for `feat/rating-sets`: the forms replaced, before any
-rating was collected, by two sets of 30 pictures with a five-point labelled
-question, worked examples and anchors, and training's floor changed to 8
-ratings per page (DECISIONS.md, *Two sets of 30*). And on 2026-10-30 for
-`feat/estimator-trained`: the estimator trained on people's ratings and judging
-the first page of a task. And on 2026-11-01 for `fix/after-training`: the overflow
-guard's move lasts one screen. And on 2026-11-02 for `feat/brand`: the logo, the icon
-and the title. Section 9 is still the 2026-09-17 capture, and says so.
-About twenty minutes end to end.
+without reading the code. About twenty minutes end to end. Written on 2026-09-17
+against commit `cc4704f`, and brought up to date since:
+
+- **2026-09-18**: updated.
+- **2026-10-05**: refreshed against `main` at `9fd09bc` plus
+  `feat/multi-october-fifth`; sections 1 to 4, 6 to 8 and 10 rewritten.
+- **2026-10-06**: whole rows, the window waited for, the fastest train named.
+- **2026-10-15**: the interface work of 14 and 15 October: the checklist, named
+  stages, the new home screen and colours, the review fixes.
+- **2026-10-17**: the final-step rule: booking, paying and registering on our
+  replicas behind a final screen, the offer as a quiet button, the press guard, and
+  what Nahail and Aly must agree (below).
+- **2026-10-17, `fix/stability`**: the 100% picture fixed (`browser.capture_site`),
+  the false window pause, practice-copy endings, the full registration caveat, an
+  offer that closes after ten minutes, the backend's run log, the host fit test's
+  hang, and README checked on a fresh clone.
+- **2026-10-17, `fix/final-touches`**: a registration said as a practice copy, every
+  dependency pinned, the whole suite run on a fresh clone (which found a press-guard
+  bug, now fixed), the booking clip re-recorded, the preview-capture branch deleted.
+- **2026-10-18, `feat/personal`, merged 2026-10-23**: the welcome and the person's
+  profile, their own tiles, the starting level as an estimator signal, and a reset.
+- **2026-10-23**: ratings collected online, and the trace store's times, which tied
+  on Windows and are now strictly increasing.
+- **2026-10-23, `feat/rating-sets`**: two sets of 30 pictures with a five-point
+  labelled question, replacing the forms before any rating was collected, and
+  training's floor set at 8 ratings per page.
+- **2026-10-30, `feat/estimator-trained`**: the estimator trained on people's ratings
+  and judging the first page of a task.
+- **2026-11-01, `fix/after-training`**: the overflow guard's move lasts one screen.
+- **2026-11-02, `feat/brand`**: the logo, the icon and the title.
+- **2026-11-02, `docs/tidy`**: this list, and what had gone stale in section 8.
+
+Section 9 is still the 2026-09-17 capture, and says so.
 
 This file summarises and points. It does not repeat the four living
 documents, and where they go deeper it links to them:
@@ -245,7 +246,7 @@ a reference number); anything missing is asked for, one question at a time,
 before the site is touched. Then the loop, per step: read the page → decide
 the next action → show it to the person → wait for them to agree → do it →
 read the page again and check → retry once a different way, or stop and ask
-for help. It ends on one of five screens; the one with an answer shows it,
+for help. It ends on one of six screens; the one with an answer shows it,
 with one plain sentence saying what it means.
 
 Deciding the next action is done by one of three "planners", and they are
@@ -317,9 +318,9 @@ interactive elements, and the readable content.
 
 | Claim | Evidence |
 |---|---|
-| One calm column: a home screen, a working state, a step, and five endings (found an answer, done, failed, stuck, stopped by the person), in a design system with a light and a dark theme | `test_terminal_states.py` renders all five in a real browser, each also reached from a step; before-and-after captures in both themes (2026-09-21) |
+| One calm column: a home screen, a working state, a step, and six endings (found an answer, done, failed, stuck, stopped by the person, nothing changed), in a design system with a light and a dark theme | `test_terminal_states.py` renders each in a real browser, also reached from a step; before-and-after captures in both themes (2026-09-21) |
 | **Every ending offers a way onward, and it can be pressed** | same file. Fixed 2026-09-17 twice: the stuck ending had nothing to press, and every ending reached from a step had an invisible leftover screen over its buttons (EVALUATION.md, 2026-09-17c) |
-| **Every screen fits the window at 100%, 125% and 150%** — the home screen with or without history, every step, and since 2026-10-05 every ending, with nothing below 20px | `test_home.py`, `test_terminal_states.py` (17 endings at three sizes), and `test_window_fit.py` in the real window (EVALUATION.md, 2026-09-30d, 2026-10-05b) |
+| **Every screen fits the window at 100%, 125% and 150%** — the home screen with or without history, every step, and since 2026-10-05 every ending, with nothing below 20px | `test_home.py`, `test_terminal_states.py` (38 endings at three sizes), and `test_window_fit.py` in the real window (EVALUATION.md, 2026-09-30d, 2026-10-05b) |
 | The closing screen shows the answer under a heading saying what it is for: a ticket per train with when it leaves, arrives (and on which day) and how long, five at 100% and three in a short window, and a count past that | `test_closing.py` (EVALUATION.md, 2026-10-05, 2026-10-15) |
 | Named stages instead of a step count (trains: From, To, Day, Search, Trains), fixed for the task | `test_questions.py`, `test_step_kind.py` (2026-10-14) |
 | A task's first question fits at level 2 at every size, and no notice is ever shown on a task's first screen | `test_first_screen.py` (EVALUATION.md, 2026-10-14b) |
@@ -823,21 +824,19 @@ options and a recommendation; this is the list.
     again.
 14c. *(Settled 2026-10-17: a registration on our copy ends in practice words
     too, the portal's caveat kept.)*
-14e. **What a reset should clear between study participants** (2026-10-18):
-    the profile and tiles go, but "You asked before" still shows the last
-    person's goals, from the replay store. DECISIONS.md, *Forgetting the
-    person*, has the options; the recommendation is to hide goals from before
-    a reset.
+14e. *(Settled 2026-10-21: the profile and tiles go, and goals from before a
+    reset are never offered. DECISIONS.md, *Forgetting the person: nothing from
+    before the reset is ever shown*.)*
 14d. **The host's window counts only for a task started in it**
     (`window.__simbaStarted`, 2026-10-17), and a window hidden by something
     else is never noticed. Nothing in SIMBA hides it today.
 
 **The contract**
 
-15. **`history.offered`** — a new message type, pending ratification. It is
-    also stale: the home screen reached after a task shows the goals from
-    before that task. [CONTRACT.md](CONTRACT.md) has the reasoning and the
-    costs.
+15. **`history.offered`** — a new message type, pending ratification.
+    [CONTRACT.md](CONTRACT.md) has the reasoning and the costs. It is no longer
+    stale: since 2026-10-18 "Back to start" opens a new connection, and is offered
+    the goals as they now stand.
 
 16. **Is prompt prominence worth anything?** "Anything a planner must act on
     goes above the element list" was built on three cases, and the setback one
