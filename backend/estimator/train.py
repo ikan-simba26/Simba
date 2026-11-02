@@ -386,10 +386,12 @@ def groups(ratings: list[Rating]) -> Groups | None:
     """Set 1 against Set 2 on the pages raters of both rated, first showings
     only. None unless the ratings carry exactly two sets."""
     first = [r for r in ratings if not r.repeat and r.set is not None]
-    sets = sorted({r.set for r in first})
+    # Set 3 shares only three pages with them, and `train_visual` compares it.
+    sets = sorted({r.set for r in first} - {3})
     if len(sets) != 2:
         return None
     one, two = sets
+    first = [r for r in first if r.set in sets]
     by_page: dict[tuple[str, str], dict[int, list[int]]] = {}
     for r in first:
         by_page.setdefault(r.key, {}).setdefault(r.set, []).append(r.rating)

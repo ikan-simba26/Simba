@@ -611,12 +611,15 @@ def as_rated(rows: list[dict]) -> list[Rating]:
 
 
 def test_it_reads_the_sets_of_the_committed_forms() -> None:
-    """`data/rating/form.json`: 50 pages, 44 in one set and the 6 anchors in both."""
+    """`data/rating/form.json`: Sets 1 and 2's 50 pages, 44 in one set and the 6
+    anchors in both, three of them lent to Set 3, and Set 3's own 15."""
     design = read_design(pipeline.DESIGN)
 
-    assert len(design) == 50
-    assert sorted(len(s) for s in design.values()).count(2) == 6
+    assert len(design) == 65
+    assert sum({1, 2} <= s for s in design.values()) == 6
+    assert sum(s == {1, 2, 3} for s in design.values()) == 3
     assert sum(s == {1} for s in design.values()) == sum(s == {2} for s in design.values()) == 22
+    assert sum(s == {3} for s in design.values()) == 15
 
 
 # --- error, held out, and from a score to a level (2026-10-30) -----------------------
