@@ -5724,3 +5724,29 @@ the presence mark; the horizontal logo at the top of README.md.
 - **The documents keep "SIMBA".** The window's title and the logo are lower case
   because that is the brand; nothing else was renamed. No word on screen names the
   app, so there was nothing there to change.
+
+## The overwhelm index: what counts as read, and what a reason means
+
+**Date:** 2026-11-02 (asked for, by Raham: evaluation work, not a feature). **Nahail to
+review** what it says about the model (EVALUATION.md, 2026-11-02b).
+
+**Settled inside it (not asked for):**
+
+- **A robots.txt answering 401 or 403 is a no**, and one that cannot be read at all is too,
+  after one try in the browser, since Python's TLS refuses some chains Chromium accepts.
+  RFC 9309 would allow a visit after a 4xx. Five of the six skips are this, including NADRA
+  and HBL. *Alternative:* try those five in the browser too, which might let them through;
+  a site turning away an honestly named agent is a refusal, so it was left. *Cost:* some of
+  the largest services are missing.
+- **A refusal, a sign-in page or an empty first screen is failed, never scored.** The model
+  would call each calm. The empty screen is measured on the picture, 97% one colour, set
+  from a gap in that run: the empty page 99.4%, the next 83.2%. *Cost:* a page truly that
+  bare would be left out, and a page half loaded is not caught.
+- **The level reported is the rules', beside the model's band**, because they differ: the
+  model's calm is SIMBA's level 2.
+- **A reason is shown with its direction.** `PageModel.reasons` follows the way a score
+  went, which is right for a log and misleads a reader when every page went down. The model
+  is unchanged; this script says what pushed up and what held down.
+- **The ranking is reported as asked, with the warning first.** *Alternative:* no ranking,
+  since the model's error is larger than the gaps between categories. It was asked for, so it
+  is there, and the report says how far to trust it.

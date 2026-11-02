@@ -350,10 +350,69 @@ def test_urdu_share_reads_letters_only() -> None:
     assert index.urdu_share("پاک ab") == pytest.approx(0.6)
 
 
+def test_a_first_screen_still_empty_is_failed_however_much_text_the_page_has(
+    host: str, model, tmp_path: Path,
+) -> None:
+    """K-Electric on 2026-11-02: 9,566 characters on the page, a menu on the
+    screen, and last in the table as the calmest site in the country."""
+    hidden = "".join(f"<p><a href='/{n}'>A link that has not appeared yet</a></p>" for n in range(40))
+    Sites.pages = {"/": (200, "<title>A utility</title><nav><a href='/a'>Home</a></nav>"
+                              f"<main style='opacity:0'>{hidden}{'Words. ' * 400}</main>")}
+
+    rows, _ = surveyed([site(host)], model, tmp_path)
+
+    assert rows[0]["status"] == "failed", rows[0]
+    assert "empty" in rows[0]["note"]
+    assert index.ranked(rows) == []
+    # The picture is kept: it is the evidence for the row.
+    assert (tmp_path / rows[0]["screenshot"]).exists()
+
+
+@pytest.mark.parametrize("flat, empty", [(0.9936, True), (0.97, True), (0.8319, False), (0.1, False)])
+def test_the_limit_sits_between_the_empty_page_and_the_flattest_real_one(
+    flat: float, empty: bool,
+) -> None:
+    assert bool(index.empty_screen(flat)) is empty
+
+
+def test_both_directions_are_given_and_in_the_right_order(model) -> None:
+    row = features(text_density=12.0, links=400, max_depth=40, interactive=120).as_dict()
+
+    found = index.moved(row, model)
+
+    assert "a lot of text on screen" in found["pushed_up_by"]
+    # More depth lowers this model's score: said as what holds it down, never
+    # as a reason a page overwhelms.
+    assert "a deeply nested layout" in found["held_down_by"]
+    assert not set(found["pushed_up_by"]) & set(found["held_down_by"])
+
+
+def test_a_reason_too_small_to_matter_is_left_out(model) -> None:
+    average = dict(zip(page_model.FEATURES, model.means))
+
+    assert index.moved(average, model) == {"pushed_up_by": [], "held_down_by": []}
+
+
+def test_saved_results_can_be_worked_out_again_with_no_visit(model) -> None:
+    kept = full_row("Kept", 2.0, 1)
+    empty = {**full_row("Empty", 1.1, 1), "why": "x", "url": "https://e.example/",
+             "screenshot": "empty.png"}
+    kept["why"] = "x"
+    gone = missed("Gone", "Banks", "skipped")
+    pictures = {"x.png": 0.4, "empty.png": 0.99}
+
+    rows = index.rederive([kept, empty, gone], model, pictures.__getitem__)
+
+    assert [row["status"] for row in rows] == ["scored", "failed", "skipped"]
+    assert rows[0]["flat_share"] == 0.4 and "held_down_by" in rows[0]
+    assert rows[1]["was_scored"] == 1.1 and "empty" in rows[1]["note"]
+    assert rows[2] == gone
+
+
 def scored(name: str, category: str, rating: float, reasons: list[str], band: int = 2) -> dict:
     return {"site": name, "category": category, "status": "scored", "rating": rating, "score": 0.5,
             "page_band": band, "simba_level": max(2, band), "reasons": reasons, "urdu_share": 0.0,
-            "outside_corpus": []}
+            "outside_corpus": [], "pushed_up_by": ["many links (240)"], "held_down_by": []}
 
 
 def missed(name: str, category: str, status: str = "failed") -> dict:
@@ -417,3 +476,38 @@ def test_the_report_names_what_was_missed_and_its_limits(model) -> None:
     assert "prediction" in words
     assert "15 raters" in words and "first screen" in words
     assert model.version in words
+
+
+def calm_rows(count: int = 3) -> list[dict]:
+    return [full_row(f"Site {n}", 1.8, 1) for n in range(count)]
+
+
+REPORTED = {"taken_at": "2026-11-02T18:00:00+05:00", "chromium": "1",
+            "git": {"commit": "abc", "branch": "eval/overwhelm-index"}}
+
+
+def test_the_report_says_first_that_calm_is_not_to_be_believed(model) -> None:
+    words = index.report(calm_rows(), model, REPORTED)
+
+    warning = words.index("should not be believed yet")
+    assert warning < words.index("## Ranked")
+    assert "3 of 3 score below the average page" in words
+    assert "It counts text" in words
+
+
+def test_the_report_gives_a_reasons_direction(model) -> None:
+    words = index.report(calm_rows(), model, REPORTED)
+
+    assert "Pushed up by | Held down by" in words
+    assert "mostly why pages scored low, not why they overwhelm" in words
+
+
+def test_with_no_heavy_page_there_is_no_empty_line_about_them(model) -> None:
+    """The first pass printed "Among the 0 heavy pages alone: ."."""
+    assert "heavy pages alone" not in index.report(calm_rows(), model, REPORTED)
+
+
+def test_with_a_heavy_page_the_line_is_there(model) -> None:
+    rows = [*calm_rows(), full_row("Busy", 3.5, 3)]
+
+    assert "Among the 1 heavy pages alone" in index.report(rows, model, REPORTED)

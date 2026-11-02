@@ -72,6 +72,20 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
+### Changed on 2026-11-02 (last): the overwhelm index — `eval/overwhelm-index`
+
+- **The trained model on 42 Pakistani public sites**, read once each, read-only:
+  `tools/evaluation/overwhelm_index.py`, 55 tests. 35 scored, 6 skipped (5 of them 403s on
+  robots.txt), 1 failed.
+- **It calls them calm, and that should not be believed yet.** 34 of 35 are below the
+  average rated page, and none is heavy, against 7 of the 21 public pages people rated. The
+  pictures are busy. The model counts text and these pages put theirs in images: median
+  density 0.38 against 0.91. A limit of the model, found by using it on pages unlike those it
+  learned from (EVALUATION.md, 2026-11-02b).
+- **Open, for Nahail: nothing tests that reading.** People rating ten or so of these pictures
+  would. Pictures of text may need a feature of their own, which is past the freeze.
+- **Not re-run**: the whole suite, since this branch only adds a script and its tests.
+
 ### Changed on 2026-11-02 (later): the opening rewritten — `docs/tidy`
 
 Documents only, so the suite was not re-run. HANDOVER.md's opening is a dated list,
