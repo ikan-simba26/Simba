@@ -30,7 +30,8 @@ question, worked examples and anchors, and training's floor changed to 8
 ratings per page (DECISIONS.md, *Two sets of 30*). And on 2026-10-30 for
 `feat/estimator-trained`: the estimator trained on people's ratings and judging
 the first page of a task. And on 2026-11-01 for `fix/after-training`: the overflow
-guard's move lasts one screen. Section 9 is still the 2026-09-17 capture, and says so.
+guard's move lasts one screen. And on 2026-11-02 for `feat/brand`: the logo, the icon
+and the title. Section 9 is still the 2026-09-17 capture, and says so.
 About twenty minutes end to end.
 
 This file summarises and points. It does not repeat the four living
@@ -45,6 +46,13 @@ Also read [CLAUDE.md](CLAUDE.md) (the project's rules, which bind people and
 tools alike), [CONTRACT.md](CONTRACT.md) (every message between the two
 processes) and [RUNNING.md](RUNNING.md) (the launcher, and what to do when it
 fails).
+
+**For Aly (2026-11-02): the brand, yours to review.** Raham approved it as visual
+polish under the freeze. `frontend/src/components/Brand.tsx` has the logo while SIMBA
+opens and the small one on the home screen. Two things go past a picture: the overlay
+now tries the backend again while that logo is up, because the launchers start the
+window first, and the logos in `assets/brand/derived/` are the kit's with a background
+or a tagline deleted. DECISIONS.md, *The brand*, has both.
 
 **For Nahail (2026-10-30): the estimator is trained, and it is yours to review.**
 Raham asked for it to go in before the freeze, so it went in without you. Nothing
@@ -251,11 +259,11 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-11-01: **1665 passed, 12 skipped, 0 failed** (backend 1073 in 1013s, frontend 592 in 1327s, as two halves), and the host fit test 3/3, the end of the frontend half and all of the host test on battery (EVALUATION.md, 2026-11-01b). The 12 skips are
+The full suite was last run on 2026-11-02: **1712 passed, 12 skipped, 0 failed** (backend 1073 in 981s, frontend 639 in 1420s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-02). The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on
-2026-11-01: 3 passed), and 2 that hit the live website (not run today).
+2026-11-02: 3 passed), and 2 that hit the live website (not run today).
 
 ### Perception — `backend/perception/` (Nahail)
 
@@ -323,6 +331,7 @@ interactive elements, and the readable content.
 | Every word the overlay writes is in one file, `copy.ts`, and the backend's words obey the same rules | `test_copy.py`; 8 deliberate breakages tried on 2026-09-17, all caught |
 | "What are you doing?" shows a screenshot of the real page with the target ringed | built and used; its rendering is not covered by a test. The capture behind it is 20/20 at 100%, 110%, 125% and 150% since 2026-10-17 (`browser.capture_site`; it was about half at 100%) |
 | Telemetry — hesitation, pointer path, backtracks, re-reads, help presses — sent on every answer and on a 3s timer | `frontend/src/telemetry.ts`, `test_telemetry.py`; no keystrokes, field values or coordinates leave the window |
+| The logo while SIMBA opens, until the backend's first message or 15s, and none under reduced motion; a small logo on the home screen alone; the app icon and the title `simba` | `test_brand.py`, `test_window_fit.py` (EVALUATION.md, 2026-11-02) |
 
 ### Estimator — `backend/estimator/` (Nahail)
 
@@ -680,6 +689,8 @@ backend/estimator/             page features, the provisional level rules, telem
 frontend/electron/             the window: website view below, overlay on top
 frontend/src/                  the React overlay; copy.ts holds every word it writes
 frontend/test_*.py             tests that compile or render the overlay for real
+
+assets/brand/                  the logo kit as supplied; derived/ for what the overlay needs
 
 replicas/registration/         a cluttered student portal with a blocking modal (port 5000)
 replicas/billing/              a cluttered electricity bill lookup with a cookie bar (port 5100)

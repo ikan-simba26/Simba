@@ -399,6 +399,8 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `frontend/src/components/StepNotice.tsx` | The skipped-step notice |
 | `frontend/src/components/TrustPanel.tsx` | "What are you doing?" and the annotated capture |
 | `frontend/src/components/Debug.tsx` | The development view, Ctrl+Shift+D |
+| `frontend/src/components/Brand.tsx` | The logo while SIMBA opens, which waits for the backend's first message, and the small one on the home screen |
+| `assets/brand/` | The logo kit as supplied; `derived/` holds the same drawings without a background or a tagline, for the overlay and the README |
 | `frontend/src/useOverflowGuard.ts` | Drops a level when a step will not fit |
 | `frontend/test_copy.py` | The voice rules, for `copy.ts`, the components and the backend |
 | `frontend/test_levels.py`, `frontend/test_terminal_states.py` | Rendered tests in a real browser |

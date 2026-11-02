@@ -5662,3 +5662,56 @@ the person is looking at.
 it happens, rather than once a task. And level 3 and level 1 can now alternate
 down a task on a short window, which is a change of density between screens the
 person did not ask for. On the measured sizes it happens only at 1266x606.
+
+## The brand: what the kit needed, and what the logo waits for
+
+**Date:** 2026-11-02 (asked for, by Raham, as visual polish under the freeze:
+branding only, no new ability). **Aly to review** `Brand.tsx` and its place in
+`App.tsx`.
+
+**Asked for, and done as asked:** the kit in `assets/brand/`, unchanged; the app
+icon; the title "simba"; the stacked logo while the backend connects, fading to the
+home screen; a small horizontal logo on the home screen alone, with the shape kept as
+the presence mark; the horizontal logo at the top of README.md.
+
+**Settled inside it (not asked for):**
+
+- **Two logos are not the kit's files.** The dark logos sit on a filled rectangle,
+  #0F1A19, on a canvas of #0b1817 under a light from the top, so each stood in a
+  box you can see, more so on palette A's #14100c. The horizontal logo's tagline is
+  about 4px at the 48px the corner has room for: a smear, on a screen with nothing
+  under 20px. So `assets/brand/derived/` holds the same drawings with the rectangle
+  or the tagline deleted, and `test_brand.py` fails if they stop being exactly that.
+  *Alternatives:* use the kit's as they are, which is what was asked for literally,
+  and shows the box; ask for a new kit, which is the clean answer and the better one
+  if the kit's author is to hand. *Cost:* four more files, and a new kit means
+  making them again.
+- **"Nothing under reduced motion" is read as no logo at all**, not a logo that
+  appears and goes without moving. The home screen's own entrance does the same.
+- **While the logo is up, the overlay tries the backend again.** This is a change to
+  how the app connects, in a task about branding, and it is the one thing here that
+  is not picture-deep. `run.ps1` and `run.sh` start the window first, because the
+  backend attaches to it, so the first attempt fails, and nothing tried again until
+  the person pressed something. A logo waiting for that attempt never leaves; one
+  that leaves when it fails leaves with nothing connected. Every 500ms after an
+  attempt fails, while the logo is up and at no other time: on the home screen a late
+  attempt would close the connection a press had just opened. *Side effect, a good
+  one:* a person's own tiles and past goals are now on the home screen on a real
+  start, which they were not until the first task had ended. *Not fixed:* under
+  reduced motion there is no logo, so no retry, and that start is as it was.
+- **It leaves on the backend's first message, not on the socket opening.** On a real
+  start the socket opened 3.8s to 5.8s before the first message, and leaving on the
+  socket showed a home screen that rearranged itself when the tiles came.
+- **1.2s at least, so an up backend does not flash the logo; 15s at most**, then the
+  home screen, backend or no backend, as it always could be. The longest measured
+  real start was 9.8s, on battery.
+- **The home screen is not rendered behind the logo**, so its entrance plays as the
+  logo fades rather than unseen.
+- **An id for the taskbar**, `app.setAppUserModelId("simba")`, so Windows does not
+  file the window under Electron.
+- **The tests' builds turn the logo off** (`VITE_SIMBA_SPLASH=0`), as they do the
+  welcome; `test_brand.py` turns it on per page (`window.__simbaSplash`). The real
+  build is on, so `test_levels.py`, `record_demo.py` and the fit run say so too.
+- **The documents keep "SIMBA".** The window's title and the logo are lower case
+  because that is the brand; nothing else was renamed. No word on screen names the
+  app, so there was nothing there to change.
