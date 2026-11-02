@@ -7,6 +7,7 @@ write to `data/`; a test checks that the app's own model file does not change.
 """
 
 import hashlib
+import inspect
 import json
 from pathlib import Path
 
@@ -30,7 +31,8 @@ def quick(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def world(root: Path, rated: int = 40, sites: int = 15, raters: int = 8, *,
-          clutter_matters: bool = True, set3: bool = True, seed: int = 7) -> Paths:
+          clutter_matters: bool = True, set3: bool = True, seed: int = 7,
+          synthetic: bool = True) -> Paths:
     """A study of `rated` pages in two sets and `sites` in a third. The rating of
     a page follows `links`, and with `clutter_matters` its `image_area` as well."""
     rng = np.random.default_rng(seed)
@@ -81,7 +83,7 @@ def world(root: Path, rated: int = 40, sites: int = 15, raters: int = 8, *,
                 score = int(np.clip(round(truth[key] + rng.normal(0, 0.3)), 1, 5))
                 rows.append({"rater": 1000 * number + rater, "url": key[0], "state": key[1],
                              "page": key[0], "repeat": False, "rating": score, "set": number,
-                             "synthetic": True, "image_sha256": picture_of[key]})
+                             "synthetic": synthetic, "image_sha256": picture_of[key]})
     paths = Paths(ratings=root / "ratings.jsonl", corpus=root / "corpus.json",
                   pictures=root / "pages.json", design=root / "form.json",
                   visual=root / "visual.json", set3=root / "set3.json",
@@ -329,6 +331,14 @@ def test_a_preview_cannot_pass_the_gate(tmp_path: Path) -> None:
     assert not found.verdict.better
 
 
+def test_a_preview_cannot_pass_even_on_real_ratings_that_look_better(tmp_path: Path) -> None:
+    found = compared(world(tmp_path, rated=60, raters=8, set3=True, synthetic=False),
+                     min_ratings=8, preview=True)
+    first = found.verdict.checks[0]
+    assert not first.passed and first.detail == "under the floor"
+    assert not found.verdict.better
+
+
 def test_a_preview_says_what_it_is_before_any_number() -> None:
     assert train_visual.PREVIEW_MIN_RATINGS == 5
 
@@ -360,10 +370,38 @@ def test_a_full_run_leaves_the_live_model_as_it_was(
     assert paths.candidate.exists()
 
 
+def test_even_a_model_that_passes_every_condition_changes_nothing_live(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The case the whole design is for: not synthetic, the floor met, better."""
+    before = digest(train.COEFFICIENTS), digest(train.MODEL)
+    paths = world(tmp_path, rated=60, synthetic=False)
+    monkeypatch.setattr(train_visual, "EFFORT", {"repeats": REPEATS, "nested": NESTED})
+
+    found = train_visual.run(paths)
+
+    assert found.verdict.better, [c.detail for c in found.verdict.checks if not c.passed]
+    assert (digest(train.COEFFICIENTS), digest(train.MODEL)) == before
+    saved = json.loads(paths.candidate.read_text(encoding="utf-8"))
+    assert saved["better_than_live"] is True
+    assert page_model.load(paths.candidate) is None  # the app would not read it
+    text = paths.evaluation.read_text(encoding="utf-8")
+    assert "It is not live" in text and "taken at" in text
+
+
 def test_the_new_model_can_never_be_written_over_the_live_one(tmp_path: Path) -> None:
+    """Against a stand-in. On 2026-11-02 this test was run with the guard broken on
+    purpose, against the real file, and overwrote the live model with a synthetic
+    one; `git status` showed it. A test of a guard must not depend on the guard."""
     found = compared(world(tmp_path))
+    stand_in = tmp_path / "estimator.json"
     with pytest.raises(RefusedToTrain, match="running app"):
-        train_visual.save_candidate(found, train.COEFFICIENTS)
+        train_visual.save_candidate(found, stand_in, projects_live=stand_in)
+    assert not stand_in.exists()
+
+
+def test_the_guard_is_set_on_the_file_the_app_really_reads() -> None:
+    default = inspect.signature(train_visual.save_candidate).parameters["projects_live"].default
+    assert default == train.COEFFICIENTS == page_model.PATH
 
 
 def test_the_candidate_is_a_different_file_from_the_live_one() -> None:

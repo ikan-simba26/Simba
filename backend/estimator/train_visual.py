@@ -529,6 +529,16 @@ def main() -> None:
         print(f"Not training: {reason}")
         raise SystemExit(2) from None
     print(report(found))
+    # Here rather than at the top: it reads this module's paths.
+    from tools.evaluation import rescore_index
+    try:
+        candidate = paths.preview / "estimator_visual.json" if args.preview else paths.candidate
+        out = paths.preview / "overwhelm-index" if args.preview else rescore_index.OUT
+        table = rescore_index.write_rescored(candidate, paths.visual, out, args.preview)
+    except rescore_index.Unscored as reason:
+        print(f"The overwhelm index was not worked out again: {reason}")
+        raise SystemExit(2) from None
+    print(f"The overwhelm index again: {len(table)} sites, {out}.")
 
 
 if __name__ == "__main__":
