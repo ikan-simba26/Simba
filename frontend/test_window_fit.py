@@ -85,6 +85,22 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     assert sign_in["off_screen"] == [], sign_in
     assert sign_in["fields_on_screen"], sign_in
     assert not sign_in["scrolls"], sign_in
+    # The brand (2026-11-02): the window's name, the logo while opening whole
+    # and centred, the small logo touching nothing on the fullest home screen,
+    # in each theme and from the theme's own file; a step with the shape and
+    # no logo; and no logo at all under reduced motion.
+    assert result["window_title"] in ("simba", None), result["window_title"]
+    brand = result["brand"]
+    assert brand["reduced_motion_logos"] == 0, brand
+    for theme, ending in (("light", ""), ("dark", "-dark")):
+        splash, home = brand[theme]["splash"], brand[theme]["home"]
+        assert splash["file"] == f"simba-logo-stacked{ending}" and splash["loaded"], splash
+        assert splash["whole"] and splash["centred"] and not splash["scrolls"], splash
+        assert home["file"] == f"simba-logo-horizontal-small{ending}" and home["loaded"], home
+        assert home["whole"] and home["touches"] == 0 and not home["scrolls"], home
+        step = brand["steps"][theme]
+        assert step["home_logos"] == 0 and step["shapes"] >= 1, step
+        assert step["off_screen"] == [] and not step["scrolls"], step
     # Perception's page is exactly what it was.
     assert result["site_view"]["inner"] == [1280, 800], result["site_view"]
     # And a page that scrolls lays out at the full 1280px, inner scroll boxes

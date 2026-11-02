@@ -25,7 +25,11 @@ display scale, and measures from outside it, over CDP:
   buttons and boxes inside the window, nothing to scroll, and the level it
   settled at;
 - **the site view**: its CSS viewport, which must be exactly 1280x800, and 20
-  screenshots of it in a row, the capture `page.preview` depends on.
+  screenshots of it in a row, the capture `page.preview` depends on;
+- **the brand** (2026-11-02): the window's title, and in each theme the logo
+  while opening, the small logo on the fullest home screen, and a step with
+  neither, with a picture of each in `.scratch/brand/`; and under reduced
+  motion, that there is no logo while opening.
 
 Then it saves a picture of the overlay page, which is the window's whole
 content area (CLAUDE.md: the application's own view, never the desktop).
@@ -65,6 +69,8 @@ from tools.evaluation.conditions import banner, record
 REPO = Path(__file__).resolve().parents[2]
 FRONTEND = REPO / "frontend"
 OUT = REPO / ".scratch" / "screenshots" / "fit"
+BRAND_OUT = REPO / ".scratch" / "brand"
+THEMES = ("light", "dark")
 PORT = "9232"
 CDP = f"http://127.0.0.1:{PORT}"
 SCALES = ["1", "1.25", "1.5"]
@@ -225,9 +231,9 @@ STARTED: dict[str, float] = {}
 def read_welcome(overlay: Page, scale: str) -> list[dict]:
     """Each question of the welcome as a new person meets it (2026-10-18):
     whether it fits, and its picture. Empty if the host opened on the home
-    screen instead."""
+    screen instead. With no backend here, it comes after the logo's 15s."""
     try:
-        overlay.get_by_test_id("welcome").wait_for(timeout=15000)
+        overlay.get_by_test_id("welcome").wait_for(timeout=30000)
     except Exception:  # noqa: BLE001 - no welcome is a finding, not a failure here
         return []
     measured = []
@@ -261,7 +267,87 @@ def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
     return measured
 
 
-def read_sign_in(overlay: Page, scale: str) -> dict:
+#: Where a logo is, and what it is drawn from. `file` is the source's name,
+#: without the build's hash.
+LOGO_JS = """(selector) => {
+    const holder = document.querySelector(selector);
+    if (!holder) return null;
+    const img = holder.querySelector('img');
+    const b = img.getBoundingClientRect();
+    const touches = [...document.querySelectorAll(
+        '[data-presence], h1, section, input, [data-testid=own-tile], [data-testid=tile]')]
+        .filter(el => { const o = el.getBoundingClientRect();
+                        return o.width > 0 && b.left < o.right && b.right > o.left
+                               && b.top < o.bottom && b.bottom > o.top; }).length;
+    return {file: img.currentSrc.split('/').pop().replace(/-[^-]*\\.svg$/, ''),
+            loaded: img.naturalWidth > 0, touches,
+            box: [b.left, b.top, b.right, b.bottom].map(Math.round),
+            whole: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight,
+            centred: Math.abs((b.left + b.right) / 2 - innerWidth / 2) <= 1
+                     && Math.abs((b.top + b.bottom) / 2 - innerHeight / 2) <= 1,
+            scrolls: document.scrollingElement.scrollHeight > innerHeight};
+}"""
+
+
+def read_brand(overlay: Page, scale: str) -> dict:
+    """The logo while opening, and the small logo on the fullest home screen,
+    in each theme, in the real window, with a picture of each; then that
+    reduced motion shows no logo (2026-11-02). A theme is the system's, so it
+    is emulated here rather than changed on the machine."""
+    base = overlay.url.split("?")[0]
+    history = ScriptedHistory()
+    measured: dict = {}
+    BRAND_OUT.mkdir(parents=True, exist_ok=True)
+    for theme in THEMES:
+        overlay.emulate_media(color_scheme=theme)
+        said(scale, f"the logo while opening, {theme}")
+        # A port nothing answers on, so the logo stays up to be measured.
+        overlay.goto(f"{base}?ws=ws://127.0.0.1:1/ws")
+        overlay.get_by_test_id("splash").wait_for(timeout=15000)
+        overlay.wait_for_timeout(900)  # the fade in
+        splash = overlay.evaluate(LOGO_JS, "[data-testid=splash]")
+        capture_view(overlay, BRAND_OUT / f"splash-{scale}-{theme}.png")
+
+        said(scale, f"the small logo, {theme}")
+        overlay.goto(f"{base}?ws=ws://127.0.0.1:{history.port}")
+        overlay.get_by_test_id("own-tile").first.wait_for(timeout=30000)
+        overlay.wait_for_timeout(1400)
+        home = overlay.evaluate(LOGO_JS, "[data-testid=home-logo]")
+        capture_view(overlay, BRAND_OUT / f"home-{scale}-{theme}.png")
+        measured[theme] = {"splash": splash, "home": home}
+
+    overlay.emulate_media(color_scheme="no-override", reduced_motion="reduce")
+    overlay.goto(f"{base}?ws=ws://127.0.0.1:1/ws")
+    overlay.get_by_role("textbox", name=TEXTBOX).wait_for(timeout=5000)
+    measured["reduced_motion_logos"] = overlay.get_by_test_id("splash").count()
+    overlay.emulate_media(reduced_motion="no-override")
+    return measured
+
+
+def read_brand_steps(overlay: Page, scale: str) -> dict:
+    """A step in each theme: the shape is there, the small logo is not."""
+    measured = {}
+    for theme in THEMES:
+        overlay.emulate_media(color_scheme=theme)
+        step = read_sign_in(overlay, f"{scale}-{theme}", out=BRAND_OUT, name="step")
+        measured[theme] = {"home_logos": step["home_logos"], "shapes": step["shapes"],
+                           "off_screen": step["off_screen"], "scrolls": step["scrolls"]}
+    overlay.emulate_media(color_scheme="no-override")
+    return measured
+
+
+def window_title() -> str | None:
+    """The title Windows has for the host listening on `PORT`; None elsewhere."""
+    if os.name != "nt":
+        return None
+    script = (f"(Get-Process -Id (Get-NetTCPConnection -LocalPort {PORT} -State Listen)"
+              ".OwningProcess).MainWindowTitle")
+    done = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                          capture_output=True, text=True, timeout=30)
+    return done.stdout.strip()
+
+
+def read_sign_in(overlay: Page, scale: str, out: Path = OUT, name: str = "sign-in") -> dict:
     """The registration's first screen, signing in (2026-10-16), played into
     the real window as the backend sends it: where its buttons are, whether
     anything scrolls, and the level it settled at once the overflow guard had
@@ -288,7 +374,9 @@ def read_sign_in(overlay: Page, scale: str) -> dict:
     measured["fields_on_screen"] = overlay.evaluate("""() => [...document.querySelectorAll(
         '[data-testid=step-shell] input')].filter(i => i.offsetParent).every(
         i => i.getBoundingClientRect().bottom <= innerHeight)""")
-    capture_view(overlay, OUT / f"sign-in-{scale}.png")
+    measured["home_logos"] = overlay.get_by_test_id("home-logo").count()
+    measured["shapes"] = overlay.get_by_test_id("shape").count()
+    capture_view(overlay, out / f"{name}-{scale}.png")
     return measured
 
 
@@ -435,6 +523,13 @@ def measure(scale: str) -> dict:
             with_history["own_tiles"] = overlay.get_by_test_id("own-tile").count()
             capture_view(overlay, OUT / f"home-{scale}-history.png")
 
+            title = window_title()
+            brand = read_brand(overlay, scale)
+            # Every load from here is a screen, not an opening: the logo has
+            # been measured, and there are seventeen endings to reach.
+            overlay.add_init_script("window.__simbaSplash = false")
+            brand["steps"] = read_brand_steps(overlay, scale)
+
             endings = read_endings(overlay, scale)
             said(scale, "the sign-in screen")
             sign_in = read_sign_in(overlay, scale)
@@ -463,6 +558,8 @@ def measure(scale: str) -> dict:
         "endings": endings,
         "welcome": welcome,
         "sign_in": sign_in,
+        "window_title": title,
+        "brand": brand,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
     }
