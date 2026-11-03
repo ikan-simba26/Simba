@@ -268,7 +268,8 @@ def read_endings(overlay: Page, scale: str) -> dict[str, dict]:
 
 
 #: Where a logo is, and what it is drawn from. `file` is the source's name,
-#: without the build's hash.
+#: without the build's hash: Vite's eight characters, which can hold a `-`
+#: themselves (`...-small-dark-D3-JexYj.svg`, 2026-11-03).
 LOGO_JS = """(selector) => {
     const holder = document.querySelector(selector);
     if (!holder) return null;
@@ -279,7 +280,7 @@ LOGO_JS = """(selector) => {
         .filter(el => { const o = el.getBoundingClientRect();
                         return o.width > 0 && b.left < o.right && b.right > o.left
                                && b.top < o.bottom && b.bottom > o.top; }).length;
-    return {file: img.currentSrc.split('/').pop().replace(/-[^-]*\\.svg$/, ''),
+    return {file: img.currentSrc.split('/').pop().replace(/-[\\w-]{8}\\.svg$/, ''),
             loaded: img.naturalWidth > 0, touches,
             box: [b.left, b.top, b.right, b.bottom].map(Math.round),
             whole: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight,
