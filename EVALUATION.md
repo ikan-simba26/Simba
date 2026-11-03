@@ -68,6 +68,9 @@ from the version that produced its table.
 | 2026-11-01 | The estimator with and without raters 5007 and 5013 | `estimator_compare --without 5007 5013` (writes no model) |
 | 2026-11-02 | How long the logo stays, on the real launcher | **not preserved** -- one-off scripts in `.scratch/`, described in the entry |
 | 2026-11-02b | How overwhelming Pakistan's public websites are, as predicted | `overwhelm_index` (**one visit to each of 42 live sites; not for repeating**); `overwhelm_index --report` works it out again from what was saved and visits nothing |
+| 2026-11-02c | The five first-screen features of the rated pages and the sites | `visual_features` (**reads 43 live pages and our replicas, then 35 live sites; not for repeating**) |
+| 2026-11-02c | Old features against new, and the gate | `python -m backend.estimator.train_visual`, which refuses until Set 3 has answers; `--preview` runs on Sets 1 and 2 and writes only to `.scratch/` |
+| 2026-11-02c | The overwhelm index by the new model | `rescore_index`, from what was saved, visiting nothing |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -7083,3 +7086,219 @@ page, reading an unreachable robots.txt as permission, scoring a refusal, scorin
 screen, reporting the model's band as SIMBA's level, and swapping the directions. Run on
 their own: the suite as a whole was not re-run for this branch, which adds one script and
 its tests and changes nothing else.
+
+---
+
+## 2026-11-02c — what the model could not see, measured; and what it needs next
+
+`tools/evaluation/visual_features.py`, `tools/rating/export_set3.py`,
+`backend/estimator/train_visual.py` and `tools/evaluation/rescore_index.py`, on
+`eval/visual-features`, asked for by Raham. **Half of the question is answered and half
+cannot be yet.** The blindness is measured: these sites are unlike anything people rated.
+Whether seeing it makes a better model needs Set 3's ratings, and **no Set 3 rating exists,
+so there is no new model and no verdict**. `data/estimator.json` is unchanged.
+
+```
+rated pages, then sites, in one run
+taken at    2026-11-02T21:58:21+05:00, and 22:11:08+05:00
+git         f15f8f30178a on eval/visual-features; dirty by the zip, and by code for
+            Sets 3 and training not yet committed, none of it on this path but
+            page_model.load's new argument, whose default is the old behaviour
+python      3.12.3 at backend\venv, playwright 1.62.0, chromium 151.0.7922.34
+model       trained 2026-10-30T21:05:28+05:00, the model on main. No language model
+machine     Windows-11-10.0.26200-SP0, 8 cpus
+power       ON BATTERY, 53% and falling, processor at 49 to 80% of rated speed
+switches    none set
+```
+
+The trial and first pass ran the same day on the same machine, also on battery. Only the
+gap between captures depends on speed, and it is recorded per row.
+
+**The five features**, on the first 1280x800 and nothing below it, read from what Chromium
+says is on screen, on a 16px grid: `image_area`, `motion` (pixels moved by more than 16 of
+255 between two captures 3s apart), `covered`, `first_screen_links`, `first_screen_text`.
+Definitions and what each leaves out: the script's docstring. Checked on our replicas first,
+where the answers are known: motion 0 on all five, drift 0 to 0.004, the sign-in modal
+1.00 covered, the cookie bar 0.0625, and first-screen text equal to `text_density` wherever a
+whole page fits.
+
+### What was read
+
+| | Listed | Read | Not read |
+|---|---|---|---|
+| Rated pages | 50 | **48** | `text.npr.org` and `lite.cnn.com`: robots.txt now disallows this agent |
+| Overwhelm index sites | 35 | **35** | none |
+
+**The gap between captures** was 3.14 to 3.52s on the sites and at most 3.34s on the rated
+pages. A site's picture, nine features and five new ones are from one load.
+
+### The finding: these pages are outside what people rated
+
+| | Sites, median | Public rated pages, median | Largest public rated page |
+|---|---|---|---|
+| `image_area` | **0.70** | 0.006 | 0.26 |
+| `motion`, 3s | 0.016 | 0.000 | 0.23 |
+| `motion_late`, 6s | 0.265 | 0.000 | 0.23 |
+| `covered` | 0.105 | 0.000 | 1.00 |
+| `first_screen_links` | 16 | 25 | 159 |
+| `first_screen_text` | 0.30 | 0.84 | 3.51 |
+
+**33 of the 35 sites have more of their first screen in pictures than any of the 19 public
+pages rated.** Of all 48 rated pages only three pass 0.26, and all three are demo logins.
+27 of the 35 sites move within 3s, against 5 of the 48 rated pages. This measures what
+2026-11-02b could only say it had seen: on this web a page's words are in its pictures, and
+the raters were taught on pages where they are not. 9 of 35 have at least 27% of their
+screen under something floating, 6 of them all of it. It does not yet show that the model's
+"calm" is wrong: only ratings of these pages can.
+
+### Set 3
+
+20 pictures: 15 of the sites, 3 anchors, 2 repeats, about 3-4 minutes, with the same question,
+labels and worked examples. Chosen by spreading over the ranks of the five features, at
+least two per category and at most three.
+
+| | All 34 sites eligible | The 15 chosen |
+|---|---|---|
+| `image_area` | 0.16 to 0.91 | 0.16 to 0.91 |
+| `motion` | 0.00 to 0.85 | 0.00 to 0.66 |
+| `covered` | 0.00 to 1.00 | 0.00 to 1.00 |
+| `first_screen_links` | 4 to 40 | 4 to 29 |
+| `first_screen_text` | 0.08 to 0.78 | 0.08 to 0.66 |
+
+3 Utilities and 2 each of the other six categories. Anchors `P11`, `P21` and `P28`, the calmest,
+the middle and the heaviest by raters of the six that Sets 1 and 2 share. Repeats of Karachi
+Water and Jazz. MEPCO is left out by name: its picture is the site's own loader at 91%.
+
+**What it takes:** `python -m backend.estimator.train_visual` says, today: *37 of 65 pages
+have fewer than 8 ratings; 186 more ratings are needed in all, at least 3 more Set 2 raters
+and 8 more Set 3 raters.*
+
+### The comparison: built, proven on synthetic ratings, and not yet run for real
+
+Four arms on the same pages and folds, 40 shuffles of 5: the nine, the nine and the five,
+the five alone, and the new set without `motion`. **The gate was written before any Set 3
+rating existed**, so that the bar could not be fitted to the result. All six must hold:
+
+1. real ratings, the floor met, and Set 3 in them;
+2. held-out error lower, its 95% interval above zero with pages resampled 10,000 times;
+3. held-out R² higher;
+4. levels no worse (nested kappa);
+5. heavy pages caught no fewer;
+6. on the Pakistani pages, fitted on Sets 1 and 2 alone, lower error.
+
+**Step 4 today: the old model stays**, because condition 1 fails. No new model exists to
+switch to. A pass later would still not make it live: the running app measures only the nine.
+
+### A preview, which is not a result
+
+`--preview`, 48 pages of Sets 1 and 2 at 5 ratings a page, no Pakistani page. Under the floor,
+and it cannot pass the gate. Reported because it is real data through the real pipeline and
+because of what it warns about.
+
+| Arm | R² | Error | Nested kappa | Heavy pages caught |
+|---|---|---|---|---|
+| Old: the nine | 0.576 ± 0.037 | 0.497 ± 0.024 | 0.704 | 69% |
+| New: the nine and the five | 0.418 ± 0.099 | 0.532 ± 0.030 | 0.606 | 69% |
+| The five alone | 0.504 ± 0.050 | 0.513 ± 0.022 | 0.592 | 74% |
+| New, without motion | 0.565 ± 0.059 | 0.498 ± 0.027 | 0.634 | 63% |
+| Predicting the training mean | -0.049 | 0.785 | | |
+
+New against old: 0.034 **higher** error, 95% interval -0.117 to 0.024 for the gain, so no
+difference that can be told from nothing, and leaning the wrong way. Without the four drifted
+pages, 44 pages: 0.540 and 0.382. **This says nothing about visual clutter**, because these
+pages hardly have any: on them `motion` is zero on 43 of 48 and `image_area` under 0.03 on
+most, so the five can only add noise. `image_area`'s coefficient here is -0.05.
+
+The same preview model on the 35 sites (`.scratch/visual-features/preview/overwhelm-index/`)
+moves them **down**, median 1.72 against 1.87, and calls all 35 below its average page. A
+model given no busy page learns nothing good about busy pages. Nobody should quote that table.
+
+**The old model's 0.576 is not a better old model.** It is pooled over 40 shuffles, where the
+0.49 quoted since 2026-10-30 is the mean of one split's five folds. Pooled on all 50 pages it
+is 0.572, so leaving out the two pages moved it by 0.004.
+
+### What went wrong, in order
+
+Each found by reading a number against a picture. No test would have found the first three,
+because every test passed.
+
+1. **`image_area` missed sliders.** Hit testing skips `pointer-events: none`, which is how
+   slider plugins lay out slides: Quaid-i-Azam's page, nearly all photograph, read 0.01. Now
+   0.81, from a second pass with that switched off.
+2. **`covered` counted a slider's own layers**: 0.79 on Quaid-i-Azam and 0.72 on Ufone with no
+   pop-up on either. Now 0.00 and 0.01. An absolute element has to be attached to the body.
+   So this is narrower than `overlays.candidates`.
+3. **A backdrop faded as a whole read as solid.** Bootstrap's is black at opacity .5, and MCB's
+   hero read 0.01 behind it. Now 0.73.
+4. **The read stretched `motion`'s gap**: to 17.3s, with 15 of 35 sites over 3.5s. So the second
+   capture now goes first, on the clock, and the page is read about 3s after its picture.
+5. **Set 3 first chose MEPCO**, and as a repeat, so two of 20 pictures were a loader. Its
+   flatness is an ordinary 0.53, so it was seen, on a sheet of the pictures, and not measured.
+6. **A test could damage what it tested.** Breaking the guard on purpose let
+   `test_the_new_model_can_never_be_written_over_the_live_one` write a synthetic model to
+   `data/estimator.json`. `git status` showed it and it was restored; the file's version,
+   raters and pages were checked. The test now uses a stand-in.
+
+So the sites were read three times, not once: the index, the first pass and the corrected one,
+with Quaid-i-Azam and MCB read once or twice more in trying the fix. All of it read-only, with
+robots.txt first and the 3s pause. The rated pages' live members were read twice.
+
+### Limits
+
+- **Raters see stills, so `motion` can only reach a rating through what a still shows.** A page
+  with a carousel is rated on one slide. The `no_motion` arm is there because of this.
+- **A 3s gap misses slow carousels.** 5 sites read under 0.05 at 3s and 0.10 or more at 6s,
+  among them Election Commission (0.00 and 0.66) and Quaid-i-Azam (0.00 and 0.41). `motion_late`
+  is recorded and is not a feature, since the brief set 3s.
+- **`first_screen_text` is nearly `text_density`**: r = 0.98 over all 83 pages, on the first
+  screen in both. It adds little, and its importance in the preview, 1.01 ± 1.97, is two
+  copies of one signal fighting. `first_screen_links` is new information: r = 0.46.
+- **Features of pages rated in October are read in November.** Four pages have drifted past
+  a quarter of the screen: three of `the-internet.herokuapp.com`, restyled since, and one Ant
+  Design drawer. The limit of 0.25 was set from the pixels, in the empty band from 0.18 to
+  0.38, before any comparison. Drift moves on a live page: Spiegel read 0.81 on the first pass
+  and 0.10 on the second. Each comparison runs both with and without the drifted pages.
+- **Position cannot tell a fixed hero from a modal.** NUST reads 1.00 covered and has no pop-up.
+- **Inside an iframe is not read.** The Guardian's consent wall is one, so the text behind it
+  counts as seen. A video in a frame is not `image_area`.
+- **A partly loaded page still gets through**, as 2026-11-02b said. MEPCO is the one seen, and
+  it stays in the rescored table with `motion` 0.69, which is its loader fading.
+- **Set 3's raters may not be Sets 1 and 2's raters.** The anchors will show it, and nothing
+  corrects for it.
+- Everything 2026-11-02b says about who the raters are still holds.
+
+### The tests
+
+`tools/evaluation/test_visual_features.py` 58, `tools/rating/test_set3.py` 35,
+`backend/estimator/test_train_visual.py` 40, `tools/evaluation/test_rescore_index.py` 7: 140,
+all against servers on this machine or synthetic ratings in a temporary folder. 12 deliberate
+breakages, each caught. Among them: the interval replaced by its mean, the Pakistani test
+fitted with Pakistani pages, a preview allowed to pass, the slider rule, the pointer-events
+pass, and Set 3 changing a picture Sets 1 and 2 use. The gate has a test for each condition
+failing alone, and one where a model passes all six with the live file checked unchanged.
+
+## 2026-11-03 — the suite on `eval/visual-features`, before merging
+
+At `8993d07`, on mains from start to end of every run, the overlay rebuilt first. Free
+memory was 0.7 GB of 7.9 at the start.
+
+| Run | Result | Time |
+|---|---|---|
+| Backend half | **1268 passed, 9 skipped, 0 failed** | 1421s |
+| Frontend half | **639 passed, 3 skipped, 0 failed** | 1421s |
+| Host fit test, first run | **0 of 3**, every scale on one assertion | 566s |
+| Host fit test, after the fix | **3 of 3** | 561s |
+
+**1907 passed, 12 skipped, 0 failed**: the 1712 of 2026-11-02 plus the 55 of
+`eval/overwhelm-index` and the 140 of this branch. The 12 skips are the same 12. The backend
+half took 1421s against 981s on 2026-11-02 for 195 more tests; with 0.7 GB free, that is no
+reading of the code's speed.
+
+**The host fit test's failure was the test's, not the overlay's.** The rebuild gave the dark
+small logo the hash `D3-JexYj`, and `display_fit_run` cut a logo's name at its last `-`, so it
+read `simba-logo-horizontal-small-dark-D3` and the brand check failed at 100%, 125% and 150%.
+Every fit figure in that run had passed up to that line. The name is now cut at a `-` and
+Vite's eight hash characters (DECISIONS.md, *The fit run reads a logo's name by the hash's
+length*). Checked against all four built logo names before the re-run. Any earlier build whose
+hash held a `-` would have failed the same way; the ones on 2026-11-02 did not.
+

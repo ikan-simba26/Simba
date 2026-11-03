@@ -386,8 +386,10 @@ def blank(site: Site, status: str, why: str = "") -> dict[str, Any]:
 
 async def measure(page: Page, site: Site, run: dict, model: PageModel,
                   ranges: dict[str, tuple[float, float]], into: Path,
-                  fetch=robots_for) -> dict[str, Any]:
-    """One site, one visit: "scored", "failed" or "skipped", and never raises."""
+                  fetch=robots_for, extra=None) -> dict[str, Any]:
+    """One site, one visit: "scored", "failed" or "skipped", and never raises.
+    `extra(page, shot, into)` adds to the row of a page that passed every check,
+    from the same load."""
     answer = await robots(page, site.url, fetch)
     if not answer.allowed:
         return blank(site, "skipped", answer.note)
@@ -425,6 +427,7 @@ async def measure(page: Page, site: Site, run: dict, model: PageModel,
             "outside_corpus": outside(row, ranges), "screenshot": shot["file"],
             "sha256": shot["sha256"], "characters": row["characters"],
             **{name: row[name] for name in FEATURES},
+            **(await extra(page, shot, into) if extra is not None else {}),
         }
     except Exception as error:  # noqa: BLE001 - one site must not stop the rest
         return blank(site, "failed", f"{type(error).__name__}: {first_line(error)}")

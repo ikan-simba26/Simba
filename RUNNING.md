@@ -219,6 +219,26 @@ model and into EVALUATION.md, naming every page under 8. Once Set 2 has three
 more usable raters, drop the flag. Add the three new model files by name, and
 the two sections; the CSVs and `data/ratings.jsonl` are never committed.
 
+### Whether seeing visual clutter helps
+
+The nine features and the five first-screen ones, on the same pages and folds, once
+Set 3 has answers (`tools/rating/form/README.md`, section 7):
+
+```powershell
+backend\venv\Scripts\python -m backend.estimator.train_visual "SIMBA rating form, Set 1.csv" "SIMBA rating form, Set 2.csv" .scratch/rating-form/responses-3.csv
+```
+
+It refuses until every page has 8 ratings and says how many more raters of each set.
+Then it compares the old model, the new one and the five alone, says whether the new
+one passes the gate, and works the overwhelm index out again from what was saved, into
+`.scratch/overwhelm-index/visual/`. **It never changes what SIMBA runs**: the new model
+goes to `data/estimator_visual.json`, and `data/estimator.json` stays as it is even
+when the new one passes, because the running app measures only the nine. `--preview`
+runs on the ratings there are, with no Set 3, and writes only to `.scratch/`.
+
+The five features came from `python -m tools.evaluation.visual_features`, which reads
+live sites and is not for repeating: pictures of those pages have been rated.
+
 ### The level adapts in a real run
 
 Since 2026-09-25 the real backend moves the detail level itself. Since

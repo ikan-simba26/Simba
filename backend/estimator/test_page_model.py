@@ -114,7 +114,7 @@ def test_never_more_than_three_reasons() -> None:
 
 
 def test_every_feature_has_words_for_both_directions() -> None:
-    assert set(page_model.WORDS) == set(FEATURES)
+    assert set(page_model.WORDS) == set(FEATURES) | set(page_model.VISUAL_FEATURES)
     assert all(high != low for high, low in page_model.WORDS.values())
 
 

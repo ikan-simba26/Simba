@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-02 · **1712 passing, 12 skipped, 0 failed** · backend 1073 in 981s, frontend 639 in 1420s, as two halves, on mains, on `feat/brand`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 579s, on mains. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-03 · **1907 passing, 12 skipped, 0 failed** · backend 1268 in 1421s, frontend 639 in 1421s, as two halves, on mains, on `eval/visual-features`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 561s, on mains, after a fix to the test itself (EVALUATION.md, 2026-11-03). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -71,6 +71,33 @@ again" clears the profile and the tiles, and hides the goals from before it.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-03: `eval/visual-features` checked and merged into `main`
+
+- **The suite**: 1907 passed, 12 skipped, 0 failed (backend 1268 in 1421s, frontend 639 in
+  1421s), on mains, with 0.7 GB free at the start.
+- **The host fit test failed 0 of 3, on its own check**: `display_fit_run` read a logo's name
+  up to its last `-`, and the rebuild's hash for the dark small logo, `D3-JexYj`, held one. It
+  now cuts Vite's eight characters; re-run 3 of 3 (561s). **Aly to review** (DECISIONS.md).
+
+### Changed on 2026-11-02 (visual features) — `eval/visual-features`
+
+- **The blindness is measured.** Five first-screen features (`visual_features.py`) on 48 of the
+  50 rated pages and all 35 sites. Median `image_area` 0.70 on the sites against 0.006 on public
+  rated pages, and 33 of 35 past any public page rated. The two left out now disallow us in
+  robots.txt (EVALUATION.md, 2026-11-02c).
+- **Set 3 is ready to send, and has no answers.** 20 pictures, about 3-4 minutes: `makeFormSet3`,
+  and every step in `tools/rating/form/README.md`, section 7.
+- **The comparison is built and cannot run yet.** `python -m backend.estimator.train_visual`
+  refuses today: 186 more ratings, at least 3 more Set 2 raters and 8 more Set 3 raters.
+- **So there is no new model, and the old one stays live.** `data/estimator.json` is unchanged.
+  A preview on Sets 1 and 2 got worse with the new features (R² 0.58 to 0.42), as pages with
+  almost no pictures would make it: that is no verdict either way.
+- **Blocked on people**: raters for Set 3, and three more for Set 2.
+- **Open, for all three owners**: a pass at the gate does not go live, because the app measures
+  only the nine. See DECISIONS.md, *What the visual features can and cannot be*.
+- **Flagged, for Nahail**: `first_screen_text` is nearly `text_density` (r = 0.98); no still can
+  show `motion`; and `capture.py` and `collect_corpus.py` do not ask robots.txt.
 
 ### Changed on 2026-11-02 (last): the overwhelm index — `eval/overwhelm-index`
 

@@ -214,6 +214,10 @@ def export(out: Path = OUT, manifest: Path = MANIFEST, record: Path | None = REC
            seed: int = SEED, corpus: Path = CORPUS) -> dict:
     """Write the pictures, the examples, the mapping, the form script and its
     instructions."""
+    if record is not None and record.exists() \
+            and "3" in json.loads(record.read_text(encoding="utf-8"))["orders"]:
+        raise ExportRefused(f"{record} has Set 3, which this would remove. Sets 1 and 2 "
+                            f"have answers and must not be exported again.")
     examples = worked.read(folder=manifest.parent / "examples",
                            record=manifest.parent / "examples.json")
     made = mapping(manifest, corpus, seed, examples)

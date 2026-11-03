@@ -1,0 +1,3815 @@
+{
+  "definitions": {
+    "step_px": 16,
+    "gap_s": 3.0,
+    "tolerance": 16,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "features": [
+      "image_area",
+      "motion",
+      "covered",
+      "first_screen_links",
+      "first_screen_text"
+    ]
+  },
+  "rated": {
+    "conditions": {
+      "taken_at": "2026-11-02T21:58:21+05:00",
+      "git": {
+        "commit": "f15f8f30178a",
+        "branch": "eval/visual-features",
+        "dirty": true
+      },
+      "python": {
+        "version": "3.12.3",
+        "executable": "D:\\simba\\backend\\venv\\Scripts\\python.exe",
+        "project_venv": true
+      },
+      "playwright": "1.62.0",
+      "provider": "openai",
+      "model": "gemini-3.1-flash-lite",
+      "model_from": ".env",
+      "switches": {
+        "SIMBA_FLOW": null,
+        "SIMBA_USE_HARDCODED_PLAN": null,
+        "SIMBA_TRACE_MEMORY": null,
+        "SIMBA_BROWSER": null,
+        "SIMBA_OVERLAY_DETECTION": null,
+        "SIMBA_INFERRED_ROLES": null,
+        "SIMBA_SETBACK_PLACEMENT": null,
+        "SIMBA_LLM_PROVIDER": null,
+        "SIMBA_LLM_EFFORT": null,
+        "SIMBA_REPLICA_URL": null,
+        "SIMBA_ADAPT": null,
+        "SIMBA_PAGE_MODEL": null
+      },
+      "machine": {
+        "platform": "Windows-11-10.0.26200-SP0",
+        "cpus": 8,
+        "load_percent": 38,
+        "power": {
+          "on_battery": true,
+          "charge_percent": 53,
+          "cpu_performance_percent": 43,
+          "free_memory_mb": 1160
+        }
+      },
+      "chromium": "151.0.7922.34"
+    },
+    "run": {
+      "id": "2c9ce08e0c19",
+      "taken_at": "2026-11-02T21:58:21+0500",
+      "date": "2026-11-02"
+    },
+    "rows": [
+      {
+        "id": "127-0-0-1-5000",
+        "url": "http://127.0.0.1:5000/",
+        "state": "as it loads",
+        "kind": "ours",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 45,
+        "first_screen_text": 2.569,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.12,
+        "sha256": "a7e7cab8985225685e833a386e838116e9147188f01e641bc2f385ae3482adf5",
+        "title": "Sign In | Fictional State University Portal",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 4,
+          "links": 45,
+          "inferred": 0,
+          "text_density": 2.569,
+          "max_depth": 8,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.978,
+          "reading_grade": 9.9
+        }
+      },
+      {
+        "id": "127-0-0-1-5000--sign-in",
+        "url": "http://127.0.0.1:5000/",
+        "state": "sign in",
+        "kind": "ours",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 1,
+        "first_screen_links": 45,
+        "first_screen_text": 4.412,
+        "covering": [
+          {
+            "element": "div#deadline-modal fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.24,
+        "late_gap_s": 6.17,
+        "sha256": "e4d894ba6eb413cc09465cdef9d90cf7165e6073e49876f50e1e02a7918f7d1e",
+        "title": "Course Search Results | Fictional State University Portal",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 21,
+          "links": 45,
+          "inferred": 0,
+          "text_density": 4.813,
+          "max_depth": 11,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.978,
+          "reading_grade": 6.41
+        }
+      },
+      {
+        "id": "127-0-0-1-5000-stubborn",
+        "url": "http://127.0.0.1:5000/stubborn",
+        "state": "as it loads",
+        "kind": "ours",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 25,
+        "first_screen_text": 0.746,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.11,
+        "sha256": "66e03202a5c269b56cadf42801135d4c5b22e2368fd51ed2629841adb19ad61e",
+        "title": "Service Notice | Fictional State University Portal",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 2,
+          "links": 25,
+          "inferred": 0,
+          "text_density": 0.746,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.96,
+          "reading_grade": 9.96
+        }
+      },
+      {
+        "id": "127-0-0-1-5100",
+        "url": "http://127.0.0.1:5100/",
+        "state": "as it loads",
+        "kind": "ours",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0.06,
+        "first_screen_links": 31,
+        "first_screen_text": 1.728,
+        "covering": [
+          {
+            "element": "div#cookie-bar fixed",
+            "share": 0.06
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.06,
+        "sha256": "3b26122ba300c482038175991dd5a37372ffb18d9f6a7882adf327970bde67af",
+        "title": "Bill Enquiry | LESCO Consumer Services Portal",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 6,
+          "links": 31,
+          "inferred": 0,
+          "text_density": 1.728,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.935,
+          "reading_grade": 8.59
+        }
+      },
+      {
+        "id": "127-0-0-1-5100-bill-reference-04141234567890",
+        "url": "http://127.0.0.1:5100/bill?reference=04141234567890",
+        "state": "as it loads",
+        "kind": "ours",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0.06,
+        "first_screen_links": 31,
+        "first_screen_text": 2.466,
+        "covering": [
+          {
+            "element": "div#cookie-bar fixed",
+            "share": 0.06
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.16,
+        "late_gap_s": 6.12,
+        "sha256": "68c0ed13d2226e5d1fb9e20318aab59246c7482cda4401bf3059838a0d3cf84d",
+        "title": "Bill Enquiry Result | LESCO Consumer Services Portal",
+        "layout_width": 1280,
+        "drift": 0.0041,
+        "nine_now": {
+          "interactive": 3,
+          "links": 37,
+          "inferred": 0,
+          "text_density": 2.647,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.865,
+          "reading_grade": 7.64
+        }
+      },
+      {
+        "id": "www-pakrailways-gov-pk-train",
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "as it loads",
+        "kind": "target",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.2193,
+        "covered": 0.08,
+        "first_screen_links": 7,
+        "first_screen_text": 0.094,
+        "covering": [
+          {
+            "element": "header fixed",
+            "share": 0.08
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.14,
+        "sha256": "c5f6fa32d5167a07bb1e31d577f13823ceb2d538e7b1a9b9c9a7ebab7c530d00",
+        "title": "RABTA",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 6,
+          "links": 12,
+          "inferred": 0,
+          "text_density": 0.096,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.58
+        }
+      },
+      {
+        "id": "www-pakrailways-gov-pk-train--open-the-station-list",
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the station list",
+        "kind": "target",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.2193,
+        "covered": 0.1255,
+        "first_screen_links": 7,
+        "first_screen_text": 0.169,
+        "covering": [
+          {
+            "element": "header fixed",
+            "share": 0.08
+          },
+          {
+            "element": "div absolute",
+            "share": 0.0455
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.16,
+        "late_gap_s": 6.14,
+        "sha256": "b64273081db3dab451e0584140ca159d41ef7877069e634f79c30fd82c14054b",
+        "title": "RABTA",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 12,
+          "links": 12,
+          "inferred": 6,
+          "text_density": 0.171,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.58
+        }
+      },
+      {
+        "id": "www-pakrailways-gov-pk-train--open-the-calendar",
+        "url": "https://www.pakrailways.gov.pk/train",
+        "state": "open the calendar",
+        "kind": "target",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.2193,
+        "covered": 0.1903,
+        "first_screen_links": 7,
+        "first_screen_text": 0.195,
+        "covering": [
+          {
+            "element": "div absolute",
+            "share": 0.1103
+          },
+          {
+            "element": "header fixed",
+            "share": 0.08
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.16,
+        "late_gap_s": 6.11,
+        "sha256": "0b36bc2df71300e79e9532ca595b27a4e160fc9f05869fb78fa99ce672f96750",
+        "title": "RABTA",
+        "layout_width": 1280,
+        "drift": 0.0025,
+        "nine_now": {
+          "interactive": 54,
+          "links": 12,
+          "inferred": 42,
+          "text_density": 0.196,
+          "max_depth": 21,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.25,
+          "reading_grade": 10.32
+        }
+      },
+      {
+        "id": "example-com",
+        "url": "https://example.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.001,
+        "covered": 0,
+        "first_screen_links": 1,
+        "first_screen_text": 0.884,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.12,
+        "sha256": "400bd0d9a9c528464c7c818976c0d17b24086cbe9afb9e4c2a0e91b8b7c35bbe",
+        "title": "Example Domain",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 0,
+          "links": 1,
+          "inferred": 0,
+          "text_density": 0.884,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 11.43
+        }
+      },
+      {
+        "id": "info-cern-ch-hypertext-www-theproject-html",
+        "url": "http://info.cern.ch/hypertext/WWW/TheProject.html",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 25,
+        "first_screen_text": 0.907,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.09,
+        "sha256": "df79844b12db21d3ad7a2fd794286cf61f19258d0cfd3cb76cb97c56ea85e321",
+        "title": "The World Wide Web project",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 0,
+          "links": 25,
+          "inferred": 0,
+          "text_density": 0.907,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.79
+        }
+      },
+      {
+        "id": "httpbin-org-html",
+        "url": "https://httpbin.org/html",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 0,
+        "first_screen_text": 3.509,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.12,
+        "sha256": "cdfe25ab296ad0abd9c00adfcd787f459b3bb729eeff661823bf72a2054ef4c2",
+        "title": "",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 0,
+          "links": 0,
+          "inferred": 0,
+          "text_density": 3.509,
+          "max_depth": 5,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 13.68
+        }
+      },
+      {
+        "id": "text-npr-org",
+        "url": "https://text.npr.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "error": "disallowed by robots.txt"
+      },
+      {
+        "id": "lite-cnn-com",
+        "url": "https://lite.cnn.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "error": "disallowed by robots.txt"
+      },
+      {
+        "id": "danluu-com",
+        "url": "https://danluu.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 25,
+        "first_screen_text": 1.312,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.06,
+        "late_gap_s": 6.09,
+        "sha256": "754558a7b0bc99126a38a5d0dd369577360a28339a63feae8ea303d6dbcf97c6",
+        "title": "",
+        "layout_width": 1280,
+        "drift": 0.061,
+        "nine_now": {
+          "interactive": 0,
+          "links": 211,
+          "inferred": 0,
+          "text_density": 1.315,
+          "max_depth": 6,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.28
+        }
+      },
+      {
+        "id": "quotes-toscrape-com",
+        "url": "https://quotes.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 31,
+        "first_screen_text": 0.837,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.11,
+        "sha256": "5e07243d33f9261bd9a2ff7795258c91706d1f264e9dce6e987d3467cc26e130",
+        "title": "Quotes to Scrape",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 0,
+          "links": 55,
+          "inferred": 0,
+          "text_density": 0.844,
+          "max_depth": 11,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.39
+        }
+      },
+      {
+        "id": "books-toscrape-com",
+        "url": "https://books.toscrape.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.07,
+        "covered": 0,
+        "first_screen_links": 38,
+        "first_screen_text": 0.63,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.08,
+        "late_gap_s": 6.14,
+        "sha256": "15f63a54b1a6952bdf8567ce6c06e84f157b1454c3393758a799b8df62493a33",
+        "title": "All products | Books to Scrape - Sandbox",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 20,
+          "links": 94,
+          "inferred": 0,
+          "text_density": 0.638,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 3.91
+        }
+      },
+      {
+        "id": "www-python-org",
+        "url": "https://www.python.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0238,
+        "covered": 0,
+        "first_screen_links": 25,
+        "first_screen_text": 0.786,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0212,
+        "gap_s": 3.14,
+        "late_gap_s": 6.16,
+        "sha256": "373fc13129d89e8c1558b20c12d34859d784b0d702ca4936e58e38e32d24ad1b",
+        "title": "Welcome to Python.org",
+        "layout_width": 1280,
+        "drift": 0.1147,
+        "nine_now": {
+          "interactive": 2,
+          "links": 152,
+          "inferred": 5,
+          "text_density": 1.107,
+          "max_depth": 17,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.007,
+          "reading_grade": 6.59
+        }
+      },
+      {
+        "id": "pypi-org",
+        "url": "https://pypi.org/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0333,
+        "covered": 0,
+        "first_screen_links": 9,
+        "first_screen_text": 0.477,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.12,
+        "sha256": "65b7f2adcfd96d3fb663867b8df9da186b6f727f4e7a2f6c3709cd94a7433cfb",
+        "title": "PyPI · The Python Package Index",
+        "layout_width": 1280,
+        "drift": 0.0052,
+        "nine_now": {
+          "interactive": 3,
+          "links": 52,
+          "inferred": 0,
+          "text_density": 0.542,
+          "max_depth": 14,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.02
+        }
+      },
+      {
+        "id": "developer-mozilla-org-en-us-docs-web-html",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/HTML",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0013,
+        "covered": 0.424,
+        "first_screen_links": 48,
+        "first_screen_text": 1.581,
+        "covering": [
+          {
+            "element": "aside sticky",
+            "share": 0.152
+          },
+          {
+            "element": "aside#main-sidebar sticky",
+            "share": 0.1345
+          },
+          {
+            "element": "header sticky",
+            "share": 0.12
+          },
+          {
+            "element": "div sticky",
+            "share": 0.0175
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.14,
+        "sha256": "4df69d2935fb6eb82fc03e5fd4cc3a20f5f9d952c8b091799c02fac926087422",
+        "title": "HTML: HyperText Markup Language | MDN",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 16,
+          "links": 131,
+          "inferred": 2,
+          "text_density": 1.744,
+          "max_depth": 18,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.01
+        }
+      },
+      {
+        "id": "en-wikipedia-org-wiki-cognitive-load",
+        "url": "https://en.wikipedia.org/wiki/Cognitive_load",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0022,
+        "covered": 0.2265,
+        "first_screen_links": 52,
+        "first_screen_text": 2.368,
+        "covering": [
+          {
+            "element": "div sticky",
+            "share": 0.1365
+          },
+          {
+            "element": "div sticky",
+            "share": 0.09
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.16,
+        "sha256": "b9b966590aa711beae2a158412164ee854f63c1812a7410d05cc6f2ef60ff8f4",
+        "title": "Cognitive load - Wikipedia",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 21,
+          "links": 740,
+          "inferred": 0,
+          "text_density": 2.541,
+          "max_depth": 45,
+          "overlays": 0,
+          "form_fields": 12,
+          "dead_link_ratio": 0.001,
+          "reading_grade": 9.81
+        }
+      },
+      {
+        "id": "en-wikipedia-org-wiki-main-page",
+        "url": "https://en.wikipedia.org/wiki/Main_Page",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0537,
+        "covered": 0.09,
+        "first_screen_links": 40,
+        "first_screen_text": 1.796,
+        "covering": [
+          {
+            "element": "div sticky",
+            "share": 0.09
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.19,
+        "late_gap_s": 6.16,
+        "sha256": "4116dccc6b6fe8272f4f063b4163f0b7b449cda5a80030681b5ed9a300d36b85",
+        "title": "Wikipedia, the free encyclopedia",
+        "layout_width": 1280,
+        "drift": 0.1827,
+        "nine_now": {
+          "interactive": 14,
+          "links": 257,
+          "inferred": 0,
+          "text_density": 1.89,
+          "max_depth": 23,
+          "overlays": 0,
+          "form_fields": 12,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.66
+        }
+      },
+      {
+        "id": "www-gov-uk",
+        "url": "https://www.gov.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0057,
+        "covered": 0,
+        "first_screen_links": 2,
+        "first_screen_text": 0.404,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.12,
+        "sha256": "0df6bd8e2808f4a5c6b1b5ba080b4b07985eb85eb7f567aa4b851423bbc0e7d3",
+        "title": "Welcome to GOV.UK",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 9,
+          "links": 79,
+          "inferred": 0,
+          "text_density": 0.451,
+          "max_depth": 20,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.71
+        }
+      },
+      {
+        "id": "www-gov-uk-browse-benefits",
+        "url": "https://www.gov.uk/browse/benefits",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.007,
+        "covered": 0,
+        "first_screen_links": 5,
+        "first_screen_text": 0.471,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.08,
+        "sha256": "12b35a52e6a19ab52933326087804a1e4696965c5d2258ad2c96926422e6cd9b",
+        "title": "Benefits - GOV.UK",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 7,
+          "links": 49,
+          "inferred": 0,
+          "text_density": 0.527,
+          "max_depth": 20,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.89
+        }
+      },
+      {
+        "id": "www-nhs-uk",
+        "url": "https://www.nhs.uk/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.222,
+        "covered": 0,
+        "first_screen_links": 10,
+        "first_screen_text": 0.472,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.17,
+        "late_gap_s": 6.2,
+        "sha256": "5d69ffe55bc789cf9c97728d8b353adf4d2d50be54343aa664db0af4f14ff8af",
+        "title": "NHS website for England - NHS",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 4,
+          "links": 47,
+          "inferred": 0,
+          "text_density": 0.52,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.82
+        }
+      },
+      {
+        "id": "news-ycombinator-com",
+        "url": "https://news.ycombinator.com/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0037,
+        "covered": 0,
+        "first_screen_links": 159,
+        "first_screen_text": 2.608,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.08,
+        "sha256": "d00ae4daf5f639c89e9810ddb46cffc23d25b6b8ca20193b80d322e7fa3b146f",
+        "title": "Hacker News",
+        "layout_width": 1280,
+        "drift": 0.1076,
+        "nine_now": {
+          "interactive": 1,
+          "links": 225,
+          "inferred": 0,
+          "text_density": 2.624,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.29
+        }
+      },
+      {
+        "id": "arxiv-org-list-cs-hc-recent",
+        "url": "https://arxiv.org/list/cs.HC/recent",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0047,
+        "covered": 0,
+        "first_screen_links": 67,
+        "first_screen_text": 1.913,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.11,
+        "late_gap_s": 6.11,
+        "sha256": "f227482ac06828576c8e5deb8d6c97818ac7baab8c1770c571560bcfbef18240",
+        "title": "Human-Computer Interaction",
+        "layout_width": 1280,
+        "drift": 0.1109,
+        "nine_now": {
+          "interactive": 0,
+          "links": 468,
+          "inferred": 0,
+          "text_density": 1.938,
+          "max_depth": 13,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 11.14
+        }
+      },
+      {
+        "id": "www-bbc-co-uk-news",
+        "url": "https://www.bbc.co.uk/news",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.2092,
+        "covered": 0.2,
+        "first_screen_links": 29,
+        "first_screen_text": 0.421,
+        "covering": [
+          {
+            "element": "header#bbc-header sticky",
+            "share": 0.1
+          },
+          {
+            "element": "nav#main-navigation-container sticky",
+            "share": 0.1
+          }
+        ],
+        "motion": 0.2304,
+        "motion_late": 0.2304,
+        "gap_s": 3.34,
+        "late_gap_s": 6.2,
+        "sha256": "496cc15f16c0657874735c1cdb6a73110a0ed9d3239fcd72dc7c6eec19d7883d",
+        "title": "BBC News - Breaking news, video and the latest top stories from the U.S. and aro",
+        "layout_width": 1280,
+        "drift": 0.0244,
+        "nine_now": {
+          "interactive": 8,
+          "links": 106,
+          "inferred": 0,
+          "text_density": 0.494,
+          "max_depth": 23,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.35
+        }
+      },
+      {
+        "id": "the-internet-herokuapp-com-entry-ad",
+        "url": "https://the-internet.herokuapp.com/entry_ad",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0203,
+        "covered": 1,
+        "first_screen_links": 1,
+        "first_screen_text": 0.229,
+        "covering": [
+          {
+            "element": "div#modal fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.11,
+        "late_gap_s": 6.06,
+        "sha256": "06954f3d20ab0513b7ce36c5e3188ba8b4483b4fbb8d80a4885cabfd1f08bc16",
+        "title": "The Internet",
+        "layout_width": 1280,
+        "drift": 0.8016,
+        "nine_now": {
+          "interactive": 1,
+          "links": 2,
+          "inferred": 1,
+          "text_density": 0.282,
+          "max_depth": 9,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.5,
+          "reading_grade": 4.66
+        }
+      },
+      {
+        "id": "the-internet-herokuapp-com",
+        "url": "https://the-internet.herokuapp.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0203,
+        "covered": 0,
+        "first_screen_links": 28,
+        "first_screen_text": 0.465,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.12,
+        "sha256": "73a5cbce475dd5332a07e1aa28ae2497e06f59f375bd52fe9d4c32306e5a8768",
+        "title": "The Internet",
+        "layout_width": 1280,
+        "drift": 0.3777,
+        "nine_now": {
+          "interactive": 0,
+          "links": 54,
+          "inferred": 0,
+          "text_density": 0.485,
+          "max_depth": 8,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 10.88
+        }
+      },
+      {
+        "id": "the-internet-herokuapp-com-login",
+        "url": "https://the-internet.herokuapp.com/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0203,
+        "covered": 0,
+        "first_screen_links": 2,
+        "first_screen_text": 0.243,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.11,
+        "late_gap_s": 6.11,
+        "sha256": "a8c8a078006a26ae036e1d20db5a3eb5f5de481e5081675cfdbb9e7c5f7eae74",
+        "title": "The Internet",
+        "layout_width": 1280,
+        "drift": 0.5917,
+        "nine_now": {
+          "interactive": 5,
+          "links": 3,
+          "inferred": 2,
+          "text_density": 0.243,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.74
+        }
+      },
+      {
+        "id": "demo-testfire-net",
+        "url": "http://demo.testfire.net/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.1293,
+        "covered": 0,
+        "first_screen_links": 43,
+        "first_screen_text": 2.455,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.14,
+        "sha256": "870fb227c78c2dea2e61f953e8e09a3ed4d87ce60e6f103675f8fd6e60f546ac",
+        "title": "Altoro Mutual",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 2,
+          "links": 43,
+          "inferred": 0,
+          "text_density": 2.455,
+          "max_depth": 13,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.06
+        }
+      },
+      {
+        "id": "parabank-parasoft-com-parabank-index-htm",
+        "url": "https://parabank.parasoft.com/parabank/index.htm",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.885,
+        "covered": 0,
+        "first_screen_links": 30,
+        "first_screen_text": 0.475,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.12,
+        "sha256": "8745f54fd73a3f710c62a466e3ec9593271652abcd157d354f1f4f0c8c098985",
+        "title": "ParaBank | Welcome | Online Banking",
+        "layout_width": 1280,
+        "drift": 0.0015,
+        "nine_now": {
+          "interactive": 3,
+          "links": 32,
+          "inferred": 0,
+          "text_density": 0.475,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.79
+        }
+      },
+      {
+        "id": "demo-applitools-com",
+        "url": "https://demo.applitools.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.557,
+        "covered": 0,
+        "first_screen_links": 5,
+        "first_screen_text": 0.043,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.27,
+        "late_gap_s": 6.3,
+        "sha256": "efeab6befabfb37e4cdcafce008bf96ffa99195840b775eb799896f5c9afa146",
+        "title": "ACME Demo App by Applitools",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 3,
+          "links": 5,
+          "inferred": 0,
+          "text_density": 0.043,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.6,
+          "reading_grade": 5.68
+        }
+      },
+      {
+        "id": "opensource-demo-orangehrmlive-com-web-index-php-auth-login",
+        "url": "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.864,
+        "covered": 0,
+        "first_screen_links": 5,
+        "first_screen_text": 0.144,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.11,
+        "sha256": "60a20385bc49c13a5d6cf9a18ad66b1bddc604b7d55051cda84407474b600c09",
+        "title": "OrangeHRM",
+        "layout_width": 1280,
+        "drift": 0.0041,
+        "nine_now": {
+          "interactive": 4,
+          "links": 5,
+          "inferred": 1,
+          "text_density": 0.144,
+          "max_depth": 16,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.71
+        }
+      },
+      {
+        "id": "www-saucedemo-com",
+        "url": "https://www.saucedemo.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 0,
+        "first_screen_text": 0.147,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.09,
+        "sha256": "dc07e8c4dd2ba46b2f1b027677324936d7f10d472276167a6ce7a2dc21a6e29d",
+        "title": "Swag Labs",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 3,
+          "links": 0,
+          "inferred": 0,
+          "text_density": 0.147,
+          "max_depth": 12,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.07
+        }
+      },
+      {
+        "id": "demo-opencart-com",
+        "url": "https://demo.opencart.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 0,
+        "first_screen_links": 2,
+        "first_screen_text": 0.25,
+        "covering": [],
+        "motion": 0.0003,
+        "motion_late": 0.0004,
+        "gap_s": 3.14,
+        "late_gap_s": 6.08,
+        "sha256": "b5071901715d31145febbe13bc78b22cc36c32fe7d6695031d86ccbec7e5e6bf",
+        "title": "Just a moment...",
+        "layout_width": 1280,
+        "drift": 0.0006,
+        "nine_now": {
+          "interactive": 0,
+          "links": 2,
+          "inferred": 0,
+          "text_density": 0.25,
+          "max_depth": 10,
+          "overlays": 0,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.34
+        }
+      },
+      {
+        "id": "practice-expandtesting-com",
+        "url": "https://practice.expandtesting.com/",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0132,
+        "covered": 0.1,
+        "first_screen_links": 33,
+        "first_screen_text": 0.892,
+        "covering": [
+          {
+            "element": "header sticky",
+            "share": 0.1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0049,
+        "gap_s": 3.14,
+        "late_gap_s": 6.14,
+        "sha256": "84348773d97ee935bae2c1479edf1b7d948cddebcc246c66d38cd9bf1a853fd9",
+        "title": "Automation Testing Practice Website for QA and Developers | UI and API",
+        "layout_width": 1280,
+        "drift": 0.0841,
+        "nine_now": {
+          "interactive": 8,
+          "links": 244,
+          "inferred": 6,
+          "text_density": 0.905,
+          "max_depth": 19,
+          "overlays": 0,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.99
+        }
+      },
+      {
+        "id": "demoqa-com-automation-practice-form",
+        "url": "https://demoqa.com/automation-practice-form",
+        "state": "as it loads",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.1412,
+        "covered": 0.08,
+        "first_screen_links": 2,
+        "first_screen_text": 0.283,
+        "covering": [
+          {
+            "element": "footer fixed",
+            "share": 0.08
+          }
+        ],
+        "motion": 0.0584,
+        "motion_late": 0.0711,
+        "gap_s": 3.19,
+        "late_gap_s": 6.17,
+        "sha256": "14f828236734213f59d810ca1ff1c71d61a7c647ca29589d06dbb172f29598de",
+        "title": "demosite",
+        "layout_width": 1280,
+        "drift": 0.0758,
+        "nine_now": {
+          "interactive": 22,
+          "links": 2,
+          "inferred": 6,
+          "text_density": 0.317,
+          "max_depth": 18,
+          "overlays": 0,
+          "form_fields": 15,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.18
+        }
+      },
+      {
+        "id": "demoqa-com-modal-dialogs--open-a-demoqa-modal",
+        "url": "https://demoqa.com/modal-dialogs",
+        "state": "open a demoqa modal",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0553,
+        "covered": 1,
+        "first_screen_links": 5,
+        "first_screen_text": 0.233,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.08,
+        "late_gap_s": 6.11,
+        "sha256": "64804ffea7114a08db6758b711bfc72a41062d61ed98d8447fb445da7d1cfd1f",
+        "title": "demosite",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 10,
+          "links": 6,
+          "inferred": 6,
+          "text_density": 0.261,
+          "max_depth": 18,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.05
+        }
+      },
+      {
+        "id": "todomvc-com-examples-react-dist--add-a-todo",
+        "url": "https://todomvc.com/examples/react/dist/",
+        "state": "add a todo",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.035,
+        "covered": 0,
+        "first_screen_links": 14,
+        "first_screen_text": 0.656,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.12,
+        "sha256": "629670ce054f062c0c9d369e35608d24e49c1cca83a8ec54de1c340f431e581a",
+        "title": "TodoMVC: React",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 3,
+          "links": 14,
+          "inferred": 0,
+          "text_density": 0.656,
+          "max_depth": 9,
+          "overlays": 0,
+          "form_fields": 3,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 5.55
+        }
+      },
+      {
+        "id": "getbootstrap-com-docs-5-3-components-modal--open-a-bootstrap-modal",
+        "url": "https://getbootstrap.com/docs/5.3/components/modal/",
+        "state": "open a bootstrap modal",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0043,
+        "covered": 1,
+        "first_screen_links": 58,
+        "first_screen_text": 1.329,
+        "covering": [
+          {
+            "element": "div#exampleModalLive fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.11,
+        "late_gap_s": 6.16,
+        "sha256": "d608d3d27a79cce302dbd1badf6d2a80f884347a61f84673018fe1d5b0d5a4bd",
+        "title": "Modal · Bootstrap v5.3",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 56,
+          "links": 226,
+          "inferred": 0,
+          "text_density": 1.769,
+          "max_depth": 16,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 9.9
+        }
+      },
+      {
+        "id": "element-plus-org-en-us-component-dialog-html--open-an-element-plus-dialog",
+        "url": "https://element-plus.org/en-US/component/dialog.html",
+        "state": "open an element plus dialog",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.006,
+        "covered": 1,
+        "first_screen_links": 23,
+        "first_screen_text": 0.886,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.09,
+        "late_gap_s": 6.08,
+        "sha256": "8ab7fdb56b637f1a233f8e929b6eb0cadf4b5422cdbad0f1046989f8cf20a26c",
+        "title": "Dialog | Element Plus",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 85,
+          "links": 215,
+          "inferred": 0,
+          "text_density": 0.933,
+          "max_depth": 20,
+          "overlays": 2,
+          "form_fields": 25,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.46
+        }
+      },
+      {
+        "id": "mui-com-material-ui-react-dialog--open-a-mui-dialog",
+        "url": "https://mui.com/material-ui/react-dialog/",
+        "state": "open a mui dialog",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0065,
+        "covered": 1,
+        "first_screen_links": 43,
+        "first_screen_text": 1.402,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.9213
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0788
+          }
+        ],
+        "motion": 0.0001,
+        "motion_late": 0.0,
+        "gap_s": 3.17,
+        "late_gap_s": 6.16,
+        "sha256": "af9d640eb39712df7093bbb4dd91b32bcf603ec4acbfb4cfc3fd59a02dea4ed6",
+        "title": "React Dialog component - Material UI",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 154,
+          "links": 156,
+          "inferred": 307,
+          "text_density": 1.805,
+          "max_depth": 23,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.07
+        }
+      },
+      {
+        "id": "ant-design-components-modal--open-an-antd-modal",
+        "url": "https://ant.design/components/modal",
+        "state": "open an antd modal",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0083,
+        "covered": 0.3615,
+        "first_screen_links": 66,
+        "first_screen_text": 1.325,
+        "covering": [
+          {
+            "element": "div sticky",
+            "share": 0.187
+          },
+          {
+            "element": "section fixed",
+            "share": 0.0945
+          },
+          {
+            "element": "header sticky",
+            "share": 0.08
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.14,
+        "sha256": "627d0d357e7c99f4610da2354440b119615b62fbeaf16742c409b4182c3b1c27",
+        "title": "Modal - Ant Design",
+        "layout_width": 1280,
+        "drift": 0.0001,
+        "nine_now": {
+          "interactive": 218,
+          "links": 231,
+          "inferred": 59,
+          "text_density": 1.511,
+          "max_depth": 26,
+          "overlays": 0,
+          "form_fields": 2,
+          "dead_link_ratio": 0.004,
+          "reading_grade": 7.18
+        }
+      },
+      {
+        "id": "sweetalert2-github-io--open-a-sweetalert",
+        "url": "https://sweetalert2.github.io/",
+        "state": "open a sweetalert",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0,
+        "covered": 1,
+        "first_screen_links": 15,
+        "first_screen_text": 0.535,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.14,
+        "sha256": "235a2b168a39c527b97628d8c0011a57edf40c14918218daba0e09e1412bf140",
+        "title": "SweetAlert2 - beautiful, accessible JavaScript popup boxes",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 2,
+          "links": 105,
+          "inferred": 106,
+          "text_density": 0.585,
+          "max_depth": 15,
+          "overlays": 1,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 8.14
+        }
+      },
+      {
+        "id": "mui-com-material-ui-react-drawer--open-a-bottom-sheet",
+        "url": "https://mui.com/material-ui/react-drawer/",
+        "state": "open a bottom sheet",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0085,
+        "covered": 1,
+        "first_screen_links": 25,
+        "first_screen_text": 1.058,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.54
+          },
+          {
+            "element": "div fixed",
+            "share": 0.3812
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0788
+          }
+        ],
+        "motion": 0.0001,
+        "motion_late": 0.0,
+        "gap_s": 3.14,
+        "late_gap_s": 6.17,
+        "sha256": "80b188f6f45432beaac503f41b69a35b844ac904f319d84bfad239b7e2a21388",
+        "title": "React Drawer component - Material UI",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 140,
+          "links": 131,
+          "inferred": 264,
+          "text_density": 1.739,
+          "max_depth": 23,
+          "overlays": 3,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 7.2
+        }
+      },
+      {
+        "id": "getbootstrap-com-docs-5-3-components-offcanvas--open-a-side-drawer",
+        "url": "https://getbootstrap.com/docs/5.3/components/offcanvas/",
+        "state": "open a side drawer",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.0132,
+        "covered": 1,
+        "first_screen_links": 26,
+        "first_screen_text": 1.179,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.6875
+          },
+          {
+            "element": "div#offcanvasWithBothOptions fixed",
+            "share": 0.3125
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 6.14,
+        "sha256": "b85a0ddd0abd051883c17a8df0ca189358857880eb8bad6c861c1777c31d9a41",
+        "title": "Offcanvas · Bootstrap v5.3",
+        "layout_width": 1280,
+        "drift": 0.008,
+        "nine_now": {
+          "interactive": 40,
+          "links": 197,
+          "inferred": 0,
+          "text_density": 1.811,
+          "max_depth": 15,
+          "overlays": 2,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 10.66
+        }
+      },
+      {
+        "id": "ant-design-components-drawer--open-an-antd-drawer",
+        "url": "https://ant.design/components/drawer",
+        "state": "open an antd drawer",
+        "kind": "demo",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.009,
+        "covered": 0.342,
+        "first_screen_links": 54,
+        "first_screen_text": 1.188,
+        "covering": [
+          {
+            "element": "div sticky",
+            "share": 0.1955
+          },
+          {
+            "element": "header sticky",
+            "share": 0.08
+          },
+          {
+            "element": "section fixed",
+            "share": 0.0653
+          },
+          {
+            "element": "button fixed",
+            "share": 0.0013
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.16,
+        "late_gap_s": 6.14,
+        "sha256": "7bf9b1f21519308bde10242f0e2d559db1ccefd4ce4645036b30794c3e421c0b",
+        "title": "Drawer - Ant Design",
+        "layout_width": 1280,
+        "drift": 0.7193,
+        "nine_now": {
+          "interactive": 197,
+          "links": 204,
+          "inferred": 46,
+          "text_density": 1.525,
+          "max_depth": 24,
+          "overlays": 0,
+          "form_fields": 20,
+          "dead_link_ratio": 0.02,
+          "reading_grade": 6.83
+        }
+      },
+      {
+        "id": "www-theguardian-com-international",
+        "url": "https://www.theguardian.com/international",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.1353,
+        "covered": 1,
+        "first_screen_links": 25,
+        "first_screen_text": 0.465,
+        "covering": [
+          {
+            "element": "div#sp_message_container_1482255 fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.12,
+        "late_gap_s": 10.11,
+        "sha256": "d8443d6898359b4df6d4f5945c328fd1a6708cc059a0943e3a03d659a8273d7a",
+        "title": "Latest news, sport and opinion from the Guardian",
+        "layout_width": 1280,
+        "drift": 0.0,
+        "nine_now": {
+          "interactive": 12,
+          "links": 263,
+          "inferred": 6,
+          "text_density": 0.626,
+          "max_depth": 23,
+          "overlays": 3,
+          "form_fields": 0,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.04
+        }
+      },
+      {
+        "id": "www-spiegel-de",
+        "url": "https://www.spiegel.de/",
+        "state": "as it loads",
+        "kind": "public",
+        "run": "2c9ce08e0c19",
+        "image_area": 0.2592,
+        "covered": 1,
+        "first_screen_links": 19,
+        "first_screen_text": 0.802,
+        "covering": [
+          {
+            "element": "div#sp_message_container_1519494 fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.16,
+        "late_gap_s": 6.42,
+        "sha256": "c801164f3cd127df26c97521200243aff74cfb53a8dcb1e378e80ef00dc29c22",
+        "title": "DER SPIEGEL | Online-Nachrichten",
+        "layout_width": 1280,
+        "drift": 0.0986,
+        "nine_now": {
+          "interactive": 134,
+          "links": 528,
+          "inferred": 3,
+          "text_density": 0.882,
+          "max_depth": 28,
+          "overlays": 1,
+          "form_fields": 1,
+          "dead_link_ratio": 0.0,
+          "reading_grade": 6.42
+        }
+      }
+    ]
+  },
+  "sites": {
+    "conditions": {
+      "taken_at": "2026-11-02T22:11:08+05:00",
+      "git": {
+        "commit": "f15f8f30178a",
+        "branch": "eval/visual-features",
+        "dirty": true
+      },
+      "python": {
+        "version": "3.12.3",
+        "executable": "D:\\simba\\backend\\venv\\Scripts\\python.exe",
+        "project_venv": true
+      },
+      "playwright": "1.62.0",
+      "provider": "openai",
+      "model": "gemini-3.1-flash-lite",
+      "model_from": ".env",
+      "switches": {
+        "SIMBA_FLOW": null,
+        "SIMBA_USE_HARDCODED_PLAN": null,
+        "SIMBA_TRACE_MEMORY": null,
+        "SIMBA_BROWSER": null,
+        "SIMBA_OVERLAY_DETECTION": null,
+        "SIMBA_INFERRED_ROLES": null,
+        "SIMBA_SETBACK_PLACEMENT": null,
+        "SIMBA_LLM_PROVIDER": null,
+        "SIMBA_LLM_EFFORT": null,
+        "SIMBA_REPLICA_URL": null,
+        "SIMBA_ADAPT": null,
+        "SIMBA_PAGE_MODEL": null
+      },
+      "machine": {
+        "platform": "Windows-11-10.0.26200-SP0",
+        "cpus": 8,
+        "load_percent": 0,
+        "power": {
+          "on_battery": true,
+          "charge_percent": 49,
+          "cpu_performance_percent": 49,
+          "free_memory_mb": 1576
+        }
+      },
+      "chromium": "151.0.7922.34"
+    },
+    "run": {
+      "id": "f3b3315015e8",
+      "taken_at": "2026-11-02T22:11:08+0500",
+      "date": "2026-11-02"
+    },
+    "rows": [
+      {
+        "site": "Pakistan national portal",
+        "category": "Government services",
+        "url": "https://www.pakistan.gov.pk/",
+        "why": "The federal government's front door",
+        "status": "scored",
+        "note": "",
+        "rating": 1.977,
+        "score": 0.244,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (46)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (46)"
+        ],
+        "final_url": "https://www.pakistan.gov.pk/",
+        "title": "Government of Pakistan",
+        "http_status": 200,
+        "flat_share": 0.3232,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-pakistan-gov-pk.png",
+        "sha256": "0cebb8e404d8483cc83fcfe4b2fd38aa53df47a560cf839b2d22b2b7f464ccb6",
+        "characters": 1863,
+        "interactive": 2,
+        "links": 46,
+        "inferred": 0,
+        "text_density": 0.568,
+        "max_depth": 17,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.022,
+        "reading_grade": 10.47,
+        "image_area": 0.7338,
+        "covered": 0.0022,
+        "first_screen_links": 9,
+        "first_screen_text": 0.367,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.0022
+          }
+        ],
+        "motion": 0.1007,
+        "motion_late": 0.1007,
+        "gap_s": 3.33,
+        "late_gap_s": 6.38
+      },
+      {
+        "site": "FBR",
+        "category": "Government services",
+        "url": "https://www.fbr.gov.pk/",
+        "why": "Tax, for every filer",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.997,
+        "score": 0.249,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (196)"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.fbr.gov.pk/",
+        "title": "FBR| Federal Board of Revenue - Government of Pakistan",
+        "http_status": 200,
+        "flat_share": 0.3671,
+        "layout_width": 1280,
+        "urdu_share": 0.002,
+        "outside_corpus": [],
+        "screenshot": "www-fbr-gov-pk.png",
+        "sha256": "8b4dfd976327d51ec2dca4cae644a0378b70b314205b41f9cb2f89b1c7f5de93",
+        "characters": 6143,
+        "interactive": 2,
+        "links": 196,
+        "inferred": 0,
+        "text_density": 0.371,
+        "max_depth": 23,
+        "overlays": 0,
+        "form_fields": 1,
+        "dead_link_ratio": 0.01,
+        "reading_grade": 9.62,
+        "image_area": 0.6617,
+        "covered": 0,
+        "first_screen_links": 36,
+        "first_screen_text": 0.325,
+        "covering": [],
+        "motion": 0.0604,
+        "motion_late": 0.2645,
+        "gap_s": 3.22,
+        "late_gap_s": 6.2
+      },
+      {
+        "site": "Directorate of Passports",
+        "category": "Government services",
+        "url": "https://www.dgip.gov.pk/",
+        "why": "Passports and their appointments",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.385,
+        "score": 0.346,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.dgip.gov.pk/home/",
+        "title": "Welcome - DGI&P",
+        "http_status": 200,
+        "flat_share": 0.214,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-dgip-gov-pk.png",
+        "sha256": "6c636683031d512cf87f7d991efd2e51128f5ee69d1fd3b84ffa6eaf4cab2587",
+        "characters": 12854,
+        "interactive": 3,
+        "links": 105,
+        "inferred": 1,
+        "text_density": 1.139,
+        "max_depth": 18,
+        "overlays": 2,
+        "form_fields": 1,
+        "dead_link_ratio": 0.029,
+        "reading_grade": 9.69,
+        "image_area": 0.6595,
+        "covered": 1,
+        "first_screen_links": 11,
+        "first_screen_text": 0.126,
+        "covering": [
+          {
+            "element": "div#myModal fixed",
+            "share": 0.995
+          },
+          {
+            "element": "div fixed",
+            "share": 0.005
+          }
+        ],
+        "motion": 0.0047,
+        "motion_late": 0.0037,
+        "gap_s": 3.3,
+        "late_gap_s": 6.25
+      },
+      {
+        "site": "Government of Sindh",
+        "category": "Government services",
+        "url": "https://www.sindh.gov.pk/",
+        "why": "Provincial services for Karachi and Sindh",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.291,
+        "score": 0.323,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (326)"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.sindh.gov.pk/",
+        "title": "Government of Sindh",
+        "http_status": 200,
+        "flat_share": 0.0881,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-sindh-gov-pk.png",
+        "sha256": "c9bc37fd67063400aafad85d725864fff440e7740da7317577f57316df3ea30a",
+        "characters": 46060,
+        "interactive": 29,
+        "links": 326,
+        "inferred": 0,
+        "text_density": 0.086,
+        "max_depth": 20,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.218,
+        "reading_grade": 10.26,
+        "image_area": 0.8702,
+        "covered": 0.1052,
+        "first_screen_links": 15,
+        "first_screen_text": 0.086,
+        "covering": [
+          {
+            "element": "header sticky",
+            "share": 0.1
+          },
+          {
+            "element": "a fixed",
+            "share": 0.003
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0022
+          }
+        ],
+        "motion": 0.8455,
+        "motion_late": 0.8345,
+        "gap_s": 3.42,
+        "late_gap_s": 6.36
+      },
+      {
+        "site": "Government of Khyber Pakhtunkhwa",
+        "category": "Government services",
+        "url": "https://kp.gov.pk/",
+        "why": "Provincial services",
+        "status": "scored",
+        "note": "(no robots.txt: the server returned HTML, not rules)",
+        "rating": 1.835,
+        "score": 0.209,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (48)"
+        ],
+        "pushed_up_by": [
+          "many buttons and boxes"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (48)"
+        ],
+        "final_url": "https://kp.gov.pk/",
+        "title": "Khyber Pakhtunkhwa Portal - The official web portal of the Khyber Pakhtunkhwa",
+        "http_status": 200,
+        "flat_share": 0.2401,
+        "layout_width": 1280,
+        "urdu_share": 0.019,
+        "outside_corpus": [],
+        "screenshot": "kp-gov-pk.png",
+        "sha256": "84555a298fe90fb4a7cd90bd759b3ad42718abed9cc554221922c85ac7ce0186",
+        "characters": 21231,
+        "interactive": 175,
+        "links": 48,
+        "inferred": 102,
+        "text_density": 0.333,
+        "max_depth": 24,
+        "overlays": 0,
+        "form_fields": 3,
+        "dead_link_ratio": 0.0,
+        "reading_grade": 11.25,
+        "image_area": 0.8225,
+        "covered": 0.003,
+        "first_screen_links": 14,
+        "first_screen_text": 0.315,
+        "covering": [
+          {
+            "element": "a fixed",
+            "share": 0.003
+          }
+        ],
+        "motion": 0.0159,
+        "motion_late": 0.0428,
+        "gap_s": 3.34,
+        "late_gap_s": 6.25
+      },
+      {
+        "site": "Election Commission",
+        "category": "Government services",
+        "url": "https://www.ecp.gov.pk/",
+        "why": "Voter registration and polling information",
+        "status": "scored",
+        "note": "",
+        "rating": 1.807,
+        "score": 0.202,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (189)"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.ecp.gov.pk/",
+        "title": "Election Commission of Pakistan",
+        "http_status": 200,
+        "flat_share": 0.2322,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-ecp-gov-pk.png",
+        "sha256": "83c725be73b2504328f95e4602ac8f9118cb8be25ad228e2bf5dae4b4607003d",
+        "characters": 25294,
+        "interactive": 13,
+        "links": 189,
+        "inferred": 0,
+        "text_density": 0.092,
+        "max_depth": 25,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.148,
+        "reading_grade": 10.31,
+        "image_area": 0.8805,
+        "covered": 0.0022,
+        "first_screen_links": 10,
+        "first_screen_text": 0.08,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.0022
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.661,
+        "gap_s": 3.39,
+        "late_gap_s": 6.39
+      },
+      {
+        "site": "Benazir Income Support",
+        "category": "Government services",
+        "url": "https://www.bisp.gov.pk/",
+        "why": "Cash support, used by people with the least help to hand",
+        "status": "scored",
+        "note": "",
+        "rating": 1.779,
+        "score": 0.195,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (43)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (43)"
+        ],
+        "final_url": "https://www.bisp.gov.pk/",
+        "title": "Benazir Income Support Programme",
+        "http_status": 200,
+        "flat_share": 0.4786,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-bisp-gov-pk.png",
+        "sha256": "88c115d6df38bbac25da428057d76120a3f32ded9fc51a92939f352f92a8aed4",
+        "characters": 10528,
+        "interactive": 10,
+        "links": 43,
+        "inferred": 0,
+        "text_density": 0.452,
+        "max_depth": 21,
+        "overlays": 0,
+        "form_fields": 5,
+        "dead_link_ratio": 0.233,
+        "reading_grade": 12.86,
+        "image_area": 0.3855,
+        "covered": 0,
+        "first_screen_links": 20,
+        "first_screen_text": 0.324,
+        "covering": [],
+        "motion": 0.3038,
+        "motion_late": 0.3157,
+        "gap_s": 3.22,
+        "late_gap_s": 6.14
+      },
+      {
+        "site": "IESCO",
+        "category": "Utilities",
+        "url": "https://www.iesco.com.pk/",
+        "why": "Electricity for Islamabad",
+        "status": "scored",
+        "note": "",
+        "rating": 2.038,
+        "score": 0.26,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (84)"
+        ],
+        "pushed_up_by": [
+          "a shallow, plain layout"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "few links (84)"
+        ],
+        "final_url": "https://www.iesco.com.pk/",
+        "title": "IESCO",
+        "http_status": 200,
+        "flat_share": 0.1386,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-iesco-com-pk.png",
+        "sha256": "ce8d3dc921e82f353e6793fdd4ee4c464cc8826943876984c16062cd877c4c29",
+        "characters": 2741,
+        "interactive": 46,
+        "links": 84,
+        "inferred": 7,
+        "text_density": 0.129,
+        "max_depth": 13,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.143,
+        "reading_grade": 9.39,
+        "image_area": 0.8472,
+        "covered": 0.1095,
+        "first_screen_links": 27,
+        "first_screen_text": 0.129,
+        "covering": [
+          {
+            "element": "nav sticky",
+            "share": 0.1
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0075
+          },
+          {
+            "element": "a fixed",
+            "share": 0.002
+          }
+        ],
+        "motion": 0.655,
+        "motion_late": 0.6868,
+        "gap_s": 3.52,
+        "late_gap_s": 6.45
+      },
+      {
+        "site": "MEPCO",
+        "category": "Utilities",
+        "url": "https://www.mepco.com.pk/",
+        "why": "Electricity for southern Punjab",
+        "status": "scored",
+        "note": "",
+        "rating": 1.81,
+        "score": 0.203,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (36)",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (36)",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://mepco.com.pk/",
+        "title": "MEPCO – Multan Electric Power Company",
+        "http_status": 200,
+        "flat_share": 0.5301,
+        "layout_width": 1280,
+        "urdu_share": 0.005,
+        "outside_corpus": [],
+        "screenshot": "www-mepco-com-pk.png",
+        "sha256": "17fb5da4eed2fb9c82f7d3235f8dd8d274fe6466d706106acb47b6b530453b08",
+        "characters": 4281,
+        "interactive": 1,
+        "links": 36,
+        "inferred": 1,
+        "text_density": 0.277,
+        "max_depth": 18,
+        "overlays": 3,
+        "form_fields": 0,
+        "dead_link_ratio": 0.167,
+        "reading_grade": 11.72,
+        "image_area": 0.3792,
+        "covered": 1,
+        "first_screen_links": 8,
+        "first_screen_text": 0.211,
+        "covering": [
+          {
+            "element": "div#elementor-popup-modal-14128 fixed",
+            "share": 0.995
+          },
+          {
+            "element": "div#glt-translate-trigger fixed",
+            "share": 0.005
+          }
+        ],
+        "motion": 0.6925,
+        "motion_late": 0.6879,
+        "gap_s": 3.27,
+        "late_gap_s": 6.28
+      },
+      {
+        "site": "SNGPL",
+        "category": "Utilities",
+        "url": "https://www.sngpl.com.pk/",
+        "why": "Gas for the north",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.773,
+        "score": 0.193,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (50)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (50)"
+        ],
+        "final_url": "https://www.sngpl.com.pk/",
+        "title": "Sui Northern Gas Pipelines Limited (SNGPL)",
+        "http_status": 200,
+        "flat_share": 0.4588,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-sngpl-com-pk.png",
+        "sha256": "fdb0fb26a6fb62841cbff0fae1cbadc1fc29033deab9b2d93aa974ebf8c73b3b",
+        "characters": 8614,
+        "interactive": 4,
+        "links": 50,
+        "inferred": 0,
+        "text_density": 0.115,
+        "max_depth": 16,
+        "overlays": 3,
+        "form_fields": 2,
+        "dead_link_ratio": 0.1,
+        "reading_grade": 9.92,
+        "image_area": 0.6987,
+        "covered": 0.4355,
+        "first_screen_links": 16,
+        "first_screen_text": 0.101,
+        "covering": [
+          {
+            "element": "div#toast-container fixed",
+            "share": 0.4305
+          },
+          {
+            "element": "div fixed",
+            "share": 0.005
+          }
+        ],
+        "motion": 0.507,
+        "motion_late": 0.6042,
+        "gap_s": 3.39,
+        "late_gap_s": 6.25
+      },
+      {
+        "site": "SSGC",
+        "category": "Utilities",
+        "url": "https://www.ssgc.com.pk/",
+        "why": "Gas for the south",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.115,
+        "score": 0.279,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (181)"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.ssgc.com.pk/web/",
+        "title": "Sui Southern Gas Company Limited",
+        "http_status": 200,
+        "flat_share": 0.5542,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [],
+        "screenshot": "www-ssgc-com-pk.png",
+        "sha256": "4c2099404c9afa98c538d8ee4454aac696ac509eaa59666e833bb43415a3effa",
+        "characters": 10189,
+        "interactive": 2,
+        "links": 181,
+        "inferred": 1,
+        "text_density": 0.406,
+        "max_depth": 19,
+        "overlays": 1,
+        "form_fields": 1,
+        "dead_link_ratio": 0.05,
+        "reading_grade": 10.77,
+        "image_area": 0.4728,
+        "covered": 0.0075,
+        "first_screen_links": 25,
+        "first_screen_text": 0.392,
+        "covering": [
+          {
+            "element": "div#tawk-container-7351934802021352417 fixed",
+            "share": 0.006
+          },
+          {
+            "element": "div fixed",
+            "share": 0.001
+          },
+          {
+            "element": "div#toTop fixed",
+            "share": 0.0005
+          }
+        ],
+        "motion": 0.0125,
+        "motion_late": 0.3384,
+        "gap_s": 3.22,
+        "late_gap_s": 6.27
+      },
+      {
+        "site": "Karachi Water",
+        "category": "Utilities",
+        "url": "https://www.kwsc.gos.pk/",
+        "why": "Water for Karachi",
+        "status": "scored",
+        "note": "",
+        "rating": 2.027,
+        "score": 0.257,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (36)"
+        ],
+        "pushed_up_by": [
+          "many buttons and boxes"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "few links (36)"
+        ],
+        "final_url": "https://www.kwsc.gos.pk/",
+        "title": "Karachi Water and Sewerage Corporation (KW&SC)",
+        "http_status": 200,
+        "flat_share": 0.3049,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-kwsc-gos-pk.png",
+        "sha256": "db1b70d360392d9c9fad4ce8f334a376f29e83f888caf71066fac9b9485d185c",
+        "characters": 4359,
+        "interactive": 69,
+        "links": 36,
+        "inferred": 8,
+        "text_density": 0.526,
+        "max_depth": 17,
+        "overlays": 1,
+        "form_fields": 2,
+        "dead_link_ratio": 0.056,
+        "reading_grade": 10.42,
+        "image_area": 0.8638,
+        "covered": 0.28,
+        "first_screen_links": 9,
+        "first_screen_text": 0.436,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.16
+          },
+          {
+            "element": "header fixed",
+            "share": 0.12
+          }
+        ],
+        "motion": 0.3208,
+        "motion_late": 0.1526,
+        "gap_s": 3.42,
+        "late_gap_s": 6.34
+      },
+      {
+        "site": "University of the Punjab",
+        "category": "Universities",
+        "url": "https://pu.edu.pk/",
+        "why": "One of the largest public universities",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.362,
+        "score": 0.341,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "a deeply nested layout"
+        ],
+        "final_url": "https://pu.edu.pk/",
+        "title": "University of the Punjab",
+        "http_status": 200,
+        "flat_share": 0.3078,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "pu-edu-pk.png",
+        "sha256": "840983fc946a4879ecb24554d40bd91dc7e608af0c604aef5cc52997497ed5a7",
+        "characters": 5275,
+        "interactive": 5,
+        "links": 99,
+        "inferred": 4,
+        "text_density": 1.126,
+        "max_depth": 18,
+        "overlays": 0,
+        "form_fields": 1,
+        "dead_link_ratio": 0.051,
+        "reading_grade": 11.18,
+        "image_area": 0.529,
+        "covered": 0.1435,
+        "first_screen_links": 29,
+        "first_screen_text": 0.663,
+        "covering": [
+          {
+            "element": "header#header fixed",
+            "share": 0.142
+          },
+          {
+            "element": "a fixed",
+            "share": 0.0015
+          }
+        ],
+        "motion": 0.2998,
+        "motion_late": 0.2825,
+        "gap_s": 3.22,
+        "late_gap_s": 6.27
+      },
+      {
+        "site": "University of Karachi",
+        "category": "Universities",
+        "url": "https://www.uok.edu.pk/",
+        "why": "Karachi's large public university",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.643,
+        "score": 0.161,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "pushed_up_by": [
+          "many links (150)"
+        ],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "final_url": "https://www.uok.edu.pk/",
+        "title": "University of Karachi — Official Website",
+        "http_status": 200,
+        "flat_share": 0.1858,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [],
+        "screenshot": "www-uok-edu-pk.png",
+        "sha256": "7962f4af6542f811c0337cbc6a94a3fc3fdd7ad5617cbf691cc638313a29f84b",
+        "characters": 8716,
+        "interactive": 9,
+        "links": 150,
+        "inferred": 0,
+        "text_density": 0.699,
+        "max_depth": 39,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.053,
+        "reading_grade": 8.25,
+        "image_area": 0.7007,
+        "covered": 0.06,
+        "first_screen_links": 20,
+        "first_screen_text": 0.653,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.06
+          }
+        ],
+        "motion": 0.6149,
+        "motion_late": 0.6024,
+        "gap_s": 3.39,
+        "late_gap_s": 13.59
+      },
+      {
+        "site": "Quaid-i-Azam University",
+        "category": "Universities",
+        "url": "https://qau.edu.pk/",
+        "why": "A federal public university",
+        "status": "scored",
+        "note": "",
+        "rating": 1.85,
+        "score": 0.213,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://qau.edu.pk/",
+        "title": "QAU – Islamabad, Pakistan",
+        "http_status": 200,
+        "flat_share": 0.0971,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [
+          "overlays"
+        ],
+        "screenshot": "qau-edu-pk.png",
+        "sha256": "77317304a80e598c03e6199c9924c124711ecf4bbfbbbd8c0b98b47bf3ba137a",
+        "characters": 6921,
+        "interactive": 4,
+        "links": 99,
+        "inferred": 0,
+        "text_density": 0.383,
+        "max_depth": 23,
+        "overlays": 4,
+        "form_fields": 0,
+        "dead_link_ratio": 0.101,
+        "reading_grade": 11.27,
+        "image_area": 0.8115,
+        "covered": 0.004,
+        "first_screen_links": 25,
+        "first_screen_text": 0.382,
+        "covering": [
+          {
+            "element": "div#side-menu-1 fixed",
+            "share": 0.004
+          }
+        ],
+        "motion": 0.0011,
+        "motion_late": 0.4077,
+        "gap_s": 3.36,
+        "late_gap_s": 6.38
+      },
+      {
+        "site": "NUST",
+        "category": "Universities",
+        "url": "https://nust.edu.pk/",
+        "why": "A public engineering university",
+        "status": "scored",
+        "note": "",
+        "rating": 1.866,
+        "score": 0.217,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (152)"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://nust.edu.pk/",
+        "title": "Welcome to National University of Sciences & Technology | NUST",
+        "http_status": 200,
+        "flat_share": 0.2958,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "nust-edu-pk.png",
+        "sha256": "35d314a34b5651ed61b6710d3b02da7c71f6fc3b26671557a048f381e9809a33",
+        "characters": 7861,
+        "interactive": 20,
+        "links": 152,
+        "inferred": 0,
+        "text_density": 0.219,
+        "max_depth": 23,
+        "overlays": 1,
+        "form_fields": 0,
+        "dead_link_ratio": 0.007,
+        "reading_grade": 11.04,
+        "image_area": 0.9123,
+        "covered": 1,
+        "first_screen_links": 19,
+        "first_screen_text": 0.219,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.7272
+          },
+          {
+            "element": "div fixed",
+            "share": 0.18
+          },
+          {
+            "element": "div fixed",
+            "share": 0.08
+          },
+          {
+            "element": "ul fixed",
+            "share": 0.0127
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.3,
+        "late_gap_s": 6.31
+      },
+      {
+        "site": "LUMS",
+        "category": "Universities",
+        "url": "https://lums.edu.pk/",
+        "why": "A private university, for contrast",
+        "status": "scored",
+        "note": "",
+        "rating": 1.684,
+        "score": 0.171,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout",
+          "little text on screen",
+          "few links (90)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen",
+          "few links (90)"
+        ],
+        "final_url": "https://lums.edu.pk/",
+        "title": "Welcome to LUMS | LUMS",
+        "http_status": 200,
+        "flat_share": 0.7496,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "lums-edu-pk.png",
+        "sha256": "bfeef02132cca1dfe6cebf152bc838a694f53722c617d47e5da6054ac9166687",
+        "characters": 13187,
+        "interactive": 28,
+        "links": 90,
+        "inferred": 18,
+        "text_density": 0.438,
+        "max_depth": 29,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.144,
+        "reading_grade": 7.67,
+        "image_area": 0.566,
+        "covered": 0,
+        "first_screen_links": 13,
+        "first_screen_text": 0.11,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.22,
+        "late_gap_s": 6.23
+      },
+      {
+        "site": "Higher Education Commission",
+        "category": "Universities",
+        "url": "https://www.hec.gov.pk/",
+        "why": "Degrees and scholarships, for every student",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.235,
+        "score": 0.309,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many links (198)"
+        ],
+        "held_down_by": [
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.hec.gov.pk/english/Pages/default.aspx",
+        "title": "English Home",
+        "http_status": 200,
+        "flat_share": 0.137,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [],
+        "screenshot": "www-hec-gov-pk.png",
+        "sha256": "3d3360280563c96cb4a2bc8e9479e3e989ace6014926c54bab45d3a412df3e88",
+        "characters": 19027,
+        "interactive": 13,
+        "links": 198,
+        "inferred": 66,
+        "text_density": 1.205,
+        "max_depth": 29,
+        "overlays": 0,
+        "form_fields": 3,
+        "dead_link_ratio": 0.02,
+        "reading_grade": 11.29,
+        "image_area": 0.7292,
+        "covered": 0.009,
+        "first_screen_links": 40,
+        "first_screen_text": 0.779,
+        "covering": [
+          {
+            "element": "div#youtubePlayer fixed",
+            "share": 0.009
+          }
+        ],
+        "motion": 0.0157,
+        "motion_late": 0.0162,
+        "gap_s": 3.31,
+        "late_gap_s": 6.38
+      },
+      {
+        "site": "National Bank of Pakistan",
+        "category": "Banks",
+        "url": "https://www.nbp.com.pk/",
+        "why": "The state bank, which pays many pensions",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.578,
+        "score": 0.144,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "pushed_up_by": [
+          "many links (141)"
+        ],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "final_url": "https://www.nbp.com.pk/",
+        "title": "National Bank of Pakistan",
+        "http_status": 200,
+        "flat_share": 0.531,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-nbp-com-pk.png",
+        "sha256": "bf968517610ab1b3680f68ce0ff94df582be5240fa3f7ee6c2c0323100b98fdd",
+        "characters": 3830,
+        "interactive": 1,
+        "links": 141,
+        "inferred": 0,
+        "text_density": 0.332,
+        "max_depth": 33,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.028,
+        "reading_grade": 10.28,
+        "image_area": 0.547,
+        "covered": 0,
+        "first_screen_links": 25,
+        "first_screen_text": 0.317,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0001,
+        "gap_s": 3.23,
+        "late_gap_s": 6.25
+      },
+      {
+        "site": "MCB",
+        "category": "Banks",
+        "url": "https://www.mcb.com.pk/",
+        "why": "A large private bank",
+        "status": "scored",
+        "note": "",
+        "rating": 2.535,
+        "score": 0.384,
+        "page_band": 2,
+        "simba_level": 2,
+        "reasons": [
+          "many buttons and boxes",
+          "many links (217)"
+        ],
+        "pushed_up_by": [
+          "many buttons and boxes",
+          "many links (217)"
+        ],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen",
+          "many controls built from plain page parts"
+        ],
+        "final_url": "https://www.mcb.com.pk/",
+        "title": "MCB Bank Pakistan | Your Ultimate Banking Solution",
+        "http_status": 200,
+        "flat_share": 0.1664,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [
+          "reading_grade"
+        ],
+        "screenshot": "www-mcb-com-pk.png",
+        "sha256": "ad306bc0e514cc177418d5e3776384f0bcb0123f43ea5a74c2e99861c2445e6c",
+        "characters": 7994,
+        "interactive": 179,
+        "links": 217,
+        "inferred": 127,
+        "text_density": 0.8,
+        "max_depth": 23,
+        "overlays": 2,
+        "form_fields": 1,
+        "dead_link_ratio": 0.046,
+        "reading_grade": 2.4,
+        "image_area": 0.733,
+        "covered": 1,
+        "first_screen_links": 23,
+        "first_screen_text": 0.715,
+        "covering": [
+          {
+            "element": "div#noticeModal fixed",
+            "share": 0.9978
+          },
+          {
+            "element": "div#a11y-host fixed",
+            "share": 0.0022
+          }
+        ],
+        "motion": 0.1939,
+        "motion_late": 0.1939,
+        "gap_s": 3.28,
+        "late_gap_s": 8.22
+      },
+      {
+        "site": "Bank Alfalah",
+        "category": "Banks",
+        "url": "https://www.bankalfalah.com/",
+        "why": "A large private bank",
+        "status": "scored",
+        "note": "",
+        "rating": 2.021,
+        "score": 0.255,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (56)",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (56)",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.bankalfalah.com/",
+        "title": "Bank Alfalah Pakistan | Best Bank for Digital Banking",
+        "http_status": 200,
+        "flat_share": 0.8208,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-bankalfalah-com.png",
+        "sha256": "ab346f4d0ccd815db60997a40787085861fb6c4a3fc00d9e296e9434ce185f17",
+        "characters": 3454,
+        "interactive": 4,
+        "links": 56,
+        "inferred": 4,
+        "text_density": 0.665,
+        "max_depth": 18,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.0,
+        "reading_grade": 7.4,
+        "image_area": 0.1633,
+        "covered": 0.2335,
+        "first_screen_links": 13,
+        "first_screen_text": 0.558,
+        "covering": [
+          {
+            "element": "header sticky",
+            "share": 0.22
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0135
+          }
+        ],
+        "motion": 0.0125,
+        "motion_late": 0.0126,
+        "gap_s": 3.14,
+        "late_gap_s": 6.16
+      },
+      {
+        "site": "Meezan Bank",
+        "category": "Banks",
+        "url": "https://www.meezanbank.com/",
+        "why": "The largest Islamic bank",
+        "status": "scored",
+        "note": "",
+        "rating": 2.017,
+        "score": 0.254,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen"
+        ],
+        "final_url": "https://www.meezanbank.com/",
+        "title": "Meezan Bank | The Premier Islamic Bank",
+        "http_status": 200,
+        "flat_share": 0.5275,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [],
+        "screenshot": "www-meezanbank-com.png",
+        "sha256": "b3dd52ca9d047eed246581e630fec4afcd09ce6416525c732545a06703d4cf68",
+        "characters": 6943,
+        "interactive": 15,
+        "links": 110,
+        "inferred": 1,
+        "text_density": 0.306,
+        "max_depth": 16,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.118,
+        "reading_grade": 9.92,
+        "image_area": 0.5753,
+        "covered": 0.2147,
+        "first_screen_links": 15,
+        "first_screen_text": 0.304,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.2097
+          },
+          {
+            "element": "a fixed",
+            "share": 0.005
+          }
+        ],
+        "motion": 0.4965,
+        "motion_late": 0.4922,
+        "gap_s": 3.19,
+        "late_gap_s": 6.3
+      },
+      {
+        "site": "Jazz",
+        "category": "Telecoms",
+        "url": "https://jazz.com.pk/",
+        "why": "The largest mobile network",
+        "status": "scored",
+        "note": "",
+        "rating": 1.732,
+        "score": 0.183,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (87)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (87)"
+        ],
+        "final_url": "https://jazz.com.pk/",
+        "title": "Jazz - Hamari Superpower",
+        "http_status": 200,
+        "flat_share": 0.8315,
+        "layout_width": 1280,
+        "urdu_share": 0.002,
+        "outside_corpus": [],
+        "screenshot": "jazz-com-pk.png",
+        "sha256": "bd8b2ec56d0c5e7e3c08bdb8cccf0a865d46e0a004b898a90bec0d318cfb56f7",
+        "characters": 2660,
+        "interactive": 18,
+        "links": 87,
+        "inferred": 1,
+        "text_density": 0.103,
+        "max_depth": 22,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.299,
+        "reading_grade": 6.78,
+        "image_area": 0.2515,
+        "covered": 0.0815,
+        "first_screen_links": 8,
+        "first_screen_text": 0.1,
+        "covering": [
+          {
+            "element": "header#mainHeader sticky",
+            "share": 0.08
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0015
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.19,
+        "late_gap_s": 6.2
+      },
+      {
+        "site": "Zong",
+        "category": "Telecoms",
+        "url": "https://www.zong.com.pk/",
+        "why": "A large mobile network",
+        "status": "scored",
+        "note": "",
+        "rating": 1.881,
+        "score": 0.22,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "pushed_up_by": [
+          "many links (241)"
+        ],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen"
+        ],
+        "final_url": "https://www.zong.com.pk/",
+        "title": "Zong 5G Pakistan | Telecommunications | 5G In Affordable Price",
+        "http_status": 200,
+        "flat_share": 0.304,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [
+          "reading_grade"
+        ],
+        "screenshot": "www-zong-com-pk.png",
+        "sha256": "f443d39e41e03ae033a774ebee69249555a35996bd49f39633c18fc5e0ea65f2",
+        "characters": 6069,
+        "interactive": 26,
+        "links": 241,
+        "inferred": 8,
+        "text_density": 0.381,
+        "max_depth": 31,
+        "overlays": 2,
+        "form_fields": 4,
+        "dead_link_ratio": 0.05,
+        "reading_grade": 3.71,
+        "image_area": 0.6292,
+        "covered": 1,
+        "first_screen_links": 23,
+        "first_screen_text": 0.251,
+        "covering": [
+          {
+            "element": "div#popup_message fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.005,
+        "motion_late": 0.26,
+        "gap_s": 3.33,
+        "late_gap_s": 6.28
+      },
+      {
+        "site": "Ufone",
+        "category": "Telecoms",
+        "url": "https://www.ufone.com/",
+        "why": "A large mobile network",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.511,
+        "score": 0.128,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (53)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout",
+          "few links (53)"
+        ],
+        "final_url": "https://www.ufone.com/",
+        "title": "Ufone Pakistan - یوفون پاکستان | Ufone 4G & 3G Sim Cards",
+        "http_status": 200,
+        "flat_share": 0.2972,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-ufone-com.png",
+        "sha256": "a3906e889c53b7d84567c3a286b0991a61350abea971099363275de9ac5d9305",
+        "characters": 5850,
+        "interactive": 8,
+        "links": 53,
+        "inferred": 0,
+        "text_density": 0.149,
+        "max_depth": 27,
+        "overlays": 3,
+        "form_fields": 1,
+        "dead_link_ratio": 0.151,
+        "reading_grade": 5.5,
+        "image_area": 0.845,
+        "covered": 0.0075,
+        "first_screen_links": 16,
+        "first_screen_text": 0.136,
+        "covering": [
+          {
+            "element": "div#init_widget_main fixed",
+            "share": 0.0075
+          }
+        ],
+        "motion": 0.6763,
+        "motion_late": 0.6795,
+        "gap_s": 3.28,
+        "late_gap_s": 6.33
+      },
+      {
+        "site": "PTCL",
+        "category": "Telecoms",
+        "url": "https://ptcl.com.pk/",
+        "why": "Landlines and home internet",
+        "status": "scored",
+        "note": "",
+        "rating": 1.732,
+        "score": 0.183,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://ptcl.com.pk/",
+        "title": "Pakistan's No. 1 Telecommunication Company - PTCL",
+        "http_status": 200,
+        "flat_share": 0.511,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "ptcl-com-pk.png",
+        "sha256": "28c3ef725dea2fe8cb9fca96dd36b90412980b0ccd9f1d767e0712643bf30e59",
+        "characters": 7136,
+        "interactive": 3,
+        "links": 118,
+        "inferred": 0,
+        "text_density": 0.218,
+        "max_depth": 23,
+        "overlays": 1,
+        "form_fields": 3,
+        "dead_link_ratio": 0.042,
+        "reading_grade": 8.67,
+        "image_area": 0.6095,
+        "covered": 0.2597,
+        "first_screen_links": 25,
+        "first_screen_text": 0.218,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 0.16
+          },
+          {
+            "element": "div#init_widget_main fixed",
+            "share": 0.0998
+          }
+        ],
+        "motion": 0.0008,
+        "motion_late": 0.401,
+        "gap_s": 3.2,
+        "late_gap_s": 6.2
+      },
+      {
+        "site": "Pakistan Railways",
+        "category": "Transport",
+        "url": "https://www.pakrailways.gov.pk/",
+        "why": "Trains, and the live site SIMBA already reads",
+        "status": "scored",
+        "note": "(no robots.txt: the server returned HTML, not rules)",
+        "rating": 1.636,
+        "score": 0.159,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (17)",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (17)",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.pakrailways.gov.pk/home",
+        "title": "RABTA",
+        "http_status": 200,
+        "flat_share": 0.2712,
+        "layout_width": 1280,
+        "urdu_share": 0.009,
+        "outside_corpus": [],
+        "screenshot": "www-pakrailways-gov-pk.png",
+        "sha256": "984212724b29f28431e628ce1ab5c44109c56b82d5dc2e7c5be0a015f04f32cc",
+        "characters": 7838,
+        "interactive": 7,
+        "links": 17,
+        "inferred": 0,
+        "text_density": 0.188,
+        "max_depth": 19,
+        "overlays": 0,
+        "form_fields": 4,
+        "dead_link_ratio": 0.176,
+        "reading_grade": 10.36,
+        "image_area": 0.8295,
+        "covered": 0.08,
+        "first_screen_links": 7,
+        "first_screen_text": 0.188,
+        "covering": [
+          {
+            "element": "header fixed",
+            "share": 0.08
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.3,
+        "late_gap_s": 6.3
+      },
+      {
+        "site": "PIA",
+        "category": "Transport",
+        "url": "https://www.piac.com.pk/",
+        "why": "The national airline",
+        "status": "scored",
+        "note": "",
+        "rating": 1.783,
+        "score": 0.196,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "many things to fill in",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [
+          "many buttons and boxes"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "many things to fill in",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.piac.com.pk/",
+        "title": "PIA | Great People to Fly With - Pakistan International Airlines",
+        "http_status": 200,
+        "flat_share": 0.3664,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "www-piac-com-pk.png",
+        "sha256": "2d7134cb7bde811ca48bc35d3d0508a6177b386a6f3a2bfd0f14ac7bf8e9e1da",
+        "characters": 56882,
+        "interactive": 59,
+        "links": 72,
+        "inferred": 32,
+        "text_density": 0.57,
+        "max_depth": 21,
+        "overlays": 0,
+        "form_fields": 16,
+        "dead_link_ratio": 0.069,
+        "reading_grade": 4.83,
+        "image_area": 0.4467,
+        "covered": 0.2667,
+        "first_screen_links": 12,
+        "first_screen_text": 0.453,
+        "covering": [
+          {
+            "element": "header sticky",
+            "share": 0.14
+          },
+          {
+            "element": "div#cookie-notice fixed",
+            "share": 0.1177
+          },
+          {
+            "element": "div#contactButton fixed",
+            "share": 0.0067
+          },
+          {
+            "element": "i fixed",
+            "share": 0.0022
+          }
+        ],
+        "motion": 0.4631,
+        "motion_late": 0.4171,
+        "gap_s": 3.17,
+        "late_gap_s": 6.22
+      },
+      {
+        "site": "National Highway Authority",
+        "category": "Transport",
+        "url": "https://nha.gov.pk/",
+        "why": "Roads, tolls and motorway information",
+        "status": "scored",
+        "note": "(no robots.txt: the server returned HTML, not rules)",
+        "rating": 1.896,
+        "score": 0.224,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://nha.gov.pk/",
+        "title": "NHA",
+        "http_status": 200,
+        "flat_share": 0.1552,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "nha-gov-pk.png",
+        "sha256": "c4bb0bf76c717742aef58ea79549b5fc1ba39926f270c6a461f74b054681552c",
+        "characters": 6212,
+        "interactive": 34,
+        "links": 92,
+        "inferred": 0,
+        "text_density": 0.154,
+        "max_depth": 18,
+        "overlays": 1,
+        "form_fields": 0,
+        "dead_link_ratio": 0.087,
+        "reading_grade": 8.52,
+        "image_area": 0.8015,
+        "covered": 1,
+        "first_screen_links": 16,
+        "first_screen_text": 0.131,
+        "covering": [
+          {
+            "element": "div fixed",
+            "share": 1
+          }
+        ],
+        "motion": 0.002,
+        "motion_late": 0.0021,
+        "gap_s": 3.36,
+        "late_gap_s": 6.34
+      },
+      {
+        "site": "Daewoo Express",
+        "category": "Transport",
+        "url": "https://daewoo.com.pk/",
+        "why": "The main intercity coaches",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 1.846,
+        "score": 0.211,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (40)",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (40)",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://daewoo.com.pk/",
+        "title": "Daewoo Pakistan Express Bus Service | Daewoo Pakistan Express Bus Service",
+        "http_status": 200,
+        "flat_share": 0.1001,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "daewoo-com-pk.png",
+        "sha256": "8d05a81b9e2805ecda7e7e2695a56fff31061cd313708e6677698a45e3865c5c",
+        "characters": 7297,
+        "interactive": 2,
+        "links": 40,
+        "inferred": 0,
+        "text_density": 0.373,
+        "max_depth": 19,
+        "overlays": 0,
+        "form_fields": 2,
+        "dead_link_ratio": 0.325,
+        "reading_grade": 8.18,
+        "image_area": 0.8645,
+        "covered": 0,
+        "first_screen_links": 16,
+        "first_screen_text": 0.217,
+        "covering": [],
+        "motion": 0.0029,
+        "motion_late": 0.0043,
+        "gap_s": 3.5,
+        "late_gap_s": 6.42
+      },
+      {
+        "site": "National Institute of Health",
+        "category": "Health",
+        "url": "https://www.nih.org.pk/",
+        "why": "Public health advisories",
+        "status": "scored",
+        "note": "",
+        "rating": 1.959,
+        "score": 0.24,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "a deeply nested layout"
+        ],
+        "final_url": "https://www.nih.org.pk/",
+        "title": "National Institutes of Health, Islamabad Pakistan",
+        "http_status": 200,
+        "flat_share": 0.1253,
+        "layout_width": 1280,
+        "urdu_share": 0.146,
+        "outside_corpus": [],
+        "screenshot": "www-nih-org-pk.png",
+        "sha256": "fedc94ca4016f9b3464821304238c460afcf7c67bde16c3e470a48a5c5a453c7",
+        "characters": 21668,
+        "interactive": 17,
+        "links": 95,
+        "inferred": 49,
+        "text_density": 0.439,
+        "max_depth": 20,
+        "overlays": 1,
+        "form_fields": 0,
+        "dead_link_ratio": 0.168,
+        "reading_grade": 11.63,
+        "image_area": 0.8925,
+        "covered": 0,
+        "first_screen_links": 14,
+        "first_screen_text": 0.439,
+        "covering": [],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.39,
+        "late_gap_s": 6.41
+      },
+      {
+        "site": "PIMS Hospital",
+        "category": "Health",
+        "url": "https://pims.gov.pk/",
+        "why": "A large public hospital, Islamabad",
+        "status": "scored",
+        "note": "(no robots.txt: HTTP 404)",
+        "rating": 2.0,
+        "score": 0.25,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (38)"
+        ],
+        "pushed_up_by": [
+          "a shallow, plain layout"
+        ],
+        "held_down_by": [
+          "little text on screen",
+          "few links (38)"
+        ],
+        "final_url": "https://pims.gov.pk/",
+        "title": "PIMS | Pakistan Institute of Medical Sciences",
+        "http_status": 200,
+        "flat_share": 0.2225,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "pims-gov-pk.png",
+        "sha256": "135651d44fe1d9389f627543698ba66328e1ddc8bb31e66b6bc8efded53639d6",
+        "characters": 3616,
+        "interactive": 12,
+        "links": 38,
+        "inferred": 4,
+        "text_density": 0.384,
+        "max_depth": 13,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.053,
+        "reading_grade": 9.61,
+        "image_area": 0.725,
+        "covered": 0.12,
+        "first_screen_links": 10,
+        "first_screen_text": 0.352,
+        "covering": [
+          {
+            "element": "header sticky",
+            "share": 0.12
+          }
+        ],
+        "motion": 0.428,
+        "motion_late": 0.428,
+        "gap_s": 3.38,
+        "late_gap_s": 6.36
+      },
+      {
+        "site": "Shaukat Khanum",
+        "category": "Health",
+        "url": "https://shaukatkhanum.org.pk/",
+        "why": "A charitable cancer hospital, widely used",
+        "status": "scored",
+        "note": "",
+        "rating": 1.472,
+        "score": 0.118,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "a deeply nested layout",
+          "little text on screen",
+          "many things to fill in"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "a deeply nested layout",
+          "little text on screen",
+          "many things to fill in"
+        ],
+        "final_url": "https://shaukatkhanum.org.pk/",
+        "title": "Shaukat Khanum Memorial Cancer Hospital and Research Centres",
+        "http_status": 200,
+        "flat_share": 0.3965,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "shaukatkhanum-org-pk.png",
+        "sha256": "7a61390ef88c410ee10985cc98ed239e808f35240406d1af2d8130a9ac5064e8",
+        "characters": 28105,
+        "interactive": 31,
+        "links": 110,
+        "inferred": 13,
+        "text_density": 0.341,
+        "max_depth": 32,
+        "overlays": 0,
+        "form_fields": 8,
+        "dead_link_ratio": 0.009,
+        "reading_grade": 9.0,
+        "image_area": 0.5437,
+        "covered": 0.2717,
+        "first_screen_links": 21,
+        "first_screen_text": 0.293,
+        "covering": [
+          {
+            "element": "div#headerm fixed",
+            "share": 0.18
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0877
+          },
+          {
+            "element": "div fixed",
+            "share": 0.004
+          }
+        ],
+        "motion": 0.4707,
+        "motion_late": 0.4991,
+        "gap_s": 3.25,
+        "late_gap_s": 6.28
+      },
+      {
+        "site": "Aga Khan University Hospital",
+        "category": "Health",
+        "url": "https://hospitals.aku.edu/",
+        "why": "A large private hospital, Karachi",
+        "status": "scored",
+        "note": "",
+        "rating": 1.841,
+        "score": 0.21,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen",
+          "few links (21)"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen",
+          "few links (21)"
+        ],
+        "final_url": "https://hospitals.aku.edu/",
+        "title": "The Aga Khan University Hospital",
+        "http_status": 200,
+        "flat_share": 0.1595,
+        "layout_width": 1280,
+        "urdu_share": 0.0,
+        "outside_corpus": [],
+        "screenshot": "hospitals-aku-edu.png",
+        "sha256": "5a54377a92999cd7110e8da22457973f2f69af900cb82be109360a5136ac691c",
+        "characters": 1271,
+        "interactive": 5,
+        "links": 21,
+        "inferred": 1,
+        "text_density": 0.312,
+        "max_depth": 15,
+        "overlays": 0,
+        "form_fields": 0,
+        "dead_link_ratio": 0.0,
+        "reading_grade": 10.68,
+        "image_area": 0.8525,
+        "covered": 0.1547,
+        "first_screen_links": 4,
+        "first_screen_text": 0.292,
+        "covering": [
+          {
+            "element": "header fixed",
+            "share": 0.08
+          },
+          {
+            "element": "div fixed",
+            "share": 0.0747
+          }
+        ],
+        "motion": 0.0,
+        "motion_late": 0.0,
+        "gap_s": 3.38,
+        "late_gap_s": 6.34
+      },
+      {
+        "site": "Drug Regulatory Authority",
+        "category": "Health",
+        "url": "https://www.dra.gov.pk/",
+        "why": "Medicine prices and recalls",
+        "status": "scored",
+        "note": "",
+        "rating": 2.001,
+        "score": 0.25,
+        "page_band": 1,
+        "simba_level": 2,
+        "reasons": [
+          "little text on screen"
+        ],
+        "pushed_up_by": [],
+        "held_down_by": [
+          "little text on screen"
+        ],
+        "final_url": "https://www.dra.gov.pk/",
+        "title": "Drug Regulatory Authority of Pakistan – Ministry of National Health Services, Re",
+        "http_status": 200,
+        "flat_share": 0.4008,
+        "layout_width": 1280,
+        "urdu_share": 0.001,
+        "outside_corpus": [],
+        "screenshot": "www-dra-gov-pk.png",
+        "sha256": "c73aa435c97f3c92293320ce2d86915fde5c14aeac2e663b490aa5ebe9c64b31",
+        "characters": 7586,
+        "interactive": 4,
+        "links": 96,
+        "inferred": 0,
+        "text_density": 0.483,
+        "max_depth": 17,
+        "overlays": 1,
+        "form_fields": 4,
+        "dead_link_ratio": 0.083,
+        "reading_grade": 12.23,
+        "image_area": 0.4723,
+        "covered": 0,
+        "first_screen_links": 21,
+        "first_screen_text": 0.342,
+        "covering": [],
+        "motion": 0.495,
+        "motion_late": 0.496,
+        "gap_s": 3.25,
+        "late_gap_s": 6.38
+      }
+    ]
+  }
+}

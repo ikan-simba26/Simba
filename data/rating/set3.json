@@ -1,0 +1,181 @@
+{
+  "run": {
+    "id": "f3b3315015e8",
+    "taken_at": "2026-11-02T22:11:08+0500",
+    "date": "2026-11-02"
+  },
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "device_scale_factor": 1,
+  "scrollbars": "hidden",
+  "corpus": "data/visual_features.json, the same run",
+  "pages": [
+    {
+      "id": "daewoo-com-pk",
+      "url": "https://daewoo.com.pk/",
+      "state": "as it loads",
+      "kind": "Transport",
+      "run": "f3b3315015e8",
+      "file": "daewoo-com-pk.png",
+      "sha256": "8d05a81b9e2805ecda7e7e2695a56fff31061cd313708e6677698a45e3865c5c",
+      "title": "Daewoo Pakistan Express Bus Service | Daewoo Pakistan Express Bus Service",
+      "site": "Daewoo Express"
+    },
+    {
+      "id": "hospitals-aku-edu",
+      "url": "https://hospitals.aku.edu/",
+      "state": "as it loads",
+      "kind": "Health",
+      "run": "f3b3315015e8",
+      "file": "hospitals-aku-edu.png",
+      "sha256": "5a54377a92999cd7110e8da22457973f2f69af900cb82be109360a5136ac691c",
+      "title": "The Aga Khan University Hospital",
+      "site": "Aga Khan University Hospital"
+    },
+    {
+      "id": "jazz-com-pk",
+      "url": "https://jazz.com.pk/",
+      "state": "as it loads",
+      "kind": "Telecoms",
+      "run": "f3b3315015e8",
+      "file": "jazz-com-pk.png",
+      "sha256": "bd8b2ec56d0c5e7e3c08bdb8cccf0a865d46e0a004b898a90bec0d318cfb56f7",
+      "title": "Jazz - Hamari Superpower",
+      "site": "Jazz"
+    },
+    {
+      "id": "kp-gov-pk",
+      "url": "https://kp.gov.pk/",
+      "state": "as it loads",
+      "kind": "Government services",
+      "run": "f3b3315015e8",
+      "file": "kp-gov-pk.png",
+      "sha256": "84555a298fe90fb4a7cd90bd759b3ad42718abed9cc554221922c85ac7ce0186",
+      "title": "Khyber Pakhtunkhwa Portal - The official web portal of the Khyber Pakhtunkhwa",
+      "site": "Government of Khyber Pakhtunkhwa"
+    },
+    {
+      "id": "nha-gov-pk",
+      "url": "https://nha.gov.pk/",
+      "state": "as it loads",
+      "kind": "Transport",
+      "run": "f3b3315015e8",
+      "file": "nha-gov-pk.png",
+      "sha256": "c4bb0bf76c717742aef58ea79549b5fc1ba39926f270c6a461f74b054681552c",
+      "title": "NHA",
+      "site": "National Highway Authority"
+    },
+    {
+      "id": "nust-edu-pk",
+      "url": "https://nust.edu.pk/",
+      "state": "as it loads",
+      "kind": "Universities",
+      "run": "f3b3315015e8",
+      "file": "nust-edu-pk.png",
+      "sha256": "35d314a34b5651ed61b6710d3b02da7c71f6fc3b26671557a048f381e9809a33",
+      "title": "Welcome to National University of Sciences & Technology | NUST",
+      "site": "NUST"
+    },
+    {
+      "id": "pu-edu-pk",
+      "url": "https://pu.edu.pk/",
+      "state": "as it loads",
+      "kind": "Universities",
+      "run": "f3b3315015e8",
+      "file": "pu-edu-pk.png",
+      "sha256": "840983fc946a4879ecb24554d40bd91dc7e608af0c604aef5cc52997497ed5a7",
+      "title": "University of the Punjab",
+      "site": "University of the Punjab"
+    },
+    {
+      "id": "www-bankalfalah-com",
+      "url": "https://www.bankalfalah.com/",
+      "state": "as it loads",
+      "kind": "Banks",
+      "run": "f3b3315015e8",
+      "file": "www-bankalfalah-com.png",
+      "sha256": "ab346f4d0ccd815db60997a40787085861fb6c4a3fc00d9e296e9434ce185f17",
+      "title": "Bank Alfalah Pakistan | Best Bank for Digital Banking",
+      "site": "Bank Alfalah"
+    },
+    {
+      "id": "www-ecp-gov-pk",
+      "url": "https://www.ecp.gov.pk/",
+      "state": "as it loads",
+      "kind": "Government services",
+      "run": "f3b3315015e8",
+      "file": "www-ecp-gov-pk.png",
+      "sha256": "83c725be73b2504328f95e4602ac8f9118cb8be25ad228e2bf5dae4b4607003d",
+      "title": "Election Commission of Pakistan",
+      "site": "Election Commission"
+    },
+    {
+      "id": "www-iesco-com-pk",
+      "url": "https://www.iesco.com.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "run": "f3b3315015e8",
+      "file": "www-iesco-com-pk.png",
+      "sha256": "ce8d3dc921e82f353e6793fdd4ee4c464cc8826943876984c16062cd877c4c29",
+      "title": "IESCO",
+      "site": "IESCO"
+    },
+    {
+      "id": "www-kwsc-gos-pk",
+      "url": "https://www.kwsc.gos.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "run": "f3b3315015e8",
+      "file": "www-kwsc-gos-pk.png",
+      "sha256": "db1b70d360392d9c9fad4ce8f334a376f29e83f888caf71066fac9b9485d185c",
+      "title": "Karachi Water and Sewerage Corporation (KW&SC)",
+      "site": "Karachi Water"
+    },
+    {
+      "id": "www-nbp-com-pk",
+      "url": "https://www.nbp.com.pk/",
+      "state": "as it loads",
+      "kind": "Banks",
+      "run": "f3b3315015e8",
+      "file": "www-nbp-com-pk.png",
+      "sha256": "bf968517610ab1b3680f68ce0ff94df582be5240fa3f7ee6c2c0323100b98fdd",
+      "title": "National Bank of Pakistan",
+      "site": "National Bank of Pakistan"
+    },
+    {
+      "id": "www-nih-org-pk",
+      "url": "https://www.nih.org.pk/",
+      "state": "as it loads",
+      "kind": "Health",
+      "run": "f3b3315015e8",
+      "file": "www-nih-org-pk.png",
+      "sha256": "fedc94ca4016f9b3464821304238c460afcf7c67bde16c3e470a48a5c5a453c7",
+      "title": "National Institutes of Health, Islamabad Pakistan",
+      "site": "National Institute of Health"
+    },
+    {
+      "id": "www-sngpl-com-pk",
+      "url": "https://www.sngpl.com.pk/",
+      "state": "as it loads",
+      "kind": "Utilities",
+      "run": "f3b3315015e8",
+      "file": "www-sngpl-com-pk.png",
+      "sha256": "fdb0fb26a6fb62841cbff0fae1cbadc1fc29033deab9b2d93aa974ebf8c73b3b",
+      "title": "Sui Northern Gas Pipelines Limited (SNGPL)",
+      "site": "SNGPL"
+    },
+    {
+      "id": "www-zong-com-pk",
+      "url": "https://www.zong.com.pk/",
+      "state": "as it loads",
+      "kind": "Telecoms",
+      "run": "f3b3315015e8",
+      "file": "www-zong-com-pk.png",
+      "sha256": "f443d39e41e03ae033a774ebee69249555a35996bd49f39633c18fc5e0ea65f2",
+      "title": "Zong 5G Pakistan | Telecommunications | 5G In Affordable Price",
+      "site": "Zong"
+    }
+  ]
+}

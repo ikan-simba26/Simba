@@ -50,6 +50,11 @@ FEATURES: tuple[str, ...] = (
     "interactive", "links", "inferred", "text_density", "max_depth",
     "overlays", "form_fields", "dead_link_ratio", "reading_grade",
 )
+#: The first screen's five (`tools/evaluation/visual_features.py`). No model the
+#: running app reads uses them: it measures only the nine.
+VISUAL_FEATURES: tuple[str, ...] = (
+    "image_area", "motion", "covered", "first_screen_links", "first_screen_text",
+)
 #: What a feature says when it is above and below the average page. Words for
 #: a page, not a verdict on it: a model can lean on a feature in a direction
 #: nobody would guess, and the sentence still says what the page is like.
@@ -64,6 +69,12 @@ WORDS: dict[str, tuple[str, str]] = {
     "form_fields": ("many things to fill in", "few things to fill in"),
     "dead_link_ratio": ("many links that go nowhere", "few links that go nowhere"),
     "reading_grade": ("hard words and long sentences", "easy words and short sentences"),
+    "image_area": ("much of the screen is pictures", "few pictures on screen"),
+    "motion": ("parts of the screen keep changing", "a screen that holds still"),
+    "covered": ("much of the screen covered by floating parts",
+                "little floating over the screen"),
+    "first_screen_links": ("many links in view", "few links in view"),
+    "first_screen_text": ("a lot of words in view", "few words in view"),
 }
 #: How many reasons a judgement gives.
 TOP = 3
@@ -106,6 +117,8 @@ class PageModel:
     heavy: float
     low: float = 1.0
     high: float = 5.0
+    #: What the numbers above are of, in order.
+    names: tuple[str, ...] = FEATURES
 
     def contributions(self, features: PageFeatures) -> dict[str, float]:
         """How far each feature moves this page from the average page, in
@@ -113,7 +126,7 @@ class PageModel:
         return {
             name: coefficient * (float(getattr(features, name)) - mean) / spread
             for name, mean, spread, coefficient
-            in zip(FEATURES, self.means, self.spreads, self.coefficients)
+            in zip(self.names, self.means, self.spreads, self.coefficients)
         }
 
     def rating(self, features: PageFeatures) -> float:
@@ -138,7 +151,7 @@ class PageModel:
         return tuple(self._word(name, features) for name, _ in chosen)
 
     def _word(self, name: str, features: PageFeatures) -> str:
-        index = FEATURES.index(name)
+        index = self.names.index(name)
         above = float(getattr(features, name)) >= self.means[index]
         words = WORDS[name][0 if above else 1]
         return f"{words} ({int(getattr(features, name))})" if name == "links" else words
@@ -153,9 +166,10 @@ class PageModel:
         )
 
 
-def load(path: Path = PATH) -> PageModel | None:
+def load(path: Path = PATH, names: tuple[str, ...] = FEATURES) -> PageModel | None:
     """The model at `path`, or None with the reason logged, so that the rules
-    judge the page instead. Nothing here stops a run."""
+    judge the page instead. Nothing here stops a run. `names` is for a tool
+    reading a model of other features: the running app measures the nine."""
     if not path.exists():
         log.info("page model: none at %s; the rules judge pages", path)
         return None
@@ -163,10 +177,10 @@ def load(path: Path = PATH) -> PageModel | None:
         data = json.loads(path.read_text(encoding="utf-8"))
         if data.get("synthetic", True):
             raise ValueError("it was not trained on people's ratings")
-        if tuple(data["features"]) != FEATURES:
-            raise ValueError("its features are not these nine")
+        if tuple(data["features"]) != names:
+            raise ValueError(f"its features are not these {len(names)}")
         spreads = tuple(float(v) for v in data["spreads"])
-        if len(spreads) != len(FEATURES) or min(spreads) <= 0:
+        if len(spreads) != len(names) or min(spreads) <= 0:
             raise ValueError("its spreads are not one positive number per feature")
         model = PageModel(
             version=str(data["version"]),
@@ -178,8 +192,9 @@ def load(path: Path = PATH) -> PageModel | None:
             heavy=float(data["cuts"]["heavy"]),
             low=float(data["scale"][0]),
             high=float(data["scale"][1]),
+            names=names,
         )
-        if not (len(model.means) == len(model.coefficients) == len(FEATURES)):
+        if not (len(model.means) == len(model.coefficients) == len(names)):
             raise ValueError("it does not have one number per feature")
         if not model.low < model.calm < model.heavy <= model.high:
             raise ValueError("its cut points are out of order")
