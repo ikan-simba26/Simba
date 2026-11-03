@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-02 · **1712 passing, 12 skipped, 0 failed** · backend 1073 in 981s, frontend 639 in 1420s, as two halves, on mains, on `feat/brand`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 579s, on mains. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-03 · **1907 passing, 12 skipped, 0 failed** · backend 1268 in 1421s, frontend 639 in 1421s, as two halves, on mains, on `eval/visual-features`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 561s, on mains, after a fix to the test itself (EVALUATION.md, 2026-11-03). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -71,6 +71,14 @@ again" clears the profile and the tiles, and hides the goals from before it.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-03: `eval/visual-features` checked and merged into `main`
+
+- **The suite**: 1907 passed, 12 skipped, 0 failed (backend 1268 in 1421s, frontend 639 in
+  1421s), on mains, with 0.7 GB free at the start.
+- **The host fit test failed 0 of 3, on its own check**: `display_fit_run` read a logo's name
+  up to its last `-`, and the rebuild's hash for the dark small logo, `D3-JexYj`, held one. It
+  now cuts Vite's eight characters; re-run 3 of 3 (561s). **Aly to review** (DECISIONS.md).
 
 ### Changed on 2026-11-02 (visual features) — `eval/visual-features`
 

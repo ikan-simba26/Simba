@@ -7277,3 +7277,28 @@ fitted with Pakistani pages, a preview allowed to pass, the slider rule, the poi
 pass, and Set 3 changing a picture Sets 1 and 2 use. The gate has a test for each condition
 failing alone, and one where a model passes all six with the live file checked unchanged.
 
+## 2026-11-03 — the suite on `eval/visual-features`, before merging
+
+At `8993d07`, on mains from start to end of every run, the overlay rebuilt first. Free
+memory was 0.7 GB of 7.9 at the start.
+
+| Run | Result | Time |
+|---|---|---|
+| Backend half | **1268 passed, 9 skipped, 0 failed** | 1421s |
+| Frontend half | **639 passed, 3 skipped, 0 failed** | 1421s |
+| Host fit test, first run | **0 of 3**, every scale on one assertion | 566s |
+| Host fit test, after the fix | **3 of 3** | 561s |
+
+**1907 passed, 12 skipped, 0 failed**: the 1712 of 2026-11-02 plus the 55 of
+`eval/overwhelm-index` and the 140 of this branch. The 12 skips are the same 12. The backend
+half took 1421s against 981s on 2026-11-02 for 195 more tests; with 0.7 GB free, that is no
+reading of the code's speed.
+
+**The host fit test's failure was the test's, not the overlay's.** The rebuild gave the dark
+small logo the hash `D3-JexYj`, and `display_fit_run` cut a logo's name at its last `-`, so it
+read `simba-logo-horizontal-small-dark-D3` and the brand check failed at 100%, 125% and 150%.
+Every fit figure in that run had passed up to that line. The name is now cut at a `-` and
+Vite's eight hash characters (DECISIONS.md, *The fit run reads a logo's name by the hash's
+length*). Checked against all four built logo names before the re-run. Any earlier build whose
+hash held a `-` would have failed the same way; the ones on 2026-11-02 did not.
+

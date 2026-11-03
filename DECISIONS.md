@@ -5797,3 +5797,16 @@ unchanged). **Nahail to review**, since this is the estimator (EVALUATION.md, 20
 - **A fourth arm, without `motion`**, because no still can show it, and because the loop could
   have the other four for no wait at all.
 
+
+## The fit run reads a logo's name by the hash's length, not its last hyphen
+
+**Date:** 2026-11-03 (not asked for; found by the host fit test before merging
+`eval/visual-features`). **Aly to review**, since it is the brand's check.
+
+`display_fit_run.LOGO_JS` named a logo by cutting everything from its last `-`, and Vite's
+eight-character hash can hold a `-` itself: a rebuild named the dark small logo
+`simba-logo-horizontal-small-dark-D3-JexYj.svg`, and the host fit test failed at all three
+scales on `-D3`. It now cuts exactly a `-` and eight of `[A-Za-z0-9_-]` before `.svg`.
+*Alternative:* match the expected name as a prefix, as `test_brand.py` does, which never
+breaks on a hash. *Cost of the choice:* if `vite.config.ts` ever sets `assetFileNames` or a
+hash length, this test fails loudly at once rather than passing on the wrong file.

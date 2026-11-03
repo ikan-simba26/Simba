@@ -276,11 +276,11 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-11-02: **1712 passed, 12 skipped, 0 failed** (backend 1073 in 981s, frontend 639 in 1420s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-02). The 12 skips are
+The full suite was last run on 2026-11-03: **1907 passed, 12 skipped, 0 failed** (backend 1268 in 1421s, frontend 639 in 1421s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-03). The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on
-2026-11-02: 3 passed), and 2 that hit the live website (not run today).
+2026-11-03: 3 passed), and 2 that hit the live website (not run today).
 
 ### Perception — `backend/perception/` (Nahail)
 
