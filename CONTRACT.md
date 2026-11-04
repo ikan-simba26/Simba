@@ -631,7 +631,9 @@ What the bar says, sent whenever it changes.
 `lines` is what has been kept so far, in plain words (`voice.routine_line`).
 `question` is the one typed value not yet asked about: the same every time, or
 ask each time? `value` is what the helper typed, so they can decide; a password
-is never asked about and never sent. `pointing` is true once the helper has
+is never asked about and never sent. Its optional `kind` (stage 2, additive) is
+`"typed"`, or `"day"` for a day picked on a calendar, which is asked about the
+same way; absent, typed. `pointing` is true once the helper has
 pressed Finish: the next click on the page is the answer, and nothing is let
 through. `note` says what was wrong with the last press of the bar ("First,
 tell me whether what you typed is the same every time.").

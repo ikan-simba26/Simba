@@ -216,6 +216,17 @@ def test_the_bar_asks_about_a_typed_value_and_then_for_the_answer(
     assert page.get_by_test_id("teach-finish").count() == 0
 
 
+def test_a_day_is_asked_about_as_a_day(
+        browser, overlay: str, backend: Teacher, pages: list) -> None:  # noqa: F811
+    page, _ = opened(browser, overlay, backend, pages)
+    watching(page, backend)
+    backend.push("teach.watching", {"lines": ["Choose 15 on the calendar."], "pointing": False,
+                                    "question": {"step": 0, "label": "15", "value": "",
+                                                 "kind": "day"}})
+    page.get_by_test_id("teach-question").wait_for(timeout=5000)
+    assert page.get_by_test_id("teach-question").inner_text() ==         "Is this day the same every time?"
+
+
 def test_a_note_from_the_backend_is_said_on_the_bar(
         browser, overlay: str, backend: Teacher, pages: list) -> None:  # noqa: F811
     page, _ = opened(browser, overlay, backend, pages)

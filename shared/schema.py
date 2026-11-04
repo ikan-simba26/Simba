@@ -378,6 +378,9 @@ class TeachQuestion(BaseModel):
     step: int
     label: str
     value: str
+    # Additive and optional (2026-11-04, stage 2): what the question is about,
+    # so the bar can say it: something typed, or a day on a calendar.
+    kind: Literal["typed", "day"] = "typed"
 
 
 class TeachWatching(BaseModel):

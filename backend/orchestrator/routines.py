@@ -83,6 +83,17 @@ class Step:
     expect_url: str | None = None
     expect_label: str | None = None
     list_opens: bool = False
+    #: The box is clicked before it is typed in: read-only until clicked, as
+    #: the train search's station boxes are (stage 2).
+    click_first: bool = False
+    #: A choice from the list the box before it opened: the option is the one
+    #: the person's answer to that box names, found at run time (stage 2).
+    pick: bool = False
+    #: A day on a calendar (perception reads which month the calendar shows,
+    #: `Element.panel`). Asked each time, it is the person's day, and `nav` is
+    #: the press that shows the next month, done as many times as it takes.
+    day: bool = False
+    nav: str | None = None
 
 
 @dataclass(frozen=True)
@@ -141,7 +152,7 @@ def step_from(row: object) -> Step:
     if not isinstance(nth, int) or isinstance(nth, bool) or not 0 <= nth < 100:
         raise NotARoutine("a step's position is not a small number")
     flags = {}
-    for name in ("ask", "secret", "changes", "list_opens"):
+    for name in ("ask", "secret", "changes", "list_opens", "click_first", "pick", "day"):
         flag = row.get(name, False)
         if not isinstance(flag, bool):
             raise NotARoutine(f"a step's {name} is not yes or no")
@@ -153,6 +164,7 @@ def step_from(row: object) -> Step:
                 expect_url=_text(row.get("expect_url"), "a step's address", required=False),
                 expect_label=_text(row.get("expect_label"), "a step's expected label",
                                    required=False),
+                nav=_text(row.get("nav"), "a step's calendar press", required=False),
                 **flags)
     if step.secret and step.value is not None:
         raise NotARoutine("a password box carries a value")
@@ -200,6 +212,11 @@ def export(routine: Routine) -> str:
     Nothing else is changed, and no id: the other SIMBA gives it its own."""
     steps = [replace(step, value=None, ask=True) if step.kind in ("fill", "select")
              and not step.secret else step for step in routine.steps]
+    # A list choice follows its box, and a day is the helper's day: both asked.
+    steps = [replace(step, pick=True) if index and step.kind == "click" and step.role == "option"
+             and steps[index - 1].kind == "fill" and steps[index - 1].expect_label == step.label
+             else step for index, step in enumerate(steps)]
+    steps = [replace(step, ask=True) if step.day else step for step in steps]
     row = as_row(replace(routine, steps=tuple(steps)))
     row.pop("id")
     return json.dumps({"format": FORMAT, "version": VERSION, **row}, indent=2)

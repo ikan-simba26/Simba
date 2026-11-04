@@ -141,7 +141,7 @@ def test_the_bar_says_what_was_kept_and_asks_about_the_typed_value(
 
     bars = overlay.of("teach.watching")
     asked = next(bar["question"] for bar in bars if bar["question"])
-    assert asked == {"step": 1, "label": "Reference No.", "value": REFERENCE}
+    assert asked == {"step": 1, "label": "Reference No.", "value": REFERENCE, "kind": "typed"}
     # The bar's lines are the read-back's words, as each move came in.
     assert bars[-1]["lines"][0] == voice.routine_line(
         Step("click", "button", "Accept all cookies"), consent=True)
