@@ -7442,3 +7442,116 @@ power line pytest's header prints, so nothing recorded the minutes between.
 
 **1983 passed, 12 skipped, 0 failed**: the 1907 of 2026-11-03 and the 76 of this stage. The 12
 skips are the same 12.
+
+## 2026-11-04b — Show me once, stage 2: list choices, days, a booking and a live lookup
+
+Stage 2 of Raham's one feature after the freeze (2026-11-04 above): values that change list
+choices and calendar days, using the train search's own station and day logic
+(`details.match_station`, `read_stations`, `read_day`), taught on the railways copy as far as a
+booking, and once on the live train search, read only.
+
+**Script:** `tools/evaluation/show_me_once.py 10`, result in `logs/show_me_once.json`. The
+helper is Playwright's mouse and keyboard through the recorder; the person is a script that
+says Lahore Cantt, Karachi Cantt, Tomorrow, Bilal Ahmed and the bill's number when asked, Yes
+to cookies, "do it" on every final screen, and no to a model. **Conditions:** `fa6bece` on
+`feat/show-me-once` (the tree "dirty" only by the untracked `simba-logo-kit.zip`), on mains,
+processor at 70%, 1.38 GB free. The live site was screened first (`tools/screen_site.py`): it
+serves no robots.txt (HTML in its place, as in September), the page loads (200, 5.4s), and it now
+has a Departure Time box it did not have then.
+
+| | The bill (billing copy) | Booking (railways copy) | Trains (live site, read only) |
+|---|---|---|---|
+| Moves kept | 3 | 11 | 7 |
+| Asked each time | 1 (the number) | 4 (from, to, day, name) | 3 (from, to, day) |
+| Helper's presses, page / bar | 4 / 3 | 13 / 6 | 9 / 5 |
+| SIMBA's own time while watching (script) | 0.8s | 2.3s | 6.4s |
+| Runs | **10** | **10** | **2** (never a benchmark on a live site) |
+| Completed, right answer, with proof | 10, 10, 10 | 10, 10, 10 | 2, 2, 2 |
+| Presses for the person | 2 | 6 | 3 |
+| Final screens | 0 | 2 | 0 |
+| Checklist lines | 2 | 9 | 7 |
+| Moves taken | 3 | 11 | 7 |
+| **Model calls** | **0** | **0** | **0** |
+| Wall clock (secondary) | mean 1.83s (1.8–1.9) | mean 3.75s (3.6–3.9) | mean 12.5s (12.3–12.7) |
+
+The bill's changed copy stopped again as on 2026-11-04: "I couldn't find Check Bill on the page…",
+2 presses, nothing pressed that was not found, 0 model calls.
+
+**What the person's presses are.** The bill: the number, and Yes to cookies. The booking: where
+from, where to, which day, the passenger's name, and two final screens. The live trains: where
+from, where to, which day. The person never chooses a station from scratch: the question offers
+the site's own list, and "Lahore" is asked about as its two stations (`test_routine_lists.py`).
+
+**The live answer** was train 2DN, Lahore Cantt to Karachi Cantt tomorrow, both runs, ringed on
+the picture of the live page. Three searches in all were sent to the live site, one while
+teaching and one per run; nothing was booked or pressed that changes anything.
+
+### In the real window
+
+`.scratch/show-me-once/walk_trains.py` on the railways copy, at 100%: the helper chose both
+stations from the read-only boxes' lists, opened the calendar, moved to the next month and
+picked the 15th; the bar asked "Is this day the same every time?" (capture
+`walk-trains/11-trains-day-question.png`). Taught in 18.3s. The person then asked for Rawalpindi
+to Sukkur on a day typed as "24 November" in 5 presses (the tile, two "Use this", "Pick another
+day", "Use this day"), 24.2s, and the page searched exactly that: `{"from": "RAWALPINDI", "to":
+"SUKKUR", "date": "2026-11-24"}` against `2026-11-24` asked.
+
+### What failed on the way, and was fixed
+
+1. **The page's own writing was taken for the helper's typing.** The railways copy writes the
+   chosen station into its box, and the day into the date box; the recorder committed whatever
+   the box held at the next press, and kept "Type LAHORE CANTT in From." and a typed date nobody
+   typed. A box now counts as typed only after the helper types in it, and only until it is kept.
+2. **A click into a read-only box was never kept**, so a routine could not open the calendar or
+   unlock a station box. It is now kept, folded into the typing that follows when there is some.
+3. **A list choice was not recognised**: the click into the box is not held, so perception read
+   the page after the list had opened. A typed value followed by a choice from a list is now a
+   list choice by its shape.
+4. **Replaying "type LAH, choose LAHORE CANTT" would have lapsed** the loop's check that typed
+   values stay. A choice from the list a box opened now commits the box — and the first version
+   of that also let a search typed toward the wrong station through: `test_trip.py`'s "a search
+   for another route never gets sent" failed. It now never commits past a value the task
+   declares, and that test passes again.
+5. **No routine checked that the page held what the person said.** Added after the live lookup
+   ran, before anything was recorded here: a chosen station must be in its box and the day in
+   the date box (in any of the usual ways of writing one) the moment each is chosen, or the move
+   did not work.
+6. **The last move did not wait for its answer**: on a page that fills a table in place, the end
+   check could read too soon. It now waits as for any expected change.
+7. **The answer did not say what it was for**: trains under the routine's name alone. Its heading
+   now adds the person's own answers.
+8. Three in the evaluation script itself, each a selector that matched the calendar's hidden day
+   cells or the live calendar's year label before the results.
+
+### Limits, and what is flagged
+
+- **A press whose label holds data is tied to that data.** The booking routine presses "Book train
+  7UP"; for a route whose first train is not 7UP that is not on the page and the run stops
+  honestly. Choosing a train is not a value the helper can mark as changing.
+- **Two final screens for one booking**, since "Book train 7UP" only opens the form but its words
+  say book. Safe, and one press more than needed.
+- **A routine's final screen names the button it presses and nothing else**, as a model-planned
+  change's does. The final-step rule asks for what, how much and when as the page states them;
+  the booking page states them. Flagged in the report with a recommendation.
+- **The live run is two runs on one day.** It says the routine works on that site today, and
+  nothing about next month's markup.
+
+### The tests
+
+`backend/orchestrator/test_routine_lists.py` 14 on the railways copy with real presses: the
+journey taught, another journey run, two stations in one city, a place not on the list, a shared
+routine, the booking behind its final screens and "don't", the list choice committing the box
+and never past what the task declares, a calendar's banner, the station and day checks.
+And `frontend/test_show_me_once.py` gains one: the bar asks about a day as a day (19 in all).
+
+### The suite, before merging stage 2
+
+At `f4bdf16`, the overlay rebuilt first, every run's own header saying on mains this time.
+
+| Run | Result | Time |
+|---|---|---|
+| Backend half | **1340 passed, 9 skipped, 0 failed** | 1338s |
+| Frontend half | **658 passed, 3 skipped, 0 failed** | 1479s |
+| Host fit test | **3 of 3** | 568s |
+
+**1998 passed, 12 skipped, 0 failed**: stage 1's 1983 and stage 2's 15. The same 12 skips.

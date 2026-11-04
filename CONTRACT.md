@@ -599,6 +599,7 @@ of it works as it did on 2026-11-03: no tile appears, nothing asks to teach.
 | `history.offered.routines` | optional field, new shape `TaughtTile` | backend -> frontend |
 | `task.start.routine` | optional field | frontend -> backend |
 | `step.presented.routine` | optional field | backend -> frontend |
+| `teach.watching.question.kind` (stage 2) | optional field, `"typed"` or `"day"` | backend -> frontend |
 | `tile.change` with a routine's `id` | no field changed: a routine is renamed or removed like a tile | frontend -> backend |
 | `error` code `ROUTINE_NOT_READ` | new code | backend -> frontend |
 

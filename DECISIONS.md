@@ -5916,3 +5916,42 @@ presses through perception. Each says what it costs to change.
   own address, where our copies are.
 - **The loop can now choose from a list the page draws itself** (`<select>`), by the option's
   words, checked by reading the list back. Recorded by the recorder; no flow used one before.
+
+
+## Show me once, stage 2: what was settled along the way
+
+**Date:** 2026-11-04 (`feat/show-me-once`, stage 2). Not asked for; each was needed for list
+choices, days and the booking. **Nahail** for the reading of days and lists, **Aly** for the
+bar's day question; the loop's two additions are Raham's.
+
+- **A click into a box is said, not held**, since nothing can navigate from it; it is kept when it
+  opens something (the date box), folded into the typing when typing follows. *Cost:* every click
+  into a box is a line on the bar until it is folded at Finish.
+- **A box counts as typed only after the helper types in it, and only until it is kept.** The
+  page's own writing (a chosen station, a picked day) is never typing. *Cost:* a site that types
+  into a box for the helper, as autocomplete does, and then is typed over, keeps only the last.
+- **Typing then choosing from a list is a list choice, by its shape**, not by what the page
+  offered before the typing, which cannot be read in time. *Cost:* typing in a box and then
+  choosing an unrelated option somewhere else, with nothing between, would be read as one.
+- **A day is a number in a panel that names a month** (perception's `Element.panel`), and the
+  presses just before it whose words say month, next or previous are how its calendar moves.
+  *Cost:* a calendar with no banner, or arrows with no words, is not a day; its presses are kept
+  as presses and replayed as they were.
+- **The person's day is asked as a journey's day**: Today, Tomorrow, or a day typed in, read by
+  `details.read_day`. A list is asked from the site's own list, matched by
+  `details.match_station`, whatever the list is of. *Cost:* the words are a train search's
+  ("Did you mean one of these?") on any list.
+- **A choice from a list commits its box** (`loop.recommitted`): the box holds the choice from then
+  on, not the letters typed to find it — never past a value the task declares, so the train
+  search's early stop on a wrong station stands. *Alternative:* type and choose in one move, as
+  `TripPlanner` does, which needs the list to open within one move. *Cost:* a box whose typed words
+  happen to be inside an unrelated option chosen later is recommitted too.
+- **The person's station and day are checked the moment they are chosen**
+  (`Expectation.field_has`): the box must hold the station, and the date box the day in one of
+  nine usual ways of writing it. *Cost:* a date box that writes a day some other way stops the run
+  as not done, honestly, where it would have searched.
+- **A routine's last move waits for its answer**; when that wait fails, the person is told the
+  answer was not there, not that the press did not work.
+- **A routine's answer is headed with the person's own answers**, never the page's words. *Cost:*
+  a long heading for a routine with many asks.
+- **The live lookup is taught once and run twice**: CLAUDE.md keeps repeated runs on our copies.
