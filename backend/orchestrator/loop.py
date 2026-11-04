@@ -170,6 +170,11 @@ class Connection:
                     continue
             return message
 
+    async def next_message(self) -> dict:
+        """The next message, whatever its type (2026-11-04): teaching listens
+        to the overlay and the page at once (`teach.py`)."""
+        return json.loads(await self._websocket.receive_text())
+
     async def poll(self, seconds: float = 0.02) -> list[dict]:
         """Whatever the overlay has sent, without waiting for more than a
         moment — for the checklist's Pause, between moves nobody pressed for
