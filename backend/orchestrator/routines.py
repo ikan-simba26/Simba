@@ -94,6 +94,13 @@ class Step:
     #: the press that shows the next month, done as many times as it takes.
     day: bool = False
     nav: str | None = None
+    #: One of a column of alike presses, one per row of a table on the page —
+    #: "Book train 7UP", "Book train 8DN" — so which row is the person's
+    #: choice, not the helper's (2026-11-04, fix). `row` is the column whose
+    #: value names the row ("Train No."), and `label` has "{}" where that
+    #: value goes ("Book train {}"). The person is asked from the page's own
+    #: rows when it runs.
+    row: str | None = None
 
 
 @dataclass(frozen=True)
@@ -165,9 +172,12 @@ def step_from(row: object) -> Step:
                 expect_label=_text(row.get("expect_label"), "a step's expected label",
                                    required=False),
                 nav=_text(row.get("nav"), "a step's calendar press", required=False),
+                row=_text(row.get("row"), "a step's column", required=False),
                 **flags)
     if step.secret and step.value is not None:
         raise NotARoutine("a password box carries a value")
+    if step.row is not None and (step.kind != "click" or step.label.count("{}") != 1):
+        raise NotARoutine("a press in a row does not say where the row's name goes")
     if step.kind in ("fill", "select") and not step.secret and not step.ask \
             and step.value is None:
         raise NotARoutine("a step to type has nothing to type")

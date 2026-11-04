@@ -267,6 +267,34 @@ def labels_for(content: Content, text: str) -> list[str]:
     return list(dict.fromkeys(near))
 
 
+def row_of(content: Content, elements: list[Element],
+           element: Element) -> tuple[str, str] | None:
+    """When a press is one of a column of alike presses, one in each row of a
+    table — "Book train 7UP", "Book train 8DN" — the column whose value names
+    its row, and its label with that value taken out: ("Train No.", "Book
+    train {}"). Which row is then the person's choice (2026-11-04, fix). None
+    for a press that is the only one of its kind, or a table of one row.
+
+    Every other row must have its own press, named the same way: a label that
+    merely holds a word from one cell is not a column of presses."""
+    label = element.label or ""
+    if not label or "{}" in label:
+        return None
+    alike = {e.label for e in elements if e.role == element.role}
+    for table in content.tables:
+        for header in table.headers:
+            values = list(dict.fromkeys(row.get(header) for row in table.rows
+                                        if row.get(header)))
+            if len(values) < 2:
+                continue
+            for value in sorted((v for v in values if v in label), key=len, reverse=True):
+                template = label.replace(value, "{}", 1)
+                if all(template.replace("{}", other, 1) in alike
+                       for other in values if other != value):
+                    return header, template
+    return None
+
+
 # --- what was done, while watching -------------------------------------------------
 
 
@@ -512,10 +540,15 @@ class Teaching:
             changes = bool(CHANGE_WORDS.search(element.label or ""))
             if changes and not on_replica(url):
                 return self._end(voice.TEACH_STOPPED_CHANGE)
-            self._add(Step(kind="click", role=element.role, label=element.label,
-                           nth=twin_index(elements, element),
-                           qualifier=element.qualifier or None, changes=changes,
-                           day=is_day(element)), url, labels)
+            step = Step(kind="click", role=element.role, label=element.label,
+                        nth=twin_index(elements, element),
+                        qualifier=element.qualifier or None, changes=changes,
+                        day=is_day(element))
+            row = None if step.day else row_of(view.content, elements, element)
+            if row is not None:
+                # One train of the several found: the person's to choose.
+                step = replace(step, row=row[0], label=row[1], nth=0)
+            self._add(step, url, labels)
             return "go"
         if kind == "press":
             element = element_over(elements, event.get("box") or {})

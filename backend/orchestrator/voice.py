@@ -972,10 +972,53 @@ def _ended(text: str) -> str:
     return text if text.endswith((".", "!", "?")) else f"{text}."
 
 
+#: The words a column's header may end in that say it names something, not
+#: what it names: "Train No." names a train.
+_NAMING = {"no", "no.", "nos", "nos.", "number", "num", "#", "id", "code", "name", "ref",
+           "ref."}
+
+
+def row_noun(header: str) -> str:
+    """What a row is, from the header of the column that names it: "Train
+    No." is a train. "one" when the header says nothing else."""
+    words = (header or "").split()
+    while words and words[-1].casefold() in _NAMING:
+        words.pop()
+    return " ".join(words).casefold() or "one"
+
+
+def which_row(header: str) -> str:
+    """The person's choice of row, as the built-in booking asks for a train."""
+    return f"Which {row_noun(header)}?"
+
+
+ROWS_DETAIL = "These are the ones the page shows now."
+USE_ROW = "Use this one"
+
+
+def no_rows(header: str) -> str:
+    """A routine's stop when the page has no rows to choose from."""
+    noun = row_noun(header)
+    return (f"The page didn't show any {noun} to choose from, so I stopped there."
+            if noun != "one" else "The page didn't show anything to choose from, so I stopped "
+            "there.")
+
+
+def pressed_in_row(step) -> str:
+    """A row's press without the row's name: "Book train"."""
+    return " ".join(step.label.replace("{}", " ").split()) or f"the {step.role}"
+
+
 def routine_line(step, consent: bool = False) -> str:
     """One move of a routine, in plain words, for the helper's read-back. A
     value the helper typed is said; a password never is, since none is kept."""
     where = _where(step)
+    if getattr(step, "row", None):
+        line = (f"Ask which {row_noun(step.row)} they want, from the page's own list, and "
+                f"press {pressed_in_row(step)} for it.")
+        if step.changes:
+            line += " I only do this on a practice site, after asking on a final screen."
+        return line
     if step.day:
         if step.ask:
             return "Ask which day, and choose it on the calendar."

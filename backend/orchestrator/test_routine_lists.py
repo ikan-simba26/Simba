@@ -131,6 +131,7 @@ def _run(routine, answers):
                 await run_brief(page, connection, RoutineBrief(routine), routine.start,
                                 auto=True)
                 connection.searched = await page.evaluate("window.__searched || null")
+                connection.text = await page.locator("body").inner_text()
             finally:
                 await browser.close()
         return connection
@@ -311,19 +312,22 @@ def test_a_booking_on_our_copy_is_kept_with_its_changes_marked(booking) -> None:
     assert name.ask and name.value is None
 
 
+def _name(booking) -> str:
+    return next(f"value{i}" for i, s in enumerate(booking.steps) if s.label == "Passenger Name")
+
+
 def test_the_booking_runs_behind_its_final_screens_and_says_it_was_practice(booking) -> None:
     done = _run(booking, [("confirm", {"value0": "Lahore Cantt"}),
                           ("confirm", {"value2": "Karachi Cantt"}),
                           (f"{voice.CHOICE_PREFIX}1", {}),
-                          ("confirm", {next(f"value{i}" for i, s in enumerate(booking.steps)
-                                            if s.label == "Passenger Name"): "Bilal Ahmed"})])
+                          ("confirm", {_name(booking): "Bilal Ahmed"}),
+                          (f"{voice.CHOICE_PREFIX}0", {})])
     finals = [p for p in done.of("step.presented") if p.get("final")]
     # Two: Book on the train, whose words say book though it only opens the
     # form, and Confirm Booking. Each names what it presses (flagged: the
     # final-step rule asks for what, how much and when as well).
     assert [f["final"] for f in finals] == [
-        [{"label": voice.WHAT_I_PRESS, "value": next(
-            s.label for s in booking.steps if s.role == "link" and s.changes)}],
+        [{"label": voice.WHAT_I_PRESS, "value": "Book train 7UP"}],
         [{"label": voice.WHAT_I_PRESS, "value": "Confirm Booking"}]]
     ending = done.of("task.completed")[0]
     assert ending["findings"][0]["values"][0].startswith("PR-")
@@ -346,7 +350,8 @@ def test_the_person_can_say_don_t_and_nothing_is_booked(booking) -> None:
                                ("confirm", {"value2": "Karachi Cantt"}),
                                (f"{voice.CHOICE_PREFIX}1", {}),
                                ("confirm", {f"value{i}": "Bilal Ahmed"
-                                            for i in range(len(booking.steps))})])
+                                            for i in range(len(booking.steps))}),
+                               (f"{voice.CHOICE_PREFIX}0", {})])
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page()
@@ -358,6 +363,97 @@ def test_the_person_can_say_don_t_and_nothing_is_booked(booking) -> None:
     done = run(inner())
     assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
     assert "task.completed" not in done.types() and "/book" in done.url
+
+
+# --- the train is the person's choice (2026-11-04, fix) -------------------------------
+
+
+def test_the_train_pressed_is_kept_as_the_person_s_to_choose(booking) -> None:
+    row = next(s for s in booking.steps if s.row)
+    assert (row.role, row.label, row.row) == ("link", "Book train {}", "Train No.")
+    assert "7UP" not in json.dumps([s.label for s in booking.steps])
+    assert voice.routine_line(row).startswith("Ask which train they want, from the page's own")
+    # A shared file keeps it, and is read back the same.
+    assert next(s for s in parse(export(booking)).steps if s.row) == row
+
+
+def test_the_person_chooses_a_train_that_is_not_the_helper_s(booking) -> None:
+    # Hyderabad Jn to Sukkur has four trains, none of them 7UP: the person
+    # is asked which, from the page's own rows, and the third is booked.
+    done = _run(booking, [("confirm", {"value0": "Hyderabad"}),
+                          ("confirm", {"value2": "Sukkur"}),
+                          (f"{voice.CHOICE_PREFIX}1", {}),
+                          ("confirm", {_name(booking): "Bilal Ahmed"}),
+                          (f"{voice.CHOICE_PREFIX}2", {})])
+    which = next(p for p in done.of("step.presented") if p["instruction"] == "Which train?")
+    assert [a["label"] for a in which["actions"]][:4] == [
+        "11UP, 06:40 09:55, 3 h 15 min", "12DN, 09:30 13:45, 4 h 15 min",
+        "13UP, 13:05 16:20, 3 h 15 min", "14DN, 18:45 23:00, 4 h 15 min"]
+    assert which["detail"] == voice.ROWS_DETAIL
+    assert done.of("task.completed"), done.of("help.requested")
+    assert "13UP" in done.text and "Booking Confirmed" in done.text
+    assert done.of("task.completed")[0]["llm_calls"] == 0
+
+
+def test_a_column_of_presses_is_found_and_a_lone_press_is_not() -> None:
+    from backend.orchestrator.teach import row_of
+    from backend.perception.content import Content, Row, Table
+    from backend.perception.serializer import Element
+
+    def link(i, label):
+        return Element(id=i, role="link", label=label, type="", tag="a", input_type=None)
+
+    table = Table(headers=("Train No.", "Time", "Book"), rows=(
+        Row((("Train No.", "7UP"), ("Time", "07:25"), ("Book", "Book"))),
+        Row((("Train No.", "8DN"), ("Time", "16:35"), ("Book", "Book")))))
+    links = [link(1, "Book train 7UP"), link(2, "Book train 8DN"), link(3, "Home")]
+    assert row_of(Content(tables=[table]), links, links[0]) == ("Train No.", "Book train {}")
+    assert row_of(Content(tables=[table]), links, links[2]) is None
+    # Only one row's press on the page: not a column of them.
+    assert row_of(Content(tables=[table]), links[:1], links[0]) is None
+    assert row_of(Content(), links, links[0]) is None
+
+
+def test_the_rows_offered_are_the_page_s_own_and_say_what_tells_them_apart() -> None:
+    from backend.orchestrator.routine_plan import in_row, rows_of
+    from backend.orchestrator.routines import Step
+    from backend.perception.content import Content, Row, Table
+    from backend.perception.serializer import Element
+
+    step = Step(kind="click", role="link", label="Book train {}", row="Train No.")
+    table = Table(headers=("Train No.", "From/To", "Time", "Book"), rows=(
+        Row((("Train No.", "7UP"), ("From/To", "A B"), ("Time", "07:25"), ("Book", "Book"))),
+        Row((("Train No.", "8DN"), ("From/To", "A B"), ("Time", "16:35"), ("Book", "Book")))))
+    links = [Element(id=i, role="link", label=f"Book train {t}", type="", tag="a",
+                     input_type=None) for i, t in enumerate(("7UP", "8DN"))]
+    assert rows_of(Content(tables=[table]), links, step) == [("7UP", "7UP, 07:25"),
+                                                             ("8DN", "8DN, 16:35")]
+    # A row whose press is not on the page is not offered.
+    assert rows_of(Content(tables=[table]), links[:1], step) == [("7UP", "7UP")]
+    assert in_row(step, "Book train 13UP") == "13UP"
+    assert in_row(step, "Book train ") is None and in_row(step, "Home") is None
+    assert voice.which_row("Train No.") == "Which train?"
+    assert voice.which_row("No.") == "Which one?"
+
+
+def test_a_row_press_that_does_not_say_where_the_name_goes_is_refused() -> None:
+    from backend.orchestrator.routines import NotARoutine, step_from
+
+    with pytest.raises(NotARoutine):
+        step_from({"kind": "click", "role": "link", "label": "Book train 7UP",
+                   "row": "Train No."})
+    assert step_from({"kind": "click", "role": "link", "label": "Book train {}",
+                      "row": "Train No."}).row == "Train No."
+
+
+def test_a_route_with_no_trains_stops_and_says_so(booking) -> None:
+    done = _run(booking, [("confirm", {"value0": "Quetta"}),
+                          ("confirm", {"value2": "Sukkur"}),
+                          (f"{voice.CHOICE_PREFIX}1", {}),
+                          ("confirm", {_name(booking): "Bilal Ahmed"})])
+    assert "task.completed" not in done.types()
+    assert not [p for p in done.of("step.presented") if p.get("final")]
+    assert done.of("help.requested")[-1]["reason"] == voice.no_rows("Train No.")
 
 
 # --- the person's values, checked the moment they are chosen ---------------------------

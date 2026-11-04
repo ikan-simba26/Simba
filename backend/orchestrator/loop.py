@@ -1537,6 +1537,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             break
 
         choosing = time.monotonic()
+        # A planner that chooses from what the page says, not only from what
+        # can be pressed: a routine's rows (2026-11-04, fix).
+        look = getattr(planner, "look", None)
+        if look is not None:
+            look(before.content)
         move = await planner.next_move(elements, history, setback)
         log.info("page read in %.1fs (%d elements); next move chosen in %.1fs", read_s,
                  len(elements), time.monotonic() - choosing)
