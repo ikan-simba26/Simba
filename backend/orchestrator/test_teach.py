@@ -128,8 +128,9 @@ def test_a_helper_shows_the_bill_once_and_it_is_kept_by_role_and_label(
     # The answer is the page's own label for what was pointed at.
     assert (kept.answer.reads, kept.answer.name) == ("P/WITHIN", "Amount due")
     # Nothing the page would call an id or a selector, anywhere in it.
-    written = json.dumps([step.__dict__ for step in kept.steps])
-    assert "#" not in written and "[" not in written.replace("[{", "").replace("}]", "")
+    written = [value for step in kept.steps for value in (*step.__dict__.values(), *step.shows)
+               if isinstance(value, str)]
+    assert not [text for text in written if "#" in text or "[" in text]
     # Kept encrypted: no label of the site is readable in the file.
     assert "Reference No." not in store.path.read_text(encoding="utf-8")
 

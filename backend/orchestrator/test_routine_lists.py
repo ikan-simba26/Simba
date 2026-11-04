@@ -326,9 +326,16 @@ def test_the_booking_runs_behind_its_final_screens_and_says_it_was_practice(book
                           (f"{voice.CHOICE_PREFIX}0", {})])
     finals = [p for p in done.of("step.presented") if p.get("final")]
     # One, for Confirm Booking: Book on the train only opens the form, and
-    # runs as a checklist line once the person has chosen the train.
-    assert [f["final"] for f in finals] == [
-        [{"label": voice.WHAT_I_PRESS, "value": "Confirm Booking"}]]
+    # runs as a checklist line once the person has chosen the train. It shows
+    # what, how much and when as the page states them, as the built-in
+    # booking's does (2026-11-04, fix).
+    assert [f["final"] for f in finals] == [[
+        {"label": "Train", "value": "7UP"}, {"label": "From", "value": "LAHORE CANTT"},
+        {"label": "To", "value": "KARACHI CANTT"},
+        {"label": "Date", "value": voice.page_date(f"{TOMORROW:%d-%m-%Y}")},
+        {"label": "Departs", "value": "07:25"}, {"label": "Passenger", "value": "Bilal Ahmed"},
+        {"label": "Class", "value": "AC Standard"}, {"label": "Fare", "value": "Rs 3,250"}]]
+    assert finals[0]["instruction"] == voice.final_routine("Confirm Booking")
     assert "Opening Book train 7UP" in [p["instruction"] for p in done.of("step.presented")
                                         if not p["requires_confirmation"]]
     ending = done.of("task.completed")[0]
@@ -340,8 +347,7 @@ def test_the_person_can_say_don_t_and_nothing_is_booked(booking) -> None:
     class Declines(Scripted):
         async def receive(self, message_type, step_index=None, on_other=None):
             steps = self.of("step.presented")
-            if steps and steps[-1].get("final") and steps[-1]["final"][0]["value"] \
-                    == "Confirm Booking":
+            if steps and steps[-1].get("final"):
                 return {"type": "step.response", "payload": {
                     "step_index": step_index, "action_id": voice.DECLINE_ID,
                     "input_values": {}}}
@@ -515,6 +521,69 @@ def test_a_routine_file_cannot_take_the_final_screen_off_a_button(booking) -> No
                        (f"{voice.CHOICE_PREFIX}0", {})])
     assert [f["final"][0]["value"] for f in done.of("step.presented") if f.get("final")] == [
         "Confirm Booking"]
+
+
+# --- what, how much and when on a routine's final screen (2026-11-04, fix) ------------
+
+
+def test_the_details_the_page_stated_are_kept_with_the_press_that_books(booking) -> None:
+    confirm = next(s for s in booking.steps if s.changes)
+    assert confirm.shows == ("Train", "From", "To", "Date", "Departs", "Passenger", "Class",
+                             "Fare")
+    # Labels only: nothing the helper's booking said is kept.
+    assert "Ayesha" not in json.dumps([s.shows for s in booking.steps])
+    assert next(s for s in parse(export(booking)).steps if s.changes).shows == confirm.shows
+
+
+def test_the_person_s_own_train_is_on_the_final_screen(booking) -> None:
+    done = _run(booking, [("confirm", {"value0": "Hyderabad"}),
+                          ("confirm", {"value2": "Sukkur"}),
+                          (f"{voice.CHOICE_PREFIX}1", {}),
+                          ("confirm", {_name(booking): "Bilal Ahmed"}),
+                          (f"{voice.CHOICE_PREFIX}3", {})])
+    final = next(p for p in done.of("step.presented") if p.get("final"))
+    said = {d["label"]: d["value"] for d in final["final"]}
+    assert (said["Train"], said["From"], said["To"], said["Departs"], said["Fare"]) == (
+        "14DN", "HYDERABAD JN", "SUKKUR", "18:45", "Rs 3,250")
+
+
+def test_a_detail_the_page_no_longer_states_means_nothing_is_done(booking) -> None:
+    from dataclasses import replace
+
+    from backend.orchestrator.routines import Routine
+
+    told = Routine(id="x", label=booking.label, start=booking.start, answer=booking.answer,
+                   steps=tuple(replace(s, shows=(*s.shows[:7], "Discount")) if s.changes
+                               else s for s in booking.steps))
+    done = _run(told, [("confirm", {"value0": "Lahore Cantt"}),
+                       ("confirm", {"value2": "Karachi Cantt"}),
+                       (f"{voice.CHOICE_PREFIX}1", {}),
+                       ("confirm", {_name(booking): "Bilal Ahmed"}),
+                       (f"{voice.CHOICE_PREFIX}0", {})])
+    assert done.of("help.requested")[-1]["reason"] == voice.NO_FINAL_SCREEN
+    assert "Booking Confirmed" not in done.text
+
+
+def test_a_final_screen_s_details_are_said_once_short_and_not_a_column() -> None:
+    from backend.orchestrator.teach import shown_details
+    from backend.perception.content import Content, Pair
+
+    content = Content(pairs=[Pair("Train", "7UP"), Pair("Train No.", "7UP"),
+                             Pair("Train No.", "8DN"), Pair("Terms", "x" * 90),
+                             Pair("Fare", "Rs 3,250"), Pair("Fare", "Rs 3,250"),
+                             Pair("Confirm Booking", "y"), Pair("Empty", "")])
+    assert shown_details(content, "Confirm Booking") == ("Train", "Fare")
+
+
+def test_a_file_s_final_details_are_a_short_list() -> None:
+    from backend.orchestrator.routines import NotARoutine, step_from
+
+    press = {"kind": "click", "role": "button", "label": "Confirm Booking", "changes": True}
+    assert step_from({**press, "shows": ["Train", "Fare"]}).shows == ("Train", "Fare")
+    assert step_from(press).shows == ()
+    for bad in ("Train", [f"d{i}" for i in range(9)], [1], ["x" * 300]):
+        with pytest.raises(NotARoutine):
+            step_from({**press, "shows": bad})
 
 
 # --- the person's values, checked the moment they are chosen ---------------------------

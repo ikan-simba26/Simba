@@ -27,9 +27,9 @@ from datetime import date, timedelta
 
 from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
-from backend.orchestrator.plan import About, Expectation, Operation, Target
+from backend.orchestrator.plan import About, Expectation, FinalRead, Operation, Target
 from backend.orchestrator.plan import Answer as Finds
-from backend.orchestrator.routines import Routine, Step, asks_consent
+from backend.orchestrator.routines import MOST_SHOWN, Routine, Step, asks_consent
 from backend.perception.content import Content
 from backend.perception.serializer import Element
 from shared.schema import StepField
@@ -391,6 +391,7 @@ class RoutinePlanner:
         step = self.routine.steps[index]
         if step.day and step.ask:
             return self._day_move(index, elements or [])
+        final = self._final(index) if step.changes else ()
         if step.row:
             # The person's row: its own press, named as the page names it.
             step = replace(step, label=step.label.replace("{}", self._rows.get(index, ""), 1),
@@ -444,10 +445,32 @@ class RoutinePlanner:
         if asks_consent(step):
             return Move(instruction=voice.ASK_COOKIES, detail="", operations=operations,
                         expect=expect, fields=[], actions=voice.yes_or_no(), kind="choose")
-        return Move(instruction=voice.routine_do(step), detail="", operations=operations,
+        return Move(instruction=(voice.final_routine(label) if final
+                                 else voice.routine_do(step)),
+                    detail="", operations=operations,
                     expect=expect, fields=fields,
                     actions=voice.actions(voice.GO_AHEAD), safe=_safe(step),
-                    doing=_doing(step), changes=step.changes, opens=step.opens)
+                    doing=_doing(step), changes=step.changes, opens=step.opens, final=final)
+
+    def _final(self, index: int) -> tuple[FinalRead, ...]:
+        """What the final screen for a change shows, read from the page as it
+        is when it goes up, as the built-in flows' are (CLAUDE.md, the
+        final-step rule): the details the page stated when the helper
+        pressed it; for a press in a row, that row's own cells. A date the
+        page writes day first is said as one, as theirs are."""
+        step = self.routine.steps[index]
+        if step.row:
+            chosen = self._rows.get(index, "")
+            table = next((t for t in self._content.tables if step.row in t.headers), None)
+            row = next((r for r in table.rows if r.get(step.row) == chosen), None) \
+                if table is not None else None
+            if row is None:
+                return ()
+            return tuple(FinalRead(header, header, plain=voice.page_date,
+                                   row=((step.row, chosen),))
+                         for header, value in row.cells
+                         if value and value != header)[:MOST_SHOWN]
+        return tuple(FinalRead(label, label, plain=voice.page_date) for label in step.shows)
 
 
 class RoutineBrief:

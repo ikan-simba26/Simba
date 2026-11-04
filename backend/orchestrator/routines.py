@@ -47,6 +47,8 @@ VERSION = 1
 MOST_STEPS = 30
 #: The longest role, label or value a routine keeps, in characters.
 TEXT_MAX = 200
+#: The most details a final screen shows: as many as the built-in booking's.
+MOST_SHOWN = 8
 KINDS = ("fill", "click", "press", "select")
 
 
@@ -105,6 +107,11 @@ class Step:
     #: the booking form, followed by a press that books (2026-11-04, fix).
     #: Gets no final screen of its own, as the loop checks (`loop.only_opens`).
     opens: bool = False
+    #: For a press that changes something: the page's own labels for what,
+    #: how much and when, as the page stated them when the helper pressed it
+    #: ("Train", "Date", "Fare"). Its final screen reads each from the page
+    #: as it is then, and does nothing if one is missing (2026-11-04, fix).
+    shows: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -179,6 +186,10 @@ def step_from(row: object) -> Step:
                 nav=_text(row.get("nav"), "a step's calendar press", required=False),
                 row=_text(row.get("row"), "a step's column", required=False),
                 **flags)
+    shows = row.get("shows", [])
+    if not isinstance(shows, (list, tuple)) or len(shows) > MOST_SHOWN:
+        raise NotARoutine("a step's final details are not a short list")
+    step = replace(step, shows=tuple(_text(label, "a final detail") for label in shows))
     if step.secret and step.value is not None:
         raise NotARoutine("a password box carries a value")
     if step.row is not None and (step.kind != "click" or step.label.count("{}") != 1):

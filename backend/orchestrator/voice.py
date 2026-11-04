@@ -744,6 +744,11 @@ def final_actions(do: str = DO_IT, dont: str = DONT_DO_IT) -> list[StepAction]:
     ]
 
 
+def final_routine(label: str) -> str:
+    """A routine's final screen, with what the page states read below it."""
+    return f"I'll press “{label}” on the site, with these details. This makes a change there."
+
+
 def final_press(label: str) -> str:
     """A final screen with nothing read from the page: what will be pressed."""
     return f"I'll press “{label}” on the site. This makes a change there."

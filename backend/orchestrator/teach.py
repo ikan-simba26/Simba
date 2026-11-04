@@ -48,7 +48,16 @@ from playwright.async_api import Page
 
 from backend.orchestrator import voice
 from backend.orchestrator.loop import CHANGE_WORDS, Connection, on_replica
-from backend.orchestrator.routines import Answer, Routine, RoutineStore, Step, asks_consent, path_of
+from backend.orchestrator.routines import (
+    MOST_SHOWN,
+    TEXT_MAX,
+    Answer,
+    Routine,
+    RoutineStore,
+    Step,
+    asks_consent,
+    path_of,
+)
 from backend.orchestrator.tiles import clean_label
 from backend.perception.content import Content
 from backend.perception.serializer import Element, read_async
@@ -293,6 +302,28 @@ def row_of(content: Content, elements: list[Element],
                        for other in values if other != value):
                     return header, template
     return None
+
+
+#: The longest value a final screen's detail may have when it is taught: a
+#: paragraph is not a detail.
+SHOWN_MAX = 80
+
+
+def shown_details(content: Content, pressed: str) -> tuple[str, ...]:
+    """What a final screen shows for a press that changes something: the
+    page's own labels for what it states once, short, at the moment the
+    helper pressed it ("Train", "Date", "Fare"), in the page's order, at most
+    `MOST_SHOWN` (2026-11-04, fix). A label the page gives several values,
+    as a table's column does, is not one detail."""
+    shown: list[str] = []
+    for pair in content.pairs:
+        label, value = " ".join(pair.label.split()), " ".join(pair.value.split())
+        if (not label or not value or label == pressed or label in shown
+                or len(value) > SHOWN_MAX or len(label) > TEXT_MAX
+                or len(content.values_for(pair.label)) != 1):
+            continue
+        shown.append(label)
+    return tuple(shown[:MOST_SHOWN])
 
 
 # --- what was done, while watching -------------------------------------------------
@@ -556,6 +587,8 @@ class Teaching:
             if row is not None:
                 # One train of the several found: the person's to choose.
                 step = replace(step, row=row[0], label=row[1], nth=0)
+            if changes:
+                step = replace(step, shows=shown_details(view.content, element.label))
             self._add(step, url, labels)
             return "go"
         if kind == "press":
@@ -568,7 +601,9 @@ class Teaching:
                 return "go"
             self._add(Step(kind="press", role=element.role, label=element.label,
                            nth=twin_index(elements, element), value=event.get("key") or "Enter",
-                           changes=changes), url, labels)
+                           changes=changes,
+                           shows=shown_details(view.content, submits) if changes else ()),
+                      url, labels)
             return "go"
         return "go"
 
