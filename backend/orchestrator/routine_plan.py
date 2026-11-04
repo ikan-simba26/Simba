@@ -447,7 +447,7 @@ class RoutinePlanner:
         return Move(instruction=voice.routine_do(step), detail="", operations=operations,
                     expect=expect, fields=fields,
                     actions=voice.actions(voice.GO_AHEAD), safe=_safe(step),
-                    doing=_doing(step), changes=step.changes)
+                    doing=_doing(step), changes=step.changes, opens=step.opens)
 
 
 class RoutineBrief:

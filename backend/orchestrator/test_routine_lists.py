@@ -304,9 +304,11 @@ def booking(railways: str, tmp_path_factory):  # noqa: F811
 
 def test_a_booking_on_our_copy_is_kept_with_its_changes_marked(booking) -> None:
     changes = [(s.role, s.label) for s in booking.steps if s.changes]
-    # Book on a train opens its form, and its words say book; Confirm Booking
-    # books. Both wait for a final screen when it runs.
-    assert changes[-1] == ("button", "Confirm Booking")
+    # Book on a train opens its form, though its words say book; Confirm
+    # Booking books, and is the only change (2026-11-04, fix).
+    assert changes == [("button", "Confirm Booking")]
+    opens = [s for s in booking.steps if s.opens]
+    assert [(s.role, s.label) for s in opens] == [("link", "Book train {}")]
     assert booking.changes and booking.answer.reads == "Booking number"
     name = next(s for s in booking.steps if s.label == "Passenger Name")
     assert name.ask and name.value is None
@@ -323,12 +325,12 @@ def test_the_booking_runs_behind_its_final_screens_and_says_it_was_practice(book
                           ("confirm", {_name(booking): "Bilal Ahmed"}),
                           (f"{voice.CHOICE_PREFIX}0", {})])
     finals = [p for p in done.of("step.presented") if p.get("final")]
-    # Two: Book on the train, whose words say book though it only opens the
-    # form, and Confirm Booking. Each names what it presses (flagged: the
-    # final-step rule asks for what, how much and when as well).
+    # One, for Confirm Booking: Book on the train only opens the form, and
+    # runs as a checklist line once the person has chosen the train.
     assert [f["final"] for f in finals] == [
-        [{"label": voice.WHAT_I_PRESS, "value": "Book train 7UP"}],
         [{"label": voice.WHAT_I_PRESS, "value": "Confirm Booking"}]]
+    assert "Opening Book train 7UP" in [p["instruction"] for p in done.of("step.presented")
+                                        if not p["requires_confirmation"]]
     ending = done.of("task.completed")[0]
     assert ending["findings"][0]["values"][0].startswith("PR-")
     assert ending["scope"] == voice.ROUTINE_PRACTICE_SCOPE and ending["llm_calls"] == 0
@@ -454,6 +456,65 @@ def test_a_route_with_no_trains_stops_and_says_so(booking) -> None:
     assert "task.completed" not in done.types()
     assert not [p for p in done.of("step.presented") if p.get("final")]
     assert done.of("help.requested")[-1]["reason"] == voice.no_rows("Train No.")
+
+
+# --- one final screen per booking (2026-11-04, fix) ----------------------------------
+
+
+def test_only_a_link_to_another_page_of_our_copy_is_believed_to_only_open(
+        railways: str) -> None:  # noqa: F811
+    from backend.orchestrator.loop import only_opens
+    from backend.perception.serializer import read_async
+
+    async def inner():
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            await page.goto(railways)
+            await page.evaluate("""() => document.body.insertAdjacentHTML('afterbegin',
+                '<a href="/book?train=7UP">Book train 7UP</a>' +
+                '<a href="#" onclick="return false">Book now</a>' +
+                '<button>Book this</button>' +
+                '<a href="https://example.com/book">Book elsewhere</a>')""")
+            elements = (await read_async(page)).elements
+
+            async def opens(role: str, label: str, said: bool = True) -> bool:
+                move = Move(instruction="", detail="",
+                            operations=[Operation("click", Target(role, label))],
+                            expect=Expectation(), fields=[], actions=[], opens=said)
+                return await only_opens(page, elements, move)
+
+            found = [await opens("link", "Book train 7UP"),
+                     await opens("link", "Book train 7UP", said=False),
+                     await opens("link", "Book now"),
+                     await opens("button", "Book this"),
+                     await opens("link", "Book elsewhere")]
+            await browser.close()
+            return found
+
+    # Only the real link to another page of our copy, and only when the
+    # planner says so: a script's link, a button and another site keep
+    # their final screens.
+    assert run(inner()) == [True, False, False, False, False]
+
+
+def test_a_routine_file_cannot_take_the_final_screen_off_a_button(booking) -> None:
+    from dataclasses import replace
+
+    from backend.orchestrator.routines import Routine
+
+    # A file that says Confirm Booking only opens a page: the loop still
+    # shows its final screen, since it is a button that sends the form.
+    told = Routine(id="x", label=booking.label, start=booking.start, answer=booking.answer,
+                   steps=tuple(replace(s, changes=False, opens=True) if s.changes else s
+                               for s in booking.steps))
+    done = _run(told, [("confirm", {"value0": "Lahore Cantt"}),
+                       ("confirm", {"value2": "Karachi Cantt"}),
+                       (f"{voice.CHOICE_PREFIX}1", {}),
+                       ("confirm", {_name(booking): "Bilal Ahmed"}),
+                       (f"{voice.CHOICE_PREFIX}0", {})])
+    assert [f["final"][0]["value"] for f in done.of("step.presented") if f.get("final")] == [
+        "Confirm Booking"]
 
 
 # --- the person's values, checked the moment they are chosen ---------------------------

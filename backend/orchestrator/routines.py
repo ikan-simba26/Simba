@@ -101,6 +101,10 @@ class Step:
     #: value goes ("Book train {}"). The person is asked from the page's own
     #: rows when it runs.
     row: str | None = None
+    #: Its words say it books, and it only opened a page to read: a link to
+    #: the booking form, followed by a press that books (2026-11-04, fix).
+    #: Gets no final screen of its own, as the loop checks (`loop.only_opens`).
+    opens: bool = False
 
 
 @dataclass(frozen=True)
@@ -159,7 +163,8 @@ def step_from(row: object) -> Step:
     if not isinstance(nth, int) or isinstance(nth, bool) or not 0 <= nth < 100:
         raise NotARoutine("a step's position is not a small number")
     flags = {}
-    for name in ("ask", "secret", "changes", "list_opens", "click_first", "pick", "day"):
+    for name in ("ask", "secret", "changes", "list_opens", "click_first", "pick", "day",
+                 "opens"):
         flag = row.get(name, False)
         if not isinstance(flag, bool):
             raise NotARoutine(f"a step's {name} is not yes or no")

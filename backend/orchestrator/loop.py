@@ -531,6 +531,10 @@ class Move:
     changes: bool = False
     final: tuple[FinalRead, ...] = ()
     final_answers: tuple[str, str] | None = None
+    # Its words say it books, and the planner says it only opens a page to
+    # read: "Book train 7UP" opens the booking form, and "Confirm Booking"
+    # books (2026-11-04, fix). Believed only as `only_opens` checks it.
+    opens: bool = False
 
 
 # --- the final step (2026-10-16) ---------------------------------------------
@@ -602,6 +606,39 @@ def would_change(move: "Move", planner: object) -> bool:
         return False
     return any(operation.kind == "click" and CHANGE_WORDS.search(operation.target.label or "")
                for operation in move.operations)
+
+
+async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
+    """Whether a move whose words say it books only opens a page, as its
+    planner says (`Move.opens`): then it gets no final screen of its own, and
+    the press that does book gets the only one (2026-11-04, fix).
+
+    Believed only on one of our replicas, and only when every press is on a
+    link, as the page has it now, to another page of the same replica:
+    following a link asks the site for a page and sends it nothing. A button,
+    a link that runs a script, or anything on a live site keeps its final
+    screen, whatever the planner said."""
+    if not move.opens or move.changes or not on_replica(page.url) or not move.operations:
+        return False
+    here = urlsplit(page.url)
+    for operation in move.operations:
+        if operation.kind != "click":
+            return False
+        element_id = (operation.element_id if operation.element_id is not None
+                      else pick(elements, operation.target))
+        if element_id is None:
+            return False
+        try:
+            href = await resolve(page, elements, element_id).evaluate(
+                "e => e.tagName === 'A' && e.getAttribute('href') ? e.href : ''",
+                timeout=2000)
+        except PlaywrightError:
+            return False
+        goes = urlsplit(href or "")
+        if goes.scheme not in ("http", "https") or goes.netloc != here.netloc \
+                or (goes.path, goes.query) == (here.path, here.query):
+            return False
+    return True
 
 
 def pressed(move: "Move") -> str:
@@ -1578,7 +1615,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # The final step (2026-10-16): a move that books, pays, registers or
         # changes a record is done only on a replica, and only after its
         # final screen is answered "do it". Whichever planner asked.
-        if would_change(move, planner):
+        if would_change(move, planner) and not await only_opens(page, elements, move):
             if not on_replica(page.url):
                 await give_up(voice.NOT_ON_A_REAL_SITE)
                 return

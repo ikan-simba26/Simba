@@ -390,6 +390,14 @@ class Draft:
                     and steps[-1].expect_label == step.label):
                 step = replace(step, pick=True)
             steps.append(step)
+        # One final screen per booking (2026-11-04, fix): a link whose words
+        # say book, that went to another page, before a press that changes
+        # something, only opened the form that one sends. That press keeps
+        # the final screen; the link is a page to read.
+        for index, step in enumerate(steps):
+            if (step.changes and step.role == "link" and step.expect_url
+                    and any(later.changes for later in steps[index + 1:])):
+                steps[index] = replace(step, changes=False, opens=True)
         answer = self.answer
         if answer_name and answer_name.strip():
             answer = replace(answer, name=" ".join(answer_name.split())[:60])
