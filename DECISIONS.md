@@ -5857,3 +5857,62 @@ each stage leaves `main` working.
   adaptive.
 - **Undoing it:** remove the "Show me once" entry from the settings and the routine tiles
   from the home screen; `data/routines.json` can then be deleted. Nothing else reads it.
+
+
+## Show me once, stage 1: what was settled along the way
+
+**Date:** 2026-11-04 (`feat/show-me-once`). None of these was asked for; each was needed to
+build what was. **Aly to review** the overlay's and the host's, **Nahail** the reading of
+presses through perception. Each says what it costs to change.
+
+- **A press is held in the page until perception has read it, then let through.** A press
+  usually moves the page on, so it is stopped in the page (`preventDefault`), the backend reads
+  the page it was made on and finds the element under the pointer by perception's own boxes, and
+  the page is told to go on (`el.click()`). *Alternative:* only watch, and read the page now and
+  then, which races every link: the page has often gone before it is read. *Cost:* each press
+  takes a moment longer for the helper; a site that checks `isTrusted` on its click handler sees
+  the second click as a script's; and a press the backend has not answered in 8s goes through
+  unrecorded rather than hang the page.
+- **The host is told by a line in the overlay's console** (`[simba] host bar 96`, `host full`),
+  as it already reads the press log, and shrinks only the overlay view. The site view keeps its
+  1280x800 bounds at the window's origin, `setVisible(true)`, always. *Alternative:* a preload
+  script and IPC, which is the usual Electron way and a new file in the build. *Cost:* any line
+  the overlay prints in that shape moves the window; nothing else prints one.
+- **The bar covers the top 96px of the website**, which stays where it is. *Alternatives:* move
+  the site view down by the bar's height, which breaks CLAUDE.md's "at the window's origin"; or
+  put the bar at the bottom, over the billing copy's cookie banner. *Cost:* a site's top 96px are
+  under the bar while teaching; the helper scrolls to them.
+- **A routine is one of the home screen's three tiles**, sharing the row with the person's own.
+  *Alternative:* a second row, which put the box to ask in off the bottom at 150% for tiles
+  (2026-10-18). *Cost:* three kept things in all.
+- **A press about cookies or consent is asked of the person every time**, Yes or No, whatever
+  the helper pressed, as the bill's own flow asks (2026-10-16): consent on someone else's site is
+  the person's to give. *Cost:* one press per run that the helper may have meant to save.
+- **A routine saved to a file asks for every value the helper typed**, so a reference number or
+  a name never leaves in plain text, and a routine shared with someone else asks them for theirs.
+  A file read in with a typed value is refused. *Cost:* a helper sharing with themselves on a
+  second computer answers once more each run.
+- **A file read in is data, checked field by field**: a web address to start from, at most 30
+  moves, known kinds only, short text, no value in a password box. Whatever it asks still goes
+  through the loop's rules. *Cost:* a routine longer than 30 moves cannot be shared.
+- **A routine is run as a planner that does not mark its own changes**, so the loop also stops on
+  a press whose words say it books, pays or submits (`loop.would_change`), whatever the routine
+  says. *Cost:* a harmless button called "Submit" on one of our copies gets a final screen.
+- **Teaching on a live site stops on the same words**: "book", "pay", "submit", "confirm" and the
+  rest (`loop.CHANGE_WORDS`). *Cost:* a live search whose button says "Submit" cannot be taught;
+  the evaluation's live site has to be one whose search says something else.
+- **Every typed value is asked about before Finish**, and Finish says so while one is open.
+  *Alternative:* assume "ask each time". *Cost:* one more press per typed value, for the helper.
+- **The model is offered only when a key is set and the hardcoded plan was not asked for.** The
+  launchers ask for it, so on demo day and in every recorded run a routine never offers a model.
+  *Cost:* with the launchers' defaults the person never gets the offer.
+- **A routine is never cut short** (`must_finish`): the loop's early finish, when the page already
+  shows what the task wants, is skipped for a routine, which ends when its last move is done.
+  *Cost:* none known; a hand-written plan is unaffected.
+- **The answer is the first label perception pairs with what was clicked**, exact before
+  near. *Cost:* a page that pairs one value with two labels gets the first.
+- **"Not now" on the screen behind Show me once goes home**, not back to the settings.
+- **An address with no beginning is made whole**: `https://`, or `http://` for this computer's
+  own address, where our copies are.
+- **The loop can now choose from a list the page draws itself** (`<select>`), by the option's
+  words, checked by reading the list back. Recorded by the recorder; no flow used one before.

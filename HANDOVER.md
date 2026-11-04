@@ -39,6 +39,10 @@ against commit `cc4704f`, and brought up to date since:
   and the comparison, built and waiting for ratings (EVALUATION.md, 2026-11-02c). The live
   model is unchanged.
 
+- **2026-11-04, `feat/show-me-once`, stage 1**: one feature after the freeze, by Raham's
+  decision: a helper shows SIMBA a task once, and the person runs it from a tile. The bill on
+  the billing copy, end to end (below, and EVALUATION.md, 2026-11-04).
+
 Section 9 is still the 2026-09-17 capture, and says so.
 
 This file summarises and points. It does not repeat the four living
@@ -53,6 +57,31 @@ Also read [CLAUDE.md](CLAUDE.md) (the project's rules, which bind people and
 tools alike), [CONTRACT.md](CONTRACT.md) (every message between the two
 processes) and [RUNNING.md](RUNNING.md) (the launcher, and what to do when it
 fails).
+
+**For Nahail and Aly (2026-11-04): Show me once, after the freeze.** Raham decided to add one
+feature after 1 November (DECISIONS.md, *"Show me once" goes in after the feature freeze*,
+with its reason and cost). A helper — a carer, a family member, a teacher — does a task once on
+the real site while SIMBA watches; SIMBA keeps it as a routine of perception's roles and labels
+and the answer the helper pointed at; the person runs it from a tile, with no model. Stage 1,
+the bill on the billing copy, is on `main`; stage 2 (list choices and calendar days, the
+railways copy and one live lookup) follows on the same branch name.
+
+- **For both: the contract.** Six new message types and three optional fields, every one
+  additive, listed in one table in CONTRACT.md, *Show me once*. A side that ignores them works as
+  it did on 2026-11-03.
+- **For Aly: the overlay and the host.** While a helper is watched the overlay is a 96px bar at
+  the top and the host shows the website below it (`TeachBar.tsx`, `store.hostBar`,
+  `main.ts`): the host shrinks only the overlay view, told by a line in the overlay's console, and
+  the site view keeps its bounds at the origin and is never hidden. Also: "Show me once" on the
+  name question of "Change my settings", the screen behind it (`TeachIntro.tsx`), the read-back
+  as its own screen (`ReadBack.tsx`, no level row under it), a routine as a fourth kind of tile
+  in the row of three, and saving to a file through the host's own save dialog. Every choice is
+  in DECISIONS.md, *Show me once, stage 1: what was settled along the way*.
+- **For Nahail: perception reads the helper's presses.** Each press is held in the page until
+  `read_async` has read it, and is kept as the role, label, qualifier and which of several alike
+  of the smallest element under the pointer by perception's boxes (`teach.element_at`). The
+  answer is found by perception's pairs (`Content.pairs`), by the page's own label. Nothing in
+  perception changed.
 
 **For Nahail (2026-11-02): the visual features, yours to review.** The page model cannot see
 pictures, and now we know how far that goes: 33 of the 35 Pakistani sites have more of their
@@ -276,7 +305,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-11-03: **1907 passed, 12 skipped, 0 failed** (backend 1268 in 1421s, frontend 639 in 1421s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-03). The 12 skips are
+The full suite was last run on 2026-11-04: **1983 passed, 12 skipped, 0 failed** (backend 1326 in 1342s, frontend 657 in 1467s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-04). The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on
