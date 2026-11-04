@@ -25,6 +25,11 @@ from flask import Flask, redirect, render_template, request, url_for
 
 app = Flask(__name__)
 
+# The search button's words. Changed only to stand for a site that changed
+# after a helper showed SIMBA a task on it (2026-11-04, "Show me once"): the
+# routine has to stop and say so, not press something else.
+CHECK_LABEL = os.environ.get("BILLING_CHECK_LABEL", "Check Bill")
+
 # Any 14-digit reference resolves; this one is the worked example.
 KNOWN_REFERENCE = "04141234567890"
 
@@ -82,7 +87,8 @@ TARIFF_SLABS = [
 
 @app.route("/")
 def lookup():
-    return render_template("lookup.html", error=request.args.get("error"))
+    return render_template("lookup.html", error=request.args.get("error"),
+                           check_label=CHECK_LABEL)
 
 
 @app.route("/bill", methods=["GET", "POST"])

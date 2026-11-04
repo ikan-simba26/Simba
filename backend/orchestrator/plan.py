@@ -222,6 +222,9 @@ class Expectation:
     # Readable content, from perception's second channel.
     content_says: str | None = None
     rows_at_least: int | None = None
+    # The page gives this label a value (2026-11-04): what a routine a helper
+    # showed is for, by the page's own label for it (`routine_plan`).
+    has_value: str | None = None
 
 
 @dataclass(frozen=True)

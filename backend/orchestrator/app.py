@@ -81,6 +81,7 @@ from backend.orchestrator.router import (
     use_model,
 )
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
+from backend.orchestrator.routine_plan import RoutineBrief, routine_sentence
 from backend.orchestrator.routines import NotARoutine, RoutineStore, export, file_name, parse
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
@@ -285,6 +286,21 @@ def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None =
     return True
 
 
+def model_fallback(routine):
+    """What a routine may hand the rest of its run to, once the person agrees,
+    when it stops because the site changed (2026-11-04): the model planner,
+    only when a model is set up and the hardcoded plan was not asked for — the
+    launchers ask for it, so on demo day a routine never offers a model. None
+    otherwise, and then nothing is offered."""
+    if use_hardcoded_plan():
+        return None
+    try:
+        provider = provider_from_env()
+    except Exception:  # noqa: BLE001 - no key, no provider: nothing to offer
+        return None
+    return lambda task: LLMPlanner(provider, replace(task, goal=routine_sentence(routine)))
+
+
 #: The `error` code for a routine's file that could not be kept (2026-11-04).
 ROUTINE_NOT_READ = "ROUTINE_NOT_READ"
 
@@ -376,6 +392,13 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         if rules is not None:
             rules.start_from(payload.get("start_level"))
 
+        # A routine a helper showed (2026-11-04): run as shown, by its id.
+        # Its name is the goal; nothing is read or classified.
+        routine = routines.get(payload.get("routine")) if payload.get("routine") else None
+        if routine is not None:
+            goal = routine.label
+            break
+
         # One of the person's own tiles (2026-10-18): its flow and its kept
         # details, and its name as the goal. Nothing is read or classified.
         tile = tiles.get(payload.get("tile")) if payload.get("tile") else None
@@ -404,6 +427,20 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # (2026-10-18): a signal for the estimator of its own.
     if recorder is not None:
         recorder.note_start_level(payload.get("start_level"))
+
+    if routine is not None:
+        # Asks only what the helper said changes, then runs as the checklist,
+        # each move found again by role and label and checked (2026-11-04).
+        brief = RoutineBrief(routine, fallback=model_fallback(routine))
+        log.info("routine: %d moves, %d asked", len(routine.steps), len(routine.asks))
+        async with open_page(routine.start) as page:
+            await run_brief(page, connection, brief, routine.start, recorder, rules,
+                            vault=Vault(), window=window_watch(page), auto=auto)
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass
+        return
 
     name, task, plan, replica_url = flow_setup(decided.flow)
 

@@ -1022,6 +1022,21 @@ def routine_lines(routine, example: str | None = None) -> list[str]:
             answer_line(routine.answer.reads, example)]
 
 
+def routine_do(step) -> str:
+    """A routine's move, said before it is done, when the person asked to be
+    asked before each thing."""
+    where = _where(step)
+    if step.kind == "fill":
+        return _ended(f"I'll type in {where}")
+    if step.kind == "select":
+        return _ended(f"I'll choose in {where}")
+    if step.kind == "press":
+        return _ended(f"I'll press {step.value or 'Enter'} in {where}")
+    if step.role == "link":
+        return _ended(f"I'll open {where}")
+    return _ended(f"I'll press {where}")
+
+
 #: A routine's question about a value the helper said changes.
 def routine_ask(label: str) -> str:
     return f"What should I type in {label}?"
