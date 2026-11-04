@@ -695,6 +695,12 @@ routine, a typed value in it, no room).
 ```json
 { "file": "{\"format\": \"simba-routine\", \"version\": 1, ...}" }
 ```
+Since 2026-11-04 (`fix/show-me-once`) a step in the file may carry three more
+optional keys, still version 1: `row` (the column naming the row the person
+chooses, with `{}` in the step's label), `opens` (a press whose words say book
+that only opens a page) and `shows` (the page's labels for a final screen's
+details). Only the backend reads the file; the overlay passes it through.
+A SIMBA without them reads the file and stops honestly at the row press.
 
 ## Notes
 
