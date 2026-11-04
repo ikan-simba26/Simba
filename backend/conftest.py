@@ -51,6 +51,12 @@ TILES_FOR_TESTS = Path(__file__).resolve().parents[1] / ".scratch" / "tiles-test
 os.environ.setdefault("SIMBA_TILES", str(TILES_FOR_TESTS))
 TILES_FOR_TESTS.unlink(missing_ok=True)
 
+# Nor the routines helpers have shown (2026-11-04), for the same reasons: they
+# share the home screen's row with the tiles.
+ROUTINES_FOR_TESTS = Path(__file__).resolve().parents[1] / ".scratch" / "routines-tests.json"
+os.environ.setdefault("SIMBA_ROUTINES", str(ROUTINES_FOR_TESTS))
+ROUTINES_FOR_TESTS.unlink(missing_ok=True)
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

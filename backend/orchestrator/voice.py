@@ -924,3 +924,180 @@ def keep_trains(destination: str) -> str:
     # As people write it: the site names its stations in capitals.
     return f"Trains to {place.capitalize()}" if place else "My trains"
 
+
+
+# --- "Show me once" (2026-11-04) ----------------------------------------------------
+#
+# A helper does a task once while SIMBA watches (`teach.py`); the person then
+# runs it from a tile (`routines.py`). The helper reads these while teaching,
+# and the person reads the rest while it runs.
+
+#: The task's name while a helper is watched, and on the read-back.
+TEACH_GOAL = "Show me once"
+#: Why watching stopped, on a live site: the press was held and never made.
+TEACH_STOPPED_CHANGE = ("I've stopped watching. That would book, pay or change something on a "
+                        "real website, and there I only read. I didn't press it, and nothing "
+                        "was kept.")
+TEACH_STOPPED_CARD = ("I've stopped watching. That box is for card or bank details, and I never "
+                      "keep or type those. Nothing was kept.")
+TEACH_SUGGESTION = "You can show me something else from Change my settings."
+TEACH_NOT_AN_ADDRESS = "That isn't a website address I can open, so I haven't started watching."
+TEACH_CANNOT_KEEP = "I can't keep anything safely on this computer, so I can't learn a task here."
+TEACH_NO_ROOM = ("There are already three tiles on the home screen. Take one off, and then "
+                 "show me.")
+TEACH_ANSWER_FIRST = "First, tell me whether what you typed is the same every time."
+TEACH_NOTHING_YET = "You haven't shown me anything yet. Do the task on the page first."
+POINT_AGAIN = "I couldn't tell what that is. Click right on the words or the number you want."
+TEACH_READ_BACK = "Here's what I learned. Is it right?"
+TEACH_NAME_IT = "Give it a name for the home screen. Then it runs with one press."
+FIELD_ROUTINE_NAME = "Name on the home screen"
+FIELD_ANSWER_NAME = "What the answer is"
+KEEP_ROUTINE = "Keep it"
+NAME_IT_FIRST = "Give it a name first."
+TEACH_KEPT_SCOPE = "Press it on the home screen, and I'll do it the way you showed me."
+
+
+def taught_kept(label: str) -> str:
+    return f"It's on the home screen now, as {label}."
+
+
+def _where(step) -> str:
+    """What a move is done to, by its name on the page, or by what it is."""
+    return step.label or f"the {step.role} with no name"
+
+
+def _ended(text: str) -> str:
+    """A sentence ending in a name that may end in its own full stop, as
+    "Reference No." does: one full stop, not two."""
+    return text if text.endswith((".", "!", "?")) else f"{text}."
+
+
+def routine_line(step, consent: bool = False) -> str:
+    """One move of a routine, in plain words, for the helper's read-back. A
+    value the helper typed is said; a password never is, since none is kept."""
+    where = _where(step)
+    if step.kind == "fill":
+        if step.secret:
+            return f"Type the password in {where}. I use the saved one, or ask for it."
+        if step.ask:
+            return f"Ask what to type in {where}, and type it."
+        return _ended(f"Type {step.value} in {where}")
+    if step.kind == "select":
+        if step.ask:
+            return f"Ask what to choose in {where}, and choose it."
+        return _ended(f"Choose {step.value} in {where}")
+    if step.kind == "press":
+        return _ended(f"Press {step.value or 'Enter'} in {where}")
+    if step.changes:
+        return (f"Press {where}. I only do this on a practice site, after asking on a final "
+                f"screen.")
+    if consent:
+        return f"Ask about cookies, and press {where} if the answer is yes."
+    if step.role == "link":
+        return _ended(f"Open {where}")
+    return _ended(f"Press {where}")
+
+
+def taught_line(step, same: bool | None, typed: str | None = None,
+                consent: bool = False) -> str:
+    """A move as it stands while it is shown: a typed value is said as typed
+    until the helper says whether it changes."""
+    from dataclasses import replace
+
+    if step.kind in ("fill", "select") and not step.secret:
+        step = replace(step, ask=same is False, value=None if same is False else typed)
+    return routine_line(step, consent)
+
+
+def answer_line(reads: str, example: str | None) -> str:
+    """The read-back's last line: what is read, and what it says now."""
+    if example:
+        return f"Read the answer from {reads} on the page. It says {example.rstrip('.')} now."
+    return f"Read the answer from {reads} on the page."
+
+
+def routine_lines(routine, example: str | None = None) -> list[str]:
+    from backend.orchestrator.routines import asks_consent
+
+    return [*(routine_line(step, asks_consent(step)) for step in routine.steps),
+            answer_line(routine.answer.reads, example)]
+
+
+def routine_do(step) -> str:
+    """A routine's move, said before it is done, when the person asked to be
+    asked before each thing."""
+    where = _where(step)
+    if step.kind == "fill":
+        return _ended(f"I'll type in {where}")
+    if step.kind == "select":
+        return _ended(f"I'll choose in {where}")
+    if step.kind == "press":
+        return _ended(f"I'll press {step.value or 'Enter'} in {where}")
+    if step.role == "link":
+        return _ended(f"I'll open {where}")
+    return _ended(f"I'll press {where}")
+
+
+#: A routine's question about a value the helper said changes.
+def routine_ask(label: str) -> str:
+    return f"What should I type in {label}?"
+
+
+def routine_choose(label: str) -> str:
+    return f"What should I choose in {label}?"
+
+
+ASKED_EACH_TIME = "Your helper said this changes, so I ask you each time."
+USE_THIS = "Use this"
+TYPED_ANSWERS = (*TYPED_ANSWERS, USE_THIS)
+
+
+def doing_type(label: str) -> str:
+    return f"Typing in {label}"
+
+
+def doing_choose(label: str) -> str:
+    return f"Choosing in {label}"
+
+
+def doing_press(label: str) -> str:
+    return f"Pressing {label}"
+
+
+def doing_open(label: str) -> str:
+    return f"Opening {label}"
+
+
+def doing_key(key: str, label: str) -> str:
+    return f"Pressing {key} in {label}"
+
+
+def routine_changed(label: str) -> str:
+    """The honest stop: something the helper pressed is not on the page."""
+    return (f"I couldn't find {label} on the page. The site may have changed since your helper "
+            f"showed me, so they may need to show me again.")
+
+
+def routine_did_not_work(label: str) -> str:
+    return (f"{label} didn't do what it did when your helper showed me. The site may have "
+            f"changed, so they may need to show me again.")
+
+
+ROUTINE_NO_ANSWER = ("I did everything your helper showed me, but the answer wasn't on the page. "
+                     "They may need to show me again.")
+ROUTINE_SCOPE = "I only did what your helper showed me. I didn't book, pay or change anything."
+#: Offered after the honest stop, only when a model is set up: the person
+#: says whether a model may try the rest (`routines.RoutinePlanner`).
+ROUTINE_TRY = ("I can try to work out the rest myself. That means sending what's on the page to "
+               "an online service. Shall I try?")
+TRY_IT = "Try it"
+
+
+def try_or_not() -> list[StepAction]:
+    """The offer of a model's help: try it, no, and the one way to stop. No
+    keeps the honest stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=TRY_IT, kind="primary"),
+        StepAction(id=DECLINE_ID, label=NO, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]

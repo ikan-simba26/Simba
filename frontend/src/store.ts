@@ -17,6 +17,9 @@ import type {
   HistoryOffered,
   PastGoal,
   PersonalTile,
+  RoutineFile,
+  TaughtTile,
+  TeachWatching,
   TileChange,
   LoadUpdated,
   PagePreview,
@@ -30,7 +33,7 @@ import type {
 } from "@shared/schema";
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
-import { FINAL } from "./copy";
+import { FINAL, TEACH } from "./copy";
 import {
   type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
   markForgetting, saveProfile, welcomeEnabled,
@@ -214,6 +217,24 @@ interface Store {
   changeTile: (change: TileChange) => void;
   setTilesOpen: (open: boolean) => void;
   /**
+   * "Show me once" (2026-11-04). The routines helpers have shown, as tiles
+   * (`history.offered.routines`); the screen behind "Show me once"; and, while
+   * SIMBA watches a helper, what the bar at the top says. While `teaching` is
+   * set the overlay is that bar and nothing else, and the host shows the
+   * website below it (`hostBar`).
+   */
+  routines: TaughtTile[];
+  teachOpen: boolean;
+  teaching: TeachWatching | null;
+  /** A file that could not be read in, said once on the screen it came from. */
+  fileNote: string | null;
+  setTeachOpen: (open: boolean) => void;
+  startTeaching: (url: string) => void;
+  teachAnswer: (action: "same" | "ask" | "finish" | "cancel", step?: number) => void;
+  startRoutine: (routine: TaughtTile) => void;
+  exportRoutine: (id: string) => void;
+  importRoutine: (file: string) => void;
+  /**
    * Forget the person (2026-10-18): their profile, and their own tiles in the
    * backend. Then the welcome, as on a first open. For the next person to use
    * this computer, and between sessions of a study.
@@ -250,7 +271,7 @@ interface Store {
    * offered — a card, or an answer to "which did you mean" — so the backend
    * runs exactly that and does not guess again.
    */
-  startTask: (goal: string, flow?: FlowName, tile?: string) => void;
+  startTask: (goal: string, flow?: FlowName, tile?: string, routine?: string) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -281,6 +302,29 @@ const PICTURE_WAIT_MS = 7000;
 
 /** The profile as this window opened with it. */
 const STARTING_PROFILE = loadProfile();
+
+/** The bar's height while SIMBA watches a helper, in the overlay's pixels. */
+export const TEACH_BAR = 96;
+
+/**
+ * Tells the host to show the website below a bar of this height, or to cover
+ * it again (2026-11-04). The host listens to the overlay's console, as it
+ * does for the press log (`frontend/electron/main.ts`); in a browser, with no
+ * host, the line is only a line.
+ */
+function hostBar(on: boolean): void {
+  console.log(on ? `[simba] host bar ${TEACH_BAR}` : "[simba] host full");
+}
+
+/** Saves a routine's file where the helper chooses: the host asks where. */
+function saveFile(file: RoutineFile): void {
+  const url = URL.createObjectURL(new Blob([file.file], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 const EMPTY = {
   proofOpen: false,
@@ -335,7 +379,7 @@ export const useStore = create<Store>((set, get) => {
       // connection opens with an offer made as if it had not happened. That
       // one is not shown, and the reset is said again (2026-10-21).
       if (status === "open" && forgetting()) {
-        set({ offersToSkip: 1, history: [], tiles: [] });
+        set({ offersToSkip: 1, history: [], tiles: [], routines: [] });
         connection.changeTile({ action: "clear" });
       }
     },
@@ -380,6 +424,10 @@ export const useStore = create<Store>((set, get) => {
     profile: STARTING_PROFILE,
     tiles: [],
     tilesOpen: false,
+    routines: [],
+    teachOpen: false,
+    teaching: null,
+    fileNote: null,
     welcomeOpen: welcomeEnabled() && !STARTING_PROFILE.welcomed,
     ...EMPTY,
 
@@ -455,7 +503,44 @@ export const useStore = create<Store>((set, get) => {
       connection.changeTile(change);
     },
 
-    setTilesOpen: (open) => set({ tilesOpen: open }),
+    setTilesOpen: (open) => set({ tilesOpen: open, fileNote: null }),
+
+    setTeachOpen: (open) => set({ teachOpen: open, fileNote: null,
+                                  ...(open ? { welcomeOpen: false } : {}) }),
+
+    startTeaching: (url) => {
+      window.__simbaStarted = true;
+      // The bar at once, before the backend has answered: the helper pressed
+      // "Start watching" and should see that it did something.
+      set({ ...EMPTY, teachOpen: false, teaching: { lines: [], pointing: false } });
+      hostBar(true);
+      if (!connection.isOpen) {
+        set({ log: [] });
+        connection.connect(get().wsUrl);
+      }
+      connection.startTeaching(url);
+    },
+
+    teachAnswer: (action, step) => {
+      connection.teachAnswer(step === undefined ? { action } : { action, step });
+      if (action === "cancel") {
+        hostBar(false);
+        set({ teaching: null, stoppedByPerson: true });
+      }
+    },
+
+    startRoutine: (routine) => get().startTask(routine.label, undefined, undefined, routine.id),
+
+    exportRoutine: (id) => {
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.exportRoutine(id);
+    },
+
+    importRoutine: (file) => {
+      set({ fileNote: null });
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.importRoutine(file);
+    },
 
     forgetEverything: () => {
       clearProfile();
@@ -476,6 +561,8 @@ export const useStore = create<Store>((set, get) => {
         askEachTime: NEW_PROFILE.askEach,
         tiles: [],
         tilesOpen: false,
+        routines: [],
+        teachOpen: false,
         level: 2,
         chosenLevel: 2,
         levelLocked: false,
@@ -529,7 +616,8 @@ export const useStore = create<Store>((set, get) => {
       // its offer to keep a tile (2026-10-18), is over: the connection closes.
       const completed = get().completed;
       if (completed?.offer || completed?.keep) connection.close();
-      set({ ...EMPTY });
+      if (get().teaching) hostBar(false);
+      set({ ...EMPTY, teaching: null });
       // And a new one, so the home screen is offered the tiles as they now
       // stand — one just kept among them — as when SIMBA opened.
       if (!connection.isOpen) connection.connect(get().wsUrl);
@@ -550,7 +638,7 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal, flow, tile) => {
+    startTask: (goal, flow, tile, routine) => {
       window.__simbaStarted = true;
       set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
@@ -576,7 +664,7 @@ export const useStore = create<Store>((set, get) => {
       // backend's rules start from it and come back to it after calm steps.
       const start = get().profile.level;
       if (start && !levelLocked) set({ level: start, chosenLevel: start });
-      connection.startTask(goal, flow, get().askEachTime, start, tile);
+      connection.startTask(goal, flow, get().askEachTime, start, tile, routine);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -628,6 +716,16 @@ type SetStore = {
   (updater: (current: Store) => Partial<Store>): void;
 };
 
+/** Whatever the backend sends next after watching — the read-back, an
+ *  ending — puts the overlay back over the website (2026-11-04). */
+function endTeaching(set: SetStore): void {
+  set((current) => {
+    if (!current.teaching) return {};
+    hostBar(false);
+    return { teaching: null };
+  });
+}
+
 function apply(message: AnyEnvelope, set: SetStore): void {
   switch (message.type) {
     case "task.started":
@@ -660,6 +758,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       }
       // A new decision: the clock and the pointer start again (telemetry.ts).
       tracker.start((message.payload as StepPresented).step_index);
+      endTeaching(set);
       // A new step gets its own chance to be moved for overflow — and under a
       // lock it starts at the person's own level again, whatever the guard
       // did to the last one. No notice: this is a new screen, not the old one
@@ -699,11 +798,13 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set((current) => {
         if (forgetting()) {
           if (current.offersToSkip > 0) {
-            return { offersToSkip: current.offersToSkip - 1, history: [], tiles: [] };
+            return { offersToSkip: current.offersToSkip - 1, history: [], tiles: [],
+                     routines: [] };
           }
           doneForgetting();
         }
-        return { history: offered.goals, tiles: offered.tiles ?? [] };
+        return { history: offered.goals, tiles: offered.tiles ?? [],
+                 routines: offered.routines ?? [] };
       });
       return;
     }
@@ -714,6 +815,15 @@ function apply(message: AnyEnvelope, set: SetStore): void {
     case "step.failed":
       // Not cleared here or by the step that follows: see the store field.
       set({ stepFailure: message.payload as StepFailed });
+      return;
+    case "teach.watching":
+      set((current) => {
+        if (!current.teaching) hostBar(true);
+        return { teaching: message.payload as TeachWatching };
+      });
+      return;
+    case "routine.file":
+      saveFile(message.payload as RoutineFile);
       return;
     case "load.updated": {
       const load = message.payload as LoadUpdated;
@@ -743,14 +853,17 @@ function apply(message: AnyEnvelope, set: SetStore): void {
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
       tracker.stop();
+      endTeaching(set);
       set({ help: message.payload as HelpRequested, step: null });
       return;
     case "task.completed":
       tracker.stop();
+      endTeaching(set);
       set({ completed: message.payload as TaskCompleted, step: null });
       return;
     case "task.failed":
       tracker.stop();
+      endTeaching(set);
       // Kept even after the person stopped, for the development view. The
       // screen shows the stop, not this — see `stoppedByPerson`.
       set((current) => ({
@@ -762,6 +875,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       return;
     case "error": {
       const error = message.payload as ErrorPayload;
+      if (error.code === "ROUTINE_NOT_READ") set({ fileNote: TEACH.fileNotRead });
       // A picture that was dropped matters only to someone waiting for it.
       const lost = error.code.startsWith("PREVIEW_");
       set((current) => ({

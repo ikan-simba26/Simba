@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-03 · **1907 passing, 12 skipped, 0 failed** · backend 1268 in 1421s, frontend 639 in 1421s, as two halves, on mains, on `eval/visual-features`, then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 561s, on mains, after a fix to the test itself (EVALUATION.md, 2026-11-03). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-04 · **1983 passing, 12 skipped, 0 failed** · backend 1326 in 1342s, frontend 657 in 1467s, as two halves, on mains, on `feat/show-me-once` at `fdd02dd` (stage 1), then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 564s, on mains (EVALUATION.md, 2026-11-04). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -64,6 +64,14 @@ three tiles of their own, encrypted with the vault's key and run by id, which as
 only what changes. One saved password per site, Windows only. "Forget me and start
 again" clears the profile and the tiles, and hides the goals from before it.
 
+**Show me once** (2026-11-04, after the freeze, by Raham's decision). A helper does a task
+once on the real site while SIMBA watches, with the overlay stepped aside to a bar; it is kept
+as a routine of perception's roles and labels and the answer the helper pointed at, and the
+person runs it from a tile — asked only what the helper said changes, the rest as the
+checklist, every move checked, no model. A site that changed stops it honestly. Stage 1, the
+bill on our copy, is done; stage 2 adds list choices and calendar days, the railways copy and a
+live lookup.
+
 **The brand** (2026-11-02). The logo kit is in `assets/brand/`: the app icon, the title
 `simba`, the logo while the backend comes up, and a small one on the home screen alone.
 
@@ -71,6 +79,26 @@ again" clears the profile and the tiles, and hides the goals from before it.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-04: Show me once, stage 1 — `feat/show-me-once`
+
+- **One feature after the freeze, by Raham's decision** (DECISIONS.md, with its reason and
+  cost): a helper does a task once on the real site while SIMBA watches, and the person runs it
+  from a tile, with no model.
+- **Stage 1, the bill on the billing copy, end to end**: teaching mode in the settings, the bar,
+  recording by perception's role and label, the same-or-ask question, the answer pointed at, the
+  read-back, the name, a tile, export and import, and running it with the checklist, every move
+  checked and the proof. 10 of 10 runs right, 2 presses, 0 model calls; on the copy changed after
+  teaching, an honest stop that names what is missing (EVALUATION.md, 2026-11-04).
+- **Walked in the real window** at 100% and 150%: taught in 7 presses, run in 3, captures in
+  `.scratch/show-me-once/`.
+- **Safety**: teaching only reads on a live site (a press that would book, pay, register or
+  submit is held and never made), a card box stops it, a password is never read; on our copies a
+  changing press is kept and runs behind the final screen.
+- **Contract**: six new message types and three optional fields, additive, pending Nahail and
+  Aly (CONTRACT.md, *Show me once*).
+- **Flagged for review**: see the end of this entry in the task report, and DECISIONS.md, *Show
+  me once, stage 1: what was settled along the way*.
 
 ### Changed on 2026-11-03: `eval/visual-features` checked and merged into `main`
 
@@ -1319,6 +1347,10 @@ On `feat/railways-ask`, **not merged**.
 ## Orchestrator — Raham · `backend/orchestrator/`
 
 **Done**
+- **Show me once, stage 1** (2026-11-04): `teach.py` records a helper by role and label,
+  `routines.py` keeps it encrypted and shares it as a file, `routine_plan.py` runs it with no
+  model and stops honestly on a changed page. The loop gains `must_finish`, `ran_out`, a list
+  choice (`<select>`) checked by reading it back, and `Expectation.has_value`. 58 tests.
 - **Saved sign-in details** (`vault.py`, 2026-10-03): DPAPI-encrypted, one entry
   per site, kept only on request and only after the step worked, typed by the
   backend, forgettable from the step. 13 tests, the first of which searches a
@@ -1432,6 +1464,10 @@ On `feat/railways-ask`, **not merged**.
 ## Interface — Aly · `frontend/`
 
 **Done**
+- **Show me once, stage 1** (2026-11-04): "Show me once" in the settings, the screen behind it,
+  the bar while watching (the host shows the website below it and covers it again after), the
+  read-back, routine tiles, saving to and reading from a file. 18 tests at 100%, 125% and 150%,
+  and walked in the real window. **Aly to review.**
 - **Design system** (2026-09-21): `index.css` and `design.ts` tokens for
   colour, type, spacing, radii, shadows and motion; light and dark themes
   from the system; every text pairing measured at AA or better. Home is a
@@ -1676,6 +1712,10 @@ On `feat/railways-ask`, **not merged**.
 ## Shared contract — all three owners · `shared/`, `CONTRACT.md`
 
 **Done**
+- **Show me once** (2026-11-04): six new message types (`teach.start`, `teach.answer`,
+  `teach.watching`, `routine.export`, `routine.file`, `routine.import`), the optional
+  `history.offered.routines`, `task.start.routine` and `step.presented.routine`, the shape
+  `TaughtTile` and the error code `ROUTINE_NOT_READ`. All additive; pending Nahail and Aly.
 - Both schema files mirror every message. `step.failed`, `findings` and
   `history.offered` added; `history.offered` recorded as pending
   ratification with its reasoning and costs.

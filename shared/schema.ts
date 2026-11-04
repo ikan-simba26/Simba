@@ -37,7 +37,15 @@ export type MessageType =
   | "task.cancel"
   | "telemetry"
   // Pending agreement (2026-10-18): the person changing their own tiles.
-  | "tile.change";
+  | "tile.change"
+  // Pending agreement (2026-11-04, "Show me once"): a helper showing SIMBA a
+  // task once, and a routine saved to a file or read from one.
+  | "teach.watching"
+  | "routine.file"
+  | "teach.start"
+  | "teach.answer"
+  | "routine.export"
+  | "routine.import";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -80,10 +88,21 @@ export interface PersonalTile {
   flow: FlowName;
 }
 
+/** A routine a helper showed SIMBA once (2026-11-04), as a tile: its name,
+ *  and the host of the site it runs on. Run by `id` (`TaskStart.routine`). */
+export interface TaughtTile {
+  id: string;
+  label: string;
+  site: string;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
   /** Additive and optional (2026-10-18): the person's own tiles, in order. */
   tiles?: PersonalTile[];
+  /** Additive and optional (2026-11-04): the routines helpers have shown, as
+   *  tiles. They share the home screen's row of three with `tiles`. */
+  routines?: TaughtTile[];
 }
 
 export type FlowName = "registration" | "billing" | "railways";
@@ -182,6 +201,12 @@ export interface StepPresented {
    * don't (`"decline"`), neither the default. Absent: an ordinary step.
    */
   final?: Detail[];
+  /**
+   * Additive and optional (2026-11-04). What a helper has just shown SIMBA,
+   * read back in plain words, one line each, in order, before it is kept.
+   * Absent: an ordinary step.
+   */
+  routine?: string[];
 }
 
 /**
@@ -306,6 +331,31 @@ export interface TaskFailed {
   recoverable: boolean;
 }
 
+/** The bar's question about one typed value (2026-11-04): the same every
+ *  time, or ask each time? `value` is never a password's. */
+export interface TeachQuestion {
+  step: number;
+  label: string;
+  value: string;
+}
+
+/** What the bar says while a helper shows SIMBA a task (2026-11-04, pending
+ *  agreement). Sent whenever any of it changes. */
+export interface TeachWatching {
+  lines: string[];
+  question?: TeachQuestion | null;
+  pointing?: boolean;
+  note?: string | null;
+}
+
+/** A routine saved to a file (2026-11-04, pending agreement), in answer to
+ *  `routine.export`: a suggested file name and the whole text. */
+export interface RoutineFile {
+  label: string;
+  name: string;
+  file: string;
+}
+
 export interface ErrorPayload {
   code: string;
   message: string;
@@ -333,6 +383,33 @@ export interface TaskStart {
    * Runs with the details kept with it; asks only what can change.
    */
   tile?: string;
+  /**
+   * Additive and optional (2026-11-04): a routine a helper showed SIMBA, by
+   * id. Runs as shown, asking only what the helper said changes.
+   */
+  routine?: string;
+}
+
+/** Start watching a helper on this address (2026-11-04, pending agreement). */
+export interface TeachStart {
+  url: string;
+}
+
+/** The helper's press on the bar (2026-11-04, pending agreement). */
+export interface TeachAnswer {
+  action: "same" | "ask" | "finish" | "cancel";
+  step?: number;
+}
+
+/** Save one routine to a file (2026-11-04, pending agreement). */
+export interface RoutineExport {
+  id: string;
+}
+
+/** A routine read from a file someone shared (2026-11-04, pending agreement).
+ *  Answered with `history.offered`, or an `error` coded `ROUTINE_NOT_READ`. */
+export interface RoutineImport {
+  file: string;
 }
 
 /** The person changing their own tiles (2026-10-18). Answered with
@@ -417,4 +494,10 @@ export type AnyEnvelope =
   | Envelope<LevelOverride>
   | Envelope<TrustRequested>
   | Envelope<TaskCancel>
-  | Envelope<Telemetry>;
+  | Envelope<Telemetry>
+  | Envelope<TeachWatching>
+  | Envelope<RoutineFile>
+  | Envelope<TeachStart>
+  | Envelope<TeachAnswer>
+  | Envelope<RoutineExport>
+  | Envelope<RoutineImport>;

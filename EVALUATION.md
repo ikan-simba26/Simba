@@ -7302,3 +7302,143 @@ Vite's eight hash characters (DECISIONS.md, *The fit run reads a logo's name by 
 length*). Checked against all four built logo names before the re-run. Any earlier build whose
 hash held a `-` would have failed the same way; the ones on 2026-11-02 did not.
 
+
+## 2026-11-04 — Show me once, stage 1: the bill taught once and run from its tile
+
+Raham's one feature after the freeze (DECISIONS.md, *"Show me once" goes in after the feature
+freeze*), stage 1 of two: the bill on the billing copy, end to end. A helper shows SIMBA the task
+once on the real page; SIMBA keeps it as a routine of perception's roles and labels and the
+answer the helper pointed at; the person runs it from a tile with no model.
+
+**Script:** `tools/evaluation/show_me_once.py`, result in `logs/show_me_once.json` with its
+conditions. Headless Chromium at 1280x800, the billing copy on its own port, no model. The
+helper is Playwright's mouse and keyboard on the page, through the same recorder and perception
+the real window uses; the person is a script answering each screen (the number when asked, Yes
+to cookies). Then the same routine against the copy with its search button renamed
+(`BILLING_CHECK_LABEL=Find my bill`), a page changed after teaching.
+
+**Conditions:** commit `fdd02dd` on `feat/show-me-once`, on mains, processor at 66% of rated
+speed, 1.07 GB free. The run reads "dirty" only for an untracked `simba-logo-kit.zip` in the
+repository root that predates this work and is not part of it.
+
+### Teaching, once
+
+| | |
+|---|---|
+| Moves kept | 3: press Accept all cookies, type in Reference No., press Check Bill |
+| Asked each time | 1, the reference number (the helper's answer on the bar) |
+| Helper's presses on the page | 4: cookies, the box, Check Bill, and the amount pointed at |
+| Helper's presses on the bar | 3: "Ask each time", Finish, Keep it |
+| SIMBA's own time while watching | 0.8s, script-driven: a helper adds their own time to it |
+
+The read-back, as the helper sees it: "1. Ask about cookies, and press Accept all cookies if the
+answer is yes. 2. Ask what to type in Reference No., and type it. 3. Press Check Bill. 4. Read
+the answer from P/WITHIN on the page. It says 14,382 now."
+
+### Ten runs from the tile
+
+| Measure | Result |
+|---|---|
+| Completed | **10 of 10** |
+| Right answer (14,382) | 10 of 10 |
+| With the picture of the real page, the amount ringed | 10 of 10 |
+| Presses for the person | **2** every run: the number, and Yes to cookies |
+| Checklist lines (done without a press) | 2 every run: typing in Reference No., pressing Check Bill |
+| Moves taken | 3 every run |
+| **Model calls** | **0** every run |
+| Wall clock | mean 1.89s, range 1.8 to 1.9s (secondary, ±2x on this machine) |
+
+The hand-written bill flow on the same copy is 2 presses and 1 checklist line (EVALUATION.md,
+2026-10-16d): the routine has one line more because it presses Check Bill as its own move where
+the plan types and presses in one. Steps and model calls lead, as everywhere since 2026-09-17h.
+
+### The page changed after teaching
+
+The same routine against the copy whose button now says "Find my bill":
+
+| | |
+|---|---|
+| Completed | no, and **no answer shown** |
+| Stopped with | "I couldn't find Check Bill on the page. The site may have changed since your helper showed me, so they may need to show me again." |
+| Presses before the stop | 2 (the number, cookies) |
+| Pressed anything not found | nothing: the run stopped on the lookup page |
+| Model calls | 0 (none set up for the person's runs: `SIMBA_USE_HARDCODED_PLAN=1`) |
+
+It stops before acting, because `RoutinePlanner` looks for the move on the page as it is, by
+role, label and which of several alike, before handing it to the loop. A press that is found and
+does nothing it did when shown stops the same way, with its own sentence
+(`test_routine_run.py`).
+
+### In the real window
+
+`.scratch/show-me-once/stack.py` and `walk_teach.py`: the billing copy, the Electron host and
+the backend attached to it, every store pointed inside `.scratch` so no real tile, routine,
+profile or password is touched. The helper's presses go to the site view and the overlay's to
+the overlay, through CDP's own input; every picture is of the application's own views, never the
+desktop. Captures in `.scratch/show-me-once/walk-100/` and `walk-150/`.
+
+| Scale | Window | Bar | Teaching (walk, with its pauses) | Helper presses | Run from the tile | Person's presses | Answer |
+|---|---|---|---|---|---|---|---|
+| 100% | 1280x800 | 96px | 17.8s | 7 | 10.9s | 3 | 14,382, Amount due |
+| 150% | 1266x632 | 96px | 17.9s | 7 | 7.4s | 3 | 14,382, Amount due |
+
+The person's three presses are the tile, "Use this" after typing the number, and Yes to
+cookies. The host's own log says when the overlay became a bar and when it covered the site
+again (`SIMBA host overlay is a bar {"height":96}`, then `overlay covers the site`); the site
+view's bounds are never changed.
+
+**What the walk does not show.** The presses are CDP's, sent to each view directly, not a
+physical mouse moved across the window: they prove the recorder and the bar, and that the site
+view is shown below the bar, but not that Windows' own hit-testing sends a real click to the site
+view rather than the overlay. The host's bounds make that the expected behaviour; a person at
+the keyboard is the check that remains.
+
+### What failed on the way, and was fixed
+
+1. **Finish pressed while a page was loading lost the pointing switch** (`test_teach.py`): the
+   new page started from the recorder's defaults. Each page now asks the backend what it is for
+   when the recorder starts.
+2. **A list the page draws itself (`<select>`) was never "done"**: choosing changes nothing
+   perception compares, so the page-level check said "the page did not change at all". A choice
+   is now checked by reading the list back, as typing is.
+3. **A model that took over and gave up was misreported**: its reason was replaced by the
+   routine's "the answer wasn't on the page". The routine now passes on whoever is planning.
+4. **The read-back did not fit**: the row under every step card put "Keep it" 21px past a 606px
+   window, and the page scrolled by a pixel at 150%. The row is not shown under a read-back, and
+   its gaps are tighter in a short window. Found by its fit test before anyone saw it.
+5. **A label ending in a full stop got two** ("Type ... in Reference No.."): one is kept.
+6. **Two copies on one port**: the test's changed copy and the replica benchmark both used
+   5131; the test now uses 5132.
+
+### Limits
+
+- **One routine, on a copy we wrote.** The billing copy's labels are stable and its table is
+  well formed; a live site's may not be (stage 2).
+- **The answer is one label.** A page where the value has no label perception can pair is
+  pointed at and missed ("I couldn't tell what that is"), which is honest and not useful.
+- **Teaching time is a script's**, so it says nothing about how long a helper takes.
+- **Nobody from the audience, and no helper, has used it.**
+
+### The tests
+
+`backend/orchestrator/test_teach.py` 22 (recording on the billing copy with real presses,
+mapping, the answer, safety: a live site's paying press held, a card box, Enter submitting an
+order, no room), `test_routines.py` 22 (the store, sharing and its refusals, over the real
+websocket), `test_routine_run.py` 14 (running, the honest stop, the model's offer, a list choice,
+the tile over the websocket) and `frontend/test_show_me_once.py` 18 (the overlay at 100%, 125%
+and 150%): 76.
+
+### The suite, before merging stage 1
+
+At `fdd02dd`, the overlay rebuilt first. Windows reported AC power before the first half and
+after the host fit test (`Win32_Battery`, status 2); the runs were `-q`, which leaves out the
+power line pytest's header prints, so nothing recorded the minutes between.
+
+| Run | Result | Time |
+|---|---|---|
+| Backend half | **1326 passed, 9 skipped, 0 failed** | 1342s |
+| Frontend half | **657 passed, 3 skipped, 0 failed** | 1467s |
+| Host fit test | **3 of 3** | 564s |
+
+**1983 passed, 12 skipped, 0 failed**: the 1907 of 2026-11-03 and the 76 of this stage. The 12
+skips are the same 12.

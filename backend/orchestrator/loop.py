@@ -153,13 +153,16 @@ class Connection:
 
     async def receive(
         self,
-        message_type: str,
+        message_type: str | tuple[str, ...],
         step_index: int | None = None,
         on_other: Callable[[dict], Awaitable[None]] | None = None,
     ) -> dict:
+        # One type, or any of several: the first message of a connection is
+        # a task to start or, since 2026-11-04, a helper to watch.
+        wanted = (message_type,) if isinstance(message_type, str) else message_type
         while True:
             message = json.loads(await self._websocket.receive_text())
-            if message.get("type") != message_type:
+            if message.get("type") not in wanted:
                 # Not what we are waiting for, but not necessarily noise: the
                 # user can ask what is happening while a step is on screen.
                 if on_other is not None:
@@ -169,6 +172,11 @@ class Connection:
                 if message.get("payload", {}).get("step_index") != step_index:
                     continue
             return message
+
+    async def next_message(self) -> dict:
+        """The next message, whatever its type (2026-11-04): teaching listens
+        to the overlay and the page at once (`teach.py`)."""
+        return json.loads(await self._websocket.receive_text())
 
     async def poll(self, seconds: float = 0.02) -> list[dict]:
         """Whatever the overlay has sent, without waiting for more than a
@@ -254,6 +262,16 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
         await locator.press(value, timeout=ACTION_TIMEOUT_MS)
         return
 
+    if operation.kind == "select":
+        # A list the page draws itself (`<select>`), chosen by what it says
+        # (2026-11-04: a routine keeps the option's words). The other way is
+        # by its value or its words, whichever the page has.
+        if strategy == 0:
+            await locator.select_option(label=value, timeout=ACTION_TIMEOUT_MS)
+        else:
+            await locator.select_option(value, timeout=ACTION_TIMEOUT_MS)
+        return
+
     if operation.kind == "fill":
         if strategy == 0:
             await locator.fill(value, timeout=ACTION_TIMEOUT_MS)
@@ -298,6 +316,8 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
             return f"expected something called {expect.label_like!r} to appear on the page"
     if expect.content_says and not after.content.says(expect.content_says):
         return f"expected the page to say {expect.content_says!r}"
+    if expect.has_value and not after.content.values_for(expect.has_value):
+        return f"expected the page to show something under {expect.has_value!r}"
     if expect.rows_at_least is not None:
         rows = sum(len(table.rows) for table in after.content.tables)
         if rows < expect.rows_at_least:
@@ -1504,8 +1524,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
 
         # Only a task with a success expectation can finish early. `holds`
         # alone is not a finish line: a filled form nobody has searched with
-        # holds every value the goal named.
-        if task.success is not None and unmet(before, task, seen) is None:
+        # holds every value the goal named. Nor a planner that must finish
+        # (2026-11-04): a routine a helper showed is done when its last move
+        # is, and a page that already shows the answer's label before then is
+        # not the answer to this run.
+        if (task.success is not None and not getattr(planner, "must_finish", False)
+                and unmet(before, task, seen) is None):
             break
 
         choosing = time.monotonic()
@@ -1723,8 +1747,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     )
     if unfinished is not None:
         # Prefer the concrete reason the last move failed over the generic
-        # "ran out of steps", which says nothing a user could act on.
-        await give_up(last_failure or f"I ran out of steps before finishing. {unfinished}")
+        # "ran out of steps", which says nothing a user could act on; and a
+        # planner's own words for it over that, when it has some (2026-11-04).
+        await give_up(last_failure or getattr(planner, "ran_out", None)
+                      or f"I ran out of steps before finishing. {unfinished}")
         return
 
     # Read again before closing (2026-10-16): the page has to still say what
@@ -1965,6 +1991,10 @@ async def attempt_move(
             typed = await verify_typed(page, element_id, element, value)
             if typed is not None:
                 return typed
+        if operation.kind == "select":
+            chosen = await verify_chosen(page, element_id, value)
+            if chosen is not None:
+                return chosen
 
     # Typing and key presses change no URL, title or label, so a move made
     # only of those is verified by the read-back above and nothing else.
@@ -1973,7 +2003,7 @@ async def attempt_move(
     # prove it on the page — and so does a move of presses alone, which has no
     # read-back to stand on.
     kinds = {operation.kind for operation in move.operations}
-    only_input = kinds <= {"fill", "press"} and "fill" in kinds
+    only_input = kinds <= {"fill", "press", "select"} and bool(kinds & {"fill", "select"})
     if only_input and move.expect == Expectation():
         return None
 
@@ -2124,7 +2154,7 @@ def resolve_value(
         # A key name, not data. It never comes from the vault and never comes
         # from the user's answers — "Enter" is part of the plan, not an input.
         return operation.value or "", None
-    if operation.kind != "fill":
+    if operation.kind not in ("fill", "select"):
         return "", None
 
     key = operation.value_key or element.name
@@ -2144,6 +2174,26 @@ def resolve_value(
             f"filled from anything a planner supplied"
         )
     return operation.value or "", None
+
+
+#: What a list the page draws itself holds: its value and the chosen option's words.
+CHOSEN_JS = "s => [s.value, s.selectedOptions[0] ? s.selectedOptions[0].text.trim() : '']"
+
+
+async def verify_chosen(page: Page, element_id: int, expected: str) -> str | None:
+    """A choice from a list is checked by reading back what the list holds,
+    as a typed value is (2026-11-04): choosing changes nothing perception
+    compares, so the page-level check would call it no change."""
+    elements, _, _ = await perceive(page)
+    if not any(e.id == element_id for e in elements):
+        return None  # the page moved on; the page-level check will judge that
+    try:
+        held = await resolve(page, elements, element_id).evaluate(CHOSEN_JS)
+    except PlaywrightError as error:
+        return f"could not read what the list holds: {str(error).splitlines()[0]}"
+    if expected in held:
+        return None
+    return f"expected the list to hold {expected!r}, it holds {held[1]!r}"
 
 
 async def verify_typed(
