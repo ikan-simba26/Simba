@@ -18,6 +18,9 @@ import { HomeLogo, Splash, useSplash } from "./components/Brand";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
 import { FinalCheck } from "./components/FinalCheck";
+import { ReadBack } from "./components/ReadBack";
+import { TeachBar } from "./components/TeachBar";
+import { TeachIntro } from "./components/TeachIntro";
 import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
@@ -83,6 +86,11 @@ export default function App() {
   // The logo while the backend comes up (`Brand.tsx`). The screens wait until
   // it starts to leave, so the home screen's entrance plays as it fades.
   const opening = useSplash();
+  // While SIMBA watches a helper (2026-11-04), the overlay is the bar at the
+  // top and nothing else: the host shows the real website below it.
+  const teaching = useStore((state) => state.teaching);
+
+  if (teaching) return <TeachBar bar={teaching} />;
 
   return (
     // The bottom padding is the one space on every screen nothing reads:
@@ -168,7 +176,7 @@ function PresenceBar() {
  */
 function useScreen(): string {
   const { step, help, completed, failed, stoppedByPerson, task, reply, state,
-          asking, checklist, declined, welcomeOpen, tilesOpen } = useStore();
+          asking, checklist, declined, welcomeOpen, tilesOpen, teachOpen } = useStore();
   const stuck = state === "stuck" || Boolean(help);
 
   return declined
@@ -189,6 +197,9 @@ function useScreen(): string {
             ? "working"
             : reply
               ? `reply-${reply.kind}`
+              // "Show me once", for a helper, from the settings (2026-11-04).
+              : teachOpen
+                ? "teach"
               // The welcome takes the home screen's place, first time only
               // or when asked for again (2026-10-18).
               : welcomeOpen
@@ -222,6 +233,7 @@ function Column() {
           <ScreenFrame key={screen}>
             {screen === "idle" && <Home />}
             {screen === "welcome" && <Welcome />}
+            {screen === "teach" && <TeachIntro />}
             {screen === "tiles" && <TilesEditor />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
@@ -284,10 +296,12 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
  * way back from a task.
  */
 function Home() {
-  const { startTask, history, profile, openWelcome, tiles, startTile, setTilesOpen } = useStore();
+  const { startTask, history, profile, openWelcome, tiles, startTile, setTilesOpen, routines,
+          startRoutine } = useStore();
   // The person's own tiles first, when they have any (2026-10-18); the three
-  // things SIMBA can do are then smaller, under them.
-  const own = tiles.length > 0;
+  // things SIMBA can do are then smaller, under them. A routine a helper
+  // showed is one of them (2026-11-04), after the rest, with its own mark.
+  const own = tiles.length + routines.length > 0;
   const reduce = useReducedMotion() ?? false;
   const [enter] = useState(() => homeEntrance(reduce));
   const [hour] = useState(() => new Date().getHours());
@@ -339,6 +353,25 @@ function Home() {
                     <span className="line-clamp-2 text-body font-semibold leading-snug
                                      text-ink">
                       {tile.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {routines.map((routine) => (
+                <li key={routine.id}>
+                  <button type="button" onClick={() => startRoutine(routine)}
+                          data-testid="own-routine" title={routine.label}
+                          className="flex h-full w-full items-center gap-4 rounded-xl border
+                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     shadow-card transition-[box-shadow,border-color,transform]
+                                     duration-200 hover:border-accent hover:shadow-lift
+                                     active:translate-y-px short:py-2">
+                    <span className="shrink-0 text-accent" aria-hidden>
+                      <AgainIcon />
+                    </span>
+                    <span className="line-clamp-2 text-body font-semibold leading-snug
+                                     text-ink">
+                      {routine.label}
                     </span>
                   </button>
                 </li>
@@ -712,8 +745,10 @@ function Step({ index }: { index: number }) {
   }, [step]);
 
   // A step that will not fit drops a level instead of growing a scrollbar.
-  // Not on a final screen, which keeps its own layout at every level.
-  useOverflowGuard(measured, { level, active: Boolean(step) && !step?.final });
+  // Not on a final screen, which keeps its own layout at every level, nor on
+  // a helper's read-back (2026-11-04), which does the same.
+  useOverflowGuard(measured, { level, active: Boolean(step) && !step?.final
+                                              && !step?.routine });
 
   if (!shown) return null;
 
@@ -725,6 +760,12 @@ function Step({ index }: { index: number }) {
           // whatever the level, so nothing about what will happen folds away.
           <FinalCheck step={shown} answered={answered || !step}
                       onAction={(actionId) => respond(actionId, values)} />
+        ) : shown.routine ? (
+          // What a helper showed, read back before it is kept (2026-11-04).
+          <ReadBack step={shown} values={values} answered={answered || !step}
+                    onChange={(fieldId, value) =>
+                      setValues((current) => ({ ...current, [fieldId]: value }))}
+                    onAction={(actionId) => respond(actionId, values)} />
         ) : (
         <StepView
           level={level}
@@ -746,10 +787,14 @@ function Step({ index }: { index: number }) {
           to see the page during a task (2026-10-16): it opens the close-up,
           with the whole page inside it. "Show the real page" beside it was a
           second way to the same page, and went. */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
-        <TrustControl />
-        <LevelControl />
-      </div>
+      {/* Not under a helper's read-back (2026-11-04): it is not a step of a
+          task, and with this row it did not fit a 606px window. */}
+      {!shown.routine && (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
+          <TrustControl />
+          <LevelControl />
+        </div>
+      )}
     </div>
   );
 }

@@ -941,6 +941,7 @@ TEACH_STOPPED_CHANGE = ("I've stopped watching. That would book, pay or change s
 TEACH_STOPPED_CARD = ("I've stopped watching. That box is for card or bank details, and I never "
                       "keep or type those. Nothing was kept.")
 TEACH_SUGGESTION = "You can show me something else from Change my settings."
+TEACH_NOT_AN_ADDRESS = "That isn't a website address I can open, so I haven't started watching."
 TEACH_CANNOT_KEEP = "I can't keep anything safely on this computer, so I can't learn a task here."
 TEACH_NO_ROOM = ("There are already three tiles on the home screen. Take one off, and then "
                  "show me.")
@@ -1090,3 +1091,13 @@ ROUTINE_SCOPE = "I only did what your helper showed me. I didn't book, pay or ch
 ROUTINE_TRY = ("I can try to work out the rest myself. That means sending what's on the page to "
                "an online service. Shall I try?")
 TRY_IT = "Try it"
+
+
+def try_or_not() -> list[StepAction]:
+    """The offer of a model's help: try it, no, and the one way to stop. No
+    keeps the honest stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=TRY_IT, kind="primary"),
+        StepAction(id=DECLINE_ID, label=NO, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]

@@ -219,3 +219,22 @@ def test_forgetting_the_person_takes_the_routines_too(app: dict) -> None:
     app["routines"].add(a_bill())
     got = talk([("tile.change", {"action": "clear"})], 1)
     assert got[1]["payload"]["routines"] == [] and app["routines"].all() == []
+
+
+def test_teaching_opens_only_a_web_address(app: dict) -> None:
+    from backend.orchestrator import voice
+
+    got = talk([("teach.start", {"url": "file:///C:/Windows/win.ini"})], 1)
+    assert got[1]["type"] == "help.requested"
+    assert got[1]["payload"]["reason"] == voice.TEACH_NOT_AN_ADDRESS
+
+
+def test_teaching_with_the_row_full_watches_nothing(app: dict) -> None:
+    from backend.orchestrator import voice
+
+    app["routines"].clear()
+    for label in ("One", "Two", "Three"):
+        app["routines"].add(replace(a_bill(), label=label))
+    got = talk([("teach.start", {"url": "http://127.0.0.1:5100/"})], 1)
+    assert got[1]["payload"]["reason"] == voice.TEACH_NO_ROOM
+    app["routines"].clear()

@@ -15,9 +15,13 @@ import type {
   Level,
   LevelOverride,
   MessageType,
+  RoutineExport,
+  RoutineImport,
   StepResponse,
   Telemetry,
   TaskStart,
+  TeachAnswer,
+  TeachStart,
   TileChange,
 } from "@shared/schema";
 
@@ -93,7 +97,7 @@ export class BackendConnection {
   // --- sending -------------------------------------------------------------
 
   startTask(goal: string, flow?: FlowName, confirmEach = false, startLevel?: Level,
-            tile?: string): void {
+            tile?: string, routine?: string): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
     // Only when the person asked to be asked every time (2026-10-14).
@@ -102,7 +106,32 @@ export class BackendConnection {
     if (startLevel) payload.start_level = startLevel;
     // One of their own tiles, by id: its details stay in the backend.
     if (tile) payload.tile = tile;
+    // A routine a helper showed, by id (2026-11-04).
+    if (routine) payload.routine = routine;
     this.send("task.start", payload);
+  }
+
+  /** Start watching a helper on this website (2026-11-04). */
+  startTeaching(url: string): void {
+    const payload: TeachStart = { url };
+    this.send("teach.start", payload);
+  }
+
+  /** The helper's press on the bar while SIMBA watches (2026-11-04). */
+  teachAnswer(answer: TeachAnswer): void {
+    this.send("teach.answer", answer);
+  }
+
+  /** A routine to save to a file, by id (2026-11-04). */
+  exportRoutine(id: string): void {
+    const payload: RoutineExport = { id };
+    this.send("routine.export", payload);
+  }
+
+  /** A routine read from a file someone shared, as its whole text. */
+  importRoutine(file: string): void {
+    const payload: RoutineImport = { file };
+    this.send("routine.import", payload);
   }
 
   /** The person changing their own tiles (2026-10-18). */

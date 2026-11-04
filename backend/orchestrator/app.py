@@ -81,6 +81,7 @@ from backend.orchestrator.router import (
     use_model,
 )
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
+from backend.orchestrator.teach import teach
 from backend.orchestrator.routine_plan import RoutineBrief, routine_sentence
 from backend.orchestrator.routines import NotARoutine, RoutineStore, export, file_name, parse
 from backend.orchestrator.tiles import TileStore
@@ -88,6 +89,7 @@ from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import (
     ErrorPayload,
     GoalAnswered,
+    HelpRequested,
     HistoryOffered,
     PastGoal,
     PersonalTile,
@@ -95,6 +97,7 @@ from shared.schema import (
     RoutineFile,
     RoutineImport,
     TaughtTile,
+    TeachStart,
     TileChange,
 )
 
@@ -301,6 +304,24 @@ def model_fallback(routine):
     return lambda task: LLMPlanner(provider, replace(task, goal=routine_sentence(routine)))
 
 
+async def watch_a_helper(connection: Connection, payload: dict, tiles: TileStore,
+                         routines: RoutineStore) -> None:
+    """`teach.start`: open the website the helper named in the site view and
+    watch (`teach.teach`). Only a web address is opened."""
+    try:
+        url = TeachStart.model_validate(payload).url.strip()
+    except ValueError:
+        url = ""
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        await connection.send("help.requested", HelpRequested(
+            reason=voice.TEACH_NOT_AN_ADDRESS, suggestion=voice.TEACH_SUGGESTION))
+        return
+    log.info("teaching on %s", parts.netloc)
+    async with open_page(url) as page:
+        await teach(page, connection, url, routines, tiles=len(tiles.all()))
+
+
 #: The `error` code for a routine's file that could not be kept (2026-11-04).
 ROUTINE_NOT_READ = "ROUTINE_NOT_READ"
 
@@ -381,8 +402,18 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # clarifying button, a new sentence — arrives on the same connection.
     model = configured_classifier()
     while True:
-        start = await connection.receive("task.start", on_other=before_the_task)
+        start = await connection.receive(("task.start", "teach.start"),
+                                         on_other=before_the_task)
         payload = start.get("payload", {})
+        if start.get("type") == "teach.start":
+            # "Show me once" (2026-11-04): a helper does a task while SIMBA
+            # watches, and it is kept as a routine. Nothing is routed.
+            await watch_a_helper(connection, payload, tiles, routines)
+            try:
+                await websocket.close()
+            except RuntimeError:
+                pass
+            return
         goal = (payload.get("goal") or "").strip()
         chosen = payload.get("flow")
         # The checklist unless the person asked to be asked every time.

@@ -15,7 +15,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import type { Level, StepPresented } from "@shared/schema";
 
-import { WELCOME } from "../copy";
+import { TEACH, WELCOME } from "../copy";
 import { ARRIVE } from "../design";
 import { NAME_MAX, cleanName } from "../profile";
 import { useStore } from "../store";
@@ -49,7 +49,7 @@ const SAMPLE: StepPresented = {
 const EXAMPLE_WIDTH = 700;
 
 export function Welcome() {
-  const { profile, updateProfile, finishWelcome, forgetEverything } = useStore();
+  const { profile, updateProfile, finishWelcome, forgetEverything, setTeachOpen } = useStore();
   const [at, setAt] = useState(0);
   // Opened again from "Change my settings", rather than a first open: only
   // then is there anything to forget (2026-10-18).
@@ -94,7 +94,8 @@ export function Welcome() {
         {question === "name" && <NameQuestion name={profile.name ?? ""} onDone={(name) => {
           updateProfile({ name: cleanName(name) || undefined });
           next();
-        }} onSkip={next} onForget={reopened ? () => setForgetting(true) : undefined} />}
+        }} onSkip={next} onForget={reopened ? () => setForgetting(true) : undefined}
+           onTeach={reopened ? () => setTeachOpen(true) : undefined} />}
         {question === "level" && <LevelQuestion chosen={profile.level} onPick={(level) => {
           updateProfile({ level });
           next();
@@ -144,8 +145,10 @@ function Footer({ onSkip, children }: { onSkip: () => void; children?: React.Rea
   );
 }
 
-function NameQuestion({ name, onDone, onSkip, onForget }: {
+function NameQuestion({ name, onDone, onSkip, onForget, onTeach }: {
   name: string; onDone: (name: string) => void; onSkip: () => void; onForget?: () => void;
+  /** "Show me once", for a helper (2026-11-04): in the settings only. */
+  onTeach?: () => void;
 }) {
   const [typed, setTyped] = useState(name);
   return (
@@ -159,6 +162,12 @@ function NameQuestion({ name, onDone, onSkip, onForget }: {
                         outline-none placeholder:text-soft short:py-3" />
       <Footer onSkip={onSkip}>
         <div className="flex items-center gap-4">
+          {onTeach && (
+            <Button variant="quiet" size="md" wide={false} onClick={onTeach}
+                    data-testid="show-me-once">
+              {TEACH.open}
+            </Button>
+          )}
           {onForget && (
             <Button variant="quiet" size="md" wide={false} onClick={onForget}
                     data-testid="forget">

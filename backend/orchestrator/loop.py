@@ -153,13 +153,16 @@ class Connection:
 
     async def receive(
         self,
-        message_type: str,
+        message_type: str | tuple[str, ...],
         step_index: int | None = None,
         on_other: Callable[[dict], Awaitable[None]] | None = None,
     ) -> dict:
+        # One type, or any of several: the first message of a connection is
+        # a task to start or, since 2026-11-04, a helper to watch.
+        wanted = (message_type,) if isinstance(message_type, str) else message_type
         while True:
             message = json.loads(await self._websocket.receive_text())
-            if message.get("type") != message_type:
+            if message.get("type") not in wanted:
                 # Not what we are waiting for, but not necessarily noise: the
                 # user can ask what is happening while a step is on screen.
                 if on_other is not None:

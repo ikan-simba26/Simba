@@ -140,6 +140,45 @@ export const TILES = {
   none: "You have no tiles of your own now.",
 } as const;
 
+/* --------------------------------------------------------- show me once */
+
+/**
+ * "Show me once" (2026-11-04): a helper — a carer, a family member, a
+ * teacher — does a task once on the real website while SIMBA watches, and it
+ * becomes a tile the person can press. Reached from "Change my settings",
+ * behind a screen that says who it is for. While SIMBA watches, the window
+ * is a bar at the top and the website is below it.
+ */
+export const TEACH = {
+  /** In "Change my settings": opens the screen behind it. */
+  open: "Show me once",
+  ask: "Show me a task once",
+  detail: "This is for a helper, like a carer, a family member or a teacher. Do the task once on the real website while I watch. Then it becomes a tile, and I can do it again with one press.",
+  how: "I'll step aside so you can use the website. I never keep a password, and on a real website I only read.",
+  /** Above the box for the website's address. A lead-in. */
+  where: "Which website",
+  placeholder: "https://",
+  start: "Start watching",
+  back: "Not now",
+  /** When the home screen's row of three is full. */
+  noRoom: "There are already three tiles on the home screen. Take one off first.",
+  fromFile: "Add one from a file",
+  fileNotRead: "I couldn't use that file.",
+  /** The bar at the top, while SIMBA watches. */
+  watching: "I'm watching.",
+  watchingDetail: "Do the task on the website below.",
+  count: (n: number) => (n === 1 ? "1 thing so far." : `${n} things so far.`),
+  sameOrAsk: (label: string) => `Is what you typed in ${label} the same every time?`,
+  same: "Same every time",
+  askEach: "Ask each time",
+  pointing: "Last thing: click the answer on the website.",
+  pointingDetail: "The thing this task is for, like the amount or the list of trains.",
+  finish: "Finish",
+  stop: "Stop watching",
+  /** On "Change my tiles", beside a tile a helper showed. */
+  save: "Save to a file",
+} as const;
+
 /* ------------------------------------------------------------- welcome */
 
 /**
@@ -679,6 +718,13 @@ export const LABELS: Record<string, string> = {
   "home.onDay": HOME.onDay(1, 10),
   "settings.askEach": SETTINGS.askEach,
   "home.settings": HOME.settings,
+  "teach.start": TEACH.start,
+  "teach.same": TEACH.same,
+  "teach.askEach": TEACH.askEach,
+  "teach.finish": TEACH.finish,
+  "teach.stop": TEACH.stop,
+  "teach.save": TEACH.save,
+  "teach.fromFile": TEACH.fromFile,
   "welcome.readYes": WELCOME.readYes,
   "welcome.readNo": WELCOME.readNo,
   "welcome.askEach": WELCOME.askEach,

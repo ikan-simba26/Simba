@@ -136,6 +136,18 @@ app.whenReady().then(() => {
   win.contentView.addChildView(overlay);
 
   let fittedTo: number | null = null;
+  // The overlay's whole content area, as last fitted, and the bar it is
+  // shrunk to while SIMBA watches a helper (2026-11-04, "Show me once"): then
+  // the overlay is only a bar across the top and the site view shows below
+  // it, for the helper to use. The site view itself is never moved, resized
+  // or hidden — only the overlay stops covering it, and covers it again when
+  // the bar goes. Everywhere else it is covered, not hidden (CLAUDE.md).
+  let overlayBounds = { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height };
+  let bar: number | null = null;
+  const place = (): void => {
+    overlay.setBounds(bar === null ? overlayBounds
+      : { ...overlayBounds, height: Math.min(bar, overlayBounds.height) });
+  };
 
   const fit = (display: Display) => {
     const work = display.workArea;
@@ -174,8 +186,9 @@ app.whenReady().then(() => {
     fittedTo = display.id;
 
     // The window's whole content area, at zoom 1: the overlay's CSS size is
-    // the window's size.
-    overlay.setBounds({ x: 0, y: 0, width: size.width, height: size.height });
+    // the window's size — or the bar's, while a helper is watched.
+    overlayBounds = { x: 0, y: 0, width: size.width, height: size.height };
+    place();
 
     // One line the evaluation reads (tools/evaluation/display_fit_run.py).
     console.log(`SIMBA fit ${JSON.stringify({
@@ -262,6 +275,15 @@ app.whenReady().then(() => {
   // memory did not outlive (2026-10-17).
   overlay.webContents.on("console-message", (_event, _level, message) => {
     if (message.startsWith("[simba] press ")) console.log(`SIMBA overlay ${message.slice(8)}`);
+    // "Show me once" (2026-11-04): the overlay asks for the bar, or for the
+    // whole window back (`frontend/src/store.ts`, `hostBar`).
+    const asked = /^\[simba\] host (bar (\d+)|full)$/.exec(message);
+    if (asked) {
+      bar = asked[2] ? Number(asked[2]) : null;
+      place();
+      if (bar === null) overlay.webContents.focus();
+      said(bar === null ? "overlay covers the site" : "overlay is a bar", { height: bar });
+    }
   });
   for (const event of ["suspend", "resume", "lock-screen", "unlock-screen"] as const) {
     powerMonitor.on(event as "suspend", () => said(`power ${event}`));

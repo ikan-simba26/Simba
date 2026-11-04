@@ -29,7 +29,7 @@ from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.orchestrator.plan import Answer as Finds
 from backend.orchestrator.routines import Routine, Step, asks_consent
 from backend.perception.serializer import Element
-from shared.schema import StepAction, StepField
+from shared.schema import StepField
 
 #: How many unusable answers to one question before the run gives up, as for
 #: every other question (`details.MAX_TRIES`).
@@ -171,11 +171,7 @@ class RoutinePlanner:
         self._offered = True
         return Move(instruction=voice.ROUTINE_TRY, detail=reason, operations=[],
                     expect=Expectation(), fields=[],
-                    actions=[StepAction(id=voice.CONFIRM_ID, label=voice.TRY_IT,
-                                        kind="primary"),
-                             StepAction(id=voice.DECLINE_ID, label=voice.NO, kind="primary"),
-                             StepAction(id=voice.CANCEL_ID, label=voice.STOP,
-                                        kind="secondary")],
+                    actions=voice.try_or_not(),
                     question=True, kind="confirm")
 
     def answered(self, action_id: str, input_values: dict[str, str]) -> None:  # noqa: ARG002
