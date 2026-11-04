@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-04 · **1998 passing, 12 skipped, 0 failed** · backend 1340 in 1338s, frontend 658 in 1479s, as two halves, on mains, on `feat/show-me-once` at `f4bdf16` (stage 2), then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 568s, on mains (EVALUATION.md, 2026-11-04b). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-05 · **2011 passing, 12 skipped, 0 failed** · backend 1353 in 1421s, frontend 658 in 1472s, as two halves, on mains, on `fix/show-me-once` at `9c0d472`, **merged into `main` on 2026-11-05**: the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (580s) on a re-run, after 2 of 3 twice at 100% the evening before (EVALUATION.md, 2026-11-04c). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -70,7 +70,9 @@ as a routine of perception's roles and labels and the answer the helper pointed 
 person runs it from a tile — asked only what the helper said changes, the rest as the
 checklist, every move checked, no model. A site that changed stops it honestly. Stage 1, the
 bill on our copy, and stage 2, list choices and calendar days, a booking on the railways copy and
-a read-only lookup on the live train search, are done.
+a read-only lookup on the live train search, are done. Since the fixes, a train pressed in the
+results is the person's to choose, the booking has one final screen, and it shows what, how
+much and when as the page states them.
 
 **The brand** (2026-11-02). The logo kit is in `assets/brand/`: the app icon, the title
 `simba`, the logo while the backend comes up, and a small one on the home screen alone.
@@ -79,6 +81,24 @@ a read-only lookup on the live train search, are done.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-04 (evening): Show me once, fixes — `fix/show-me-once`
+
+- **The train is the person's choice.** A press that is one of a column, one per row of the
+  results, is kept without the row's name; when it runs the person is asked "Which train?" from
+  the page's own rows, and that train is booked. Ten runs on two routes, half of them a route
+  with no 7UP: 10 of 10 booked the train chosen on the route asked for (EVALUATION.md,
+  2026-11-04c).
+- **One final screen per booking**: the link that only opens the form runs as a checklist line;
+  `loop.only_opens` believes that only for a real link to another page of our copy.
+- **The final screen shows what, how much and when** as the page states them: Train, From, To,
+  Date, Departs, Passenger, Class, Fare, as the built-in booking's. 6 presses, 0 model calls.
+- Stage 2's three flagged items are settled by these; a routine file gains three optional keys
+  (CONTRACT.md, `routine.import`).
+- **Merged into `main` on 2026-11-05**, after the host fit test passed 3 of 3 (580s) on a re-run.
+  It had failed at 100% twice, at a different point each time, with nothing it uses changed. The
+  re-run had about as little memory available (959 MB) as the second failure, so memory alone does
+  not explain those failures. **Open:** the host fit test may be intermittent at 100%.
 
 ### Changed on 2026-11-04 (later): Show me once, stage 2 — `feat/show-me-once`
 
@@ -1365,7 +1385,9 @@ On `feat/railways-ask`, **not merged**.
   model and stops honestly on a changed page. The loop gains `must_finish`, `ran_out`, a list
   choice (`<select>`) checked by reading it back, and `Expectation.has_value`. 58 tests.
   **Stage 2**: list choices and days (`test_routine_lists.py`, 14), the loop's
-  `recommitted` and `Expectation.field_has`.
+  `recommitted` and `Expectation.field_has`. **Fixes**: a row's press as the person's choice,
+  `Move.opens` with `loop.only_opens`, a routine's final details, and the loop's `look`
+  (`test_routine_lists.py`, 27).
 - **Saved sign-in details** (`vault.py`, 2026-10-03): DPAPI-encrypted, one entry
   per site, kept only on request and only after the step worked, typed by the
   backend, forgettable from the step. 13 tests, the first of which searches a

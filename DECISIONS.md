@@ -5955,3 +5955,39 @@ bar's day question; the loop's two additions are Raham's.
 - **A routine's answer is headed with the person's own answers**, never the page's words. *Cost:*
   a long heading for a routine with many asks.
 - **The live lookup is taught once and run twice**: CLAUDE.md keeps repeated runs on our copies.
+
+
+## Show me once, fixes: what was settled along the way
+
+**Date:** 2026-11-04 (`fix/show-me-once`). Asked for: the train as the person's choice, one final
+screen per booking, and what, how much and when on a routine's final screen. How each is done was
+not specified; these are the choices. **Raham** for the loop's two additions, **Nahail** for
+reading rows and details off the page.
+
+- **A press is the person's choice of row by its shape, with no question to the helper.** When
+  the helper presses one of a column of alike presses, one in each row of a table, and every
+  other row has its own press named the same way ("Book train 7UP", "Book train 8DN"), the
+  routine keeps the label with the row's name taken out and the column that names it.
+  *Alternative:* the bar asks the helper "the same every time, or ask each time?", as for a
+  typed value. *Cost:* a helper who wants one fixed row cannot have it; a search that found one
+  train while teaching keeps that train, as before.
+- **"Which train?" is said from the column's header**, with "No.", "Number", "ID" and the like
+  taken off ("Train No." is a train); "Which one?" when nothing is left. Each answer is the row's
+  name and up to two cells that differ from row to row ("13UP, 13:05 16:20, 3 h 15 min"). One row
+  is taken without asking, as the built-in booking does. No rows stops and says so, with no offer
+  of a model, since nothing about the site has changed.
+- **A link whose words say book only opens a page when the helper's showing says so**: it went to
+  another page, and a later press changed something. The loop believes it only on our replicas,
+  and only when the press is on a real link to another page of the same replica as the page has
+  it now (`loop.only_opens`). *Cost:* on our replicas, a link that does change something when
+  followed, before a later change, would get no final screen; none of ours does. A button, a
+  script's link or a live site always keeps its final screen, whatever a routine file says.
+- **A final screen's details are taught as labels, never values**: what the page stated once,
+  in 80 characters or fewer, when the helper pressed, at most eight, in the page's order. For a
+  press in a row, that row's own cells. A day-first date is said as one, as the built-in
+  screens do; the rest as the page wrote it. *Cost:* a page whose summary shows a label twice
+  loses that detail; a detail missing when it runs means nothing is done.
+- **The loop hands a planner what the page says** (`look`), for a planner that has the method:
+  rows are content, not something to press.
+- **The re-run's numbers go to their own file** (`logs/show_me_once_fix.json`), so the stage 2
+  numbers for the bill and the live lookup are kept.

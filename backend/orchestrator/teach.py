@@ -48,7 +48,16 @@ from playwright.async_api import Page
 
 from backend.orchestrator import voice
 from backend.orchestrator.loop import CHANGE_WORDS, Connection, on_replica
-from backend.orchestrator.routines import Answer, Routine, RoutineStore, Step, asks_consent, path_of
+from backend.orchestrator.routines import (
+    MOST_SHOWN,
+    TEXT_MAX,
+    Answer,
+    Routine,
+    RoutineStore,
+    Step,
+    asks_consent,
+    path_of,
+)
 from backend.orchestrator.tiles import clean_label
 from backend.perception.content import Content
 from backend.perception.serializer import Element, read_async
@@ -267,6 +276,56 @@ def labels_for(content: Content, text: str) -> list[str]:
     return list(dict.fromkeys(near))
 
 
+def row_of(content: Content, elements: list[Element],
+           element: Element) -> tuple[str, str] | None:
+    """When a press is one of a column of alike presses, one in each row of a
+    table — "Book train 7UP", "Book train 8DN" — the column whose value names
+    its row, and its label with that value taken out: ("Train No.", "Book
+    train {}"). Which row is then the person's choice (2026-11-04, fix). None
+    for a press that is the only one of its kind, or a table of one row.
+
+    Every other row must have its own press, named the same way: a label that
+    merely holds a word from one cell is not a column of presses."""
+    label = element.label or ""
+    if not label or "{}" in label:
+        return None
+    alike = {e.label for e in elements if e.role == element.role}
+    for table in content.tables:
+        for header in table.headers:
+            values = list(dict.fromkeys(row.get(header) for row in table.rows
+                                        if row.get(header)))
+            if len(values) < 2:
+                continue
+            for value in sorted((v for v in values if v in label), key=len, reverse=True):
+                template = label.replace(value, "{}", 1)
+                if all(template.replace("{}", other, 1) in alike
+                       for other in values if other != value):
+                    return header, template
+    return None
+
+
+#: The longest value a final screen's detail may have when it is taught: a
+#: paragraph is not a detail.
+SHOWN_MAX = 80
+
+
+def shown_details(content: Content, pressed: str) -> tuple[str, ...]:
+    """What a final screen shows for a press that changes something: the
+    page's own labels for what it states once, short, at the moment the
+    helper pressed it ("Train", "Date", "Fare"), in the page's order, at most
+    `MOST_SHOWN` (2026-11-04, fix). A label the page gives several values,
+    as a table's column does, is not one detail."""
+    shown: list[str] = []
+    for pair in content.pairs:
+        label, value = " ".join(pair.label.split()), " ".join(pair.value.split())
+        if (not label or not value or label == pressed or label in shown
+                or len(value) > SHOWN_MAX or len(label) > TEXT_MAX
+                or len(content.values_for(pair.label)) != 1):
+            continue
+        shown.append(label)
+    return tuple(shown[:MOST_SHOWN])
+
+
 # --- what was done, while watching -------------------------------------------------
 
 
@@ -362,6 +421,14 @@ class Draft:
                     and steps[-1].expect_label == step.label):
                 step = replace(step, pick=True)
             steps.append(step)
+        # One final screen per booking (2026-11-04, fix): a link whose words
+        # say book, that went to another page, before a press that changes
+        # something, only opened the form that one sends. That press keeps
+        # the final screen; the link is a page to read.
+        for index, step in enumerate(steps):
+            if (step.changes and step.role == "link" and step.expect_url
+                    and any(later.changes for later in steps[index + 1:])):
+                steps[index] = replace(step, changes=False, opens=True)
         answer = self.answer
         if answer_name and answer_name.strip():
             answer = replace(answer, name=" ".join(answer_name.split())[:60])
@@ -512,10 +579,17 @@ class Teaching:
             changes = bool(CHANGE_WORDS.search(element.label or ""))
             if changes and not on_replica(url):
                 return self._end(voice.TEACH_STOPPED_CHANGE)
-            self._add(Step(kind="click", role=element.role, label=element.label,
-                           nth=twin_index(elements, element),
-                           qualifier=element.qualifier or None, changes=changes,
-                           day=is_day(element)), url, labels)
+            step = Step(kind="click", role=element.role, label=element.label,
+                        nth=twin_index(elements, element),
+                        qualifier=element.qualifier or None, changes=changes,
+                        day=is_day(element))
+            row = None if step.day else row_of(view.content, elements, element)
+            if row is not None:
+                # One train of the several found: the person's to choose.
+                step = replace(step, row=row[0], label=row[1], nth=0)
+            if changes:
+                step = replace(step, shows=shown_details(view.content, element.label))
+            self._add(step, url, labels)
             return "go"
         if kind == "press":
             element = element_over(elements, event.get("box") or {})
@@ -527,7 +601,9 @@ class Teaching:
                 return "go"
             self._add(Step(kind="press", role=element.role, label=element.label,
                            nth=twin_index(elements, element), value=event.get("key") or "Enter",
-                           changes=changes), url, labels)
+                           changes=changes,
+                           shows=shown_details(view.content, submits) if changes else ()),
+                      url, labels)
             return "go"
         return "go"
 

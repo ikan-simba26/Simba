@@ -47,6 +47,8 @@ VERSION = 1
 MOST_STEPS = 30
 #: The longest role, label or value a routine keeps, in characters.
 TEXT_MAX = 200
+#: The most details a final screen shows: as many as the built-in booking's.
+MOST_SHOWN = 8
 KINDS = ("fill", "click", "press", "select")
 
 
@@ -94,6 +96,22 @@ class Step:
     #: the press that shows the next month, done as many times as it takes.
     day: bool = False
     nav: str | None = None
+    #: One of a column of alike presses, one per row of a table on the page —
+    #: "Book train 7UP", "Book train 8DN" — so which row is the person's
+    #: choice, not the helper's (2026-11-04, fix). `row` is the column whose
+    #: value names the row ("Train No."), and `label` has "{}" where that
+    #: value goes ("Book train {}"). The person is asked from the page's own
+    #: rows when it runs.
+    row: str | None = None
+    #: Its words say it books, and it only opened a page to read: a link to
+    #: the booking form, followed by a press that books (2026-11-04, fix).
+    #: Gets no final screen of its own, as the loop checks (`loop.only_opens`).
+    opens: bool = False
+    #: For a press that changes something: the page's own labels for what,
+    #: how much and when, as the page stated them when the helper pressed it
+    #: ("Train", "Date", "Fare"). Its final screen reads each from the page
+    #: as it is then, and does nothing if one is missing (2026-11-04, fix).
+    shows: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -152,7 +170,8 @@ def step_from(row: object) -> Step:
     if not isinstance(nth, int) or isinstance(nth, bool) or not 0 <= nth < 100:
         raise NotARoutine("a step's position is not a small number")
     flags = {}
-    for name in ("ask", "secret", "changes", "list_opens", "click_first", "pick", "day"):
+    for name in ("ask", "secret", "changes", "list_opens", "click_first", "pick", "day",
+                 "opens"):
         flag = row.get(name, False)
         if not isinstance(flag, bool):
             raise NotARoutine(f"a step's {name} is not yes or no")
@@ -165,9 +184,16 @@ def step_from(row: object) -> Step:
                 expect_label=_text(row.get("expect_label"), "a step's expected label",
                                    required=False),
                 nav=_text(row.get("nav"), "a step's calendar press", required=False),
+                row=_text(row.get("row"), "a step's column", required=False),
                 **flags)
+    shows = row.get("shows", [])
+    if not isinstance(shows, (list, tuple)) or len(shows) > MOST_SHOWN:
+        raise NotARoutine("a step's final details are not a short list")
+    step = replace(step, shows=tuple(_text(label, "a final detail") for label in shows))
     if step.secret and step.value is not None:
         raise NotARoutine("a password box carries a value")
+    if step.row is not None and (step.kind != "click" or step.label.count("{}") != 1):
+        raise NotARoutine("a press in a row does not say where the row's name goes")
     if step.kind in ("fill", "select") and not step.secret and not step.ask \
             and step.value is None:
         raise NotARoutine("a step to type has nothing to type")

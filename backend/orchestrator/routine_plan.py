@@ -27,9 +27,10 @@ from datetime import date, timedelta
 
 from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
-from backend.orchestrator.plan import About, Expectation, Operation, Target
+from backend.orchestrator.plan import About, Expectation, FinalRead, Operation, Target
 from backend.orchestrator.plan import Answer as Finds
-from backend.orchestrator.routines import Routine, Step, asks_consent
+from backend.orchestrator.routines import MOST_SHOWN, Routine, Step, asks_consent
+from backend.perception.content import Content
 from backend.perception.serializer import Element
 from shared.schema import StepField
 
@@ -58,9 +59,55 @@ def find(elements: list[Element], step: Step) -> Element | None:
         # The person's day: any day of an open calendar will do to start from.
         days = calendar_days(elements)
         return days[0] if days else None
+    if step.row:
+        # Any row's press will do to start from: which is the person's.
+        return next((e for e in elements if e.role == step.role
+                     and in_row(step, e.label) is not None), None)
     alike = [e for e in elements if e.role == step.role and e.label == step.label
              and (step.qualifier is None or e.qualifier == step.qualifier)]
     return alike[step.nth] if step.nth < len(alike) else None
+
+
+def in_row(step: Step, label: str) -> str | None:
+    """The row's name in a row press's label, or None when the label is not
+    one of the column: "Book train 13UP" is 13UP's, for "Book train {}"."""
+    before, _, after = step.label.partition("{}")
+    if len(label) <= len(before) + len(after) or not (
+            label.startswith(before) and label.endswith(after)):
+        return None
+    return label[len(before):len(label) - len(after)] or None
+
+
+#: The most cells of a row said on its button, after its name: the ones that
+#: tell the rows apart (the time it leaves, how long it takes).
+ROW_CELLS = 2
+
+
+def rows_of(content: Content, elements: list[Element],
+            step: Step) -> list[tuple[str, str]]:
+    """The rows the person can choose from, as the page shows them now: each
+    row's name, and how it is said as an answer — its name, then the cells
+    that differ from row to row ("13UP, 13:05 16:20, 3 h 15 min"). Only rows
+    whose own press is on the page, in the page's order."""
+    presses = {e.label for e in elements if e.role == step.role}
+    for table in content.tables:
+        if step.row not in table.headers:
+            continue
+        rows = []
+        for row in table.rows:
+            name = row.get(step.row)
+            if name and step.label.replace("{}", name, 1) in presses \
+                    and name not in (r.get(step.row) for r in rows):
+                rows.append(row)
+        if not rows:
+            continue
+        differ = [header for header in table.headers if header != step.row
+                  and len({row.get(header) or "" for row in rows}) > 1][:ROW_CELLS]
+        return [(row.get(step.row) or "",
+                 ", ".join([row.get(step.row) or "",
+                            *(row.get(h) or "" for h in differ if row.get(h))]))
+                for row in rows]
+    return []
 
 
 def as_written(day: date) -> tuple[str, ...]:
@@ -149,6 +196,17 @@ class RoutinePlanner:
         #: Said when every move is done and the answer is not on the page.
         self.ran_out = voice.ROUTINE_NO_ANSWER
         self.replayed_steps = 0
+        #: The page's readable content, as the loop last read it (`look`).
+        self._content = Content()
+        #: The row the person chose, by the step it is for (2026-11-04, fix).
+        self._rows: dict[int, str] = {}
+        #: The rows offered, while "Which train?" waits for its answer.
+        self._offering: list[tuple[str, str]] = []
+
+    def look(self, content: Content) -> None:
+        """What the page says, read by the loop before each move: the rows a
+        press in a row is chosen from."""
+        self._content = content
 
     @property
     def calls_made(self) -> int:
@@ -167,7 +225,7 @@ class RoutinePlanner:
         that will ask."""
         lines: list[str] = []
         for step in self.routine.steps[self._index:]:
-            if not _safe(step):
+            if not _safe(step) or step.row:
                 break
             lines.append(_doing(step))
         return lines
@@ -180,6 +238,14 @@ class RoutinePlanner:
             self._stuck = self._stop
             return None
         if setback is not None and self._index > 0:
+            coming = (self.routine.steps[self._index]
+                      if self._index < len(self.routine.steps) else None)
+            if coming is not None and coming.row and find(elements, coming) is None:
+                # The search was sent and found nothing to choose from: no
+                # trains that day, which is not the site having changed.
+                self._stop = voice.no_rows(coming.row)
+                self._stuck = self._stop
+                return None
             if self._index == len(self.routine.steps):
                 # The last move, which waits for the answer: done, and the
                 # answer is not there (stage 2).
@@ -197,6 +263,18 @@ class RoutinePlanner:
                 self._stop = voice.not_in_list(chosen)
                 self._stuck = self._stop
                 return None
+        elif step.row and self._index not in self._rows:
+            rows = rows_of(self._content, elements, step)
+            if not rows:
+                if find(elements, step) is None and not self._content.values_for(step.row):
+                    # Nothing found to choose from: no trains on that day.
+                    self._stop = voice.no_rows(step.row)
+                    self._stuck = self._stop
+                    return None
+                return self._stopped(voice.routine_changed(voice.pressed_in_row(step)))
+            if len(rows) > 1:
+                return self._which(step, rows)
+            self._rows[self._index] = rows[0][0]
         elif find(elements, step) is None:
             where = "the calendar" if step.day else (step.label or f"the {step.role}")
             return self._stopped(voice.routine_changed(where))
@@ -220,8 +298,37 @@ class RoutinePlanner:
                     actions=voice.try_or_not(),
                     question=True, kind="confirm")
 
-    def answered(self, action_id: str, input_values: dict[str, str]) -> None:  # noqa: ARG002
-        """The person's answer to "Shall I try to work out the rest?"."""
+    def _which(self, step: Step, rows: list[tuple[str, str]]) -> Move:
+        """"Which train?", from the page's own rows, as the built-in booking
+        asks (`finish_plan.BookingPlanner`): buttons, or a list when there
+        are many."""
+        from backend.orchestrator.details import _picked
+
+        self._offering = rows
+        said = [label for _, label in rows]
+        if len(rows) <= voice.MAX_CHOICES:
+            return replace(_picked(voice.which_row(step.row or ""), said, kind="choose"),
+                           detail=voice.ROWS_DETAIL)
+        return Move(instruction=voice.which_row(step.row or ""), detail=voice.ROWS_DETAIL,
+                    operations=[], expect=Expectation(),
+                    fields=[StepField(id="row", label=voice.row_noun(step.row or "").capitalize(),
+                                      type="choice", value="", options=said)],
+                    actions=voice.actions(voice.USE_ROW), question=True, kind="choose")
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        """The person's answer to "Which train?", or to "Shall I try to work
+        out the rest?"."""
+        if self._offering:
+            from backend.orchestrator.details import choice_index
+
+            offered, self._offering = self._offering, []
+            picked = choice_index(action_id)
+            said = [label for _, label in offered]
+            if picked is None and input_values.get("row") in said:
+                picked = said.index(input_values["row"])
+            if picked is not None and picked < len(offered):
+                self._rows[self._index] = offered[picked][0]
+            return  # not caught: asked again, from the page as it is then
         if action_id == voice.CONFIRM_ID and self._fallback is not None:
             self._model = self._fallback(self._task)
             self._stop = None
@@ -284,6 +391,11 @@ class RoutinePlanner:
         step = self.routine.steps[index]
         if step.day and step.ask:
             return self._day_move(index, elements or [])
+        final = self._final(index) if step.changes else ()
+        if step.row:
+            # The person's row: its own press, named as the page names it.
+            step = replace(step, label=step.label.replace("{}", self._rows.get(index, ""), 1),
+                           row=None)
         element = find(elements, step) if elements is not None and not step.pick else None
         label = step.label
         if step.pick:
@@ -307,6 +419,11 @@ class RoutinePlanner:
         if following is not None and following.pick and step.kind == "fill":
             expect = replace(expect, label_present=None, label_like=self._chosen(index + 1),
                              list_opens=True)
+        # Before a choice of row: the rows are on the page, named in their
+        # column (a search that fills a table in place changes nothing else).
+        if following is not None and following.row and not (
+                expect.url_contains or expect.label_present or expect.has_value):
+            expect = replace(expect, has_value=following.row)
         fields: list[StepField] = []
         value = step.value
         key = None
@@ -328,10 +445,32 @@ class RoutinePlanner:
         if asks_consent(step):
             return Move(instruction=voice.ASK_COOKIES, detail="", operations=operations,
                         expect=expect, fields=[], actions=voice.yes_or_no(), kind="choose")
-        return Move(instruction=voice.routine_do(step), detail="", operations=operations,
+        return Move(instruction=(voice.final_routine(label) if final
+                                 else voice.routine_do(step)),
+                    detail="", operations=operations,
                     expect=expect, fields=fields,
                     actions=voice.actions(voice.GO_AHEAD), safe=_safe(step),
-                    doing=_doing(step), changes=step.changes)
+                    doing=_doing(step), changes=step.changes, opens=step.opens, final=final)
+
+    def _final(self, index: int) -> tuple[FinalRead, ...]:
+        """What the final screen for a change shows, read from the page as it
+        is when it goes up, as the built-in flows' are (CLAUDE.md, the
+        final-step rule): the details the page stated when the helper
+        pressed it; for a press in a row, that row's own cells. A date the
+        page writes day first is said as one, as theirs are."""
+        step = self.routine.steps[index]
+        if step.row:
+            chosen = self._rows.get(index, "")
+            table = next((t for t in self._content.tables if step.row in t.headers), None)
+            row = next((r for r in table.rows if r.get(step.row) == chosen), None) \
+                if table is not None else None
+            if row is None:
+                return ()
+            return tuple(FinalRead(header, header, plain=voice.page_date,
+                                   row=((step.row, chosen),))
+                         for header, value in row.cells
+                         if value and value != header)[:MOST_SHOWN]
+        return tuple(FinalRead(label, label, plain=voice.page_date) for label in step.shows)
 
 
 class RoutineBrief:

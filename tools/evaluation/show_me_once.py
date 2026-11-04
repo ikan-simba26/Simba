@@ -20,6 +20,13 @@ go against our copies (CLAUDE.md). It reads and never books; robots.txt is
 checked first (`tools/screen_site.py`: the domain serves none).
 
 Run from the repo root: `python -m tools.evaluation.show_me_once [runs] [bill|trains|live]...`.
+
+`booking` (2026-11-04, `fix/show-me-once`): the booking taught once, then run
+on two routes, the person choosing the train each time — Lahore Cantt to
+Karachi Cantt (7UP or 8DN) and Hyderabad Jn to Sukkur, whose four trains are
+none of them the 7UP the helper booked — each checked on the confirmation for
+the route and the train chosen, and for one final screen with what, how much
+and when on it. Written to `logs/show_me_once_fix.json`.
 """
 
 import asyncio
@@ -45,6 +52,12 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 10
 REFERENCE = "04141234567890"
 WHICH = set(sys.argv[2:]) or {"bill", "trains", "live"}
+#: The booking's runs: the route, and the train the person chooses. Half on a
+#: route whose trains are not the helper's 7UP (2026-11-04, fix).
+BOOKINGS = [("Lahore Cantt", "Karachi Cantt", train) for train in
+            ("7UP", "8DN", "7UP", "8DN", "7UP")] + [
+            ("Hyderabad Jn", "Sukkur", train) for train in
+            ("11UP", "12DN", "13UP", "14DN", "13UP")]
 LIVE = "https://www.pakrailways.gov.pk/train"
 #: What the person says when asked, by the box's name.
 SAYS = {"Reference No.": REFERENCE, "From": "Lahore Cantt", "To": "Karachi Cantt",
@@ -221,8 +234,10 @@ class Person(Connection):
     """Answers each screen as a person would: the number when asked, Yes to
     cookies, and counts what was shown."""
 
-    def __init__(self) -> None:
+    def __init__(self, says: dict | None = None, train: str | None = None) -> None:
         self.sent: list[tuple[str, dict]] = []
+        self.says = {**SAYS, **(says or {})}
+        self.train = train
 
     async def send(self, message_type, payload) -> None:
         self.sent.append((message_type, json.loads(payload.model_dump_json())))
@@ -232,9 +247,13 @@ class Person(Connection):
 
     async def receive(self, message_type, step_index=None, on_other=None) -> dict:  # noqa: ARG002
         step = [p for n, p in self.sent if n == "step.presented"][-1]
-        values = {f["id"]: SAYS.get(f["label"], "") for f in step["fields"]
+        values = {f["id"]: self.says.get(f["label"], "") for f in step["fields"]
                   if f["id"].startswith("value")}
         action = "confirm"
+        if step["instruction"] == voice.which_row("Train No.") and self.train:
+            labels = [a["label"] for a in step["actions"]]
+            action = f"{voice.CHOICE_PREFIX}" + str(next(
+                i for i, label in enumerate(labels) if label.split(",")[0] == self.train))
         if step["instruction"] == voice.ROUTINE_TRY:
             # The offer of a model, if one is set up: no, as a person who
             # wants only what the helper showed would say.
@@ -251,14 +270,24 @@ class Person(Connection):
         return [p for n, p in self.sent if n == kind]
 
 
-async def one(routine) -> dict:
-    person = Person()
+#: The confirmation's own summary, header by header.
+SUMMARY_JS = ("() => Object.fromEntries([...document.querySelectorAll('tr')]"
+              ".filter(r => r.querySelector('th') && r.querySelector('td'))"
+              ".map(r => [r.querySelector('th').innerText.trim(),"
+              " r.querySelector('td').innerText.trim()]))")
+
+
+async def one(routine, person: "Person | None" = None) -> dict:
+    person = person or Person()
     started = time.monotonic()
+    page_says: dict = {}
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         page = await browser.new_page(viewport={"width": 1280, "height": 800})
         try:
             await run_brief(page, person, RoutineBrief(routine), routine.start, auto=True)
+            if person.train:
+                page_says = await page.evaluate(SUMMARY_JS)
         finally:
             await browser.close()
     shown = person.of("step.presented")
@@ -275,6 +304,10 @@ async def one(routine) -> dict:
         "llm_calls": end["llm_calls"] if end else 0,
         "seconds": round(time.monotonic() - started, 1),
         "stopped_because": stuck["reason"] if stuck else None,
+        "which_train_asked": any(s["instruction"] == voice.which_row("Train No.") for s in shown),
+        "final_details": [[d["label"] for d in s["final"]] for s in shown if s.get("final")],
+        "booked": {k: page_says.get(k) for k in ("Train", "From", "To", "Fare")}
+        if page_says else None,
     }
 
 
@@ -340,6 +373,8 @@ def main() -> None:
             plans.append(("trains on the live site, read only",
                           lambda: teach_trains(store, live=True), min(RUNS, 2),
                           lambda answer: bool(answer)))
+        if "booking" in WHICH:
+            booking(store, summary, every)
         for name, teaching, count, right in plans:
             taught = asyncio.run(teaching())
             routine = taught.pop("routine")
@@ -363,7 +398,39 @@ def main() -> None:
             proc.wait(timeout=10)
         store.clear()
     print(json.dumps(summary, indent=1))
-    record(ROOT / "logs" / "show_me_once.json", {"runs": every, "summary": summary})
+    log = "show_me_once_fix.json" if WHICH == {"booking"} else "show_me_once.json"
+    record(ROOT / "logs" / log, {"runs": every, "summary": summary})
+
+
+def booking(store: RoutineStore, summary: dict, every: dict) -> None:
+    """The booking taught once, then each of `BOOKINGS` as the person."""
+    from backend.orchestrator.details import match_station
+
+    name = "booking on the railways copy, the person's train"
+    taught = asyncio.run(teach_trains(store, live=False))
+    routine = taught.pop("routine")
+    print(json.dumps({name: taught}), flush=True)
+    runs = []
+    for run, (origin, destination, train) in enumerate(BOOKINGS[:RUNS], start=1):
+        person = Person({"From": origin, "To": destination}, train)
+        result = asyncio.run(one(routine, person))
+        booked = result["booked"] or {}
+        stations = [match_station(place, [booked.get("From") or "", booked.get("To") or ""])
+                    for place in (origin, destination)]
+        result.update(run=run, route=f"{origin} to {destination}", wanted=train,
+                      right_train=booked.get("Train") == train,
+                      right_route=all(s.station for s in stations))
+        runs.append(result)
+        print(json.dumps(result), flush=True)
+    summary[name] = summarise(taught, runs, lambda answer: bool(answer)
+                              and answer[0].startswith("PR-"))
+    summary[name]["right_train_and_route"] = sum(r["right_train"] and r["right_route"]
+                                                for r in runs)
+    summary[name]["which_train_asked"] = sum(r["which_train_asked"] for r in runs)
+    summary[name]["final_details"] = sorted({tuple(d) for r in runs
+                                             for d in r["final_details"]})
+    every[name] = runs
+    store.clear()
 
 
 if __name__ == "__main__":

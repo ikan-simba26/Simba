@@ -425,7 +425,7 @@ arithmetic on that image has to scale by the ratio first. Not re-measured on
 | `backend/orchestrator/tiles.py` | The person's own tiles, encrypted with the same key |
 | `backend/orchestrator/teach.py` | Show me once (2026-11-04): the recorder in the page, each press held until perception has read it, the same-or-ask question, the answer pointed at, the read-back and the name |
 | `backend/orchestrator/routines.py` | A routine a helper showed: moves by role and label, kept encrypted like the tiles, saved to and read from a file |
-| `backend/orchestrator/routine_plan.py` | `RoutineBrief` (asks only what changes) and `RoutinePlanner` (each move found again, the honest stop, the model only if agreed) |
+| `backend/orchestrator/routine_plan.py` | `RoutineBrief` (asks only what changes) and `RoutinePlanner` (each move found again, the person's row asked from the page's own rows, a change's final details read from the page, the honest stop, the model only if agreed) |
 | `backend/estimator/` | Page features (`page_features.py`), step/telemetry/decision rows (`pairing.py`), training (`train.py`), the trained model as the app reads it (`page_model.py`), and the level rules (`rules.py`), which take the model's judgement of the page and fall back on their own signs |
 | `shared/schema.py` / `.ts` | Every contract message, both sides |
 | `shared/envelope.py` / `.ts` | Envelope construction, one place |
