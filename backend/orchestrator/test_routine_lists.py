@@ -146,6 +146,8 @@ def test_another_journey_runs_from_the_same_routine(trains: dict) -> None:
     assert done.searched == {"from": "RAWALPINDI", "to": "SUKKUR",
                              "date": TOMORROW.isoformat()}, done.types()
     ending = done.of("task.completed")[0]
+    assert ending["heading"] == (f"My trains: Rawalpindi, Sukkur, "
+                                 f"{voice.when_words(TOMORROW, date.today())}")
     assert ending["llm_calls"] == 0 and ending["findings"][0]["label"] == "Trains"
     assert ending["findings"][0]["values"]
     # Asked from the site's own list, as the train search asks.

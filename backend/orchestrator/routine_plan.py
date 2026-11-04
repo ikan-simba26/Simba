@@ -488,6 +488,19 @@ class RoutineBrief:
         if self._tries[index] >= MAX_TRIES:
             self.gave_up = voice.NOT_UNDERSTOOD
 
+    def heading(self) -> str:
+        """The routine's name, and what the person said for it, above the
+        answer (stage 2): "Trains: Rawalpindi, Sukkur, Tuesday 24 November".
+        Only their own answers, never the page's words."""
+        said = []
+        for index in sorted(self._answers):
+            answer = self._answers[index]
+            if self.routine.steps[index].day:
+                said.append(voice.when_words(date.fromisoformat(answer), self.today))
+            else:
+                said.append(voice.station_name(answer) if self._picks(index) else answer)
+        return f"{self.routine.label}: {', '.join(said)}" if said else self.routine.label
+
     def settle(self) -> tuple[RoutinePlanner, Task]:
-        task = routine_task(self.routine)
+        task = replace(routine_task(self.routine), heading=self.heading())
         return RoutinePlanner(self.routine, self._answers, self._fallback, task), task
