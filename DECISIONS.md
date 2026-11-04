@@ -5810,3 +5810,50 @@ scales on `-D3`. It now cuts exactly a `-` and eight of `[A-Za-z0-9_-]` before `
 *Alternative:* match the expected name as a prefix, as `test_brand.py` does, which never
 breaks on a hash. *Cost of the choice:* if `vite.config.ts` ever sets `assetFileNames` or a
 hash length, this test fails loudly at once rather than passing on the wrong file.
+
+
+## "Show me once" goes in after the feature freeze
+
+**Date:** 2026-11-04. **Decided by Raham**, owner of the orchestrator; Nahail and Aly to be
+told, since it reaches the overlay (Aly) and perception's role-and-label reads (Nahail).
+
+**Decision.** One feature is added after the 1 November freeze: *Show me once*. A helper (a
+carer, a family member, a teacher) does a task once on the real site while SIMBA watches.
+SIMBA keeps it as a routine of its own: each press and each typed value by perception's role
+and label, never an id or a selector, and the thing the task is for, pointed at on the page.
+The person then runs it from a tile on the home screen. SIMBA asks only the values the helper
+said change, runs the rest as the checklist, checks every move, shows the answer with the
+picture of the real page, and makes no model call. It is built on what is already there:
+trace memory's role-and-label steps (`traces.py`, `replay.py`), the person's own tiles
+(`tiles.py`), the question flow, the checklist, the final-step rule and the proof.
+
+**Why.** Every flow SIMBA runs today was written by one of us, for a site we chose. The
+people it is for each have their own sites, and nobody who knows those sites can add one
+without writing code. A helper showing it once is the shortest way from "SIMBA can do three
+things" to "SIMBA can do the thing this person needs", and it is the part of the project a
+carer or teacher can use without us. It also turns trace replay, built in September and off by
+default, into something a person sees.
+
+**Alternatives.** (a) Hold it until after the report: no risk to November's evaluation, and
+nothing for the people in the early sessions to try. (b) Build it as a paper design only,
+for the report's future work. (c) Build it after the freeze, staged: first the bill on our
+billing copy end to end, tested, merged and pushed, and only then values that change list
+choices and calendar days, the railways copy, and one read-only live site. (c) was chosen:
+each stage leaves `main` working.
+
+**Cost.**
+- **Time from evaluation and writing.** November was for those. This takes days of it, and
+  the evaluation it adds (three routines, ten replays each, one deliberately broken page)
+  is more to write up.
+- **More to review for two people who did not ask for it.** The contract grows: new message
+  types for teaching, a routine's file and the read-back (listed in CONTRACT.md for Nahail
+  and Aly, every one additive), and the overlay gets a mode where it steps aside to a bar
+  and the person, or helper, uses the real site directly.
+- **A new way for the site view to be seen.** Until now nobody but SIMBA ever touched the
+  site view. While a helper teaches, the overlay shrinks to a bar at the top and the site is
+  uncovered below it. Everywhere else the site view stays covered, not hidden (CLAUDE.md).
+- **A routine is only as good as the page it was shown on.** When a site changes, the
+  routine stops and says so; a helper shows it again. That is honest, and it is not
+  adaptive.
+- **Undoing it:** remove the "Show me once" entry from the settings and the routine tiles
+  from the home screen; `data/routines.json` can then be deleted. Nothing else reads it.
