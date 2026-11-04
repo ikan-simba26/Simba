@@ -579,6 +579,120 @@ cursor becomes two scalars in the renderer before anything is sent.
 
 ---
 
+## Show me once (2026-11-04)
+
+Added 2026-11-04 on `feat/show-me-once`, after the freeze, by Raham's decision
+(DECISIONS.md, *"Show me once" goes in after the feature freeze*). **Pending
+agreement: Nahail and Aly.** Every change is additive. A side that ignores all
+of it works as it did on 2026-11-03: no tile appears, nothing asks to teach.
+
+**For Nahail and Aly, the whole list:**
+
+| Change | Kind | Direction |
+|---|---|---|
+| `teach.start` | new message type | frontend -> backend |
+| `teach.answer` | new message type | frontend -> backend |
+| `teach.watching` | new message type | backend -> frontend |
+| `routine.export` | new message type | frontend -> backend |
+| `routine.file` | new message type | backend -> frontend |
+| `routine.import` | new message type | frontend -> backend |
+| `history.offered.routines` | optional field, new shape `TaughtTile` | backend -> frontend |
+| `task.start.routine` | optional field | frontend -> backend |
+| `step.presented.routine` | optional field | backend -> frontend |
+| `tile.change` with a routine's `id` | no field changed: a routine is renamed or removed like a tile | frontend -> backend |
+| `error` code `ROUTINE_NOT_READ` | new code | backend -> frontend |
+
+*To undo any one:* drop it on both sides. Nothing else reads it.
+
+### `teach.start`
+The helper pressed "Start watching" on the screen behind "Show me once". Sent
+on a connection where no task has started, in place of `task.start`. The
+backend opens `url` in the site view and starts watching; the overlay steps
+aside to a bar at the top of the window until `teach.watching` stops coming —
+on any `step.presented`, `help.requested`, `task.completed` or `task.failed`.
+```json
+{ "url": "http://127.0.0.1:5100/" }
+```
+Answered with `help.requested` at once, and nothing watched, when there is no
+room for another tile (the home screen's row of three) or this machine cannot
+encrypt one.
+
+### `teach.watching`
+What the bar says, sent whenever it changes.
+```json
+{
+  "lines": ["Ask about cookies, and press Accept all cookies if the answer is yes.",
+            "Type 04141234567890 in Reference No."],
+  "question": { "step": 1, "label": "Reference No.", "value": "04141234567890" },
+  "pointing": false,
+  "note": null
+}
+```
+`lines` is what has been kept so far, in plain words (`voice.routine_line`).
+`question` is the one typed value not yet asked about: the same every time, or
+ask each time? `value` is what the helper typed, so they can decide; a password
+is never asked about and never sent. `pointing` is true once the helper has
+pressed Finish: the next click on the page is the answer, and nothing is let
+through. `note` says what was wrong with the last press of the bar ("First,
+tell me whether what you typed is the same every time.").
+
+### `teach.answer`
+The helper's press on the bar.
+```json
+{ "action": "ask", "step": 1 }
+{ "action": "same", "step": 1 }
+{ "action": "finish" }
+{ "action": "cancel" }
+```
+`finish` with a question open, or nothing shown, is answered with a `note`.
+`cancel` (or `task.cancel`) is answered with `task.failed` and the stop reason.
+
+**After the answer is pointed at** the backend sends `task.started` (goal "Show
+me once") and one `step.presented` with `routine`: the read-back. Its two fields
+are `name` (the name on the home screen) and `answer` (what the answer is
+called); its actions are "Keep it" (`confirm`) and the usual stop. Kept, it ends
+with `task.completed` (`explanation` names the tile); no name, and it is asked
+again with a `note`.
+
+### `step.presented.routine`
+Additive and optional: the read-back's lines, in order, the last one what is
+read at the end. Absent on every other step.
+
+### `history.offered.routines`
+Additive and optional: the routines, as `TaughtTile`s, in the order they were
+kept. They share the home screen's row of three with `tiles`.
+```json
+{ "goals": [], "tiles": [], "routines": [
+  { "id": "a1b2c3d4e5f6", "label": "My bill", "site": "127.0.0.1:5100" } ] }
+```
+
+### `task.start.routine`
+Additive and optional: run a routine by its id. The goal is its name and is not
+classified. What the helper said changes is asked, one question at a time,
+before the site is touched; then it runs as the checklist.
+```json
+{ "goal": "My bill", "input_mode": "text", "routine": "a1b2c3d4e5f6" }
+```
+
+### `routine.export` and `routine.file`
+Save a routine to a file, from "Change my tiles". Answered with `routine.file`:
+a suggested file name and the file's whole text, which the overlay saves where
+the helper chooses. In the file, every value the helper typed is asked for
+instead: a shared routine is for someone else.
+```json
+{ "id": "a1b2c3d4e5f6" }
+{ "label": "My bill", "name": "my-bill.simba-routine.json", "file": "{...}" }
+```
+
+### `routine.import`
+A routine read from a file someone shared, as its whole text. Answered with
+`history.offered`, with it there when it was kept; when it was not, first an
+`error` with code `ROUTINE_NOT_READ` and a plain message saying why (not a
+routine, a typed value in it, no room).
+```json
+{ "file": "{\"format\": \"simba-routine\", \"version\": 1, ...}" }
+```
+
 ## Notes
 
 - Timestamps are epoch milliseconds.

@@ -44,6 +44,17 @@ MessageType = Literal[
     # Pending agreement with the rest (2026-10-18): the person renaming,
     # moving or removing one of their own tiles, or clearing them all.
     "tile.change",
+    # Pending agreement with the rest (2026-11-04, "Show me once"): a helper
+    # showing SIMBA a task once, and a routine saved to a file or read back
+    # from one. backend -> frontend: "teach.watching", "routine.file".
+    # frontend -> backend: "teach.start", "teach.answer", "routine.export",
+    # "routine.import".
+    "teach.watching",
+    "routine.file",
+    "teach.start",
+    "teach.answer",
+    "routine.export",
+    "routine.import",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -84,6 +95,17 @@ class PersonalTile(BaseModel):
     flow: "FlowName"
 
 
+class TaughtTile(BaseModel):
+    """A routine a helper showed SIMBA once (2026-11-04), as a tile on the home
+    screen: its name, and the site it runs on, by its address's host. Its
+    moves stay in the backend, encrypted; the overlay runs it by `id`
+    (`task.start.routine`)."""
+
+    id: str
+    label: str
+    site: str
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -95,6 +117,10 @@ class HistoryOffered(BaseModel):
     # Additive and optional (2026-10-18). The person's own tiles, in their
     # order. Also sent again after each `tile.change`. Absent: none.
     tiles: Optional[List[PersonalTile]] = None
+    # Additive and optional (2026-11-04). The routines helpers have shown,
+    # as tiles, in the order they were kept. They share the home screen's row
+    # of three with `tiles`. Absent: none.
+    routines: Optional[List[TaughtTile]] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]
@@ -206,6 +232,11 @@ class StepPresented(BaseModel):
     # (`"confirm"`) and don't (`"decline"`), neither the default. Absent: an
     # ordinary step.
     final: Optional[List[Detail]] = None
+    # Additive and optional (2026-11-04). What a helper has just shown SIMBA,
+    # read back in plain words, one line each, in order, before it is kept:
+    # "Type 04141234567890 in Reference No.", "Press Check Bill.". Absent: an
+    # ordinary step.
+    routine: Optional[List[str]] = None
 
 
 class StepFailed(BaseModel):
@@ -338,6 +369,41 @@ class TaskFailed(BaseModel):
     recoverable: bool
 
 
+class TeachQuestion(BaseModel):
+    """The question the bar asks about one typed value (2026-11-04): is it the
+    same every time, or should the person be asked each time? `step` is its
+    place in what has been kept so far; `label` the box's name as perception
+    read it; `value` what the helper typed, never a password's."""
+
+    step: int
+    label: str
+    value: str
+
+
+class TeachWatching(BaseModel):
+    """What the bar at the top says while a helper shows SIMBA a task
+    (2026-11-04, pending agreement): what has been kept so far, in plain words,
+    one line each; the one question open about a typed value; whether the
+    helper is now to point at the answer on the page; and a note, when
+    something needs saying. Sent whenever any of it changes."""
+
+    lines: List[str]
+    question: Optional[TeachQuestion] = None
+    pointing: bool = False
+    note: Optional[str] = None
+
+
+class RoutineFile(BaseModel):
+    """A routine saved to a file (2026-11-04, pending agreement), in answer to
+    `routine.export`: the file's suggested `name` and its whole text, for the
+    overlay to save where the helper chooses. Every value the helper typed is
+    asked for in it, never kept."""
+
+    label: str
+    name: str
+    file: str
+
+
 class ErrorPayload(BaseModel):
     code: str
     message: str
@@ -366,6 +432,41 @@ class TaskStart(BaseModel):
     # id: the task runs with the details kept with it, and asks only what can
     # change (the day). The goal is the tile's name and is not classified.
     tile: Optional[str] = None
+    # Additive and optional (2026-11-04). A routine a helper showed SIMBA, by
+    # its id (`history.offered.routines`): run as shown, asking only what the
+    # helper said changes. The goal is its name and is not classified.
+    routine: Optional[str] = None
+
+
+class TeachStart(BaseModel):
+    """Start watching a helper on this address (2026-11-04, pending
+    agreement). The overlay steps aside to a bar while it lasts."""
+
+    url: str
+
+
+class TeachAnswer(BaseModel):
+    """The helper's press on the bar (2026-11-04, pending agreement): "same"
+    or "ask" for the question about the value at `step`, "finish" when the
+    task has been shown, "cancel" to stop watching."""
+
+    action: Literal["same", "ask", "finish", "cancel"]
+    step: Optional[int] = None
+
+
+class RoutineExport(BaseModel):
+    """Save one routine to a file (2026-11-04, pending agreement). Answered
+    with `routine.file`."""
+
+    id: str
+
+
+class RoutineImport(BaseModel):
+    """A routine read from a file someone shared (2026-11-04, pending
+    agreement). Answered with `history.offered`, with it there when it was
+    kept, and an `error` with code `ROUTINE_NOT_READ` saying why when not."""
+
+    file: str
 
 
 class TileChange(BaseModel):
