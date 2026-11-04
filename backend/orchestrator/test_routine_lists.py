@@ -235,3 +235,124 @@ def test_a_calendar_banner_is_read_as_a_month() -> None:
     assert shown_month("December 2026") == (2026, 12)
     assert shown_month("Choose a station") is None
     assert json.dumps(shown_month("2027 january")) == "[2027, 1]"
+
+
+# --- booking on our copy: a change, behind the final screen ----------------------------
+
+
+async def _show_a_booking(page, overlay: Overlay) -> None:
+    """The same search, then Book on the first train, a name asked each time,
+    a class the same every time, Confirm Booking, and the booking number."""
+
+    async def ask_or_keep(same: bool) -> None:
+        await overlay.until(lambda o: o.bar()["question"] is not None)
+        overlay.say("teach.answer", {"action": "same" if same else "ask",
+                                     "step": overlay.bar()["question"]["step"]})
+        await overlay.until(lambda o: o.bar()["question"] is None)
+
+    await _choose(page, "from", "LAH", "LAHORE CANTT")
+    await ask_or_keep(False)
+    await _choose(page, "to", "KARACHI", "KARACHI CANTT")
+    await ask_or_keep(False)
+    await page.locator("#date").click()
+    await page.locator("#days td.available.today, #days td.available").first.wait_for()
+    await page.locator("#days td.available").last.click()
+    await ask_or_keep(False)
+    await page.locator("#search").click()
+    await page.locator("#results a").first.click()
+    await page.wait_for_url("**/book**")
+    await page.locator("#passenger").fill("Ayesha Khan")
+    # Held for a moment while it is read, then let through: clicked, not
+    # checked, and seen checked before going on.
+    await page.get_by_label("AC Standard").click()
+    await page.wait_for_function(
+        "document.querySelector('input[value=\"AC Standard\"]').checked")
+    await ask_or_keep(False)
+    await page.get_by_role("button", name="Confirm Booking").click()
+    await page.wait_for_url("**/book")
+    await page.get_by_role("heading", name="Booking Confirmed").wait_for()
+    overlay.say("teach.answer", {"action": "finish"})
+    await overlay.until(lambda o: o.bar()["pointing"])
+    await page.locator("td", has_text="PR-").first.click()
+    await overlay.until(lambda o: o.of("step.presented"))
+    overlay.say("step.response", {"step_index": 1, "action_id": "confirm",
+                                  "input_values": {"name": "Book my train",
+                                                   "answer": "Booking number"}})
+
+
+@pytest.fixture(scope="module")
+def booking(railways: str, tmp_path_factory):  # noqa: F811
+    store = RoutineStore(tmp_path_factory.mktemp("booking") / "routines.json")
+
+    async def inner():
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1280, "height": 800})
+            overlay = Overlay()
+            job = asyncio.create_task(teach(page, overlay, railways, store))
+            await overlay.until(lambda o: o.of("teach.watching"))
+            await _show_a_booking(page, overlay)
+            kept = await asyncio.wait_for(job, 30)
+            await browser.close()
+            return kept
+
+    return run(inner())
+
+
+def test_a_booking_on_our_copy_is_kept_with_its_changes_marked(booking) -> None:
+    changes = [(s.role, s.label) for s in booking.steps if s.changes]
+    # Book on a train opens its form, and its words say book; Confirm Booking
+    # books. Both wait for a final screen when it runs.
+    assert changes[-1] == ("button", "Confirm Booking")
+    assert booking.changes and booking.answer.reads == "Booking number"
+    name = next(s for s in booking.steps if s.label == "Passenger Name")
+    assert name.ask and name.value is None
+
+
+def test_the_booking_runs_behind_its_final_screens_and_says_it_was_practice(booking) -> None:
+    done = _run(booking, [("confirm", {"value0": "Lahore Cantt"}),
+                          ("confirm", {"value2": "Karachi Cantt"}),
+                          (f"{voice.CHOICE_PREFIX}1", {}),
+                          ("confirm", {next(f"value{i}" for i, s in enumerate(booking.steps)
+                                            if s.label == "Passenger Name"): "Bilal Ahmed"})])
+    finals = [p for p in done.of("step.presented") if p.get("final")]
+    # Two: Book on the train, whose words say book though it only opens the
+    # form, and Confirm Booking. Each names what it presses (flagged: the
+    # final-step rule asks for what, how much and when as well).
+    assert [f["final"] for f in finals] == [
+        [{"label": voice.WHAT_I_PRESS, "value": next(
+            s.label for s in booking.steps if s.role == "link" and s.changes)}],
+        [{"label": voice.WHAT_I_PRESS, "value": "Confirm Booking"}]]
+    ending = done.of("task.completed")[0]
+    assert ending["findings"][0]["values"][0].startswith("PR-")
+    assert ending["scope"] == voice.ROUTINE_PRACTICE_SCOPE and ending["llm_calls"] == 0
+
+
+def test_the_person_can_say_don_t_and_nothing_is_booked(booking) -> None:
+    class Declines(Scripted):
+        async def receive(self, message_type, step_index=None, on_other=None):
+            steps = self.of("step.presented")
+            if steps and steps[-1].get("final") and steps[-1]["final"][0]["value"] \
+                    == "Confirm Booking":
+                return {"type": "step.response", "payload": {
+                    "step_index": step_index, "action_id": voice.DECLINE_ID,
+                    "input_values": {}}}
+            return await super().receive(message_type, step_index, on_other)
+
+    async def inner():
+        connection = Declines([("confirm", {"value0": "Lahore Cantt"}),
+                               ("confirm", {"value2": "Karachi Cantt"}),
+                               (f"{voice.CHOICE_PREFIX}1", {}),
+                               ("confirm", {f"value{i}": "Bilal Ahmed"
+                                            for i in range(len(booking.steps))})])
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page()
+            await run_brief(page, connection, RoutineBrief(booking), booking.start, auto=True)
+            connection.url = page.url
+            await browser.close()
+        return connection
+
+    done = run(inner())
+    assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
+    assert "task.completed" not in done.types() and "/book" in done.url
