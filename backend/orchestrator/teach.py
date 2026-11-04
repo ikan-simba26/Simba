@@ -172,6 +172,14 @@ RECORDER_JS = r"""
                                                          keyCode: 13, which: 13, bubbles: true}));
     } finally { passing = false; }
   }, true);
+  // A page opened while teaching asks what it is for: the helper may have
+  // pressed Finish while it was still loading.
+  if (on()) {
+    report({kind: 'mode'}).then((mode) => {
+      if (mode === 'pointing') window.__simbaPointing = true;
+      if (mode === 'stop') window.__simbaTeaching = false;
+    });
+  }
 })();
 """
 
@@ -386,6 +394,8 @@ class Teaching:
 
     async def _handle(self, event: dict) -> str:
         kind = event.get("kind")
+        if kind == "mode":
+            return "pointing" if self.pointing else "watching"
         if kind == "card":
             return self._end(voice.TEACH_STOPPED_CARD)
         if kind == "point" or (self.pointing and kind == "click"):

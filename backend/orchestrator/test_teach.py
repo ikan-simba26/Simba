@@ -299,3 +299,78 @@ def test_the_recorder_script_is_the_one_installed() -> None:
     # One script, guarded so a page that has it twice holds a press once.
     assert "window.__simbaRecorder" in teaching.RECORDER_JS
     assert teaching.BINDING in teaching.RECORDER_JS
+
+
+# --- the answer, pointed at ------------------------------------------------------------
+
+
+def test_pointing_lets_nothing_through_and_a_miss_is_said(billing_replica: str,
+                                                          tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: o.bar()["question"] is not None)
+        overlay.say("teach.answer", {"action": "ask", "step": 0})
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["pointing"])
+        # A link pressed while pointing is not followed.
+        await page.get_by_role("link", name="View full bill detail").click()
+        await overlay.until(lambda o: o.bar()["note"] == voice.POINT_AGAIN)
+        assert page.url.endswith("/bill") and overlay.bar()["pointing"]
+        # Then the amount itself.
+        await page.get_by_text("15-09-2026", exact=True).first.click()
+        await overlay.until(lambda o: o.of("step.presented"))
+        overlay.say("step.response", {"step_index": 1, "action_id": "confirm",
+                                      "input_values": {"name": "Due date", "answer": ""}})
+
+    kept, overlay, url = run(_on_page(billing_replica, helper,
+                                      RoutineStore(tmp_path / "r.json")))
+    assert url.endswith("/bill")
+    # The page's own label, and its name when the helper gave none.
+    assert kept.answer == type(kept.answer)(name="DUE DT", reads="DUE DT")
+    # Nothing pressed while pointing became part of the routine.
+    assert [s.label for s in kept.steps] == ["Reference No.", "Check Bill"]
+
+
+def test_finish_pressed_while_the_page_loads_still_points(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        # Searching with no number sends the page back to itself, with a
+        # message; Finish is pressed while that page is still on its way.
+        await page.get_by_role("button", name="Check Bill").click()
+        await overlay.until(lambda o: len(o.bar()["lines"]) == 1)
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["pointing"])
+        await page.wait_for_load_state()
+        # An empty box is nothing to read, and is said to be: the new page
+        # knew it was for pointing.
+        await page.get_by_role("textbox", name="Reference No.").click()
+        await overlay.until(lambda o: o.bar()["note"] == voice.POINT_AGAIN)
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    kept, overlay, _ = run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+    assert kept is None and not overlay.of("step.presented")
+
+
+def test_a_routine_with_no_name_is_asked_for_one(billing_replica: str,
+                                                tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: o.bar()["question"] is not None)
+        overlay.say("teach.answer", {"action": "same", "step": 0})
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["pointing"])
+        await page.get_by_text("14,382", exact=True).first.click()
+        await overlay.until(lambda o: o.of("step.presented"))
+        overlay.say("step.response", {"step_index": 1, "action_id": "confirm",
+                                      "input_values": {"name": "   ", "answer": "Amount"}})
+        await overlay.until(lambda o: len(o.of("step.presented")) == 2)
+        assert overlay.of("step.presented")[1]["note"] == voice.NAME_IT_FIRST
+        overlay.say("step.response", {"step_index": 2, "action_id": "confirm",
+                                      "input_values": {"name": "Bill", "answer": "Amount"}})
+
+    kept, _, _ = run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+    assert kept.label == "Bill" and kept.answer.name == "Amount"
