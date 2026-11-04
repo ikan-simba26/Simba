@@ -63,6 +63,14 @@ def find(elements: list[Element], step: Step) -> Element | None:
     return alike[step.nth] if step.nth < len(alike) else None
 
 
+def as_written(day: date) -> tuple[str, ...]:
+    """A day as a date box may write it: the first is said if it does not."""
+    month = day.strftime("%B")
+    return (f"{day:%d-%m-%Y}", f"{day:%Y-%m-%d}", f"{day:%d/%m/%Y}", f"{day:%m/%d/%Y}",
+            f"{day:%d.%m.%Y}", f"{day.day} {month}", f"{month} {day.day}",
+            f"{day.day} {month[:3]}", f"{month[:3]} {day.day}")
+
+
 def months_apart(shown: tuple[int, int], wanted: date) -> int:
     return (wanted.year - shown[0]) * 12 + wanted.month - shown[1]
 
@@ -251,8 +259,15 @@ class RoutinePlanner:
         operations = [Operation("click", Target("button", step.nav or "")) for _ in range(apart)]
         operations.append(Operation("click", Target("option", str(wanted.day),
                                                     qualifier=qualifier)))
+        # The box the calendar was opened from has to hold the person's day:
+        # the page took the day, not merely closed its calendar.
+        opened = self.routine.steps[index - 1] if index else None
+        expect = Expectation()
+        if opened is not None and opened.kind == "click" and opened.role in (
+                "textbox", "combobox") and opened.label:
+            expect = Expectation(field_has=((opened.label, as_written(wanted)),))
         return Move(instruction=voice.routine_do(step), detail="", operations=operations,
-                    expect=self._last(index, Expectation()), fields=[],
+                    expect=self._last(index, expect), fields=[],
                     actions=voice.actions(voice.GO_AHEAD), safe=True, doing=_doing(step),
                     kind="date")
 
@@ -275,12 +290,16 @@ class RoutinePlanner:
             chosen = self._option(elements or [], self._chosen(index))
             label = chosen.label if chosen is not None else self._chosen(index)
         target = Target(role=step.role, label=label, qualifier=step.qualifier)
+        # The person's choice is what the box holds once it is made.
+        holds: tuple[tuple[str, tuple[str, ...]], ...] = ()
+        if step.pick and index and self.routine.steps[index - 1].label:
+            holds = ((self.routine.steps[index - 1].label, (label,)),)
         # The first of several alike is what matching by role and label finds
         # anyway; any other is named by the id it has on this reading.
         element_id = element.id if element is not None and step.nth > 0 else None
         expect = self._last(index, Expectation(
             url_contains=step.expect_url, label_present=step.expect_label,
-            list_opens=step.list_opens))
+            list_opens=step.list_opens, field_has=holds))
         # A box whose list choice comes next is typed with what will be
         # chosen, so the list shows it (stage 2).
         following = (self.routine.steps[index + 1]

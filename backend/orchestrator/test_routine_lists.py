@@ -356,3 +356,37 @@ def test_the_person_can_say_don_t_and_nothing_is_booked(booking) -> None:
     done = run(inner())
     assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
     assert "task.completed" not in done.types() and "/book" in done.url
+
+
+# --- the person's values, checked the moment they are chosen ---------------------------
+
+
+def test_a_box_must_hold_what_was_chosen() -> None:
+    from backend.orchestrator.loop import Snapshot, mismatch
+
+    expect = Expectation(field_has=(("Departure Date", ("15-12-2026", "2026-12-15")),))
+    right = Snapshot(url="u", title="t", labels=("Departure Date",), values=("15-12-2026",))
+    wrong = Snapshot(url="u", title="t", labels=("Departure Date",), values=("15-11-2026",))
+    empty = Snapshot(url="u", title="t", labels=(), values=())
+    assert mismatch(right, expect) is None
+    assert "15-12-2026" in mismatch(wrong, expect)
+    assert mismatch(empty, expect) is not None
+
+
+def test_the_choice_and_the_day_carry_their_checks(trains: dict) -> None:
+    from backend.orchestrator.routine_plan import RoutinePlanner, as_written
+    from backend.perception.serializer import Element
+
+    day = date.today() + timedelta(days=3)
+    planner = RoutinePlanner(trains["routine"], {0: "RAWALPINDI", 2: "SUKKUR",
+                                                 5: day.isoformat()})
+    option = Element(id=9, role="option", label="RAWALPINDI", type="", tag="li",
+                     input_type=None)
+    chose = planner.move_for(1, [option])
+    assert chose.expect.field_has == (("From", ("RAWALPINDI",)),)
+    month = day.strftime("%Y %B")
+    cell = Element(id=3, role="option", label="1", type="", tag="td", input_type=None,
+                   panel=month)
+    picked = planner.move_for(5, [cell])
+    assert picked.expect.field_has == (("Departure Date", as_written(day)),)
+    assert f"{day:%d-%m-%Y}" in as_written(day)

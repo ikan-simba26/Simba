@@ -318,6 +318,10 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected the page to say {expect.content_says!r}"
     if expect.has_value and not after.content.values_for(expect.has_value):
         return f"expected the page to show something under {expect.has_value!r}"
+    for label, accepted in expect.field_has:
+        held = after.value_of(label)
+        if held is None or not any(a.casefold() in held.casefold() for a in accepted):
+            return f"expected {label!r} to hold {accepted[0]!r}, it holds {held!r}"
     if expect.rows_at_least is not None:
         rows = sum(len(table.rows) for table in after.content.tables)
         if rows < expect.rows_at_least:
