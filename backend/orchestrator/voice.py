@@ -976,6 +976,12 @@ def routine_line(step, consent: bool = False) -> str:
     """One move of a routine, in plain words, for the helper's read-back. A
     value the helper typed is said; a password never is, since none is kept."""
     where = _where(step)
+    if step.day:
+        if step.ask:
+            return "Ask which day, and choose it on the calendar."
+        return f"Choose {step.label} on the calendar."
+    if step.pick:
+        return "Choose the one they said from the list."
     if step.kind == "fill":
         if step.secret:
             return f"Type the password in {where}. I use the saved one, or ask for it."
@@ -1006,6 +1012,8 @@ def taught_line(step, same: bool | None, typed: str | None = None,
 
     if step.kind in ("fill", "select") and not step.secret:
         step = replace(step, ask=same is False, value=None if same is False else typed)
+    if step.day:
+        step = replace(step, ask=same is False)
     return routine_line(step, consent)
 
 
@@ -1027,6 +1035,10 @@ def routine_do(step) -> str:
     """A routine's move, said before it is done, when the person asked to be
     asked before each thing."""
     where = _where(step)
+    if step.day:
+        return "I'll choose the day on the calendar."
+    if step.pick:
+        return "I'll choose it from the list."
     if step.kind == "fill":
         return _ended(f"I'll type in {where}")
     if step.kind == "select":
@@ -1048,6 +1060,19 @@ def routine_choose(label: str) -> str:
 
 
 ASKED_EACH_TIME = "Your helper said this changes, so I ask you each time."
+#: A routine's question about a day: the train search's own (`ASK_DAY`).
+ASK_ROUTINE_DAY = "Which day?"
+DOING_CHOOSE_DAY = "Choosing the day on the calendar"
+DOING_PICK = "Choosing it from the list"
+
+
+def not_in_list(said: str) -> str:
+    return f"I couldn't find {said} in the list on the page."
+
+
+#: When a routine changes something, on our copies only (stage 2).
+ROUTINE_PRACTICE_SCOPE = ("I did what your helper showed me, on the practice site. Nothing real "
+                          "was booked or paid.")
 USE_THIS = "Use this"
 TYPED_ANSWERS = (*TYPED_ANSWERS, USE_THIS)
 

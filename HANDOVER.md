@@ -42,6 +42,8 @@ against commit `cc4704f`, and brought up to date since:
 - **2026-11-04, `feat/show-me-once`, stage 1**: one feature after the freeze, by Raham's
   decision: a helper shows SIMBA a task once, and the person runs it from a tile. The bill on
   the billing copy, end to end (below, and EVALUATION.md, 2026-11-04).
+- **2026-11-04, stage 2**: list choices and calendar days, a booking on the railways copy and a
+  read-only lookup on the live train search (EVALUATION.md, 2026-11-04b).
 
 Section 9 is still the 2026-09-17 capture, and says so.
 
@@ -62,9 +64,9 @@ fails).
 feature after 1 November (DECISIONS.md, *"Show me once" goes in after the feature freeze*,
 with its reason and cost). A helper — a carer, a family member, a teacher — does a task once on
 the real site while SIMBA watches; SIMBA keeps it as a routine of perception's roles and labels
-and the answer the helper pointed at; the person runs it from a tile, with no model. Stage 1,
-the bill on the billing copy, is on `main`; stage 2 (list choices and calendar days, the
-railways copy and one live lookup) follows on the same branch name.
+and the answer the helper pointed at; the person runs it from a tile, with no model. Both
+stages are on `main`: the bill on the billing copy, then list choices and calendar days, a
+booking on the railways copy and one read-only lookup on the live train search.
 
 - **For both: the contract.** Six new message types and three optional fields, every one
   additive, listed in one table in CONTRACT.md, *Show me once*. A side that ignores them works as
@@ -81,7 +83,10 @@ railways copy and one live lookup) follows on the same branch name.
   `read_async` has read it, and is kept as the role, label, qualifier and which of several alike
   of the smallest element under the pointer by perception's boxes (`teach.element_at`). The
   answer is found by perception's pairs (`Content.pairs`), by the page's own label. Nothing in
-  perception changed.
+  perception changed. Stage 2 leans on two of yours: a calendar day is a number whose `panel`
+  names a month, and the site's own list is `options.longest_list`, as the train search reads it.
+- **For Aly: one more contract field**, `TeachQuestion.kind` (`"day"`), so the bar asks "Is this
+  day the same every time?".
 
 **For Nahail (2026-11-02): the visual features, yours to review.** The page model cannot see
 pictures, and now we know how far that goes: 33 of the 35 Pakistani sites have more of their
@@ -305,7 +310,7 @@ matching. Details: [ARCHITECTURE.md](ARCHITECTURE.md), stages 3–7.
 
 ## 2. What works today, by module
 
-The full suite was last run on 2026-11-04: **1983 passed, 12 skipped, 0 failed** (backend 1326 in 1342s, frontend 657 in 1467s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-04). The 12 skips are
+The full suite was last run on 2026-11-04, after stage 2: **1998 passed, 12 skipped, 0 failed** (backend 1340 in 1338s, frontend 658 in 1479s, as two halves), and the host fit test 3/3, all on mains (EVALUATION.md, 2026-11-04b). The 12 skips are
 5 tests that need a running Electron window, 2 that need one and
 `SIMBA_HOST_TESTS=1`, 3 that open the window themselves and need
 `SIMBA_HOST_TESTS=1` (`frontend/test_window_fit.py`, run separately on

@@ -337,6 +337,9 @@ export interface TeachQuestion {
   step: number;
   label: string;
   value: string;
+  /** Additive and optional (stage 2): something typed, or a day on a
+   *  calendar. Absent: typed. */
+  kind?: "typed" | "day";
 }
 
 /** What the bar says while a helper shows SIMBA a task (2026-11-04, pending

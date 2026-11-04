@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-04 · **1983 passing, 12 skipped, 0 failed** · backend 1326 in 1342s, frontend 657 in 1467s, as two halves, on mains, on `feat/show-me-once` at `fdd02dd` (stage 1), then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 564s, on mains (EVALUATION.md, 2026-11-04). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-04 · **1998 passing, 12 skipped, 0 failed** · backend 1340 in 1338s, frontend 658 in 1479s, as two halves, on mains, on `feat/show-me-once` at `f4bdf16` (stage 2), then merged into `main`; the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 in 568s, on mains (EVALUATION.md, 2026-11-04b). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -69,8 +69,8 @@ once on the real site while SIMBA watches, with the overlay stepped aside to a b
 as a routine of perception's roles and labels and the answer the helper pointed at, and the
 person runs it from a tile — asked only what the helper said changes, the rest as the
 checklist, every move checked, no model. A site that changed stops it honestly. Stage 1, the
-bill on our copy, is done; stage 2 adds list choices and calendar days, the railways copy and a
-live lookup.
+bill on our copy, and stage 2, list choices and calendar days, a booking on the railways copy and
+a read-only lookup on the live train search, are done.
 
 **The brand** (2026-11-02). The logo kit is in `assets/brand/`: the app icon, the title
 `simba`, the logo while the backend comes up, and a small one on the home screen alone.
@@ -79,6 +79,19 @@ live lookup.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-04 (later): Show me once, stage 2 — `feat/show-me-once`
+
+- **List choices and calendar days** a helper says change are the person's to give: asked from
+  the site's own list and as a journey's day is asked, then typed, chosen, and the calendar
+  moved to the month. The page must hold the person's station and day the moment each is chosen.
+- **Booking on the railways copy**: 10 of 10, 6 presses (four questions, two final screens), 0
+  model calls. **Trains on the live site, read only**: taught once, 2 of 2, 3 presses, 0 model
+  calls; robots.txt checked first (EVALUATION.md, 2026-11-04b).
+- **Walked in the real window** on the railways copy: the day asked about on the bar, and another
+  journey run on a typed day, searched exactly as asked.
+- **Flagged**: a routine's final screen names the button only; a booking meets two final screens;
+  a press whose label holds data (a train's number) ties the routine to it.
 
 ### Changed on 2026-11-04: Show me once, stage 1 — `feat/show-me-once`
 
@@ -1351,6 +1364,8 @@ On `feat/railways-ask`, **not merged**.
   `routines.py` keeps it encrypted and shares it as a file, `routine_plan.py` runs it with no
   model and stops honestly on a changed page. The loop gains `must_finish`, `ran_out`, a list
   choice (`<select>`) checked by reading it back, and `Expectation.has_value`. 58 tests.
+  **Stage 2**: list choices and days (`test_routine_lists.py`, 14), the loop's
+  `recommitted` and `Expectation.field_has`.
 - **Saved sign-in details** (`vault.py`, 2026-10-03): DPAPI-encrypted, one entry
   per site, kept only on request and only after the step worked, typed by the
   backend, forgettable from the step. 13 tests, the first of which searches a

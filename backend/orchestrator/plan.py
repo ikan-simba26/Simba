@@ -225,6 +225,11 @@ class Expectation:
     # The page gives this label a value (2026-11-04): what a routine a helper
     # showed is for, by the page's own label for it (`routine_plan`).
     has_value: str | None = None
+    # A box holds one of these, ignoring case, as part of what it shows
+    # (2026-11-04): a routine's station or day, checked the moment it is
+    # chosen, so a search is never sent for something the person did not
+    # say. (label, (accepted, ...)).
+    field_has: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True)

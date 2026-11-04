@@ -318,6 +318,10 @@ def mismatch(after: Snapshot, expect: Expectation) -> str | None:
         return f"expected the page to say {expect.content_says!r}"
     if expect.has_value and not after.content.values_for(expect.has_value):
         return f"expected the page to show something under {expect.has_value!r}"
+    for label, accepted in expect.field_has:
+        held = after.value_of(label)
+        if held is None or not any(a.casefold() in held.casefold() for a in accepted):
+            return f"expected {label!r} to hold {accepted[0]!r}, it holds {held!r}"
     if expect.rows_at_least is not None:
         rows = sum(len(table.rows) for table in after.content.tables)
         if rows < expect.rows_at_least:
@@ -1725,6 +1729,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         history.append(move.instruction)
         # Anything typed on a page we have since left is not ours to police.
         filled = [f for f in filled if f.url == page.url]
+        # A choice from the list a box opened commits the box: what it holds
+        # now is the choice, not the letters typed to find it (2026-11-04).
+        filled = await recommitted(page, filled, move, task.about.holds)
         filled += await record_fills(page, move)
 
     # A planner that settled something the task could not know at the
@@ -2075,6 +2082,47 @@ async def record_fills(page: Page, move: Move) -> list[FilledValue]:
                 )
             )
     return recorded
+
+
+async def recommitted(page: Page, filled: list[FilledValue], move: Move,
+                      holds: tuple[FieldValue, ...] = ()) -> list[FilledValue]:
+    """What the boxes hold after a move that chose from a list.
+
+    Typing "LAH" and choosing "LAHORE CANTT" from the list it opens is one
+    answer given in two moves, and the box then holds the choice. A box whose
+    typed words are in the chosen option's words is read again, and holds
+    that from now on; every other box is checked as before. A planner that
+    types and chooses in one move never needed this (`TripPlanner` declares
+    the station it chose); one that keeps them apart does (`routine_plan`).
+
+    **Never past what the task declares.** A box the task names a value for
+    (`About.holds`) is recommitted only to a value that is that value. A
+    search typed toward Multan when the person asked for Peshawar still lapses
+    at the next look, and the wrong search is never sent (`test_trip.py`).
+    """
+    chosen = [o.target.label.casefold() for o in move.operations
+              if o.kind == "click" and o.target.role == "option" and o.target.label]
+    if not chosen or not filled:
+        return filled
+    elements, _, _ = await perceive(page)
+    kept: list[FilledValue] = []
+    for record in filled:
+        typed = record.value.casefold().strip()
+        if not typed or not any(typed in label for label in chosen):
+            kept.append(record)
+            continue
+        element_id = pick(elements, Target(record.role, record.label))
+        try:
+            now = (await resolve(page, elements, element_id).input_value()
+                   if element_id is not None else None)
+        except PlaywrightError:
+            now = None
+        declared = [held for held in holds if held.label == record.label]
+        if now and all(held.accepts(now) for held in declared):
+            kept.append(replace(record, value=now))
+        else:
+            kept.append(record)
+    return kept
 
 
 async def lapsed_value(

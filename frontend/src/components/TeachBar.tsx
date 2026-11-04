@@ -42,7 +42,7 @@ export function TeachBar({ bar }: { bar: TeachWatching }) {
           </>
         ) : question ? (
           <p className="text-body font-semibold text-ink" data-testid="teach-question">
-            {TEACH.sameOrAsk(question.label)}
+            {question.kind === "day" ? TEACH.sameDay : TEACH.sameOrAsk(question.label)}
           </p>
         ) : (
           <>

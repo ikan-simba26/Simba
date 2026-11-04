@@ -169,6 +169,8 @@ export const TEACH = {
   watchingDetail: "Do the task on the website below.",
   count: (n: number) => (n === 1 ? "1 thing so far." : `${n} things so far.`),
   sameOrAsk: (label: string) => `Is what you typed in ${label} the same every time?`,
+  /** The same question about a day picked on a calendar (stage 2). */
+  sameDay: "Is this day the same every time?",
   same: "Same every time",
   askEach: "Ask each time",
   pointing: "Last thing: click the answer on the website.",

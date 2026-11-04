@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass, field, replace
 
@@ -100,20 +101,30 @@ RECORDER_JS = r"""
     window.__simbaTaught(event),
     new Promise((done) => setTimeout(() => done('go'), ANSWER_MS)),
   ]).catch(() => 'go');
+  let pending = null;
   const sent = new WeakMap();
+  // Boxes the helper typed in. A value the page writes itself — a station
+  // chosen from a list, a day picked on a calendar — is never typing.
+  const edited = new WeakSet();
   const commit = async (el) => {
-    if (!typed(el) || sent.get(el) === el.value) return;
+    if (!typed(el) || !edited.has(el) || sent.get(el) === el.value) return;
     sent.set(el, el.value);
+    // Kept: whatever the page writes into it from now on is the page's,
+    // until the helper types in it again.
+    edited.delete(el);
+    if (pending === el) pending = null;
     if (card(el)) return report({kind: 'card', box: box(el)});
     return report({kind: 'fill', box: box(el), secret: secret(el),
                    value: secret(el) ? null : el.value});
   };
   let passing = false;
-  // The last box typed in: committed before the next press even when the
-  // page never fired its change.
-  let pending = null;
+  // `pending`, above: the last box typed in, committed before the next
+  // press even when the page never fired its change.
   document.addEventListener('input', (event) => {
-    if (on() && typed(event.target)) pending = event.target;
+    if (on() && typed(event.target)) {
+      pending = event.target;
+      edited.add(event.target);
+    }
   }, true);
   document.addEventListener('focusin', (event) => {
     if (on() && typed(event.target) && card(event.target)) {
@@ -140,8 +151,14 @@ RECORDER_JS = r"""
       report({kind: 'point', point, box: box(el), text: words(el)});
       return;
     }
-    // Into a box to type in, or opening a list: nothing to keep yet.
-    if (typed(el) || el instanceof HTMLSelectElement || el instanceof HTMLOptionElement) return;
+    // Into a box: not held, since nothing can navigate, but said — a box
+    // that is read-only until clicked, or that opens a calendar, needs the
+    // click (2026-11-04, stage 2). Opening a list the page draws: nothing.
+    if (typed(el)) {
+      report({kind: 'click', point, box: box(el), text: ''});
+      return;
+    }
+    if (el instanceof HTMLSelectElement || el instanceof HTMLOptionElement) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const active = document.activeElement;
@@ -279,19 +296,21 @@ class Draft:
     #: What the answer said when it was pointed at, for the read-back only.
     example: str | None = None
 
+    @staticmethod
+    def asked_about(step: Step) -> bool:
+        """A move the helper is asked about: a typed value, a choice from a
+        list the page draws itself, or a day on a calendar (stage 2)."""
+        return (step.kind in ("fill", "select") and not step.secret) or step.day
+
     def open_question(self) -> int | None:
-        """The first typed value not yet asked about, by position."""
+        """The first such move not yet asked about, by position."""
         return next((index for index, item in enumerate(self.taught)
-                     if item.step.kind in ("fill", "select") and not item.step.secret
-                     and item.same is None), None)
+                     if self.asked_about(item.step) and item.same is None), None)
 
     def answer_question(self, index: int, same: bool) -> bool:
-        if not 0 <= index < len(self.taught):
+        if not 0 <= index < len(self.taught) or not self.asked_about(self.taught[index].step):
             return False
-        item = self.taught[index]
-        if item.step.kind not in ("fill", "select") or item.step.secret:
-            return False
-        item.same = same
+        self.taught[index].same = same
         return True
 
     def lines(self) -> list[str]:
@@ -302,31 +321,102 @@ class Draft:
         """The routine as it will be kept: every value answered, and what the
         page did after each move, read from where it went and what appeared."""
         assert self.answer is not None
+        taught = self._folded()
         steps: list[Step] = []
-        for index, item in enumerate(self.taught):
+        for index, item in enumerate(taught):
             step = item.step
             if step.kind in ("fill", "select") and not step.secret:
                 step = (replace(step, ask=False, value=item.typed) if item.same
                         else replace(step, ask=True, value=None))
-            after_url = (self.taught[index + 1].url if index + 1 < len(self.taught)
-                         else end_url)
+            if step.day:
+                step = replace(step, ask=not item.same)
+            after_url = taught[index + 1].url if index + 1 < len(taught) else end_url
             if path_of(after_url) != path_of(item.url):
                 step = replace(step, expect_url=path_of(after_url))
-            # Something the next move presses that was not on the page before
-            # this one: this move made it appear — a list opening on a typed
-            # name — and that is what its check waits for.
-            if index + 1 < len(self.taught):
-                following = self.taught[index + 1]
+            # Something the next move is made on that was not on the page
+            # before this one: this move made it appear — a list opening on a
+            # typed name, a box on the next part of a form — and that is what
+            # its check waits for.
+            if index + 1 < len(taught):
+                following = taught[index + 1]
                 wanted = (following.step.role, following.step.label)
-                if (following.step.kind in ("click", "select") and wanted not in item.labels
-                        and wanted in following.labels and following.step.label):
+                # Typing and then choosing from a list is a list choice, by its
+                # shape: what the page offered before the typing cannot be
+                # told, since the click into the box is not held (stage 2).
+                if (step.kind == "fill" and following.step.kind == "click"
+                        and following.step.role == "option" and following.step.label
+                        and not following.step.day):
+                    step = replace(step, expect_label=following.step.label, list_opens=True)
+                elif (wanted not in item.labels and wanted in following.labels
+                        and following.step.label and not following.step.day):
                     step = replace(step, expect_label=following.step.label,
                                    list_opens=step.kind in ("fill", "press"))
+                # Before a day asked each time: the calendar has to be open,
+                # which its own press for the next month says.
+                elif following.step.day and following.step.nav:
+                    step = replace(step, expect_label=following.step.nav)
+            # A list choice after a box asked each time is the person's
+            # choice: the option their answer names.
+            if (steps and step.kind == "click" and step.role == "option" and not step.day
+                    and steps[-1].kind == "fill" and steps[-1].ask
+                    and steps[-1].expect_label == step.label):
+                step = replace(step, pick=True)
             steps.append(step)
         answer = self.answer
         if answer_name and answer_name.strip():
             answer = replace(answer, name=" ".join(answer_name.split())[:60])
         return Routine(id="", label=label, start=self.start, steps=tuple(steps), answer=answer)
+
+    def _folded(self) -> list[Taught]:
+        """What was done, with two kinds of press folded into what they were
+        for: a click into a box that is then typed in, which becomes part of
+        the typing; and, before a day asked each time, the presses that moved
+        the calendar on, which become how to move it (`Step.nav`)."""
+        out: list[Taught] = []
+        for item in self.taught:
+            step = item.step
+            if (step.kind == "fill" and out and out[-1].step.kind == "click"
+                    and (out[-1].step.role, out[-1].step.label, out[-1].step.nth)
+                    == (step.role, step.label, step.nth)):
+                clicked = out.pop()
+                out.append(replace(item, step=replace(step, click_first=True), url=clicked.url,
+                                   labels=clicked.labels))
+                continue
+            if step.day and item.same is False:
+                moved: list[Taught] = []
+                while out and out[-1].step.kind == "click" and MONTH_PRESS.search(
+                        f"{out[-1].step.label} {out[-1].step.role}") and out[-1].step.role in (
+                        "button", "link"):
+                    moved.insert(0, out.pop())
+                nav = moved[-1].step.label if moved else None
+                out.append(replace(item, step=replace(step, nav=nav),
+                                   url=moved[0].url if moved else item.url,
+                                   labels=moved[0].labels if moved else item.labels))
+                continue
+            out.append(item)
+        return out
+
+
+#: A press that moves a calendar on or back: "Next Month", "Previous Month".
+MONTH_PRESS = re.compile(r"\b(month|next|previous|prev)\b", re.IGNORECASE)
+
+#: A calendar's month, as perception reads its banner: "2026 December".
+MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
+          "september", "october", "november", "december"]
+
+
+def shown_month(panel: str) -> tuple[int, int] | None:
+    """The (year, month) a calendar says it shows, or None."""
+    words = (panel or "").casefold().split()
+    year = next((int(w) for w in words if w.isdigit() and len(w) == 4), None)
+    month = next((MONTHS.index(w) + 1 for w in words if w in MONTHS), None)
+    return (year, month) if year and month else None
+
+
+def is_day(element: Element) -> bool:
+    """A day on a calendar: a number, in a panel that names a month."""
+    return (element.role == "option" and element.label.isdigit()
+            and shown_month(element.panel) is not None)
 
 
 class Teaching:
@@ -424,7 +514,8 @@ class Teaching:
                 return self._end(voice.TEACH_STOPPED_CHANGE)
             self._add(Step(kind="click", role=element.role, label=element.label,
                            nth=twin_index(elements, element),
-                           qualifier=element.qualifier or None, changes=changes), url, labels)
+                           qualifier=element.qualifier or None, changes=changes,
+                           day=is_day(element)), url, labels)
             return "go"
         if kind == "press":
             element = element_over(elements, event.get("box") or {})
@@ -491,7 +582,8 @@ def watching(teaching: Teaching, note: str | None = None) -> TeachWatching:
     if index is not None:
         item = draft.taught[index]
         question = TeachQuestion(step=index, label=item.step.label or item.step.role,
-                                 value=item.typed or "")
+                                 value=item.typed or "",
+                                 kind="day" if item.step.day else "typed")
     return TeachWatching(lines=draft.lines(), question=question, pointing=teaching.pointing,
                          note=note)
 

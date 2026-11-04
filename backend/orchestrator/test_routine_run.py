@@ -115,7 +115,8 @@ def test_the_bill_runs_from_its_tile_asking_only_the_number(billing_replica: str
     assert ending["llm_calls"] == 0
     assert ending["findings"][0]["label"] == "Amount due"
     assert ending["findings"][0]["values"] == ["14,382"]
-    assert ending["heading"] == "My bill" and ending["scope"] == voice.ROUTINE_SCOPE
+    assert ending["heading"] == f"My bill: {REFERENCE}"
+    assert ending["scope"] == voice.ROUTINE_SCOPE
     # With the picture of the real page, the amount ringed.
     assert ending["proof"] is not None and len(ending["proof"]["rings"]) == 1
 
