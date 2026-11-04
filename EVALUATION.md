@@ -7628,7 +7628,7 @@ trains; only a real link to another page of our copy believed to only open; a fi
 Confirm Booking only opens still meets its final screen; the details kept as labels, read on the
 person's own train, and a missing one meaning nothing is done.
 
-### The suite, and the host fit test that did not pass
+### The suite, and the host fit test
 
 On mains, at `9c0d472`, as two halves: **2011 passed, 12 skipped, 0 failed** (backend 1353 in
 1421s, frontend 658 in 1472s). The 12 skips are the usual ones.
@@ -7645,3 +7645,9 @@ MB free at 2026-11-04b; and the site view gave a picture 13 of 20 and 10 of 20 t
 where the covered view has given 20 of 20 since September. That points at the machine, not
 the change, but it is not proven, and **the branch was not merged**, as the task said to merge
 only when clean.
+
+**Re-run on 2026-11-05: 3 of 3** (580s), at `a8ee19f`, on mains, the same command. Before it the
+machine had 959 MB available of 8 GB (984 MB free), with Chrome still open at about 1 GB: about
+as little as during the second failure. So shortage of memory did not on its own make 100% fail,
+and the two failures are better read as intermittent at 100% than as caused by memory; what
+stands is that nothing the test uses changed on the branch. Merged into `main` after this run.

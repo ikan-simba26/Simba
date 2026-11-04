@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-04 (evening) · **2011 passing, 12 skipped, 0 failed** · backend 1353 in 1421s, frontend 658 in 1472s, as two halves, on mains, on `fix/show-me-once` at `9c0d472`, **not merged**: the host fit test (`SIMBA_HOST_TESTS=1`) passed 2 of 3 twice, failing at 100% each time at a different point, with nothing it uses changed and the machine short of memory (EVALUATION.md, 2026-11-04c). `main` is still as at stage 2: 1998 passing, host fit 3 of 3 (EVALUATION.md, 2026-11-04b). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-05 · **2011 passing, 12 skipped, 0 failed** · backend 1353 in 1421s, frontend 658 in 1472s, as two halves, on mains, on `fix/show-me-once` at `9c0d472`, **merged into `main` on 2026-11-05**: the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (580s) on a re-run, after 2 of 3 twice at 100% the evening before (EVALUATION.md, 2026-11-04c). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
 
 ---
 
@@ -95,6 +95,10 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
   Date, Departs, Passenger, Class, Fare, as the built-in booking's. 6 presses, 0 model calls.
 - Stage 2's three flagged items are settled by these; a routine file gains three optional keys
   (CONTRACT.md, `routine.import`).
+- **Merged into `main` on 2026-11-05**, after the host fit test passed 3 of 3 (580s) on a re-run.
+  It had failed at 100% twice, at a different point each time, with nothing it uses changed. The
+  re-run had about as little memory available (959 MB) as the second failure, so memory alone does
+  not explain those failures. **Open:** the host fit test may be intermittent at 100%.
 
 ### Changed on 2026-11-04 (later): Show me once, stage 2 — `feat/show-me-once`
 
