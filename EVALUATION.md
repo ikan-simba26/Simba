@@ -7555,3 +7555,93 @@ At `f4bdf16`, the overlay rebuilt first, every run's own header saying on mains 
 | Host fit test | **3 of 3** | 568s |
 
 **1998 passed, 12 skipped, 0 failed**: stage 1's 1983 and stage 2's 15. The same 12 skips.
+
+
+## 2026-11-04c — Show me once, fixes: the person's train, one final screen, its details
+
+Three of stage 2's flagged items, fixed on `fix/show-me-once` (DECISIONS.md, *Show me once,
+fixes*): the train is the person's choice, asked from the page's own rows; only the press that
+books gets a final screen; and that screen shows what, how much and when as the page states
+them, as the built-in booking's does.
+
+**Script:** `tools/evaluation/show_me_once.py 10 booking`, result in
+`logs/show_me_once_fix.json`. The booking taught once as in 2026-11-04b, then ten runs: five on
+Lahore Cantt to Karachi Cantt (the person choosing 7UP, 8DN, 7UP, 8DN, 7UP) and five on
+Hyderabad Jn to Sukkur, whose four trains are none of them the helper's 7UP (11UP, 12DN, 13UP,
+14DN, 13UP). Each run is checked on the confirmation page: the train booked is the one chosen,
+and its stations are the route asked for. **Conditions:** `9c0d472` on `fix/show-me-once` (the
+tree "dirty" only by the untracked `simba-logo-kit.zip`), on mains, processor at 170%, 564 MB
+free. A first pass on battery, at half the processor's speed, was a check that the script
+worked and is not recorded: the same counts, at 9.1s a run.
+
+| | Stage 2 (2026-11-04b) | Now |
+|---|---|---|
+| Moves kept | 11 | 11 |
+| Helper's presses, page / bar | 13 / 6 | 13 / 6 |
+| Runs | 10, one route | 10, two routes |
+| Completed, with a booking number and proof | 10 | **10** |
+| The person's train, on the route asked for | — (always 7UP) | **10 of 10** |
+| "Which train?" asked | 0 | 10 |
+| Final screens per run | 2 | **1** |
+| What the final screen shows | the button's name | **Train, From, To, Date, Departs, Passenger, Class, Fare** |
+| Presses for the person | 6 | 6 |
+| Checklist lines | 9 | 10 |
+| **Model calls** | **0** | **0** |
+| Wall clock (secondary) | mean 3.75s (3.6–3.9) | mean 4.01s (3.9–4.1) |
+
+**The person's presses** are the same in number and now all theirs to make: where from, where to,
+which day and the passenger's name before anything is touched, then "Which train?" from the
+results, then the one final screen. The press that opened the booking form, which had a final
+screen of its own, now runs as a checklist line once the train is chosen ("Opening Book train
+13UP"): one more line, one fewer screen.
+
+### What failed on the way, and was fixed
+
+1. **A route with no trains said the search did not work.** The search's own check waits for the
+   rows, and with none it failed first; the run stopped with "the button with no name didn't do
+   what it did when your helper showed me", which blames the site. It now says the page showed no
+   train to choose from (`test_a_route_with_no_trains_stops_and_says_so`).
+2. **The teaching test's check for selectors in a routine** looked for `[` in the routine's
+   JSON, and the new empty list of final details has one. It now checks every piece of text the
+   routine keeps, which is what it was for.
+3. Two of my new tests' own expectations were wrong (a row of one has no cells that differ; the
+   choices end with "Stop this"), and corrected.
+
+### Limits
+
+- The rows are read from a table perception reads as one, with a column whose values name each
+  row's press. A results list that is not a table, or presses named by something not in a cell,
+  are kept as the helper's fixed press, as before.
+- "Only opens" is believed for a real link to another page of our copy and nothing else. The
+  billing and registration copies have no such link before their change, so only the booking
+  shows the difference.
+- A final screen's details are the page's labels at the moment the helper pressed; the values
+  are read when it runs. A page whose summary changes its labels stops the run with nothing done.
+
+### The tests
+
+`backend/orchestrator/test_routine_lists.py` 14 → 27: six for the train, two for the one final
+screen, five for its details. The train kept as the person's to choose and
+shared that way in a file; the person booking 14DN and 13UP on a route the helper never searched;
+the rows offered and their words; a file's row press without `{}` refused; a route with no
+trains; only a real link to another page of our copy believed to only open; a file that says
+Confirm Booking only opens still meets its final screen; the details kept as labels, read on the
+person's own train, and a missing one meaning nothing is done.
+
+### The suite, and the host fit test that did not pass
+
+On mains, at `9c0d472`, as two halves: **2011 passed, 12 skipped, 0 failed** (backend 1353 in
+1421s, frontend 658 in 1472s). The 12 skips are the usual ones.
+
+**The host fit test (`SIMBA_HOST_TESTS=1`) did not pass: 2 of 3, twice**, failing at 100% both
+times and at a different point each time. First run (456s): the fit run's own picture of the
+overlay's home screen gave no frame within 4.0s (`capture_site`). Second run (535s): a press on
+Start on the overlay waited 30s for the button to be stable. 125% and 150% passed both times.
+Nothing this test uses changed on the branch: no file under `frontend/` or `shared/`, and the
+test drives a scripted backend, not the backend this branch changed (`git diff main --stat --
+frontend shared tools/evaluation/display_fit_run.py` is empty). The machine was short of memory:
+437 to 1,538 MB free of 8 GB, with Chrome holding 1.7 GB and Edge WebView 0.7 GB, against 1,600
+MB free at 2026-11-04b; and the site view gave a picture 13 of 20 and 10 of 20 times at 100%,
+where the covered view has given 20 of 20 since September. That points at the machine, not
+the change, but it is not proven, and **the branch was not merged**, as the task said to merge
+only when clean.

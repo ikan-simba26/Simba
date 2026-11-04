@@ -44,6 +44,9 @@ against commit `cc4704f`, and brought up to date since:
   the billing copy, end to end (below, and EVALUATION.md, 2026-11-04).
 - **2026-11-04, stage 2**: list choices and calendar days, a booking on the railways copy and a
   read-only lookup on the live train search (EVALUATION.md, 2026-11-04b).
+- **2026-11-04, `fix/show-me-once`**: in a taught booking the person chooses the train from the
+  page's own rows, only the press that books gets a final screen, and that screen shows what,
+  how much and when as the page states them (EVALUATION.md, 2026-11-04c).
 
 Section 9 is still the 2026-09-17 capture, and says so.
 
