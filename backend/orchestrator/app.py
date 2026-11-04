@@ -55,6 +55,7 @@ import sqlite3
 from dataclasses import replace
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, WebSocket
 
@@ -80,9 +81,21 @@ from backend.orchestrator.router import (
     use_model,
 )
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
+from backend.orchestrator.routines import NotARoutine, RoutineStore, export, file_name, parse
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
-from shared.schema import GoalAnswered, HistoryOffered, PastGoal, PersonalTile, TileChange
+from shared.schema import (
+    ErrorPayload,
+    GoalAnswered,
+    HistoryOffered,
+    PastGoal,
+    PersonalTile,
+    RoutineExport,
+    RoutineFile,
+    RoutineImport,
+    TaughtTile,
+    TileChange,
+)
 
 DEFAULT_DB = str(Path(__file__).resolve().parents[2] / "traces.db")
 # How many past goals the home screen offers. Three large cards is a choice;
@@ -204,7 +217,8 @@ async def health() -> dict[str, str]:
     }
 
 
-def past_goals(tiles: TileStore | None = None) -> HistoryOffered:
+def past_goals(tiles: TileStore | None = None,
+               routines: RoutineStore | None = None) -> HistoryOffered:
     """What this person has asked for before, most recent first — since the
     last "Forget me and start again", never before it (2026-10-21).
 
@@ -225,13 +239,21 @@ def past_goals(tiles: TileStore | None = None) -> HistoryOffered:
     # stay in the encrypted store.
     own = [PersonalTile(id=tile.id, label=tile.label, flow=tile.flow)
            for tile in (tiles.all() if tiles is not None else [])]
+    # And the routines helpers have shown (2026-11-04), by name and the
+    # site's host only: their moves stay in the encrypted store.
+    taught = [TaughtTile(id=r.id, label=r.label, site=urlsplit(r.start).netloc)
+              for r in (routines.all() if routines is not None else [])]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
                                  for goal, site in goals],
-                          tiles=own)
+                          tiles=own, routines=taught)
 
 
-def change_tile(tiles: TileStore, message: dict) -> bool:
-    """A `tile.change` from the home screen (2026-10-18). Whether it was one."""
+def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None = None) -> bool:
+    """A `tile.change` from the home screen (2026-10-18). Whether it was one.
+
+    A routine a helper showed (2026-11-04) is one of the person's tiles too:
+    renamed or removed by its id, and gone with the rest in a reset. It is not
+    moved: routines stand after the tiles, in the order they were kept."""
     if message.get("type") != "tile.change":
         return False
     try:
@@ -244,18 +266,59 @@ def change_tile(tiles: TileStore, message: dict) -> bool:
         # are never offered again — kept for replay and the evaluation, never
         # shown to the next person (2026-10-21).
         tiles.clear()
+        if routines is not None:
+            routines.clear()
         Vault().clear()
         try:
             TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB)).forget_the_person()
         except sqlite3.Error:
             log.warning("tiles: the reset could not be written to the trace store")
     elif change.action == "remove" and change.id:
-        tiles.remove(change.id)
+        if not tiles.remove(change.id) and routines is not None:
+            routines.remove(change.id)
     elif change.action == "rename" and change.id and change.label:
-        tiles.rename(change.id, change.label)
+        if not tiles.rename(change.id, change.label) and routines is not None:
+            routines.rename(change.id, change.label)
     elif change.action == "move" and change.id and change.to is not None:
         tiles.move(change.id, change.to)
     log.info("tiles: %s", change.action)
+    return True
+
+
+#: The `error` code for a routine's file that could not be kept (2026-11-04).
+ROUTINE_NOT_READ = "ROUTINE_NOT_READ"
+
+
+async def share_routine(connection: Connection, message: dict, tiles: TileStore,
+                        routines: RoutineStore) -> bool:
+    """A routine saved to a file, or read from one (2026-11-04). Whether the
+    message was one of those. Every value the helper typed is asked for in the
+    file (`routines.export`); a file read in is checked as data, and kept only
+    if there is room on the home screen."""
+    kind = message.get("type")
+    if kind == "routine.export":
+        try:
+            wanted = RoutineExport.model_validate(message.get("payload") or {})
+        except ValueError:
+            return True
+        routine = routines.get(wanted.id)
+        if routine is not None:
+            await connection.send("routine.file", RoutineFile(
+                label=routine.label, name=file_name(routine.label), file=export(routine)))
+            log.info("routines: one saved to a file")
+        return True
+    if kind != "routine.import":
+        return False
+    try:
+        text = RoutineImport.model_validate(message.get("payload") or {}).file
+        routine = parse(text)
+        if routines.add(routine, tiles=len(tiles.all())) is None:
+            raise NotARoutine("there is no room for it on the home screen")
+        log.info("routines: one read from a file")
+    except (ValueError, NotARoutine) as error:
+        log.info("routines: a file not kept: %s", error)
+        await connection.send("error", ErrorPayload(code=ROUTINE_NOT_READ, message=str(error)))
+    await connection.send("history.offered", past_goals(tiles, routines))
     return True
 
 
@@ -264,10 +327,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     connection = Connection(websocket, task_id="t_skeleton")
     tiles = TileStore()
+    routines = RoutineStore()
 
     # Offered before anything is asked for, so the home screen has something
     # to show the moment it connects.
-    await connection.send("history.offered", past_goals(tiles))
+    await connection.send("history.offered", past_goals(tiles, routines))
 
     # Channel B's other half: every step's page features, paired with whatever
     # telemetry the overlay sends about it, appended to `data/steps.jsonl`,
@@ -283,8 +347,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     async def before_the_task(message: dict) -> None:
         # The person's tiles changed on the home screen: answered with the
         # home screen's offer as it now stands (2026-10-18).
-        if change_tile(tiles, message):
-            await connection.send("history.offered", past_goals(tiles))
+        if change_tile(tiles, message, routines):
+            await connection.send("history.offered", past_goals(tiles, routines))
+            return
+        # A routine saved to a file, or read from one (2026-11-04).
+        if await share_routine(connection, message, tiles, routines):
             return
         # Nothing is sent back: an override is the person's own doing, and
         # there is no step on screen yet for a level to reshape.
