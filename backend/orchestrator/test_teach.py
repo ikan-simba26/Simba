@@ -374,3 +374,112 @@ def test_a_routine_with_no_name_is_asked_for_one(billing_replica: str,
 
     kept, _, _ = run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
     assert kept.label == "Bill" and kept.answer.name == "Amount"
+
+
+# --- safety, while teaching -----------------------------------------------------------
+
+
+async def _to_the_results(page, overlay) -> None:
+    await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+    await page.get_by_role("button", name="Check Bill").click()
+    await page.wait_for_url("**/bill")
+    await overlay.until(lambda o: len(o.bar()["lines"]) == 2)
+
+
+def test_on_a_live_site_a_press_that_pays_is_never_made(
+        billing_replica: str, tmp_path: Path, monkeypatch) -> None:  # noqa: F811
+    # The billing copy, taken for a live site: the rule is the host's, and
+    # this copy's host is ours.
+    monkeypatch.setattr(teaching, "on_replica", lambda url: False)
+
+    async def helper(page, overlay):
+        await _to_the_results(page, overlay)
+        await page.get_by_role("link", name="Pay this bill").click()
+        await overlay.until(lambda o: o.of("help.requested"))
+
+    store = RoutineStore(tmp_path / "r.json")
+    kept, overlay, url = run(_on_page(billing_replica, helper, store))
+    assert kept is None and store.all() == []
+    assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_STOPPED_CHANGE
+    # Held in the page and never let through: still on the results.
+    assert url.endswith("/bill")
+    # And nothing more was kept for it.
+    assert len(overlay.bar()["lines"]) == 2
+
+
+def test_on_our_copy_a_press_that_pays_is_kept_as_a_change(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await _to_the_results(page, overlay)
+        await page.get_by_role("link", name="Pay this bill").click()
+        await page.wait_for_url("**/bill/pay**")
+        await overlay.until(lambda o: len(o.bar()["lines"]) == 3)
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    _, overlay, url = run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+    assert "/bill/pay" in url
+    assert overlay.bar()["lines"][2] == voice.routine_line(
+        Step("click", "link", "Pay this bill", changes=True))
+    assert "final screen" in overlay.bar()["lines"][2]
+
+
+def test_a_card_box_stops_watching_before_anything_is_typed(tmp_path: Path) -> None:
+    page_html = ("data:text/html,<form><label>Card number "
+                 "<input name=pan autocomplete=cc-number></label></form>")
+
+    async def helper(page, overlay):
+        await page.get_by_label("Card number").click()
+        await overlay.until(lambda o: o.of("help.requested"))
+        await page.get_by_label("Card number").fill("4111111111111111")
+        await asyncio.sleep(0.5)
+
+    kept, overlay, _ = run(_on_page(page_html, helper, RoutineStore(tmp_path / "r.json")))
+    assert kept is None
+    assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_STOPPED_CARD
+    assert "4111" not in json.dumps(overlay.sent)
+
+
+def test_a_card_box_is_known_by_its_name_too(tmp_path: Path) -> None:
+    page_html = "data:text/html,<label>CVV <input name=cvv></label>"
+
+    async def helper(page, overlay):
+        await page.get_by_label("CVV").click()
+        await overlay.until(lambda o: o.of("help.requested"))
+
+    _, overlay, _ = run(_on_page(page_html, helper, RoutineStore(tmp_path / "r.json")))
+    assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_STOPPED_CARD
+
+
+def test_on_a_live_site_enter_that_would_submit_a_change_is_held(tmp_path: Path) -> None:
+    # A data: page is not one of ours, so it is a live site to the rule.
+    page_html = ("data:text/html,<form action='https://example.invalid/order'>"
+                 "<label>Quantity <input name=q></label><button>Place order</button></form>")
+
+    async def helper(page, overlay):
+        await page.get_by_label("Quantity").fill("2")
+        await page.get_by_label("Quantity").press("Enter")
+        await overlay.until(lambda o: o.of("help.requested"))
+
+    _, overlay, url = run(_on_page(page_html, helper, RoutineStore(tmp_path / "r.json")))
+    assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_STOPPED_CHANGE
+    assert url.startswith("data:")
+
+
+def test_no_room_on_the_home_screen_and_nothing_is_watched(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await overlay.until(lambda o: o.of("help.requested"))
+
+    async def full():
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page()
+            overlay = Overlay()
+            kept = await teach(page, overlay, billing_replica,
+                               RoutineStore(tmp_path / "r.json"), tiles=3)
+            await browser.close()
+            return kept, overlay
+
+    kept, overlay = run(full())
+    assert kept is None and overlay.types() == ["help.requested"]
+    assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_NO_ROOM
