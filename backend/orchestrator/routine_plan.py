@@ -22,6 +22,8 @@ try to work out the rest?" — and only a yes hands the rest to it.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
+from datetime import date, timedelta
 
 from backend.orchestrator import voice
 from backend.orchestrator.loop import Move, Planner, Task
@@ -40,13 +42,29 @@ MAX_TRIES = 3
 Fallback = Callable[[Task], Planner]
 
 
+def calendar_days(elements: list[Element]) -> list[Element]:
+    """The day cells of a calendar that is open: numbers in a panel that
+    says which month it shows."""
+    from backend.orchestrator.teach import is_day
+
+    return [e for e in elements if is_day(e)]
+
+
 def find(elements: list[Element], step: Step) -> Element | None:
     """The element a move was made on, on the page as it is now: same role,
     same label, the same qualifier when one was kept, and the same one of
     several alike. None when the page has no such element."""
+    if step.day and step.ask:
+        # The person's day: any day of an open calendar will do to start from.
+        days = calendar_days(elements)
+        return days[0] if days else None
     alike = [e for e in elements if e.role == step.role and e.label == step.label
              and (step.qualifier is None or e.qualifier == step.qualifier)]
     return alike[step.nth] if step.nth < len(alike) else None
+
+
+def months_apart(shown: tuple[int, int], wanted: date) -> int:
+    return (wanted.year - shown[0]) * 12 + wanted.month - shown[1]
 
 
 def routine_task(routine: Routine) -> Task:
@@ -59,7 +77,9 @@ def routine_task(routine: Routine) -> Task:
         about=About(finds=(Finds(routine.answer.name or routine.answer.reads,
                                  reads=routine.answer.reads),)),
         heading=routine.label,
-        scope=None if routine.changes else voice.ROUTINE_SCOPE,
+        # A change is only ever made on our copies (`loop.carry_out`), so a
+        # routine that makes one says it was the practice site (stage 2).
+        scope=voice.ROUTINE_PRACTICE_SCOPE if routine.changes else voice.ROUTINE_SCOPE,
     )
 
 
@@ -81,6 +101,10 @@ def _safe(step: Step) -> bool:
 
 def _doing(step: Step) -> str:
     where = step.label or step.role
+    if step.day:
+        return voice.DOING_CHOOSE_DAY
+    if step.pick:
+        return voice.DOING_PICK
     if step.kind == "fill":
         return voice.doing_type(where)
     if step.kind == "select":
@@ -148,15 +172,29 @@ class RoutinePlanner:
             self._stuck = self._stop
             return None
         if setback is not None and self._index > 0:
+            if self._index == len(self.routine.steps):
+                # The last move, which waits for the answer: done, and the
+                # answer is not there (stage 2).
+                return self._stopped(voice.ROUTINE_NO_ANSWER)
             # It was found, and it did not do what it did when it was shown.
             done = self.routine.steps[self._index - 1]
             return self._stopped(voice.routine_did_not_work(done.label or done.role))
         if self._index >= len(self.routine.steps):
             return None
         step = self.routine.steps[self._index]
-        if find(elements, step) is None:
-            return self._stopped(voice.routine_changed(step.label or f"the {step.role}"))
+        if step.pick:
+            chosen = self._chosen(self._index)
+            if self._option(elements, chosen) is None:
+                # The person's answer is not in the list the page opened.
+                self._stop = voice.not_in_list(chosen)
+                self._stuck = self._stop
+                return None
+        elif find(elements, step) is None:
+            where = "the calendar" if step.day else (step.label or f"the {step.role}")
+            return self._stopped(voice.routine_changed(where))
         move = self.move_for(self._index, elements)
+        if move is None:
+            return None
         self._index += 1
         self.replayed_steps += 1
         return move
@@ -180,16 +218,76 @@ class RoutinePlanner:
             self._model = self._fallback(self._task)
             self._stop = None
 
-    def move_for(self, index: int, elements: list[Element] | None = None) -> Move:
+    def _chosen(self, index: int) -> str:
+        """What a list choice is to choose: the answer to the box before it,
+        or what the helper typed there when it is the same every time."""
+        box = self.routine.steps[index - 1]
+        return self.answers.get(index - 1) or box.value or ""
+
+    @staticmethod
+    def _option(elements: list[Element], chosen: str) -> Element | None:
+        """The option the answer names: the one whose words are the answer,
+        else the first that holds them."""
+        options = [e for e in elements if e.role == "option" and e.qualifier != "disabled"]
+        want = chosen.casefold().strip()
+        return (next((e for e in options if e.label.casefold() == want), None)
+                or next((e for e in options if want and want in e.label.casefold()), None))
+
+    def _day_move(self, index: int, elements: list[Element]) -> Move | None:
+        """The person's day on the calendar: moved on to its month with the
+        press the helper used, then the day itself — the one in the month
+        shown, never a greyed day either side (as `railways_plan.TripPlanner`)."""
+        from backend.orchestrator.teach import shown_month
+
+        step = self.routine.steps[index]
+        wanted = date.fromisoformat(self.answers[index])
+        cells = calendar_days(elements)
+        shown = shown_month(cells[0].panel) if cells else None
+        apart = months_apart(shown, wanted) if shown else -1
+        if apart < 0 or (apart > 0 and not step.nav):
+            self._stuck = voice.WRONG_MONTH
+            return None
+        qualifier = "today" if wanted == date.today() else ""
+        operations = [Operation("click", Target("button", step.nav or "")) for _ in range(apart)]
+        operations.append(Operation("click", Target("option", str(wanted.day),
+                                                    qualifier=qualifier)))
+        return Move(instruction=voice.routine_do(step), detail="", operations=operations,
+                    expect=self._last(index, Expectation()), fields=[],
+                    actions=voice.actions(voice.GO_AHEAD), safe=True, doing=_doing(step),
+                    kind="date")
+
+    def _last(self, index: int, expect: Expectation) -> Expectation:
+        """The last move waits for the answer to be on the page (stage 2): a
+        search that fills a table in place has nothing else to wait for, and
+        the end check reads the page once."""
+        if index == len(self.routine.steps) - 1:
+            return replace(expect, has_value=self.routine.answer.reads)
+        return expect
+
+    def move_for(self, index: int, elements: list[Element] | None = None) -> Move | None:
         """One kept move as the loop runs it."""
         step = self.routine.steps[index]
-        element = find(elements, step) if elements is not None else None
-        target = Target(role=step.role, label=step.label, qualifier=step.qualifier)
+        if step.day and step.ask:
+            return self._day_move(index, elements or [])
+        element = find(elements, step) if elements is not None and not step.pick else None
+        label = step.label
+        if step.pick:
+            chosen = self._option(elements or [], self._chosen(index))
+            label = chosen.label if chosen is not None else self._chosen(index)
+        target = Target(role=step.role, label=label, qualifier=step.qualifier)
         # The first of several alike is what matching by role and label finds
         # anyway; any other is named by the id it has on this reading.
         element_id = element.id if element is not None and step.nth > 0 else None
-        expect = Expectation(url_contains=step.expect_url, label_present=step.expect_label,
-                             list_opens=step.list_opens)
+        expect = self._last(index, Expectation(
+            url_contains=step.expect_url, label_present=step.expect_label,
+            list_opens=step.list_opens))
+        # A box whose list choice comes next is typed with what will be
+        # chosen, so the list shows it (stage 2).
+        following = (self.routine.steps[index + 1]
+                     if index + 1 < len(self.routine.steps) else None)
+        if following is not None and following.pick and step.kind == "fill":
+            expect = replace(expect, label_present=None, label_like=self._chosen(index + 1),
+                             list_opens=True)
         fields: list[StepField] = []
         value = step.value
         key = None
@@ -203,10 +301,15 @@ class RoutinePlanner:
             value = None
         operation = Operation(kind=step.kind, target=target, value=value, value_key=key,
                               element_id=element_id)
+        operations = [operation]
+        if step.click_first:
+            # Read-only until clicked: the click first, as the train search's
+            # station boxes need (`railways_plan.TripPlanner`).
+            operations = [Operation("click", target, element_id=element_id), operation]
         if asks_consent(step):
-            return Move(instruction=voice.ASK_COOKIES, detail="", operations=[operation],
+            return Move(instruction=voice.ASK_COOKIES, detail="", operations=operations,
                         expect=expect, fields=[], actions=voice.yes_or_no(), kind="choose")
-        return Move(instruction=voice.routine_do(step), detail="", operations=[operation],
+        return Move(instruction=voice.routine_do(step), detail="", operations=operations,
                     expect=expect, fields=fields,
                     actions=voice.actions(voice.GO_AHEAD), safe=_safe(step),
                     doing=_doing(step), changes=step.changes)
@@ -215,45 +318,156 @@ class RoutinePlanner:
 class RoutineBrief:
     """What the person is asked before a routine runs: only what the helper
     said changes, one question at a time. The routine's name is the goal, and
-    nothing typed is read by the router or a model."""
+    nothing typed is read by the router or a model.
+
+    Stage 2: a box whose list choice follows is asked from the site's own list
+    when the page has one (read before anything is touched, as the train
+    search does: `details.read_stations`), and matched to it the same way
+    (`details.match_station`): one is that one, a few are asked about, none
+    is said. A day is asked as a journey's day is: Today, Tomorrow, or a day
+    typed in, read by `details.read_day`."""
 
     #: Not offered as a tile again: it is one (`loop.keep_offer`).
     keepable = None
 
-    def __init__(self, routine: Routine, fallback: Fallback | None = None) -> None:
+    def __init__(self, routine: Routine, fallback: Fallback | None = None,
+                 today: date | None = None) -> None:
         self.routine = routine
         self.goal = routine.label
         self.gave_up: str | None = None
         self.from_tile = routine.id
-        self._asking = list(routine.asks)
+        self.today = today or date.today()
+        steps = routine.steps
+        self._asking = [index for index in routine.asks
+                        if not steps[index].pick]
         self._answers: dict[int, str] = {}
         self._tries: dict[int, int] = {}
+        self._notes: dict[int, str] = {}
+        #: A few from the list, offered as buttons for the box at the front.
+        self._offered: list[str] = []
+        #: The day question has gone on to "Pick another day".
+        self._typing_day = False
+        #: The site's own list, for a box whose choice follows.
+        self.stations: list[str] | None = None
         self._fallback = fallback
         self.estimated_steps = len(self._asking) + len(routine.steps)
 
+    def _picks(self, index: int) -> bool:
+        steps = self.routine.steps
+        return index + 1 < len(steps) and steps[index + 1].pick
+
+    async def prepare(self, page) -> None:
+        """The site's own list, read without touching anything, when a box
+        asked about has its choice made from one."""
+        if not any(self._picks(index) for index in self._asking):
+            return
+        from backend.orchestrator.details import read_stations
+
+        names = await read_stations(page)
+        if len(names) >= 2:
+            self.stations = names
+
     def question(self) -> Move | None:
+        from backend.orchestrator.details import _picked, _typed
+
         if self.gave_up is not None or not self._asking:
             return None
         index = self._asking[0]
         step = self.routine.steps[index]
         where = step.label or step.role
-        ask = voice.routine_choose(where) if step.kind == "select" else voice.routine_ask(where)
+        note = self._notes.get(index)
+        if step.day:
+            if not self._typing_day:
+                return replace(_picked(voice.ASK_ROUTINE_DAY, [
+                    voice.DAY_TODAY, voice.DAY_TOMORROW, voice.DAY_PICK], kind="date"),
+                    detail=voice.ASKED_EACH_TIME, note=note)
+            return replace(_typed(voice.ASK_WHICH_DAY, voice.ASKED_EACH_TIME, f"value{index}",
+                                  voice.FIELD_DAY, voice.USE_DAY, kind="date"), note=note)
+        if self._offered:
+            return replace(_picked(voice.ASK_CLOSEST, [*self._offered, voice.NONE_OF_THESE],
+                                   kind="choose"), note=note)
+        listed = self.stations if self._picks(index) and self.stations else []
+        ask = (voice.routine_choose(where) if step.kind == "select" or self._picks(index)
+               else voice.routine_ask(where))
         return Move(instruction=ask, detail=voice.ASKED_EACH_TIME, operations=[],
                     expect=Expectation(),
-                    fields=[StepField(id=f"value{index}", label=where, type="text", value="")],
-                    actions=voice.actions(voice.USE_THIS), question=True, kind="type",
-                    note=voice.NOT_CAUGHT if self._tries.get(index) else None)
+                    fields=[StepField(id=f"value{index}", label=where,
+                                      type="choice" if listed else "text", value="",
+                                      options=list(listed))],
+                    actions=voice.actions(voice.USE_THIS), question=True,
+                    kind="choose" if listed else "type",
+                    note=note or (voice.NOT_CAUGHT if self._tries.get(index) else None))
 
-    def answered(self, action_id: str, input_values: dict[str, str]) -> None:  # noqa: ARG002
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:
+        from backend.orchestrator.details import choice_index
+
         index = self._asking[0]
+        step = self.routine.steps[index]
+        self._notes.pop(index, None)
+        if step.day:
+            self._answer_day(index, action_id, input_values)
+            return
+        if self._offered:
+            offered, self._offered = self._offered, []
+            picked = choice_index(action_id)
+            if picked is not None and picked < len(offered):
+                self._take(index, offered[picked])
+            return  # None of these: asked again, from the whole list
         typed = " ".join((input_values.get(f"value{index}") or "").split())
         if not typed:
-            self._tries[index] = self._tries.get(index, 0) + 1
-            if self._tries[index] >= MAX_TRIES:
-                self.gave_up = voice.NOT_UNDERSTOOD
+            self._again(index)
             return
-        self._answers[index] = typed
+        if not (self._picks(index) and self.stations):
+            self._take(index, typed)
+            return
+        from backend.orchestrator.details import match_station
+
+        found = match_station(typed, self.stations)
+        if found.station is not None:
+            self._take(index, found.station)
+        elif found.several:
+            self._offered = list(found.several)
+        else:
+            self._again(index)
+            self._offered = list(found.close)
+            self._notes[index] = voice.not_in_list(typed)
+
+    def _answer_day(self, index: int, action_id: str, input_values: dict[str, str]) -> None:
+        from backend.orchestrator.details import (
+            _coming_day_of_month,
+            choice_index,
+            day_trouble,
+            judge_day,
+            read_day,
+        )
+
+        if not self._typing_day:
+            picked = choice_index(action_id)
+            if picked in (0, 1):
+                self._take(index, (self.today + timedelta(days=picked)).isoformat())
+            else:
+                self._typing_day = True
+            return
+        typed = (input_values.get(f"value{index}") or "").strip()
+        reading = read_day(typed, self.today)
+        if reading.day is None and reading.problem is None and typed.isdigit():
+            found = _coming_day_of_month(int(typed), self.today)
+            reading = judge_day(found, self.today) if found else reading
+        if reading.day is None:
+            self._again(index)
+            self._notes[index] = day_trouble(reading, self.today) or voice.DAY_NOT_CAUGHT
+            return
+        self._typing_day = False
+        self._take(index, reading.day.isoformat())
+
+    def _take(self, index: int, answer: str) -> None:
+        self._answers[index] = answer
         self._asking.pop(0)
+
+    def _again(self, index: int) -> None:
+        self._tries[index] = self._tries.get(index, 0) + 1
+        if self._tries[index] >= MAX_TRIES:
+            self.gave_up = voice.NOT_UNDERSTOOD
 
     def settle(self) -> tuple[RoutinePlanner, Task]:
         task = routine_task(self.routine)
