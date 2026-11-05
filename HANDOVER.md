@@ -47,6 +47,9 @@ against commit `cc4704f`, and brought up to date since:
 - **2026-11-04, `fix/show-me-once`, merged 2026-11-05**: in a taught booking the person chooses the train from the
   page's own rows, only the press that books gets a final screen, and that screen shows what,
   how much and when as the page states them (EVALUATION.md, 2026-11-04c).
+- **2026-11-05, `eval/retrain-visual`**: Set 3's ratings in, the visual features compared and
+  not better, so the live model is unchanged; the overwhelm index beside people's ratings of 15
+  sites (EVALUATION.md, 2026-11-05).
 
 Section 9 is still the 2026-09-17 capture, and says so.
 
@@ -99,7 +102,10 @@ ratings, `python -m backend.estimator.train_visual` compares old against new and
 gate written before any of those ratings existed. Three things want your eye: whether adding
 `first_screen_text` is worth it at r = 0.98 with `text_density`; whether `motion` belongs in
 a model of stills; and what a pass should lead to, since the app measures only the nine
-(DECISIONS.md, *What the visual features can and cannot be*).
+(DECISIONS.md, *What the visual features can and cannot be*). **Answered on 2026-11-05**: with
+Set 3's 8 raters, the five add nothing held out, overall or on the Pakistani pages, and the gate
+kept the old model; `image_area` and `motion` carry no weight in any arm. The third question did
+not arise (EVALUATION.md, 2026-11-05; DECISIONS.md, *The visual features stay out*).
 
 **For Aly (2026-11-02): the brand, yours to review.** Raham approved it as visual
 polish under the freeze. `frontend/src/components/Brand.tsx` has the logo while SIMBA

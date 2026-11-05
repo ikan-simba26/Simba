@@ -1,6 +1,7 @@
 """Does seeing visual clutter help? The old features and the new, on the same pages.
 
     python -m backend.estimator.train_visual "<Set 1>.csv" "<Set 2>.csv" "<Set 3>.csv"
+    python -m backend.estimator.train_visual --min-ratings 5 --charts   # under the floor, named
 
 Reads the forms' CSVs as `tools.rating.retrain` does, then trains on Sets 1 to 3
 four times over the same pages and the same folds, so that a difference between
@@ -14,10 +15,17 @@ two lines is a difference between their features and nothing else:
 | `no_motion` | `new` without `motion`, which no still picture can show |
 
 **It refuses until every page has eight ratings**, as `train.py` does, and says how
-many more of which set. The one way round that is `--preview`, which runs on the
-pages of Sets 1 and 2 with the ratings they have and writes only to `.scratch/`: it
-can show the sums work, and it cannot pass the gate, because the pages the question
-is about are not in it.
+many more of which set. There are two ways round that. `--min-ratings 5` runs the
+real comparison with fewer, as `train.py --min-ratings` does: the report names every
+page below eight before any number, and the gate's first condition still fails, so it
+can say how far apart the arms are and cannot switch a model. `--preview` runs on the
+pages of Sets 1 and 2 alone and writes only to `.scratch/`: it can show the sums work,
+and it cannot pass the gate, because the pages the question is about are not in it.
+
+Each arm is reported overall and on the Pakistani pages alone, from the same held-out
+predictions; with its gain over `old`, pages resampled; and the old, new and five-alone
+arms with their features' importance. `--charts` draws the importance and the predicted
+ratings against people's, as SVG (`tools/evaluation/visual_charts.py`).
 
 **Whether the new model is better is decided by `GATE`, set before any Set 3 rating
 existed** (2026-11-02), so that the bar could not be fitted to the result. All must
@@ -72,6 +80,8 @@ SET3 = REPO / "data" / "rating" / "set3.json"
 #: Never `train.COEFFICIENTS`: that is what the running app reads.
 CANDIDATE = REPO / "data" / "estimator_visual.json"
 PREVIEW = REPO / ".scratch" / "visual-features" / "preview"
+#: Where `--charts` draws, by default: gitignored, beside the scratch of this work.
+CHARTS = REPO / ".scratch" / "retrain-visual"
 ALL_FEATURES = (*FEATURES, *VISUAL_FEATURES)
 ARMS: dict[str, tuple[str, ...]] = {
     "old": FEATURES,
@@ -80,7 +90,10 @@ ARMS: dict[str, tuple[str, ...]] = {
     "no_motion": tuple(name for name in ALL_FEATURES if name != "motion"),
 }
 LABELS = {"old": "Old: the nine", "new": "New: the nine and the five",
-          "visual": "The five alone", "no_motion": "New, without motion"}
+          "visual": "The five alone", "no_motion": "New, without motion",
+          "mean": "Predicting the training mean"}
+#: The arms whose features' importance is measured: the three the question names.
+IMPORTANCE_ARMS = ("old", "new", "visual")
 SET_OF_SITES = 3
 #: Ratings the preview makes do with, as the live model did (2026-10-30).
 PREVIEW_MIN_RATINGS = 5
@@ -218,12 +231,29 @@ class Comparison:
     steady_pages: int
     #: Anchor -> (Sets 1 and 2's mean, raters, Set 3's mean, raters).
     anchors: dict[tuple[str, str], tuple[float, int, float, int]]
-    #: Feature -> (R² lost when shuffled, its sd, standardised coefficient).
-    importance: dict[str, tuple[float, float, float]]
+    #: Arm -> feature -> (R² lost when shuffled, its sd, standardised coefficient),
+    #: for `IMPORTANCE_ARMS`.
+    importances: dict[str, dict[str, tuple[float, float, float]]]
     baseline: train.Repeated
     verdict: Verdict
     ceiling: float | None = None
     left_out: list[tuple[tuple[str, str], str]] = field(default_factory=list)
+    #: The floor this ran on, and the pages compared that have fewer than eight.
+    min_ratings: int = train.MIN_RATINGS
+    below_floor: list[tuple[tuple[str, str], int]] = field(default_factory=list)
+    #: Arm, and "mean" -> ((R², sd), (error, sd)) on the Pakistani pages alone, from
+    #: the same held-out predictions as the whole. Empty without them.
+    on_sites: dict[str, tuple[tuple[float, float], tuple[float, float]]] = \
+        field(default_factory=dict)
+    #: Arm -> its error lower than old's, mean and 95% interval, pages resampled.
+    gains: dict[str, tuple[float, float, float]] = field(default_factory=dict)
+    #: Which of `pages` are Set 3's.
+    sites: np.ndarray | None = None
+
+    @property
+    def importance(self) -> dict[str, tuple[float, float, float]]:
+        """The new model's, as reported since 2026-11-02."""
+        return self.importances["new"]
 
 
 def _matrix(pages: list[tuple[str, str]], features: dict, names: tuple[str, ...]) -> np.ndarray:
@@ -262,6 +292,15 @@ def across_sets(pages: list[tuple[str, str]], y: np.ndarray, x: dict[str, np.nda
         r2 = float(r2_score(y[test], scores)) if test.sum() > 1 else float("nan")
         found[name] = (float(mean_absolute_error(y[test], scores)), r2)
     return found
+
+
+def on_pages(y: np.ndarray, predicted: np.ndarray, chosen: np.ndarray
+             ) -> tuple[tuple[float, float], tuple[float, float]]:
+    """R² and error on the `chosen` pages alone, each shuffle scored on its own and
+    then averaged, as `train.repeated` does for all of them."""
+    r2s = [float(r2_score(y[chosen], row[chosen])) for row in predicted]
+    maes = [float(mean_absolute_error(y[chosen], row[chosen])) for row in predicted]
+    return (float(np.mean(r2s)), float(np.std(r2s))), (float(np.mean(maes)), float(np.std(maes)))
 
 
 def steady_pages(pages: list[tuple[str, str]], drift: dict) -> np.ndarray:
@@ -339,6 +378,7 @@ def compare(ratings: list[train.Rating], pages: Pages, min_ratings: int = train.
 
     arms: dict[str, Arm] = {}
     baseline: train.Repeated | None = None
+    base = np.zeros((repeats, len(y)))
     for name, names in ARMS.items():
         predicted, base = train.held_out_predictions(x[name], y, repeats)
         baseline = train.repeated(y, predicted, base)
@@ -347,8 +387,17 @@ def compare(ratings: list[train.Rating], pages: Pages, min_ratings: int = train.
                          levels=levels, heavy_caught=caught(y, levels.nested_bands),
                          errors=np.abs(predicted - y).mean(axis=0))
     assert baseline is not None
-    won = gain(y, arms["old"].predicted, arms["new"].predicted)
+    gains = {name: gain(y, arms["old"].predicted, arm.predicted)
+             for name, arm in arms.items() if name != "old"}
+    won = gains["new"]
     across = across_sets(order, y, x, pages.sites)
+    sites = np.array([key in pages.sites for key in order])
+    on_sites = {}
+    if sites.sum() > 1:
+        on_sites = {name: on_pages(y, arm.predicted, sites) for name, arm in arms.items()}
+        on_sites["mean"] = on_pages(y, base, sites)
+    below = [(key, coverage.counts.get(key, 0)) for key in order
+             if coverage.counts.get(key, 0) < train.MIN_RATINGS]
 
     steady = steady_pages(order, pages.drift)
     held = {}
@@ -358,8 +407,9 @@ def compare(ratings: list[train.Rating], pages: Pages, min_ratings: int = train.
             found = train.repeated(y[steady], predicted, base)
             held[name] = (found.r2[0], found.mae[0])
 
-    final = train._model().fit(x["new"], y)
-    importance = _importance(x["new"], y, ARMS["new"], final[-1].coef_)
+    importances = {name: _importance(x[name], y, ARMS[name],
+                                     train._model().fit(x[name], y)[-1].coef_)
+                   for name in IMPORTANCE_ARMS}
     floor_met = min_ratings >= train.MIN_RATINGS and not coverage.short
     verdict = judge_gate(floor_met and not preview, bool(pages.sites) and not preview,
                          synthetic == {True}, arms, won, across)
@@ -367,8 +417,9 @@ def compare(ratings: list[train.Rating], pages: Pages, min_ratings: int = train.
         synthetic=synthetic == {True}, preview=preview, agreement=train.agreement(kept),
         coverage=coverage, pages=order, y=y, x=x, arms=arms, gain=won, across=across,
         steady=held, steady_pages=int(steady.sum()), anchors=against_set3(kept),
-        importance=importance, baseline=baseline, verdict=verdict,
-        ceiling=train.reliability(kept), left_out=left_out)
+        importances=importances, baseline=baseline, verdict=verdict,
+        ceiling=train.reliability(kept), left_out=left_out, min_ratings=min_ratings,
+        below_floor=below, on_sites=on_sites, gains=gains, sites=sites)
 
 
 def _importance(x: np.ndarray, y: np.ndarray, names: tuple[str, ...], coefficients: np.ndarray
@@ -431,11 +482,20 @@ def report(found: Comparison, when: datetime | None = None) -> str:
         lines += [f"**A preview, not a result.** Under the floor, at {found.coverage.minimum} "
                   "ratings a page, and without the Pakistani pages the question is about. It "
                   "cannot pass the gate.", ""]
+    if found.below_floor and not found.preview:
+        lines += [f"**Below the study's floor.** {len(found.below_floor)} of {len(found.pages)} "
+                  f"pages have fewer than {train.MIN_RATINGS} ratings, so this ran with "
+                  f"`--min-ratings {found.min_ratings}`, which only a person asks for, and "
+                  f"the gate's first condition fails whatever else holds: " + "; ".join(
+                      f"{u} [{st}] ({n})" for (u, st), n in found.below_floor) + ".", ""]
     a = found.agreement
+    by_set = ", ".join(f"Set {s} {train._number(alpha)} ({a.raters_by_set.get(s, 0)} raters)"
+                       for s, alpha in sorted(a.alpha_by_set.items()))
     lines += [
         f"{a.raters} raters, {len(found.pages)} pages, alpha {train._number(a.alpha)}, "
         f"reliability {train._number(found.ceiling)}. Every arm on the same pages and folds, "
         f"{train.REPEATS} shuffles of {train.FOLDS} folds.", "",
+        *([f"Agreement within each set (alpha): {by_set}.", ""] if by_set else []),
         "| Arm | R² | Error | Nested kappa | Heavy pages caught |", "|---|---|---|---|---|"]
     for name, arm in found.arms.items():
         lines.append(f"| {LABELS[name]} | {arm.repeated.r2[0]:.3f} ± {arm.repeated.r2[1]:.3f} | "
@@ -445,6 +505,16 @@ def report(found: Comparison, when: datetime | None = None) -> str:
                  f"{found.baseline.baseline_mae[0]:.3f} | | |")
     lines += ["", f"Lower error, new against old: {found.gain[0]:.3f}, 95% interval "
               f"{found.gain[1]:.3f} to {found.gain[2]:.3f}, pages resampled {BOOTSTRAPS} times.", ""]
+    others = [(name, won) for name, won in found.gains.items() if name != "new"]
+    if others:
+        lines += ["Each other arm the same way, its error lower than old's: " + "; ".join(
+            f"{LABELS[name].lower()} {won[0]:.3f} ({won[1]:.3f} to {won[2]:.3f})"
+            for name, won in others) + ".", ""]
+    if found.on_sites and found.sites is not None:
+        lines += [f"On the {int(found.sites.sum())} Pakistani pages alone, held out in the same "
+                  "folds as the whole:", "", "| Arm | R² | Error |", "|---|---|---|",
+                  *[f"| {LABELS[name]} | {r2[0]:.3f} ± {r2[1]:.3f} | {mae[0]:.3f} ± {mae[1]:.3f} |"
+                    for name, (r2, mae) in found.on_sites.items()], ""]
     if found.across:
         lines += ["Fitted on Sets 1 and 2 alone, tested on the Pakistani pages:", "",
                   "| Arm | Error | R² |", "|---|---|---|",
@@ -461,11 +531,20 @@ def report(found: Comparison, when: datetime | None = None) -> str:
                   "| Anchor | Sets 1 and 2 (raters) | Set 3 (raters) |", "|---|---|---|",
                   *[f"| {u} [{st}] | {one:.2f} ({n}) | {three:.2f} ({m}) |"
                     for (u, st), (one, n, three, m) in found.anchors.items()], ""]
-    lines += ["The new model's features, held out:", "",
-              "| Feature | R² lost when shuffled | Coefficient (standardised) |", "|---|---|---|"]
-    for name, (lost, sd, coefficient) in sorted(found.importance.items(),
-                                                key=lambda item: -item[1][0]):
-        lines.append(f"| `{name}` | {lost:.3f} ± {sd:.3f} | {coefficient:+.3f} |")
+    shown = [name for name in IMPORTANCE_ARMS if name in found.importances]
+    lines += ["Each feature's importance, held out: R² lost when it is shuffled, and its "
+              "standardised coefficient, in each arm that has it. Sorted by the new model.", "",
+              "| Feature | " + " | ".join(LABELS[name] for name in shown) + " |",
+              "|---|" + "---|" * len(shown)]
+    for feature, _ in sorted(found.importance.items(), key=lambda item: -item[1][0]):
+        cells = []
+        for name in shown:
+            if feature in found.importances[name]:
+                lost, sd, coefficient = found.importances[name][feature]
+                cells.append(f"{lost:.3f} ± {sd:.3f}, {coefficient:+.3f}")
+            else:
+                cells.append("")
+        lines.append(f"| `{feature}` | " + " | ".join(cells) + " |")
     lines += ["", "### The gate", "", "| Condition | Met | |", "|---|---|---|",
               *[f"| {check.says} | {'yes' if check.passed else '**no**'} | {check.detail} |"
                 for check in found.verdict.checks], ""]
@@ -487,12 +566,14 @@ def says(verdict: Verdict) -> str:
             + "; ".join(failed) + ".")
 
 
-def run(paths: Paths, preview: bool = False) -> Comparison:
+def run(paths: Paths, preview: bool = False, min_ratings: int = train.MIN_RATINGS
+        ) -> Comparison:
     """The comparison, then the model and the report, each where it belongs. A
-    preview stays in `.scratch/`, and a synthetic run is kept out of EVALUATION.md."""
+    preview stays in `.scratch/`, and a synthetic run is kept out of EVALUATION.md.
+    `min_ratings` below eight is a person's choice, and the report says so."""
     pages = read_pages(paths)
     found = compare(train.read_ratings(paths.ratings), pages,
-                    PREVIEW_MIN_RATINGS if preview else train.MIN_RATINGS, preview,
+                    PREVIEW_MIN_RATINGS if preview else min_ratings, preview,
                     EFFORT["repeats"], EFFORT["nested"])
     candidate = paths.preview / "estimator_visual.json" if preview else paths.candidate
     save_candidate(found, candidate)
@@ -514,6 +595,11 @@ def main() -> None:
     parser.add_argument("csv", nargs="*", help="a form's responses, downloaded as CSV")
     parser.add_argument("--preview", action="store_true",
                         help="Sets 1 and 2 only, under the floor; writes only to .scratch/")
+    parser.add_argument("--min-ratings", type=int, default=train.MIN_RATINGS,
+                        help=f"compare with fewer than {train.MIN_RATINGS} ratings on a page; "
+                             "named in the report, and the gate stays shut")
+    parser.add_argument("--charts", type=Path, default=None, nargs="?", const=CHARTS,
+                        help=f"draw the charts as SVG, by default into {CHARTS}")
     args = parser.parse_args()
     paths = Paths()
     if args.csv:
@@ -524,17 +610,24 @@ def main() -> None:
             print(f"Not converted: {reason}")
             raise SystemExit(2) from None
     try:
-        found = run(paths, args.preview)
+        found = run(paths, args.preview, args.min_ratings)
     except RefusedToTrain as reason:
         print(f"Not training: {reason}")
         raise SystemExit(2) from None
     print(report(found))
+    if args.charts is not None:
+        from tools.evaluation import visual_charts
+        for drawn in visual_charts.write(found, args.charts):
+            print(f"Drawn: {drawn}")
     # Here rather than at the top: it reads this module's paths.
     from tools.evaluation import rescore_index
     try:
         candidate = paths.preview / "estimator_visual.json" if args.preview else paths.candidate
         out = paths.preview / "overwhelm-index" if args.preview else rescore_index.OUT
-        table = rescore_index.write_rescored(candidate, paths.visual, out, args.preview)
+        table = rescore_index.write_rescored(
+            candidate, paths.visual, out, args.preview,
+            by="new" if found.verdict.better else "live",
+            people=rescore_index.people(paths.ratings, paths.set3))
     except rescore_index.Unscored as reason:
         print(f"The overwhelm index was not worked out again: {reason}")
         raise SystemExit(2) from None
