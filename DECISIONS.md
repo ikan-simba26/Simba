@@ -5991,3 +5991,40 @@ reading rows and details off the page.
   rows are content, not something to press.
 - **The re-run's numbers go to their own file** (`logs/show_me_once_fix.json`), so the stage 2
   numbers for the bill and the live lookup are kept.
+
+
+## The visual features stay out: the old model is kept, and what was settled finding that out
+
+**Date:** 2026-11-05 (`eval/retrain-visual`). **Asked for, by Raham**: retrain with Set 3, compare
+old, new and the five alone, and make the new model live only if it is clearly better on held-out
+pages, with the loop changes that needs approved. **Decided by the gate set on 2026-11-02**: it is
+not better (five of six conditions fail, four of them with the floor aside), so the old model
+stays, `data/estimator.json` is unchanged, and no loop change was made (EVALUATION.md,
+2026-11-05). *What the visual features can and cannot be* (2026-11-02) said a pass would not go
+live because the app measures only the nine; Raham lifted that for this task, and it did not come
+into play. **Nahail to review**, since this is the estimator. Settled along the way, not asked for:
+
+- **`train_visual --min-ratings` keeps the gate's first condition failing.** The brief said to
+  use 5 where the floor is not met; the script had no way to, outside a preview without the
+  Pakistani pages. The flag lowers what the comparison accepts and names every page below 8; it
+  does not lower what a switch needs, because the gate was written before any Set 3 rating so that
+  the bar could not move with the result. *Alternative:* let a person's `--min-ratings` pass
+  condition 1, as the live model was put in under the floor on 2026-10-30. *Cost:* with Set 2 still
+  at 5 raters, no visual model can go live until three more Set 2 raters come, however good it is.
+  Today that cost nothing: the other conditions failed on their own.
+- **The overwhelm index was worked out again from the saved read, not by visiting 42 sites.**
+  `rescore_index` scores the 35 sites from 2026-11-02c's read, the same load as Set 3's pictures.
+  *Alternative:* `overwhelm_index` again, a third visit to every site for a model that has not
+  changed since 2026-11-02b. *Cost:* the read is three days old; a site changed since is ranked as
+  it was. The top ten came back the same as 2026-11-02b's, in the same order.
+- **The index is ranked by whichever model the gate kept**, with that model's reasons, what held
+  each page down as well as what pushed it up, and people's ratings beside the 15 sites they rated.
+- **Importance is not reported on the Pakistani pages alone.** Every arm's held-out R² there is
+  about zero, and importance is R² lost by shuffling, so the numbers would be noise.
+- **The charts are SVG written by the script**, not matplotlib, which is not installed: CLAUDE.md
+  asks before any dependency. *Cost:* a little drawing code to maintain (`visual_charts.py`).
+- **The candidate model is committed** (`data/estimator_visual.json`, `better_than_live: false`),
+  as the live model's files are, so the index's "New" column can be reproduced. It holds means and
+  coefficients, nothing about a rater. Nothing the app runs reads it; `page_model.load` refuses it.
+- **The live model was not refitted with Set 3's pages.** Not asked for. Flagged in STATUS.md, with
+  what it would cost.

@@ -71,6 +71,10 @@ from the version that produced its table.
 | 2026-11-02c | The five first-screen features of the rated pages and the sites | `visual_features` (**reads 43 live pages and our replicas, then 35 live sites; not for repeating**) |
 | 2026-11-02c | Old features against new, and the gate | `python -m backend.estimator.train_visual`, which refuses until Set 3 has answers; `--preview` runs on Sets 1 and 2 and writes only to `.scratch/` |
 | 2026-11-02c | The overwhelm index by the new model | `rescore_index`, from what was saved, visiting nothing |
+| 2026-11-05 | Raters, usable and dropped, per set | `python -m tools.rating.from_form "<Set 1>.csv" "<Set 2>.csv" "<Set 3>.csv"` |
+| 2026-11-05 | Old, new and the five alone on Sets 1 to 3, overall and on the Pakistani pages; the gate | `python -m backend.estimator.train_visual --min-ratings 5 --charts` |
+| 2026-11-05 | The overwhelm index by the live model, beside people's ratings | `python -m tools.evaluation.rescore_index --by live`, run by the line above, visiting nothing |
+| 2026-11-05 | The two charts | `tools/evaluation/visual_charts.py`, drawn by `train_visual --charts` into `.scratch/retrain-visual/` |
 
 Transcripts and raw results go to `logs/`, which is also gitignored. The
 scripts are reproducible; the outputs they wrote on the day are not in the
@@ -7651,3 +7655,279 @@ machine had 959 MB available of 8 GB (984 MB free), with Chrome still open at ab
 as little as during the second failure. So shortage of memory did not on its own make 100% fail,
 and the two failures are better read as intermittent at 100% than as caused by memory; what
 stands is that nothing the test uses changed on the branch. Merged into `main` after this run.
+
+---
+
+## 2026-11-05 — retrained with Set 3: the visual features are not better, and the old model stays
+
+`python -m tools.rating.from_form` on the three forms' CSVs, then `python -m
+backend.estimator.train_visual --min-ratings 5 --charts`, on `eval/retrain-visual`, asked for by
+Raham. **The new model is not better on held-out pages, so it does not go live**: it fails five of
+the gate's six conditions, and four of the five would fail with the floor met. `data/estimator.json`
+is unchanged and is still the model SIMBA runs. No loop change was made, since none is needed.
+The generated section is below as it was written, under its conditions block, with what was added
+by hand after it.
+
+**What the forms gave** (`from_form`; the CSVs are gitignored and stay in the repo root):
+
+| Set | Responses | Usable raters | Dropped, and why |
+|---|---|---|---|
+| 1 | 14 | 10 | 4 on a phone: 5001, 5004, 5010, 5011 |
+| 2 | 11 | 5 | 6 on a phone: 6001, 6002, 6005, 6007, 6009, 6011 |
+| 3 | 12 | 8 | 4 on a phone: 7002, 7004, 7008, 7012 |
+
+Nobody was dropped for not agreeing or for a missing answer. 23 usable raters, 610 rows. **Sets 1
+and 2 are exactly the rows trained on on 2026-10-30** (450 rows, checked row by row): the one new
+response, 6011 to Set 2, was on a phone. So Set 2 still has 5 usable raters.
+
+| Pages | Shown in | Ratings each (first showings) |
+|---|---|---|
+| 22 | Set 1 only | 10 |
+| 22 | Set 2 only | **5, under the floor of 8** |
+| 3 | Sets 1 and 2 (anchors) | 15 |
+| 3 | Sets 1, 2 and 3 (anchors) | 23 |
+| 15 | Set 3 only, the Pakistani sites | 8 |
+
+**`--min-ratings 5`, and only because of Set 2.** Every other page meets 8. Until today the real
+comparison had no such flag, only `--preview`, so `train_visual` gained one, as `train.py` has.
+The 21 compared pages under the floor are named in the generated section below; the 22nd,
+`text.npr.org`, is left out of every arm because robots.txt now disallows reading it. **Under the
+floor the gate's first condition fails, whatever else holds**: lowering what training accepts
+does not lower what a switch needs, because the gate was written before any Set 3 rating existed.
+That changed nothing today: the other conditions decide it on their own.
+
+**The two numbers to quote.**
+
+- Overall, the three arms are not distinguishable: held-out error 0.528 old, 0.524 new, 0.513
+  for the five alone, each gain's 95% interval across zero (new −0.025 to 0.030; five alone −0.040
+  to 0.072). The new model is worse at levels (nested kappa 0.654 against 0.697) and catches fewer
+  heavy pages (62% against 78%).
+- **On the 15 Pakistani pages no arm does better than knowing their average.** Held out in the
+  same folds: R² −0.019 old, −0.007 new, 0.056 five alone, every one within a standard deviation
+  of zero. Fitted on Sets 1 and 2 alone and tested on Set 3, the new model is much worse than the
+  old (error 0.811 against 0.603), because `image_area` on these pages is past anything in Sets 1
+  and 2 (median 0.70 against 0.006, 2026-11-02c) and the model extrapolates.
+
+**Rater agreement**: alpha 0.316 over all 23 raters; within each set 0.284 (Set 1), 0.357 (Set
+2) and **0.272 (Set 3, over its 18 pictures)**; reliability of the page means 0.782. The three
+anchors all three sets saw differ by 0.23 to 0.32 of a point between Set 3's raters and the
+others', in both directions, so Set 3's group rates much as the others do.
+
+**Importance on the Pakistani pages alone is not reported.** On them every arm's held-out R² is
+about zero, and importance is R² lost when a feature is shuffled: there is none to lose, so any
+figure would be noise. Importance is reported overall, for all three arms (below and in the chart).
+
+**What carries the prediction** is the same signal in every arm: words on the screen.
+`text_density` in the old (0.600 of R² lost), split with `first_screen_text` in the new (0.171
+and 0.175, r = 0.98 between them, as 2026-11-02c warned), and `first_screen_text` in the five
+alone (0.750). That is why the five alone is level with the nine: it carries a copy of the nine's
+best feature. **`image_area` and `motion` add nothing in any arm** (−0.004 and −0.005 in the new,
+−0.009 and −0.006 alone, each smaller than its own spread).
+
+### As generated by `train_visual`: the old features and the new, Sets 1 to 3
+
+**Below the study's floor.** 21 of 63 pages have fewer than 8 ratings, so this ran with `--min-ratings 5`, which only a person asks for, and the gate's first condition fails whatever else holds: http://127.0.0.1:5000/ [sign in] (5); http://127.0.0.1:5000/stubborn [as it loads] (5); http://127.0.0.1:5100/bill?reference=04141234567890 [as it loads] (5); http://demo.testfire.net/ [as it loads] (5); http://info.cern.ch/hypertext/WWW/TheProject.html [as it loads] (5); https://demo.opencart.com/ [as it loads] (5); https://demoqa.com/automation-practice-form [as it loads] (5); https://demoqa.com/modal-dialogs [open a demoqa modal] (5); https://developer.mozilla.org/en-US/docs/Web/HTML [as it loads] (5); https://element-plus.org/en-US/component/dialog.html [open an element plus dialog] (5); https://en.wikipedia.org/wiki/Cognitive_load [as it loads] (5); https://en.wikipedia.org/wiki/Main_Page [as it loads] (5); https://mui.com/material-ui/react-dialog/ [open a mui dialog] (5); https://parabank.parasoft.com/parabank/index.htm [as it loads] (5); https://practice.expandtesting.com/ [as it loads] (5); https://the-internet.herokuapp.com/ [as it loads] (5); https://www.bbc.co.uk/news [as it loads] (5); https://www.nhs.uk/ [as it loads] (5); https://www.pakrailways.gov.pk/train [as it loads] (5); https://www.saucedemo.com/ [as it loads] (5); https://www.theguardian.com/international [as it loads] (5).
+
+23 raters, 63 pages, alpha 0.316, reliability 0.782. Every arm on the same pages and folds, 40 shuffles of 5 folds.
+
+Agreement within each set (alpha): Set 1 0.284 (10 raters), Set 2 0.357 (5 raters), Set 3 0.272 (8 raters).
+
+| Arm | R² | Error | Nested kappa | Heavy pages caught |
+|---|---|---|---|---|
+| Old: the nine | 0.481 ± 0.037 | 0.528 ± 0.017 | 0.697 | 78% |
+| New: the nine and the five | 0.487 ± 0.033 | 0.524 ± 0.015 | 0.654 | 62% |
+| The five alone | 0.502 ± 0.026 | 0.513 ± 0.013 | 0.604 | 65% |
+| New, without motion | 0.492 ± 0.033 | 0.523 ± 0.016 | 0.681 | 70% |
+| Predicting the training mean | -0.039 | 0.744 | | |
+
+Lower error, new against old: 0.004, 95% interval -0.025 to 0.030, pages resampled 10000 times.
+
+Each other arm the same way, its error lower than old's: the five alone 0.016 (-0.040 to 0.072); new, without motion 0.005 (-0.017 to 0.027).
+
+On the 15 Pakistani pages alone, held out in the same folds as the whole:
+
+| Arm | R² | Error |
+|---|---|---|
+| Old: the nine | -0.019 ± 0.100 | 0.609 ± 0.028 |
+| New: the nine and the five | -0.007 ± 0.104 | 0.612 ± 0.033 |
+| The five alone | 0.056 ± 0.114 | 0.588 ± 0.036 |
+| New, without motion | 0.000 ± 0.096 | 0.600 ± 0.029 |
+| Predicting the training mean | -0.139 ± 0.055 | 0.631 ± 0.018 |
+
+Fitted on Sets 1 and 2 alone, tested on the Pakistani pages:
+
+| Arm | Error | R² |
+|---|---|---|
+| Old: the nine | 0.603 | -0.104 |
+| New: the nine and the five | 0.811 | -1.018 |
+| The five alone | 0.845 | -1.298 |
+| New, without motion | 0.622 | -0.224 |
+
+Without the pages drifted past 25% of the screen (59 of 63 left):
+
+| Arm | R² | Error |
+|---|---|---|
+| Old: the nine | 0.466 | 0.540 |
+| New: the nine and the five | 0.465 | 0.540 |
+| The five alone | 0.492 | 0.523 |
+| New, without motion | 0.467 | 0.539 |
+
+Set 3's raters against those of Sets 1 and 2, on the same pictures:
+
+| Anchor | Sets 1 and 2 (raters) | Set 3 (raters) |
+|---|---|---|
+| https://demo.applitools.com/ [as it loads] | 1.27 (15) | 1.50 (8) |
+| https://getbootstrap.com/docs/5.3/components/modal/ [open a bootstrap modal] | 2.80 (15) | 3.12 (8) |
+| https://news.ycombinator.com/ [as it loads] | 3.73 (15) | 3.50 (8) |
+
+Each feature's importance, held out: R² lost when it is shuffled, and its standardised coefficient, in each arm that has it. Sorted by the new model.
+
+| Feature | Old: the nine | New: the nine and the five | The five alone |
+|---|---|---|---|
+| `first_screen_text` |  | 0.175 ± 0.117, +0.224 | 0.750 ± 0.383, +0.530 |
+| `text_density` | 0.600 ± 0.338, +0.423 | 0.171 ± 0.118, +0.213 |  |
+| `links` | 0.211 ± 0.193, +0.222 | 0.094 ± 0.110, +0.147 |  |
+| `first_screen_links` |  | 0.056 ± 0.084, +0.105 | 0.093 ± 0.118, +0.144 |
+| `overlays` | 0.056 ± 0.072, +0.111 | 0.030 ± 0.042, +0.085 |  |
+| `form_fields` | 0.030 ± 0.058, -0.077 | 0.011 ± 0.032, -0.056 |  |
+| `max_depth` | 0.029 ± 0.064, -0.101 | 0.011 ± 0.036, -0.070 |  |
+| `covered` |  | 0.009 ± 0.022, +0.041 | 0.045 ± 0.067, +0.132 |
+| `dead_link_ratio` | 0.008 ± 0.067, +0.094 | 0.004 ± 0.044, +0.073 |  |
+| `interactive` | 0.013 ± 0.042, +0.056 | 0.002 ± 0.020, +0.037 |  |
+| `inferred` | 0.002 ± 0.046, -0.063 | -0.003 ± 0.031, -0.045 |  |
+| `image_area` |  | -0.004 ± 0.013, +0.021 | -0.009 ± 0.028, +0.041 |
+| `motion` |  | -0.005 ± 0.041, +0.053 | -0.006 ± 0.064, +0.086 |
+| `reading_grade` | -0.013 ± 0.021, +0.006 | -0.013 ± 0.024, +0.008 |  |
+
+### The gate
+
+| Condition | Met | |
+|---|---|---|
+| real ratings, the floor met, and Set 3 in them | **no** | under the floor |
+| held-out error lower, its 95% interval above zero | **no** | 0.524 against 0.528; lower by 0.004, 95% interval -0.025 to 0.030 |
+| held-out R² higher | yes | 0.487 against 0.481 |
+| levels no worse (nested kappa) | **no** | 0.654 against 0.697 |
+| heavy pages caught no fewer | **no** | 62% against 78% |
+| Pakistani pages: lower error, fitted on Sets 1 and 2 alone | **no** | 0.811 against 0.603 |
+
+**The old model stays.** `data/estimator.json` is unchanged. Not met: real ratings, the floor met, and Set 3 in them; held-out error lower, its 95% interval above zero; levels no worse (nested kappa); heavy pages caught no fewer; Pakistani pages: lower error, fitted on Sets 1 and 2 alone.
+
+Left out, 2 pages: https://lite.cnn.com/ [as it loads]: disallowed by robots.txt; https://text.npr.org/ [as it loads]: disallowed by robots.txt
+
+```text
+========================================================================
+taken at    2026-11-05T21:17:15+05:00
+git         b7d816cd463f on eval/retrain-visual — DIRTY TREE, the commit does not describe this run
+python      3.12.3 at D:\simba\backend\venv\Scripts\python.exe
+playwright  1.62.0
+model       openai gemini-3.1-flash-lite (from .env)
+machine     Windows-11-10.0.26200-SP0, 8 cpus, load 2%
+power       on mains, processor at 50% of rated speed, 1051 MB memory free
+switches    none set
+========================================================================
+```
+
+The conditions block says `model openai gemini-3.1-flash-lite (from .env)`: it reads `.env`
+whatever runs. **No language model was called.** The tree was dirty because the code was not yet
+committed; `train_visual.py` did not change after this run, and the two later fixes (below) touch
+only the index's report and the chart.
+
+### The overwhelm index again, by the better model, which is the live one
+
+`python -m tools.evaluation.rescore_index --by live`, which `train_visual` now runs itself, ranking
+by whichever model the gate kept. **Nothing was visited.** It scores the 35 sites from the read of
+2026-11-02c (`data/visual_features.json`), the same load Set 3's pictures came from, so a site's
+features and the picture people rated are of one page. The live model is the one ranked in
+2026-11-02b, so this is that index on a second read. The full table, with every reason, is in
+`.scratch/overwhelm-index/visual/report.md`; it is not committed, as the first index is not.
+
+| # | Highest ten | Category | Live | People (8 raters) | Pushed up by | Held down by |
+|---|---|---|---|---|---|---|
+| 1 | MCB | Banks | 2.54 | | many buttons and boxes, many links (217) | a deeply nested layout, little text on screen |
+| 2 | Directorate of Passports | Government services | 2.38 | | nothing much | a deeply nested layout |
+| 3 | University of the Punjab | Universities | 2.36 | 3.12 | nothing much | a deeply nested layout |
+| 4 | Government of Sindh | Government services | 2.29 | | many links (326) | little text on screen, a deeply nested layout |
+| 5 | Higher Education Commission | Universities | 2.23 | | many links (198) | a deeply nested layout |
+| 6 | SSGC | Utilities | 2.12 | | many links (181) | little text on screen, a deeply nested layout |
+| 7 | IESCO | Utilities | 2.04 | 2.12 | a shallow, plain layout | little text on screen, few links (84) |
+| 8 | Karachi Water | Utilities | 2.03 | 2.44 | many buttons and boxes | little text on screen, few links (36) |
+| 9 | Bank Alfalah | Banks | 2.02 | 1.50 | nothing much | little text on screen, few links (56), a deeply nested layout |
+| 10 | Meezan Bank | Banks | 2.02 | | nothing much | little text on screen |
+
+| # | Lowest five | Category | Live | People (8 raters) | Pushed up by | Held down by |
+|---|---|---|---|---|---|---|
+| 31 | University of Karachi | Universities | 1.64 | | many links (150) | a deeply nested layout, little text on screen |
+| 32 | Pakistan Railways | Transport | 1.64 | | nothing much | little text on screen, few links (17), a deeply nested layout |
+| 33 | National Bank of Pakistan | Banks | 1.58 | 2.25 | many links (141) | a deeply nested layout, little text on screen |
+| 34 | Ufone | Telecoms | 1.51 | | nothing much | little text on screen, a deeply nested layout, few links (53) |
+| 35 | Shaukat Khanum | Health | 1.47 | | nothing much | a deeply nested layout, little text on screen, many things to fill in |
+
+**Every page is band 1 or 2 and opens at SIMBA's level 2; none is heavy.** The top ten are the
+same ten as 2026-11-02b, in the same order, within 0.02 of a point, and the bottom five are the
+same five, two of them swapped: the nine features read the same on a second visit. The table
+spans 1.07 of a point against the model's held-out error of about 0.5, so neighbours are still
+not a ranking. What held pages down: little text on screen (32 of 35), a deeply nested layout
+(27), few links (15); what pushed some up: many links (10), many buttons and boxes (4).
+
+**The question 2026-11-02b could not answer, answered for 15 sites.** It said the model's "calm"
+should not be believed until people rated these pages. They have now:
+
+| | Live model, on pages it never saw |
+|---|---|
+| Error against people's means | 0.61 |
+| Leans (model minus people) | **−0.32**: calmer than people say |
+| Order kept (Spearman, 15 sites) | 0.28 |
+| Heavy by people / by the model | 1 (Zong, 3.50) / 0 |
+
+People rate these sites 2.22 on average, against 2.49 for the other rated pages: **mostly calm to
+middling, as the model said, but not in the order it said.** Zong, people's heaviest at 3.50, is
+17th; National Highway Authority, 3.12, is 16th; Bank Alfalah, 1.50, is 9th. The model's "calm"
+was roughly right in level and wrong about which. The report beside the table gives the new model
+error 0.52 and order 0.64 on the same 15: **that row is not held out**, because the new model was
+fitted on these very ratings, and the report says so. Held out, it does no better (above).
+
+### Charts
+
+In `.scratch/retrain-visual/`, gitignored, each with a CSV of the numbers it draws:
+`importance.svg` (held-out importance for old, new and five alone, one shared scale), and
+`predicted.svg` (held-out prediction against people's mean, one panel per arm, Pakistani pages
+as orange squares). The second shows the finding in one look: in every panel the 15 orange
+squares lie along a predicted 2, across people's ratings from 1.06 to 3.50. PNGs beside them were
+rendered from the SVGs in headless Chromium, not by capturing the screen.
+
+### What failed, and was fixed
+
+1. **The real comparison could not run under the floor.** `train_visual` had only `--preview`,
+   which leaves out the Pakistani pages. It now takes `--min-ratings`, names the pages below 8
+   before any number, writes the floor into the candidate model, and keeps the gate shut.
+2. **The index's reasons were counted by their numbers.** "many links (217)" and "many links
+   (326)" were two reasons, so the first report said many links had pushed up 1 page, not 10.
+   Found by reading the report against 2026-11-02b's; now counted without the number.
+3. **The index's comparison with people flattered the new model.** Its first version put the new
+   model's in-sample fit (0.52, order 0.64) beside the live model's honest test (0.61, 0.28) as if
+   alike, which read as the opposite of the gate. Found by checking it against the held-out
+   figures; the report now says the new row is not held out.
+4. **The scatter cut its scale at 4.5**, so pages rated or predicted above it were drawn over the
+   panel titles. Seen on the rendered picture, not by a test; the scale is now 1 to 5 and a test
+   holds every point inside its panel.
+
+### Limits
+
+- Everything 2026-11-02b and 2026-11-02c say about the raters still holds: 23 people, none from
+  the audience, judging a still picture, agreeing weakly.
+- 15 Pakistani pages with 8 raters each is a small test: one rater moves a page's mean by up to
+  half a point, and Spearman over 15 pages has a wide interval.
+- The `old` arm is the nine refitted on these 63 pages. The live model is the nine fitted on
+  Sets 1 and 2's 50 on 2026-10-30, and is what the index uses.
+- `motion` and `image_area` were tested as a still shows them. Whether a moving page overwhelms a
+  person *using* it is not what raters were asked.
+
+### The tests
+
+`backend/estimator/test_train_visual.py` 50 (10 new), `tools/evaluation/test_rescore_index.py` 15
+(8 new), `tools/evaluation/test_visual_charts.py` 5 (new): synthetic ratings in a temporary
+folder, none touching `data/estimator.json`. **8 deliberate breakages, each caught**: the floor
+notice dropped, the gate relaxed under the floor, the Pakistani figures taken from the mean
+instead of the model, reasons counted with their numbers, the in-sample warning dropped, the index
+ranked by the new model when the live one was kept, an answer to another picture counted, and the
+scatter's scale cut at 4.5.
