@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-05 · **2011 passing, 12 skipped, 0 failed** · backend 1353 in 1421s, frontend 658 in 1472s, as two halves, on mains, on `fix/show-me-once` at `9c0d472`, **merged into `main` on 2026-11-05**: the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (580s) on a re-run, after 2 of 3 twice at 100% the evening before (EVALUATION.md, 2026-11-04c). The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-09-17h, 2026-10-17e, 2026-11-01b)
+**Last updated:** 2026-11-05 · **2034 passing, 12 skipped, 0 failed** · backend 1376 in 1610s, frontend 658 in 1471s, as two halves, on mains, on `eval/retrain-visual` at `7846a9d`, then merged into `main`: the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (565s), on mains, after `npm run build`. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-11-05b)
 
 ---
 
@@ -81,6 +81,23 @@ much and when as the page states them.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-05: the visual retrain — `eval/retrain-visual`
+
+- **Set 3 is in, and the visual features are not better.** 37 responses, 23 usable raters (10, 5
+  and 8; 14 on a phone dropped). Old, new and the five alone on the same 63 pages and folds: error
+  0.528, 0.524 and 0.513, no gain told from nothing; on the 15 Pakistani pages no arm beats knowing
+  their average (held-out R² −0.02 to 0.06). The gate fails five of six, **so the old model stays
+  live, `data/estimator.json` unchanged, and the loop was not touched** (EVALUATION.md, 2026-11-05).
+- **Still under the floor, on Set 2 alone**: 21 compared pages have 5 ratings. The one new Set 2
+  response was on a phone. Three more usable Set 2 raters is still what fixes it.
+- **People have now rated 15 of the index's sites**, and the live model reads them a third of a
+  point calmer than people do (error 0.61, order kept 0.28). Mostly calm, as it said; not in its
+  order. Its top ten on a second read are 2026-11-02b's, in the same order.
+- **New**: `train_visual --min-ratings`, `--charts` (`visual_charts.py`, SVG), and the index ranked
+  by the model the gate keeps (`rescore_index --by`). Charts in `.scratch/retrain-visual/`.
+- **Flagged**: refitting the live nine on Sets 1 to 3; the conditions block naming a language
+  model on runs that call none. See the task report and DECISIONS.md.
 
 ### Changed on 2026-11-04 (evening): Show me once, fixes — `fix/show-me-once`
 
@@ -1633,6 +1650,12 @@ On `feat/railways-ask`, **not merged**.
   signs; `tools/evaluation/estimator_compare.py` holds it against the rules;
   `tools/rating/retrain.py` is one command for all of it. Page side only: it is
   not yet fused with what the person does (EVALUATION.md, 2026-10-30 to c).
+- **The visual features, compared and not adopted** (2026-11-05): five first-screen
+  features (`tools/evaluation/visual_features.py`), Set 3's 15 Pakistani pages rated by 8
+  people, and `train_visual.py` holding old, new and the five alone against a gate set
+  before the ratings. Not better, overall or on the Pakistani pages; the live model is the
+  nine. `data/estimator_visual.json` is the candidate, never read by the app
+  (EVALUATION.md, 2026-11-05).
 - **Two sets of 30** (2026-10-23, replacing the A/B forms of 2026-10-22): the
   50 pages in two balanced sets of 25 (`tools/rating/session.split`), three
   anchors each way and two repeats, a five-point labelled question, two worked
@@ -1686,6 +1709,12 @@ On `feat/railways-ask`, **not merged**.
    them. CLAUDE.md's table says "fuses"; that is not built.
 1b. **Three more usable Set 2 raters** bring every page to the floor (RUNNING.md,
    *Retraining the estimator*). Until then the model on `main` is under it.
+1b2. **Pictures of text are still unseen, and now measured as such** (2026-11-05). On
+   the 15 rated Pakistani sites the live model is a third of a point calmer than people
+   (error 0.61, Spearman 0.28), and no arm, with or without the five visual features,
+   orders them better than their average. `image_area` and `motion` carried nothing.
+   Seeing words set in pictures would mean reading text out of images: a new dependency,
+   past the freeze, so not proposed. Whether to refit the nine on Sets 1 to 3 is flagged.
 1c. **Who the raters are.** 13 of 15 aged 18–24, 10 of 15 in computing, judging a
    picture rather than using a page, and none from the audience. Set 2's five
    are the less technical group (four of five, against one of Set 1's ten).

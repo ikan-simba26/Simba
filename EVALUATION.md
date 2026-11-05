@@ -7931,3 +7931,17 @@ notice dropped, the gate relaxed under the floor, the Pakistani figures taken fr
 instead of the model, reasons counted with their numbers, the in-sample warning dropped, the index
 ranked by the new model when the live one was kept, an answer to another picture counted, and the
 scatter's scale cut at 4.5.
+
+## 2026-11-05b — the suite on `eval/retrain-visual`, before merging
+
+At `7846a9d`, on mains at the start and end of every run, with 1.3 to 1.7 GB of memory free.
+
+| Run | Passed | Skipped | Failed | Time |
+|---|---|---|---|---|
+| Backend half (`backend tools test_basetemp.py`) | 1376 | 9 | 0 | 1610s |
+| Frontend half (`frontend`) | 658 | 3 | 0 | 1471s |
+| Host fit test (`SIMBA_HOST_TESTS=1`, after `npm run build`) | 3 | 0 | 0 | 565s |
+
+2034 in all, 23 more than on 2026-11-05's merge of `fix/show-me-once`: the 23 new tests of this
+branch. The 12 skips are the usual 12. The host fit test passed first time at 100%, which
+STATUS.md had left open as possibly intermittent: one more pass, not proof it is not.
