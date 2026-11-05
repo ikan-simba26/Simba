@@ -316,6 +316,105 @@ def test_ratings_that_mix_synthetic_and_real_are_refused(tmp_path: Path) -> None
         compared(paths)
 
 
+# --- under the floor, when a person asks -------------------------------------------------
+
+
+def thinned(paths: Paths, form: int = 2, keep: int = 5) -> Paths:
+    """The same study with only `keep` raters left in `form`: under the floor there."""
+    rows = [json.loads(line) for line in paths.ratings.read_text(encoding="utf-8").splitlines()]
+    rows = [r for r in rows if r["set"] != form or r["rater"] - 1000 * form < keep]
+    paths.ratings.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    return paths
+
+
+def test_a_real_run_still_refuses_under_the_floor_unless_asked(tmp_path: Path) -> None:
+    with pytest.raises(RefusedToTrain, match="3 more Set 2 raters"):
+        compared(thinned(world(tmp_path)))
+
+
+def test_asked_for_it_runs_under_the_floor_and_names_every_page_below_it(tmp_path: Path) -> None:
+    paths = thinned(world(tmp_path))
+    found = compared(paths, min_ratings=5)
+    design = train.read_design(paths.design)
+    set2 = {key for key in found.pages if design.get(key) == {2}}
+    assert set2 and {key for key, _ in found.below_floor} == set2
+    assert {n for _, n in found.below_floor} == {5}
+    assert found.min_ratings == 5
+
+
+def test_under_the_floor_the_gate_stays_shut_however_good_the_model(tmp_path: Path) -> None:
+    """The gate was set before any Set 3 rating: a person asking for fewer ratings
+    lowers what training refuses, not what a switch needs."""
+    found = compared(thinned(world(tmp_path, rated=60, synthetic=False)), min_ratings=5)
+    assert not found.verdict.better
+    first = found.verdict.checks[0]
+    assert not first.passed and first.detail == "under the floor"
+
+
+def test_the_report_says_it_is_under_the_floor_before_any_number(tmp_path: Path) -> None:
+    found = compared(thinned(world(tmp_path)), min_ratings=5)
+    text = train_visual.report(found)
+    floor = text.index("Below the study's floor")
+    assert floor < text.index("| Arm |")
+    named = text[floor:text.index("\n\n", floor)]
+    assert all(key[0] in named for key, _ in found.below_floor)
+    assert "--min-ratings 5" in named
+
+
+def test_a_run_passes_on_the_floor_it_was_given(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    paths = thinned(world(tmp_path))
+    monkeypatch.setattr(train_visual, "EFFORT", {"repeats": REPEATS, "nested": NESTED})
+    with pytest.raises(RefusedToTrain):
+        train_visual.run(paths)
+    found = train_visual.run(paths, min_ratings=5)
+    assert found.min_ratings == 5
+    assert "Below the study's floor" in paths.evaluation.read_text(encoding="utf-8")
+    assert json.loads(paths.candidate.read_text(encoding="utf-8"))["min_ratings"] == 5
+
+
+# --- what each arm is asked, overall and on the Pakistani pages ---------------------------
+
+
+def test_the_pakistani_pages_are_scored_from_the_same_held_out_predictions(tmp_path: Path) -> None:
+    from sklearn.metrics import mean_absolute_error, r2_score
+    found = compared(world(tmp_path))
+    sites = np.array([key[0].startswith("https://site-") for key in found.pages])
+    assert sites.sum() == 15 and set(found.on_sites) == set(ARMS) | {"mean"}
+    for name, arm_found in found.arms.items():
+        rows = arm_found.predicted[:, sites]
+        r2, mae = found.on_sites[name]
+        assert r2[0] == pytest.approx(np.mean([r2_score(found.y[sites], r) for r in rows]))
+        assert mae[0] == pytest.approx(np.mean([mean_absolute_error(found.y[sites], r)
+                                                for r in rows]))
+
+
+def test_a_preview_has_no_pakistani_pages_to_score(tmp_path: Path) -> None:
+    found = compared(world(tmp_path, raters=5, set3=False), min_ratings=5, preview=True)
+    assert found.on_sites == {}
+
+
+def test_importance_is_given_for_the_old_the_new_and_the_five_alone(tmp_path: Path) -> None:
+    found = compared(world(tmp_path))
+    assert set(found.importances) == {"old", "new", "visual"}
+    for name, measured in found.importances.items():
+        assert tuple(measured) == ARMS[name]
+    assert found.importance == found.importances["new"]
+
+
+def test_every_arm_is_held_against_the_old_with_its_own_interval(tmp_path: Path) -> None:
+    found = compared(world(tmp_path))
+    assert set(found.gains) == {"new", "visual", "no_motion"}
+    assert found.gains["new"] == found.gain
+    assert found.gains["visual"] == gain(found.y, found.arms["old"].predicted,
+                                         found.arms["visual"].predicted)
+
+
+def test_the_report_gives_agreement_for_each_set(tmp_path: Path) -> None:
+    text = train_visual.report(compared(world(tmp_path)))
+    assert all(f"Set {n}" in text.split("| Arm |")[0] for n in (1, 2, 3))
+
+
 # --- the preview --------------------------------------------------------------------
 
 
