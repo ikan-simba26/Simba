@@ -8368,5 +8368,6 @@ Run on its own five times straight after, same machine, same build:
 
 Median 60ms, 2026-10-07 recorded about 70ms; the spread on its own reaches 115ms, and 27 minutes
 into a full frontend half it reached 154ms. The assertion measures main-thread time in a
-browser that shares the machine with the test run, so it moves with load. **Not merged on this
-result**: the task says a failure means no merge.
+browser that shares the machine with the test run, so it moves with load. Held back on this result, as the task says;
+**merged into `main` on Raham's decision** on 2026-11-11, the one failure being this timing
+assertion, which the branch does not touch.

@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **2100 passing, 12 skipped, 1 failed** · backend 1386 in 1930s, frontend 714 in 1648s, as two halves, on mains, on `fix/host-fit-flake` at `35d4e34`: the one failure is `test_calm.py::test_the_shape_does_not_slow_the_window`, 154ms over a 150ms limit, which passed 5 of 5 on its own (42 to 115ms). The host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (584s), after `npm run build`, on mains; and 15 of 15 in five runs in a row before that. **Not merged** pending a decision (EVALUATION.md, 2026-11-11, 2026-11-11b)
+**Last updated:** 2026-11-11 · **2100 passing, 12 skipped, 1 failed** · backend 1386 in 1930s, frontend 714 in 1648s, as two halves, on mains, on `fix/host-fit-flake` at `35d4e34`: the one failure is `test_calm.py::test_the_shape_does_not_slow_the_window`, 154ms over a 150ms limit, which passed 5 of 5 on its own (42 to 115ms). The host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (584s), after `npm run build`, on mains; and 15 of 15 in five runs in a row before that. then merged into `main` on Raham's decision (EVALUATION.md, 2026-11-11, 2026-11-11b)
 
 ---
 
@@ -100,7 +100,8 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
   minimised from outside 7 times (EVALUATION.md, 2026-11-11).
 - **Suite**: backend 1386 passed; frontend 714 passed and **1 failed**, a timing assertion
   (`test_calm.py`, 154ms over 150ms) that passed 5 of 5 on its own; host fit test 3 of 3
-  (EVALUATION.md, 2026-11-11b). **Not merged yet**: the task says a failure means no merge.
+  (EVALUATION.md, 2026-11-11b). Held back at first, as the task said;
+  **merged into `main` on Raham's decision**, the one failure being that timing assertion.
 - **Open**: what minimises the window; the site view's captures at 10 to 13 of 20 at 100% and
   125%, against 20 of 20 in CLAUDE.md.
 

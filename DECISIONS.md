@@ -6249,3 +6249,17 @@ are the choices. **Raham** reviews; `tools/evaluation/` is shared.
 - **Not done: the site view's capture count.** 10 to 13 of 20 at 100% and 125% in every run, 20
   of 20 at 150%, which does not match CLAUDE.md's 20 of 20 and is not this failure. Flagged, not
   touched.
+
+## `fix/host-fit-flake` merged with one timing assertion failing — Raham, 2026-11-11
+
+The suite had one failure, `test_calm.py::test_the_shape_does_not_slow_the_window`, 154ms
+of extra main-thread work in 5s against a 150ms limit, 27 minutes into the frontend half. It
+passed 5 of 5 run alone (42 to 115ms more). The branch changes only
+`tools/evaluation/display_fit_run.py`; the test and the app are as on `main`. Held back as the
+task said, then merged on Raham's decision (EVALUATION.md, 2026-11-11b).
+
+**Flagged**: the assertion measures main-thread time in a browser sharing the machine with the
+run, so it moves with load; alone its spread already reaches 115ms of the 150. Options: leave
+it (it will fail again now and then); measure the turn several times and take the median;
+raise the limit. Recommended: the median of three, which costs about 10s of suite time and
+changes no limit. Not done here: not this task.
