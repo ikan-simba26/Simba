@@ -21,6 +21,11 @@ checked first (`tools/screen_site.py`: the domain serves none).
 
 Run from the repo root: `python -m tools.evaluation.show_me_once [runs] [bill|trains|live]...`.
 
+`undo` (2026-11-10, `feat/interface-teach-entry`): the bill taught with the
+search pressed, taken back from the bar (the website goes back to the form),
+pressed again, kept, and run from its tile `runs` times: the routine after an
+undo must be the routine. Written to `logs/show_me_once_undo.json`.
+
 `booking` (2026-11-04, `fix/show-me-once`): the booking taught once, then run
 on two routes, the person choosing the train each time — Lahore Cantt to
 Karachi Cantt (7UP or 8DN) and Hyderabad Jn to Sukkur, whose four trains are
@@ -129,6 +134,59 @@ async def teach_the_bill(store: RoutineStore) -> dict:
     return {"routine": kept, "seconds": round(seconds, 1), "moves": len(kept.steps),
             "asked_each_time": len(kept.asks), "helper_presses_on_page": page_presses,
             "helper_presses_on_bar": helper.presses, "read_back": readback}
+
+
+async def teach_the_bill_with_undo(store: RoutineStore) -> dict:
+    """The bill shown as `teach_the_bill` shows it, but the search is taken
+    back from the bar and then made again (2026-11-10)."""
+    helper = Helper()
+    page_presses = 0
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        page = await browser.new_page(viewport={"width": 1280, "height": 800})
+        started = time.monotonic()
+        job = asyncio.create_task(teach(page, helper, f"http://127.0.0.1:{BILLING}", store))
+        await helper.until(lambda: any(n == "teach.watching" for n, _ in helper.sent))
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        page_presses += 3
+        await page.wait_for_url("**/bill")
+        await helper.until(lambda: len(helper.bar()["kept"]) == 3)
+        kept_before = list(helper.bar()["kept"])
+        undo_started = time.monotonic()
+        helper.say("teach.answer", {"action": "undo"})
+        await helper.until(lambda: len(helper.bar()["kept"]) == 2)
+        undo_seconds = time.monotonic() - undo_started
+        kept_after = list(helper.bar()["kept"])
+        back_on_the_form = page.url.rstrip("/") == f"http://127.0.0.1:{BILLING}"
+        number_back = (await page.get_by_role("textbox", name="Reference No.").input_value()
+                       == REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        page_presses += 1
+        await page.wait_for_url("**/bill")
+        await helper.until(lambda: helper.bar()["question"] is not None
+                           and len(helper.bar()["kept"]) == 3)
+        helper.say("teach.answer", {"action": "ask", "step": helper.bar()["question"]["step"]})
+        await helper.until(lambda: helper.bar()["question"] is None)
+        helper.say("teach.answer", {"action": "finish"})
+        await helper.until(lambda: helper.bar()["pointing"])
+        await page.get_by_text("14,382", exact=True).first.click()
+        page_presses += 1
+        await helper.until(lambda: any(n == "step.presented" for n, _ in helper.sent))
+        readback = [p for n, p in helper.sent if n == "step.presented"][0]["routine"]
+        helper.say("step.response", {"step_index": 1, "action_id": "confirm",
+                                     "input_values": {"name": "My bill", "answer": "Amount due"}})
+        kept = await asyncio.wait_for(job, 30)
+        seconds = time.monotonic() - started
+        await browser.close()
+    return {"routine": kept, "seconds": round(seconds, 1), "moves": len(kept.steps),
+            "asked_each_time": len(kept.asks), "helper_presses_on_page": page_presses,
+            "helper_presses_on_bar": helper.presses, "read_back": readback,
+            "undo": {"seconds": round(undo_seconds, 2), "kept_before": kept_before,
+                     "kept_after": kept_after,
+                     "back_on_the_form": back_on_the_form, "number_back_in_its_box": number_back,
+                     "moves_kept_twice": sum(1 for s in kept.steps if s.label == "Check Bill")}}
 
 
 async def _station(page, box: str, typed: str, station: str) -> None:
@@ -375,6 +433,10 @@ def main() -> None:
                           lambda answer: bool(answer)))
         if "booking" in WHICH:
             booking(store, summary, every)
+        if "undo" in WHICH:
+            plans.append(("bill taught with an undo, on the billing copy",
+                          lambda: teach_the_bill_with_undo(store), RUNS,
+                          lambda answer: answer == ["14,382"]))
         for name, teaching, count, right in plans:
             taught = asyncio.run(teaching())
             routine = taught.pop("routine")
@@ -387,7 +449,7 @@ def main() -> None:
                 print(json.dumps(result), flush=True)
             summary[name] = summarise(taught, runs, right)
             every[name] = runs
-            if name.startswith("bill"):
+            if name.startswith("bill on"):
                 changed = asyncio.run(one(replace(routine, start=f"http://127.0.0.1:{CHANGED}")))
                 print(json.dumps({"changed": changed}), flush=True)
                 summary[name]["changed_after_teaching"] = changed
@@ -398,7 +460,8 @@ def main() -> None:
             proc.wait(timeout=10)
         store.clear()
     print(json.dumps(summary, indent=1))
-    log = "show_me_once_fix.json" if WHICH == {"booking"} else "show_me_once.json"
+    log = ("show_me_once_fix.json" if WHICH == {"booking"}
+           else "show_me_once_undo.json" if WHICH == {"undo"} else "show_me_once.json")
     record(ROOT / "logs" / log, {"runs": every, "summary": summary})
 
 
