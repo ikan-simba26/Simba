@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-10 · **2059 passing, 12 skipped, 0 failed on re-run** · backend 1386 in 1872s, frontend 673 in 1799s (a first run had 1 failure, the press guard's timing one, gone on re-run), as two halves, on mains, on `feat/interface-teach-entry` at `700a396`, then merged into `main`: the host fit test (`SIMBA_HOST_TESTS=1`) 2 of 3 first (150% failed at the sign-in screen, the known intermittent press on Start), 150% re-run passed (173s), on mains, after `npm run build`. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-11-10b)
+**Last updated:** 2026-11-10 · **2101 passing, 12 skipped, 0 failed on re-run** · backend 1386 in 2862s, frontend 715 in 1604s, as two halves, on mains, on `feat/interface-look` at `8f214db`, then merged into `main` on Raham's decision: the host fit test (`SIMBA_HOST_TESTS=1`) 2 of 3 first (125% failed on the way to an ending, the known intermittent press on Start), 125% re-run passed (221s), on mains, after `npm run build`. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-11-10d)
 
 ---
 
@@ -84,7 +84,7 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
-### Changed on 2026-11-10 (later): picture tiles and a journey line — `feat/interface-look`, not merged
+### Changed on 2026-11-10 (later): picture tiles and a journey line — `feat/interface-look`
 
 - **A follow-on to Teach a task, after the freeze, by Raham's decision** (DECISIONS.md, *Picture
   tiles and a journey line go in after the feature freeze*). How the overlay looks; nothing it
@@ -101,8 +101,9 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
   on `main`, by 19px at 100% and 14px at 150%. It fits at every size now (EVALUATION.md,
   2026-11-10c).
 - **Suite**: backend 1386 and frontend 715 passed, 0 failed; **the host fit test failed at 125%**
-  on the known intermittent press on Start, and passed on its own re-run. **Not merged, as the
-  task says** (EVALUATION.md, 2026-11-10d). On the branch, three commits and the docs.
+  on the known intermittent press on Start, and passed on its own re-run (EVALUATION.md,
+  2026-11-10d). Held back at first, as the task said; **merged into `main` on Raham's decision**,
+  the only failure being that known intermittent one, as on 2026-11-10b.
 - **Flagged**: the level-3 count; the replies' pictures changing too; "What are you doing?" not
   on the checklist; kept tiles pictured by name, not by flow. See DECISIONS.md.
 
@@ -1580,8 +1581,9 @@ On `feat/railways-ask`, **not merged**.
 ## Interface — Aly · `frontend/`
 
 **Done**
-- **Picture tiles and a journey line** (2026-11-10, `feat/interface-look`, **not merged**: the
-  host fit test's known failure at 125%): pictures on calm colours on every tile, by name for
+- **Picture tiles and a journey line** (2026-11-10, `feat/interface-look`, merged on Raham's
+  decision after the host fit test's known failure at 125% passed on re-run): pictures on calm
+  colours on every tile, by name for
   kept and taught tiles; the checklist as a path of dots, with level 3 showing only the move
   being done. `test_pictures.py` 18, `test_checklist.py` 26, `test_contrast.py` 23; the host
   fit test counts the pictures and measures the journey line. **Aly to review all of it.**

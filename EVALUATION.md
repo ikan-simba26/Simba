@@ -8237,3 +8237,6 @@ included; and 125% passed whole on its own re-run.
 than merge. On 2026-11-10b a failure of this kind was merged after a re-run; this time the rule is
 kept as written, and the merge is Raham's call. The host fit test failing at random about one run
 in three this week is the larger problem, and it is in STATUS.md.
+
+**Merged afterwards, on Raham's decision**, the only failure being the known intermittent one,
+which passed on its own re-run.
