@@ -1,11 +1,17 @@
 /**
  * One simple picture for each thing SIMBA can do, on the home screen's tiles
- * (2026-10-14). Original, drawn here: a few calm shapes in the accent and its
- * tint, no words, no faces, nothing to decode. Each is decoration — the
- * tile's words say what it is — so each is hidden from a screen reader.
+ * (2026-10-14). Original, drawn here: a few calm shapes, no words, no faces,
+ * nothing to decode. Each is decoration — the tile's words say what it is —
+ * so each is hidden from a screen reader.
+ *
+ * In the accent and its tint until 2026-11-10; now each in its own calm
+ * colour (`--pic-*`, `pictures.ts`), sitting on a pale square of the same
+ * colour, so the ground under each is the canvas's own light.
  */
 
 import type { FlowName } from "@shared/schema";
+
+import { pictureForFlow } from "../pictures";
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
@@ -16,11 +22,15 @@ function Frame({ children }: { children: React.ReactNode }) {
   );
 }
 
-const TINT = "var(--tint)";
-const ACCENT = "var(--accent)";
 const SURFACE = "var(--surface)";
 
 export function FlowIllustration({ flow }: { flow: FlowName }) {
+  const kind = pictureForFlow(flow);
+  // The picture's colour, and its pale: the square it sits on is the pale,
+  // so what was drawn in the pale (the ground, a page's shade) is the
+  // surface's colour now, and still shows.
+  const ACCENT = `var(--pic-${kind})`;
+  const TINT = SURFACE;
   if (flow === "registration") {
     // A book standing open, and a cap resting above it.
     return (

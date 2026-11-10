@@ -9,6 +9,8 @@
  *
  *   - One accent. It marks the thing to press and the thing that was found,
  *     and nothing else. Stuck is the one other colour, and only when stuck.
+ *     Since 2026-11-10 a tile's picture has its own calm colour too
+ *     (`--pic-*`), always with the picture and never instead of it.
  *   - Text is high contrast everywhere. Measured, not eyeballed, in both
  *     directions and both themes (`frontend/test_contrast.py`): ink is
  *     13:1 or more on every ground, every pairing passes WCAG AA, and most
@@ -57,6 +59,20 @@
   --stuck: #9a3820;
   --stuck-tint: #f8e0d6;
 
+  /* A tile's picture and the pale square it sits on (2026-11-10,
+     `pictures.ts`): a train, a bill, a book, and a globe for anything else.
+     Calm and darker than bright, each picture at least 6:1 on its own pale
+     and the pale at least 12:1 under ink (`test_contrast.py`). Palette A
+     keeps these: they are not the accent, and do not change with it. */
+  --pic-train: #1d4e7d;
+  --pic-train-tint: #dfe9f4;
+  --pic-bill: #7c4708;
+  --pic-bill-tint: #f7e7cc;
+  --pic-course: #5a3c80;
+  --pic-course-tint: #ebe3f4;
+  --pic-other: #3e5560;
+  --pic-other-tint: #e2e9ec;
+
   --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 255 255 / 0.6), transparent 70%);
   --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.06),
     0 3px 8px -3px rgb(12 40 37 / 0.08), 0 18px 40px -14px rgb(12 40 37 / 0.18);
@@ -83,6 +99,15 @@
     --tint: #163430;
     --stuck: #f0a083;
     --stuck-tint: #3c2017;
+
+    --pic-train: #93c0ea;
+    --pic-train-tint: #152b40;
+    --pic-bill: #eab76a;
+    --pic-bill-tint: #352612;
+    --pic-course: #c6abea;
+    --pic-course-tint: #2b213b;
+    --pic-other: #b0c4cc;
+    --pic-other-tint: #1f2c31;
 
     --glow: radial-gradient(120% 60% at 50% -12%, rgb(127 205 191 / 0.08), transparent 70%);
     --shadow-card: inset 0 1px 0 rgb(230 255 248 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),

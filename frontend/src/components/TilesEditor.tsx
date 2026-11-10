@@ -11,7 +11,8 @@ import type { PersonalTile, TaughtTile } from "@shared/schema";
 
 import { ONWARD, TEACH, TILES } from "../copy";
 import { useStore } from "../store";
-import { AgainIcon, Button, FlowIcon } from "./ui";
+import { pictureForName } from "../pictures";
+import { Button, PictureChip } from "./ui";
 
 export function TilesEditor() {
   const { tiles, changeTile, setTilesOpen, routines, exportRoutine } = useStore();
@@ -67,9 +68,8 @@ function Row({ tile, first, last, onRename, onMove, onRemove, onSave }: {
   return (
     <li className="flex items-center gap-3 rounded-xl border border-edge bg-surface px-4 py-3
                    shadow-card short:py-2" data-testid="tile-row">
-      <span className="shrink-0 text-accent" aria-hidden>
-        {"flow" in tile ? <FlowIcon flow={tile.flow} /> : <AgainIcon />}
-      </span>
+      {/* The picture the home screen gives it, by its name as kept. */}
+      <PictureChip kind={pictureForName(tile.label)} taught={!("flow" in tile)} />
       <input value={name} maxLength={28} aria-label={TILES.name(tile.label)}
              onChange={(event) => setName(event.target.value)} onBlur={rename}
              onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}

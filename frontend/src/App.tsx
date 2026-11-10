@@ -31,6 +31,7 @@ import {
   CheckIcon,
   ChoiceCard,
   FlowIcon,
+  PictureChip,
   AlertIcon,
   PageIcon,
   PauseIcon,
@@ -42,6 +43,7 @@ import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED,
          WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
+import { pictureForFlow, pictureForName } from "./pictures";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
@@ -348,7 +350,10 @@ function Home() {
   // start of a long sentence, cut off, said little.
   const shown = remembered.map((past) => past.label ?? past.goal);
   const apart = tellApart(shown, remembered.map((past) => past.goal));
-  const spacing = own ? "gap-5 short:gap-3"
+  // With tiles of their own, and names long enough to take two lines, the
+  // fullest home screen scrolled by 19px at 100% and 14px at 150% (measured
+  // 2026-11-10, on main): a little closer, and the tiles a little less tall.
+  const spacing = own ? "gap-4 short:gap-2.5"
     : remembered.length > 0 ? "gap-6 short:gap-5" : "gap-8 short:gap-5";
 
   return (
@@ -381,13 +386,12 @@ function Home() {
                   <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
                           title={tile.label}
                           className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     border-accent/40 bg-surface px-5 py-1.5 text-left
                                      shadow-card transition-[box-shadow,border-color,transform]
                                      duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-2">
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <FlowIcon flow={tile.flow} />
-                    </span>
+                                     active:translate-y-px short:py-1">
+                    {/* Its picture by its name (`pictures.ts`), on its colour. */}
+                    <PictureChip kind={pictureForName(tile.label)} />
                     <span className="line-clamp-2 text-body font-semibold leading-snug
                                      text-ink">
                       {tile.label}
@@ -400,13 +404,13 @@ function Home() {
                   <button type="button" onClick={() => startRoutine(routine)}
                           data-testid="own-routine" title={routine.label}
                           className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     border-accent/40 bg-surface px-5 py-1.5 text-left
                                      shadow-card transition-[box-shadow,border-color,transform]
                                      duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-2">
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <AgainIcon />
-                    </span>
+                                     active:translate-y-px short:py-1">
+                    {/* By its name too, and with the mark of a tile a helper
+                        taught on its corner. */}
+                    <PictureChip kind={pictureForName(routine.label)} taught />
                     <span className="line-clamp-2 text-body font-semibold leading-snug
                                      text-ink">
                       {routine.label}
@@ -439,18 +443,18 @@ function Home() {
                                     transition-[box-shadow,border-color,transform] duration-200
                                     hover:border-accent/50 hover:shadow-lift active:translate-y-px
                                     ${own
-                                      ? "items-center gap-4 px-5 py-3 text-left short:py-2"
+                                      ? "items-center gap-4 px-5 py-1.5 text-left short:py-1"
                                       : "flex-col items-center gap-4 px-5 pt-5 pb-5 text-center short:gap-3 short:pt-4 short:pb-4"}`}>
-                  {/* Under the person's own tiles, in their shape, an icon
-                      beside the words (2026-10-18): a picture each, above
+                  {/* Under the person's own tiles, in their shape, a picture
+                      beside the words (2026-10-18): a large one each, above
                       them, put the box to ask in off the bottom at 100% and
-                      150%. */}
+                      150%. Each on its own colour since 2026-11-10. */}
                   {own ? (
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <FlowIcon flow={flow} />
-                    </span>
+                    <PictureChip kind={pictureForFlow(flow)} />
                   ) : (
-                    <span className="h-20 w-28 short:h-16 short:w-24">
+                    <span className="h-20 w-28 rounded-2xl p-1.5 short:h-16 short:w-24"
+                          style={{ background: `var(--pic-${pictureForFlow(flow)}-tint)` }}
+                          data-picture={pictureForFlow(flow)} aria-hidden>
                       <FlowIllustration flow={flow} />
                     </span>
                   )}

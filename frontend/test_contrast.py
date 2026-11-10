@@ -123,3 +123,37 @@ def test_the_two_directions_differ() -> None:
     for dark in (False, True):
         b, a = palette(":root", dark), palette(':root[data-palette="a"]', dark)
         assert a["accent"] != b["accent"] and a["canvas"] != b["canvas"]
+
+
+# --- a tile's picture on its own colour (2026-11-10) ------------------------
+
+PICTURES = ["train", "bill", "course", "other"]
+
+
+def pictures(dark: bool) -> dict[str, str]:
+    """The pictures' colours, set once in B's blocks and kept by A."""
+    values = dict(re.findall(r"--(pic-[a-z-]+):\s*(#[0-9a-fA-F]{6});", block(":root", dark)))
+    wanted = {f"pic-{kind}{part}" for kind in PICTURES for part in ("", "-tint")}
+    assert wanted <= set(values), sorted(wanted - set(values))
+    return values
+
+
+@pytest.mark.parametrize("theme", list(THEMES))
+def test_every_picture_is_plain_on_its_own_colour(theme: str) -> None:
+    """Each picture at least 4.5:1 on its pale square, more than the 3:1 a
+    picture needs, so it reads at a glance; ink at AAA on every pale, should
+    words ever sit there; and each picture at least 3:1 on the tile round it."""
+    selector, dark = THEMES[theme]
+    colours, pics = palette(selector, dark), pictures(dark)
+    for kind in PICTURES:
+        deep, tint = pics[f"pic-{kind}"], pics[f"pic-{kind}-tint"]
+        assert contrast(deep, tint) >= 4.5, (theme, kind, round(contrast(deep, tint), 2))
+        assert contrast(colours["ink"], tint) >= 7, (theme, kind)
+        assert contrast(deep, colours["surface"]) >= 3, (theme, kind)
+
+
+def test_the_four_pictures_are_four_colours() -> None:
+    for dark in (False, True):
+        pics = pictures(dark)
+        assert len({pics[f"pic-{kind}"] for kind in PICTURES}) == 4
+        assert len({pics[f"pic-{kind}-tint"] for kind in PICTURES}) == 4
