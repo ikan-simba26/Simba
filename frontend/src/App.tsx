@@ -38,8 +38,8 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, TILES, WHICH,
-         greetingAt,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, TEACH, TILES,
+         WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
@@ -101,6 +101,7 @@ export default function App() {
       {!opening && (
         <>
           <CornerLogo />
+          <TeachEntry />
           <PresenceBar />
           {/* Most of the window, not a third of it: 880 of 1280. The first
               column was 680, which at this type size left the person reading
@@ -122,6 +123,43 @@ export default function App() {
 /** The small logo, on the home screen and no other. */
 function CornerLogo() {
   return <HomeLogo shown={useScreen() === "idle"} />;
+}
+
+/**
+ * The way in for a helper (2026-11-10): "Teach a task", with the line under
+ * it saying who it is for, in the window's top right corner on the home
+ * screen and on no other, across from the small logo. It opens the same
+ * "Show me a task once" screen as the settings do.
+ *
+ * Outside the person's column, as the logo is, because the column has no
+ * height to give: with three own tiles, the three things SIMBA can do and two
+ * goals asked before, the fullest home screen at 150% (1266x606) already
+ * reaches the window's bottom edge, and one more row under the settings put
+ * the box to ask in off the bottom by 73px; a row fixed at the bottom sat on
+ * the settings row by 33px (both measured 2026-11-10). The corner costs the
+ * column nothing; `test_home.box_fits` checks it stays above the greeting
+ * and wholly in the window at every size.
+ */
+function TeachEntry() {
+  const shown = useScreen() === "idle";
+  const setTeachOpen = useStore((state) => state.setTeachOpen);
+  return (
+    <AnimatePresence initial={false}>
+      {shown && (
+        <motion.div key="teach-entry"
+                    className="fixed top-6 right-8 z-[1] flex flex-col items-end gap-0.5 text-right
+                               short:top-3"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={ARRIVE} data-testid="teach-entry">
+          <Button variant="quiet" size="md" wide={false} onClick={() => setTeachOpen(true)}
+                  data-testid="teach-a-task">
+            {TEACH.enter}
+          </Button>
+          <p className="px-2 text-small text-soft">{TEACH.enterDetail}</p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 /** Which of the presence mark's six shapes the current screen means. */

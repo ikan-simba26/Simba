@@ -19,6 +19,7 @@ import type {
   PersonalTile,
   RoutineFile,
   TaughtTile,
+  TeachAnswer,
   TeachWatching,
   TileChange,
   LoadUpdated,
@@ -230,7 +231,7 @@ interface Store {
   fileNote: string | null;
   setTeachOpen: (open: boolean) => void;
   startTeaching: (url: string) => void;
-  teachAnswer: (action: "same" | "ask" | "finish" | "cancel", step?: number) => void;
+  teachAnswer: (action: TeachAnswer["action"], step?: number) => void;
   startRoutine: (routine: TaughtTile) => void;
   exportRoutine: (id: string) => void;
   importRoutine: (file: string) => void;
@@ -303,8 +304,9 @@ const PICTURE_WAIT_MS = 7000;
 /** The profile as this window opened with it. */
 const STARTING_PROFILE = loadProfile();
 
-/** The bar's height while SIMBA watches a helper, in the overlay's pixels. */
-export const TEACH_BAR = 96;
+/** The bar's height while SIMBA watches a helper, in the overlay's pixels:
+ *  96 until 2026-11-10, when the bar gained the list of things kept. */
+export const TEACH_BAR = 160;
 
 /**
  * Tells the host to show the website below a bar of this height, or to cover
