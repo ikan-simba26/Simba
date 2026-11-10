@@ -27,6 +27,15 @@ saying why. On our replicas such a press is kept, and when the routine runs it
 waits behind the final screen like every change. A box for card or bank
 details stops watching the moment it is entered, before anything is typed.
 
+**Undo** (2026-11-10). The helper takes the last thing off the list from the
+bar. The routine kept must still match the page: a typed value taken back is
+taken out of its box; a press that moved the website to another page takes
+the website back (`page.go_back`), and comes off the list only once the page
+is really the one it was pressed on. When it is not, the bar says so, nothing
+on the website is let through, and the only ways on are Start again — the
+first page again, nothing kept — and stop. A press that stayed on its page
+comes off the list and the page is left as it is.
+
 **The answer.** Before it is kept, the helper points at what the task is for —
 the amount, the list of trains — by clicking it. Nothing is let through while
 pointing. What was clicked is found in what perception reads the page as
@@ -47,7 +56,8 @@ from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
 from backend.orchestrator import voice
-from backend.orchestrator.loop import CHANGE_WORDS, Connection, on_replica
+from backend.orchestrator.loop import CHANGE_WORDS, Connection, on_replica, resolve
+from backend.orchestrator.routine_plan import find
 from backend.orchestrator.routines import (
     MOST_SHOWN,
     TEXT_MAX,
@@ -127,6 +137,23 @@ RECORDER_JS = r"""
                    value: secret(el) ? null : el.value});
   };
   let passing = false;
+  // The backend putting a value back into a box (2026-11-10, undo): the
+  // page sees it as typing, the recorder does not, and the box's next real
+  // typing is reported whatever it was before.
+  window.__simbaRestore = (el, value) => {
+    edited.delete(el);
+    if (pending === el) pending = null;
+    if (el instanceof HTMLSelectElement) {
+      const option = [...el.options].find((o) => o.text.trim() === value);
+      el.value = option ? option.value : '';
+    } else {
+      el.value = value;
+    }
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+    el.dispatchEvent(new Event('change', {bubbles: true}));
+    edited.delete(el);
+    sent.set(el, el.value);
+  };
   // `pending`, above: the last box typed in, committed before the next
   // press even when the page never fired its change.
   document.addEventListener('input', (event) => {
@@ -208,6 +235,9 @@ RECORDER_JS = r"""
   }
 })();
 """
+
+#: How long taking the website back, or to its first page, may take.
+BACK_MS = 10_000
 
 #: Sets the page's switches: watching, and pointing at the answer.
 SWITCH_JS = "([teaching, pointing]) => { window.__simbaTeaching = teaching; " \
@@ -376,6 +406,11 @@ class Draft:
         return [voice.taught_line(item.step, item.same, item.typed, asks_consent(item.step))
                 for item in self.taught]
 
+    def kept(self) -> list[str]:
+        """Each thing kept, in a few words, newest last, for the bar's list
+        (2026-11-10). Never what was typed; a password is a password."""
+        return [voice.kept_line(item.step) for item in self.taught]
+
     def routine(self, end_url: str, label: str = "", answer_name: str | None = None) -> Routine:
         """The routine as it will be kept: every value answered, and what the
         page did after each move, read from where it went and what appeared."""
@@ -497,6 +532,10 @@ class Teaching:
         self.page = page
         self.draft = Draft(start=page.url)
         self.pointing = False
+        #: Undo could not take the website back to the page the last thing
+        #: was done on (2026-11-10): nothing is let through, nothing is kept,
+        #: until Start again.
+        self.stuck = False
         #: Why watching stopped, once it has.
         self.stopped: str | None = None
         #: What the session should hear about, in order: ("changed", None),
@@ -535,6 +574,83 @@ class Teaching:
         self.events.put_nowait(("stopped", reason))
         return "stop"
 
+    async def undo(self) -> str | None:
+        """Takes the last thing off the list, and the website back when that
+        thing moved it to another page (2026-11-10). Returns what the bar
+        should say when it could not, and None when it is done."""
+        async with self._lock:
+            if self.stuck:
+                return voice.TEACH_NOT_BACK
+            if self.pointing or not self.draft.taught:
+                return None
+            item = self.draft.taught[-1]
+            if path_of(self.page.url) != path_of(item.url):
+                if not await self._back_to(item.url):
+                    # Not the page it was pressed on, or not a page that can
+                    # be put back as it was: the list no longer matches the
+                    # website, and nothing more is let through.
+                    self.stuck = True
+                    log.info("teaching: undo could not take the page back; start again")
+                    return voice.TEACH_NOT_BACK
+            self.draft.taught.pop()
+            log.info("teaching: took a %s off, %d kept", item.step.kind, len(self.draft.taught))
+            if item.step.kind in ("fill", "select"):
+                await self._restore(item.step, "")
+            return None
+
+    async def _back_to(self, url: str) -> bool:
+        """The website back to the page the last thing was pressed on, as the
+        list says it was: True when it is really that page and what the list
+        says was typed on it is in its boxes again. A page where a choice
+        was made from a list, a day picked, or a password typed cannot be put
+        back as it was, and that is False too."""
+        try:
+            await self.page.go_back(wait_until="load", timeout=BACK_MS)
+        except PlaywrightError as error:
+            log.info("teaching: going back: %s", str(error).splitlines()[0])
+        if path_of(self.page.url) != path_of(url):
+            return False
+        there = [item for item in self.draft.taught[:-1] if path_of(item.url) == path_of(url)]
+        if any(item.step.secret or item.step.day or (item.step.kind == "click"
+                                                     and item.step.role == "option")
+               for item in there):
+            return False
+        for item in there:
+            if item.step.kind in ("fill", "select") and item.typed:
+                await self._restore(item.step, item.typed)
+        return True
+
+    async def _restore(self, step: Step, value: str) -> None:
+        """A box as the list says it is: a typed value taken back is taken
+        out of it, and one the list keeps is put back after the website goes
+        back. Found as the routine will find it, by role and label, never a
+        selector; put there through the recorder, so it is not typing."""
+        try:
+            view = await read_async(self.page)
+            element = find(view.elements, step)
+            if element is not None:
+                await resolve(self.page, view.elements, element.id).evaluate(
+                    "(el, value) => window.__simbaRestore(el, value)", value, timeout=BACK_MS)
+        except PlaywrightError as error:
+            log.info("teaching: could not put the box back: %s", str(error).splitlines()[0])
+
+    async def restart(self) -> str | None:
+        """The first page again, with nothing kept (2026-11-10)."""
+        async with self._lock:
+            self.draft = Draft(start=self.draft.start)
+            self.stuck = False
+            self.pointing = False
+            try:
+                await self.page.goto(self.draft.start, wait_until="load", timeout=BACK_MS)
+            except PlaywrightError as error:
+                log.info("teaching: starting again: %s", str(error).splitlines()[0])
+            if path_of(self.page.url) != path_of(self.draft.start):
+                self.stuck = True
+                return voice.TEACH_NOT_RESTARTED
+            await self._switch(True, False)
+            log.info("teaching: started again on %s", path_of(self.page.url))
+            return None
+
     async def _heard(self, source, event: dict) -> str:  # noqa: ARG002 - Playwright's
         """One thing from the page. Returns what the page should do with a
         press it is holding: "go", or "stop"."""
@@ -553,6 +669,8 @@ class Teaching:
         kind = event.get("kind")
         if kind == "mode":
             return "pointing" if self.pointing else "watching"
+        if self.stuck:
+            return "stop"  # held, never made, and not kept: the page is not where it was
         if kind == "card":
             return self._end(voice.TEACH_STOPPED_CARD)
         if kind == "point" or (self.pointing and kind == "click"):
@@ -629,6 +747,12 @@ class Teaching:
         self._add(step, url, labels, typed=value)
 
     def _add(self, step: Step, url: str, labels: frozenset, typed: str | None = None) -> None:
+        if asks_consent(step) and any(
+                path_of(item.url) == path_of(url) and item.step == step
+                for item in self.draft.taught):
+            # The banner back after the website went back (undo): one press.
+            log.info("teaching: a consent press pressed again on the same page")
+            return
         self.draft.taught.append(Taught(step=step, url=url, labels=labels, typed=typed))
         log.info("teaching: kept a %s on a %s", step.kind, step.role)
         self.events.put_nowait(("changed", None))
@@ -660,8 +784,8 @@ def watching(teaching: Teaching, note: str | None = None) -> TeachWatching:
         question = TeachQuestion(step=index, label=item.step.label or item.step.role,
                                  value=item.typed or "",
                                  kind="day" if item.step.day else "typed")
-    return TeachWatching(lines=draft.lines(), question=question, pointing=teaching.pointing,
-                         note=note)
+    return TeachWatching(lines=draft.lines(), kept=draft.kept(), question=question,
+                         pointing=teaching.pointing, note=note, start_again=teaching.stuck)
 
 
 # --- the conversation, from "Show me once" to a tile -------------------------------
@@ -752,8 +876,14 @@ async def _watch(teaching: Teaching, connection: Connection, events: asyncio.Que
             return False
         if answer.action in ("same", "ask") and answer.step is not None:
             teaching.draft.answer_question(answer.step, answer.action == "same")
+        elif answer.action == "undo":
+            note = await teaching.undo()
+        elif answer.action == "restart":
+            note = await teaching.restart()
         elif answer.action == "finish":
-            if teaching.draft.open_question() is not None:
+            if teaching.stuck:
+                note = voice.TEACH_START_AGAIN_FIRST
+            elif teaching.draft.open_question() is not None:
                 note = voice.TEACH_ANSWER_FIRST
             elif not teaching.draft.taught:
                 note = voice.TEACH_NOTHING_YET

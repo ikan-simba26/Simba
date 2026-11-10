@@ -952,6 +952,13 @@ TEACH_NO_ROOM = ("There are already three tiles on the home screen. Take one off
                  "show me.")
 TEACH_ANSWER_FIRST = "First, tell me whether what you typed is the same every time."
 TEACH_NOTHING_YET = "You haven't shown me anything yet. Do the task on the page first."
+#: Undo could not take the website back to the page the last thing was done
+#: on (2026-11-10): nothing is let through until Start again.
+TEACH_NOT_BACK = ("I couldn't take the website back to where it was. Press Start again to "
+                  "show me from the first page, or stop.")
+TEACH_START_AGAIN_FIRST = "First, press Start again. The website isn't where it was."
+TEACH_NOT_RESTARTED = ("I couldn't open the first page again. Stop watching, and show me "
+                       "from Change my settings.")
 POINT_AGAIN = "I couldn't tell what that is. Click right on the words or the number you want."
 TEACH_READ_BACK = "Here's what I learned. Is it right?"
 TEACH_NAME_IT = "Give it a name for the home screen. Then it runs with one press."
@@ -1050,6 +1057,28 @@ def routine_line(step, consent: bool = False) -> str:
     if step.role == "link":
         return _ended(f"Open {where}")
     return _ended(f"Press {where}")
+
+
+def kept_line(step) -> str:
+    """One thing kept while a helper shows a task, in a few words, for the
+    bar's list (2026-11-10): what was done and where, never what was typed.
+    A password is a password and nothing more."""
+    where = _where(step)
+    if step.kind == "fill":
+        return "Typed a password." if step.secret else _ended(f"Typed in {where}")
+    if step.kind == "select":
+        return _ended(f"Chose from {where}")
+    if step.kind == "press":
+        return _ended(f"Pressed {step.value or 'Enter'} in {where}")
+    if step.day:
+        return _ended(f"Chose {step.label} on the calendar")
+    if getattr(step, "row", None):
+        return _ended(f"Pressed {pressed_in_row(step)}")
+    if step.role in ("textbox", "combobox", "searchbox"):
+        return _ended(f"Clicked in {where}")
+    if step.role == "link":
+        return _ended(f"Opened {where}")
+    return _ended(f"Pressed {where}")
 
 
 def taught_line(step, same: bool | None, typed: str | None = None,
