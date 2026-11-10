@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-05 · **2034 passing, 12 skipped, 0 failed** · backend 1376 in 1610s, frontend 658 in 1471s, as two halves, on mains, on `eval/retrain-visual` at `7846a9d`, then merged into `main`: the host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (565s), on mains, after `npm run build`. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-11-05b)
+**Last updated:** 2026-11-10 · **2059 passing, 12 skipped, 0 failed on re-run** · backend 1386 in 1872s, frontend 673 in 1799s (a first run had 1 failure, the press guard's timing one, gone on re-run), as two halves, on mains, on `feat/interface-teach-entry` at `700a396`, then merged into `main`: the host fit test (`SIMBA_HOST_TESTS=1`) 2 of 3 first (150% failed at the sign-in screen, the known intermittent press on Start), 150% re-run passed (173s), on mains, after `npm run build`. The 12 skips are unchanged (5 needing a running Electron host, 2 needing a host and `SIMBA_HOST_TESTS=1`, 3 that open the host themselves, 2 needing `SIMBA_LIVE_TESTS=1`) (EVALUATION.md, 2026-11-10b)
 
 ---
 
@@ -72,7 +72,9 @@ checklist, every move checked, no model. A site that changed stops it honestly. 
 bill on our copy, and stage 2, list choices and calendar days, a booking on the railways copy and
 a read-only lookup on the live train search, are done. Since the fixes, a train pressed in the
 results is the person's to choose, the booking has one final screen, and it shows what, how
-much and when as the page states them.
+much and when as the page states them. Since 2026-11-10 a helper finds it from the home screen
+("Teach a task", in the top right corner), the bar lists what it has kept, and the last thing can
+be taken back, the website with it, or started again when it cannot.
 
 **The brand** (2026-11-02). The logo kit is in `assets/brand/`: the app icon, the title
 `simba`, the logo while the backend comes up, and a small one on the home screen alone.
@@ -81,6 +83,36 @@ much and when as the page states them.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-10: Teach a task, and undo on the bar — `feat/interface-teach-entry`
+
+- **A follow-on to Show me once, after the freeze, by Raham's decision** (DECISIONS.md, *"Teach a
+  task" and undo go in after the feature freeze*). A way in for helpers on the home screen, and a
+  bar that shows what it has learned and can take the last thing back.
+- **"Teach a task"** opens "Show me a task once", with "For a helper, like a carer or a teacher."
+  under it. It is in the window's top right corner across from the logo, **not at the bottom as
+  the task said**: measured, a row under the settings put the box off the bottom by 73px at 150%,
+  and a row fixed at the window's bottom sat on the settings row by 29px (EVALUATION.md,
+  2026-11-10). The settings entry stays. The fit tests, headless and in the host, hold it above
+  the greeting at every size. **Aly to say whether the corner is right.**
+- **The bar lists what it has kept**, newest last, in a few words each ("Typed in Reference
+  No.", "Pressed Check Bill."), never a typed value, a password as "Typed a password." and
+  nothing more; the last few and "N more before these." when there are more than fit. The bar is
+  160px tall, from 96.
+- **Undo last thing.** A typed value comes off the list and out of its box. A press that moved
+  the website to another page takes the website back and comes off only once the page is really
+  the one it was pressed on, with what the list says was typed there in its boxes again. When it
+  cannot be (the page cannot be reached by going back; a list choice, a day or a password was
+  made there) the bar says so, nothing is let through, and **Start again** is offered in place of
+  Undo and Finish. Tests first: the bill taught, the search undone and made again, kept, and run
+  from its tile: **5 of 5**, 2 presses, 0 model calls, the routine step for step stage 1's
+  (EVALUATION.md, 2026-11-10).
+- **Contract**: `teach.watching.kept` and `start_again`, and `teach.answer` `undo` and
+  `restart`; additive, pending Nahail and Aly (CONTRACT.md).
+- **Flagged for review**: the corner; the bar's height; a page with a list choice, a day or a
+  password can only be started again; a press that stayed on its page is taken off the list
+  and the page left as it is. See DECISIONS.md, *Teach a task and undo: what was settled along
+  the way*.
 
 ### Changed on 2026-11-05: the visual retrain — `eval/retrain-visual`
 
@@ -115,7 +147,9 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
 - **Merged into `main` on 2026-11-05**, after the host fit test passed 3 of 3 (580s) on a re-run.
   It had failed at 100% twice, at a different point each time, with nothing it uses changed. The
   re-run had about as little memory available (959 MB) as the second failure, so memory alone does
-  not explain those failures. **Open:** the host fit test may be intermittent at 100%.
+  not explain those failures. **Open:** the host fit test may be intermittent at 100%. Seen again
+  on 2026-11-10 at 150%, the same press on Start at the sign-in screen, gone on re-run
+  (EVALUATION.md, 2026-11-10b): **intermittent, at any scale.**
 
 ### Changed on 2026-11-04 (later): Show me once, stage 2 — `feat/show-me-once`
 
@@ -1397,6 +1431,10 @@ On `feat/railways-ask`, **not merged**.
 ## Orchestrator — Raham · `backend/orchestrator/`
 
 **Done**
+- **Undo while teaching** (2026-11-10): `Teaching.undo` and `restart`, the recorder's
+  `__simbaRestore`, `Draft.kept` and `voice.kept_line`; a page with a list choice, a day or a
+  password cannot be put back and is started again. `test_teach.py` 32, ten of them new, the
+  undo-redo-save-run one five times over.
 - **Show me once, stage 1** (2026-11-04): `teach.py` records a helper by role and label,
   `routines.py` keeps it encrypted and shares it as a file, `routine_plan.py` runs it with no
   model and stops honestly on a changed page. The loop gains `must_finish`, `ran_out`, a list
@@ -1518,6 +1556,11 @@ On `feat/railways-ask`, **not merged**.
 ## Interface — Aly · `frontend/`
 
 **Done**
+- **Teach a task, and the bar's list** (2026-11-10): "Teach a task" in the window's top right
+  corner on the home screen, opening the same screen as the settings; the bar 160px tall with the
+  things kept listed newest last, Undo last thing, and Start again when the website could not
+  be taken back. 34 tests in `test_show_me_once.py` at 100%, 125% and 150%; `box_fits` and the
+  host fit test measure the way in. **Aly to review**, the corner above all (DECISIONS.md).
 - **Show me once, stage 1** (2026-11-04): "Show me once" in the settings, the screen behind it,
   the bar while watching (the host shows the website below it and covers it again after), the
   read-back, routine tiles, saving to and reading from a file. 18 tests at 100%, 125% and 150%,
@@ -1778,6 +1821,9 @@ On `feat/railways-ask`, **not merged**.
 ## Shared contract — all three owners · `shared/`, `CONTRACT.md`
 
 **Done**
+- **Teach a task and undo** (2026-11-10): `teach.watching.kept` and `start_again` (optional),
+  and `teach.answer.action` `undo` and `restart` (two more values). Additive; pending Nahail and
+  Aly.
 - **Show me once** (2026-11-04): six new message types (`teach.start`, `teach.answer`,
   `teach.watching`, `routine.export`, `routine.file`, `routine.import`), the optional
   `history.offered.routines`, `task.start.routine` and `step.presented.routine`, the shape

@@ -7945,3 +7945,174 @@ At `7846a9d`, on mains at the start and end of every run, with 1.3 to 1.7 GB of 
 2034 in all, 23 more than on 2026-11-05's merge of `fix/show-me-once`: the 23 new tests of this
 branch. The 12 skips are the usual 12. The host fit test passed first time at 100%, which
 STATUS.md had left open as possibly intermittent: one more pass, not proof it is not.
+
+## 2026-11-10 — Teach a task, and undo on the bar: the bill taught with an undo, run from its tile
+
+Raham's follow-on to *Show me once*, after the freeze (DECISIONS.md, *"Teach a task" and undo go
+in after the feature freeze*): a way in for helpers on the home screen, a bar that lists what it
+has kept, and "Undo last thing". The rule from the task: teach the bill on the billing copy, undo
+a step, redo it, save, and run it from the tile, 5 of 5.
+
+**Script:** `tools/evaluation/show_me_once.py 5 undo`, result in `logs/show_me_once_undo.json`.
+Headless Chromium at 1280x800, the billing copy on its own port, no model. The helper is
+Playwright's mouse and keyboard through the recorder, as in 2026-11-04: Accept all cookies, the
+number, Check Bill; then **Undo last thing on the bar**, Check Bill again, "Ask each time",
+Finish, the amount pointed at, kept as "My bill". The person is the script of 2026-11-04.
+**Conditions:** `700a396` on `feat/interface-teach-entry` (the tree "dirty" only by the untracked
+`simba-logo-kit.zip`), on mains, processor at 189%, 801 MB free, **with the suite's backend half
+running at the same time**, so the seconds are a ceiling, not a measurement.
+
+### Teaching, with the undo
+
+| | Stage 1 (2026-11-04) | With an undo |
+|---|---|---|
+| Helper's presses, page / bar | 4 / 3 | 5 / 4 |
+| The list before the undo | — | Pressed Accept all cookies. / Typed in Reference No. / Pressed Check Bill. |
+| The list after | — | the first two |
+| The website after the undo | — | the form (`/`), with the number back in its box |
+| Undo, wall clock | — | 0.16s |
+| Moves kept | 3 | **3** (Check Bill once, not twice) |
+| Asked each time | 1 | 1 |
+| Read-back | 4 lines | the same 4 lines, word for word |
+| SIMBA's own time while watching | 0.8s | 1.1s, the undo's 0.16s in it |
+
+The one more press on the page is Check Bill the second time; the one more on the bar is Undo.
+The routine kept is, step for step, the routine stage 1 kept: `routine.import` would not tell
+them apart.
+
+### Five runs from the tile
+
+| | Stage 1, ten runs | Now, five runs |
+|---|---|---|
+| Completed, with the amount and the proof | 10 of 10 | **5 of 5** |
+| Right answer (14,382) | 10 | 5 |
+| Presses for the person | 2 | 2 |
+| Checklist lines | 2 | 2 |
+| Moves | 3 | 3 |
+| **Model calls** | **0** | **0** |
+| Wall clock (secondary, and under load) | mean 1.89s (1.8–1.9) | mean 2.16s (2.1–2.3) |
+
+A first pass earlier in the day, before the commits and with the machine idle, gave the same
+counts at 1.96s a run (1.9–2.1) and the undo at 0.17s; it is not recorded since its conditions
+block named the tree as `0010a20` with every change uncommitted.
+
+### The way in, on the home screen: measured, and moved
+
+The task put "Teach a task" at the bottom of the home screen. Built there, as a row under
+"Change my settings" with its line under it, it is 79 to 83px tall, and the fullest home screen
+(three own tiles, the three things SIMBA can do, two goals asked before) has no such room. From
+the overlay built from source, at the window sizes of `test_home.SIZES`, with the row in the
+column and then as a row fixed at the window's bottom outside the column:
+
+| Size | Window | In the column: page height | Fixed at the bottom: the row | The settings row |
+|---|---|---|---|---|
+| 100% | 1280x800 | 882 (scrolls by 82) | 754–792 | 723–761 (overlap 7) |
+| 125% | 1280x734 | 734 (fits) | 692–730 | 619–657 (clear) |
+| 150% | 1266x606 | 679 (scrolls by 73) | 564–602 | 555–593 (overlap 29) |
+
+In the top right corner of the window, across from the small logo and outside the column, it
+costs the column nothing. The same sizes, the same fullest screen, the greeting being the
+column's first thing:
+
+| Size | The entry | The greeting starts at | Clear by |
+|---|---|---|---|
+| 100% | 24–94 | 151 | 57 |
+| 125% | 12–82 | 161 | 79 |
+| 150% | 12–82 | 97 | 15 |
+
+`test_home.box_fits` now holds every home screen it measures to that (the entry wholly in the
+window, above the greeting), so the 47 home screen cases and the fullest one with a routine at
+three sizes check it; `tools/evaluation/display_fit_run.py` measures the same two things in the
+real host, and `test_window_fit.py` asserts them on the home screen with and without history.
+
+### The bar
+
+160px tall, from 96. In the overlay built from source at the three sizes, the bar in its three
+fullest shapes — a question over two rows of the list and "4 more before these."; the list at its
+longest, three rows with "3 more", Undo and Finish; the note that the website could not be taken
+back, over the list, with Start again — fits at 160 with every button, the heading and every row
+wholly inside it: 9 cases, in `test_the_bar_is_one_row_that_fits_at_every_size`. Pictures at 150%
+and 100% in `.scratch/teach-entry/` (`bar-question-*.png`, `bar-list-*.png`, `home-*.png`).
+
+### What failed on the way, and was fixed
+
+1. **Chromium brought the form back empty after `go_back`.** The test written first said the
+   number would still be in its box on the page gone back to, as a browser's own Back usually
+   leaves it; headless Chromium did not restore it. The list said "Typed in Reference No." and
+   the page had an empty box: exactly the mismatch the task forbids. Now what the list says was
+   typed on that page is put back into its boxes, through a door in the recorder.
+2. **A value typed again after an undo was swallowed.** The recorder remembers the last value it
+   reported for a box and reports a box only when its value differs, so the number taken out
+   and typed again was never sent, and the bar never asked about it. The door in the recorder
+   (`__simbaRestore`) now sets that memory to what it put back, so the next real typing is
+   reported whatever it is.
+3. **A `data:` page cannot replace itself** with another `data:` page (Chromium refuses a
+   top-frame navigation to `data:` from a page), so the test of a page that cannot be reached
+   by going back did nothing. The test now serves its pages to the browser from the test
+   itself (`page.route`) on a made-up host, which is also not one of our replicas, as the test
+   needs.
+4. **The entry at the bottom did not fit**, twice, as measured above; it moved to the corner.
+5. **A test counted the entry gone the moment the next screen arrived**; it fades, so for a
+   moment it is still there. The test waits for it to go.
+6. **The evaluation script's first log named an uncommitted tree**; re-run after the commits.
+
+### Limits
+
+- Undo takes the website back only to a page where the things kept were typing and presses;
+  a page with a choice from a list, a day, or a password can only be started again. The
+  railways copy's search, undone, is a Start again.
+- A press that did something on its own page (hid a banner, opened a calendar) comes off the
+  list and the page keeps what it did.
+- The seconds here were taken under the suite's load, and from this machine read ±2x in any
+  case (2026-09-18).
+- The way in has not been seen by a helper or by Aly; the corner is a measured choice, not a
+  tested one.
+
+### The tests
+
+`backend/orchestrator/test_teach.py` 22 → 32: the list in a few words, newest last; a password
+listed as a password; undo of a typed value, out of the list and out of its box; undo of the
+search, back on the form with the number in its box, then shown again, kept, and run from its
+tile five times; undo of a press that stayed on its page; a page that cannot be reached by going
+back, with Start again, nothing let through, and starting again; a sign-in page that cannot be
+put back; a consent press pressed again as one press; undo with nothing kept and while pointing;
+each kind of move's few words. `frontend/test_show_me_once.py` 19 → 34: the way in and where it
+goes, its fit on the fullest home screen at three sizes, the list newest last, the last few and
+the count, Undo's message, Start again in Undo's and Finish's place, a bar from an older backend,
+and the bar's fit in three shapes at three sizes. `test_home.box_fits` and the host fit test
+measure the entry on every home screen they measure.
+
+## 2026-11-10b — the suite on `feat/interface-teach-entry`, before merging
+
+At `700a396` (the code; the docs commit followed), on mains, as two halves, then `npm run build`
+and the host fit test. 1.36 GB free before the re-runs; the first runs' free memory was not
+noted.
+
+| Run | Passed | Skipped | Failed | Time |
+|---|---|---|---|---|
+| Backend half (`backend tools test_basetemp.py`) | 1386 | 9 | 0 | 1872s |
+| Frontend half (`frontend`), first run | 672 | 3 | **1** | 1601s |
+| Frontend half, re-run whole | 673 | 3 | 0 | 1799s |
+| Host fit test (`SIMBA_HOST_TESTS=1`, after `npm run build`), first run | 2 | 0 | **1** (150%) | 616s |
+| Host fit test at 150%, re-run | 1 | 0 | 0 | 173s |
+
+2059 in all, 25 more than on 2026-11-05b: the 10 new tests in `test_teach.py` and the 15 more in
+`test_show_me_once.py`. The 12 skips are the usual 12. The backend half ran with the undo
+evaluation (2026-11-10) alongside it for its first two minutes.
+
+**Two failures on the first run, neither in what the branch changed, both gone on re-run:**
+
+1. `test_press_guard.py::test_a_press_on_a_button_just_arrived_is_ignored_and_logged` waited
+   30s for a step's "Tomorrow" button that its scripted backend had sent and it never showed.
+   The press guard and the step screen are untouched by this branch (the home screen's corner
+   and the teach bar are what changed); the test's own comment records the same trouble in full
+   runs on 2026-10-17. On its own, 4 of 4 at once; in the re-run of the whole half, passed.
+2. The host fit test at 150%, in its last stage, the sign-in screen: a press on Start waited 30s
+   for the button to be stable. The same failure as 2026-11-04c's second run (then at 100%),
+   in a stage this branch does not touch; at 150% the home screen, the brand and every ending
+   had passed before it, the new corner checks among them. Re-run at 150% alone: passed in 173s.
+
+Merged into `main` after the re-runs, as on 2026-11-05. What stands: the branch's own tests
+passed every time; the two failures are the suite's known timing ones, now seen three times in
+a week (2026-11-04c twice at 100%, today at 150%), and **the host fit test being intermittent is
+open in STATUS.md still**.

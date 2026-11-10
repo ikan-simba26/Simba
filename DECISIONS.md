@@ -6028,3 +6028,105 @@ into play. **Nahail to review**, since this is the estimator. Settled along the 
   coefficients, nothing about a rater. Nothing the app runs reads it; `page_model.load` refuses it.
 - **The live model was not refitted with Set 3's pages.** Not asked for. Flagged in STATUS.md, with
   what it would cost.
+
+
+## "Teach a task" and undo go in after the feature freeze
+
+**Date:** 2026-11-10. **Decided by Raham**, as a follow-on to *Show me once* (2026-11-04),
+after the 1 November freeze; the task says so and asks for it to be recorded here. It touches
+the overlay, so **Aly reviews** everything under `frontend/`; the contract grows by two optional
+fields and two values, so **Nahail and Aly** are owed the list in CONTRACT.md.
+
+**Decision.** Two things, on `feat/interface-teach-entry`. (1) A way in for helpers on the
+home screen: one quiet button, "Teach a task", with a line saying it is for a helper, opening
+the same "Show me a task once" screen the settings already open; the settings entry stays. (2)
+The bar while watching shows the things kept so far as a short plain list, newest last, never a
+typed value and a password as "Typed a password." and nothing else, and gains "Undo last
+thing": the last thing comes off the list, and when it moved the website to another page the
+website is taken back and checked to be that page, or the helper is told plainly and offered
+"Start again" instead. The routine kept after an undo must still run from its tile.
+
+**Why.** *Show me once* was built for carers and teachers, and it was behind "Change my
+settings" behind the name question: nobody who did not already know would find it. And a helper
+who pressed one wrong thing had to stop and show the whole task again, which on a real site is
+a page of typing. Both are the difference between a feature that exists and one a helper uses.
+
+**Alternatives.** Leave both for the report's future work, as the freeze says; or do the way in
+only, which is an hour, and leave undo. Undo is where the risk is — a list that no longer matches
+the page is a routine that fails later, on the person — and it is why the task says tests first.
+
+**Cost.** Days from evaluation and writing, again. One more contract change for Nahail and Aly to
+read (additive). The bar is taller: 160px of the website is under it instead of 96. And the way in
+is not where the task said: see the next entry.
+
+**Undoing it:** take `TeachEntry` out of `App.tsx`, put `TEACH_BAR` back to 96 and `TeachBar`
+back to the count and the last line, and drop `undo`, `restart`, `kept` and `start_again` from
+`teach.py` and the schema. Nothing on disk changes shape: a routine kept after an undo is a
+routine.
+
+
+## Teach a task and undo: what was settled along the way
+
+**Date:** 2026-11-10 (`feat/interface-teach-entry`). Asked for: the button, the list, undo,
+tests first, 5 of 5. How each is done was not specified; these are the choices. **Aly** for the
+overlay's, **Raham** for the recorder's and the loop's, **Nahail** for the one that reads the
+page. Each says what it costs to change.
+
+- **The way in is in the top right corner of the window, not at the bottom.** The task said
+  "at the bottom". It was built there first and measured (EVALUATION.md, 2026-11-10): the
+  fullest home screen — three own tiles, the three things SIMBA can do, two goals asked
+  before — already reaches the window's bottom edge at 150%, and a row under the settings put
+  the box to ask in off the bottom by 73px; a row fixed at the window's bottom, outside the
+  column, sat on the settings row by 33px. The corner across from the small logo costs the
+  column nothing, is on the home screen and no other, and the fit tests hold it above the
+  greeting at every size. *Alternatives:* a third item in the settings row, which has no room
+  for the line saying who it is for; a row only in tall windows, which moves a button about
+  between computers. *Cost:* it is not where the task said, and it reads as a site's header
+  link. **Aly to say** whether the corner is right, and whether the line should go so it can
+  sit in the settings row instead.
+- **The bar is 160px tall, from 96.** The list needs rows: three under "I'm watching.", two
+  under a question that can take two lines, with "N more before these." counting the rest.
+  *Alternative:* keep 96 and put the list beside the heading, which at 150% leaves a question
+  no room. *Cost:* 64px more of the website is under the bar while teaching; the helper scrolls
+  to it. The host takes the number from the overlay's line, so nothing in `main.ts` changed.
+- **The list is a new field, `kept`, beside `lines`, written by the backend** (`voice.kept_line`)
+  rather than cut down from `lines` in the overlay. The read-back's lines say what will happen
+  ("Ask what to type in Reference No., and type it."); the bar's say what was done ("Typed in
+  Reference No."), and the password line has to be "Typed a password." and nothing more. *Cost:*
+  one more optional field for Nahail and Aly; an older backend gets the bar as it was, with no
+  Undo, since it would not understand the press.
+- **Undo of a press that moved the page puts the typed values back** on the page gone back
+  to, through a door in the recorder (`window.__simbaRestore`), so the page reads as the list
+  says and the recorder does not count it as typing. Chromium did not bring the form back by
+  itself after `go_back`. *Cost:* a box the page itself writes into after typing (autocomplete)
+  is put back to what was typed, not to what the page made of it.
+- **A page where a choice was made from a list, a day picked, or a password typed cannot be
+  put back**, and undoing the press that left it says so and offers Start again, as the task
+  allows for what cannot be checked. Replaying those is the routine runner's job, with its
+  checks and its questions, and not the recorder's. *Cost:* on the railways copy a mispressed
+  search cannot be undone, only started again; a sign-in cannot be undone either.
+- **A press that stayed on its page comes off the list and the page is left as it is.** The
+  billing copy's cookie banner, once pressed, stays hidden; nothing can be pressed twice. *Cost:*
+  a helper who undoes a press that opened something is looking at the opened thing with no line
+  for it.
+- **A consent press pressed again on the same page is one press.** After the website goes back
+  the banner is back, and a helper presses it again; the routine would otherwise ask about
+  cookies twice. Only consent: "Next Month" pressed twice is two presses. *Cost:* none known.
+- **Nothing is let through while Start again is offered**, as while pointing: a press held and
+  never made, nothing kept. Finish is refused with a note. *Cost:* a helper who wants to go on
+  from wherever the page is cannot; stop and start from the settings.
+- **Undo is a quiet button; Start again takes the place of Undo and Finish.** Undo beside the
+  question's two buttons at 150% left the question a third of the bar; quiet, it is a word.
+  *Cost:* less visible than Finish, for a helper rather than the person.
+- **Undo is ignored while pointing and with nothing kept.** The bar does not offer it then.
+- **A value typed again, after other presses on the same page, is a second typing step**, as
+  before: the recorder's "same box again" rule looks at the last thing only. After an undo the
+  put-back value is what the list has, so the common case (type, press, undo, press) keeps one.
+  *Cost:* type, press cookies, undo the search, retype the number: two typing steps, the second
+  harmless. Widening the rule to any earlier box on the page would also fold a station typed
+  again after its list choice into the earlier step, which the stage 2 pairing relies on.
+- **The undo evaluation runs 5 and writes its own file** (`logs/show_me_once_undo.json`), so
+  the stage 1 numbers stay. `tools.evaluation.show_me_once 5 undo`.
+- **The bar's capture in the tests is one, and the frontend tests hold the heading and every
+  row inside 160px** in the three shapes the bar takes (a question over the list; the list at
+  its longest with Undo and Finish; the note with Start again) at the three sizes.
