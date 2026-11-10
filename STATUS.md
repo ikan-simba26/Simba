@@ -84,6 +84,28 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
+### Changed on 2026-11-10 (later): picture tiles and a journey line — `feat/interface-look`, not merged
+
+- **A follow-on to Teach a task, after the freeze, by Raham's decision** (DECISIONS.md, *Picture
+  tiles and a journey line go in after the feature freeze*). How the overlay looks; nothing it
+  does, and nothing in the backend or the contract.
+- **Every home screen tile wears a picture on its own calm colour**: a train, a bill, a book, or
+  a globe for anything else. Built-in tiles by what they are; kept and taught tiles by their
+  name (`frontend/src/pictures.ts`). Each picture at least 6.25:1 on its pale square in all
+  four themes; the words unchanged. A taught tile's mark is a badge on its picture's corner.
+- **The checklist is a journey line**: done dots filled, the one being done larger with "Doing
+  this now", those to come empty. Still a list with the current step marked. At the simplest
+  level only the move being done and "Then N more things."; levels 1 and 2 as before. The dot
+  grows in once; not under reduced motion.
+- **Found on the way**: the fullest home screen with names long enough to wrap already scrolled
+  on `main`, by 19px at 100% and 14px at 150%. It fits at every size now (EVALUATION.md,
+  2026-11-10c).
+- **Suite**: backend 1386 and frontend 715 passed, 0 failed; **the host fit test failed at 125%**
+  on the known intermittent press on Start, and passed on its own re-run. **Not merged, as the
+  task says** (EVALUATION.md, 2026-11-10d). On the branch, three commits and the docs.
+- **Flagged**: the level-3 count; the replies' pictures changing too; "What are you doing?" not
+  on the checklist; kept tiles pictured by name, not by flow. See DECISIONS.md.
+
 ### Changed on 2026-11-10: Teach a task, and undo on the bar — `feat/interface-teach-entry`
 
 - **A follow-on to Show me once, after the freeze, by Raham's decision** (DECISIONS.md, *"Teach a
@@ -149,7 +171,9 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
   re-run had about as little memory available (959 MB) as the second failure, so memory alone does
   not explain those failures. **Open:** the host fit test may be intermittent at 100%. Seen again
   on 2026-11-10 at 150%, the same press on Start at the sign-in screen, gone on re-run
-  (EVALUATION.md, 2026-11-10b): **intermittent, at any scale.**
+  (EVALUATION.md, 2026-11-10b): **intermittent, at any scale.** And again that evening at 125%,
+  on the way to an ending (2026-11-10d): four failures in a week, each a press on Start that
+  waits for the button to be stable, each gone on re-run. It now decides whether a branch merges.
 
 ### Changed on 2026-11-04 (later): Show me once, stage 2 — `feat/show-me-once`
 
@@ -1556,6 +1580,11 @@ On `feat/railways-ask`, **not merged**.
 ## Interface — Aly · `frontend/`
 
 **Done**
+- **Picture tiles and a journey line** (2026-11-10, `feat/interface-look`, **not merged**: the
+  host fit test's known failure at 125%): pictures on calm colours on every tile, by name for
+  kept and taught tiles; the checklist as a path of dots, with level 3 showing only the move
+  being done. `test_pictures.py` 18, `test_checklist.py` 26, `test_contrast.py` 23; the host
+  fit test counts the pictures and measures the journey line. **Aly to review all of it.**
 - **Teach a task, and the bar's list** (2026-11-10): "Teach a task" in the window's top right
   corner on the home screen, opening the same screen as the settings; the bar 160px tall with the
   things kept listed newest last, Undo last thing, and Start again when the website could not
