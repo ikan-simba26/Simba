@@ -8116,3 +8116,127 @@ Merged into `main` after the re-runs, as on 2026-11-05. What stands: the branch'
 passed every time; the two failures are the suite's known timing ones, now seen three times in
 a week (2026-11-04c twice at 100%, today at 150%), and **the host fit test being intermittent is
 open in STATUS.md still**.
+
+## 2026-11-10c — Picture tiles and a journey line: contrast, fit, and before and after
+
+Raham's follow-on to *Teach a task*, after the freeze (DECISIONS.md, *Picture tiles and a
+journey line go in after the feature freeze*): how the overlay looks, nothing it does. Measured
+here: the colours' contrast, the fullest home screen's fit, the journey line's fit at every size
+and level, and the pictures.
+
+### The colours
+
+From `index.css` (`test_contrast.py`), the lowest of the four pictures in each theme:
+
+| Theme | Picture on its pale | Ink on the pale | Picture on the tile |
+|---|---|---|---|
+| B light | 6.25 (bill) | 13.36 | 7.42 |
+| B dark | 7.53 (book) | 12.42 | 8.09 |
+| A light | 6.25 (bill) | 13.77 | 7.48 |
+| A dark | 7.53 (book) | 12.70 | 8.52 |
+
+The tiles' words did not change colour: ink on the tile's surface, as before. Measured again in
+the page from computed colours (`test_the_words_on_every_tile_stay_readable`), light and dark,
+six tiles each: every one at least 4.5:1, and every picture at least 4.5:1 on its square.
+
+### The fullest home screen
+
+Two kept tiles and one taught tile whose names wrap to two lines ("Electricity at home",
+"Railway tickets home", "Register for CS-401"), the three things SIMBA can do, and two goals
+asked before at their longest. How far the page scrolled, in CSS pixels:
+
+| Size | `main` | Pictures, first draft | Now |
+|---|---|---|---|
+| 100% (1280x800) | 19 | 3 | **0** |
+| 125% (1280x734) | 0 | 0 | 0 |
+| 150% (1266x606) | 14 | 6 | **0** |
+| 150% (1266x632) | 0 | 0 | 0 |
+
+`main` already scrolled with names this long: no test had used them. The pictures are 10px wider
+than the icons, so names wrap sooner; the compact tiles are now less tall (one line 52px, from 56;
+two lines 75px, from 87) and 2 to 4px closer together, and nothing scrolls at any size. With short names, as the host
+fit test has them, the 150% screen's greeting sits at 107px, against 97 on `main`: the column is
+about 20px shorter, and "Teach a task" clears the greeting by 25px, from 15.
+
+### The journey line
+
+Six moves, three done, one being done, two to come, at four window sizes and three levels: 12 of
+12 fit, nothing scrolls, every line, "Doing this now" and Pause wholly in the window and the card,
+no line overlapping the next (`test_the_journey_fits_at_every_size_and_level`). In the real host
+at 150% before the suite: the usual level and the simplest both fit, 1 of 1 in 197s.
+
+| Level | Lines shown | Under them |
+|---|---|---|
+| 1 | 6 | — |
+| 2 | 6 | — |
+| 3 | 1, the move being done | "Then 2 more things." |
+
+Before this, every level showed all six.
+
+### Before and after
+
+In `.scratch/interface-look/before/` and `.scratch/interface-look/after/`, each at 100% and 150%,
+light and dark: `home-*` (a new person), `home-fullest-*` (two kept tiles, one taught, two goals),
+`journey-*` (the usual level) and `journey-simplest-*`. The overlay page alone, built from the
+source, headless, at the window's content size. The host's own, from the fit test:
+`.scratch/screenshots/fit/home-<scale>-history.png` and `journey-<scale>-{usual,simplest}.png`.
+
+### What failed on the way, and was fixed
+
+1. **The fullest home screen did not fit with long names**, on `main` already, and still did not
+   with the first pictures (above). The design changed, not the test.
+2. **"Doing this now" first sat at the far right of its line**, a long way from the words it is
+   about. It sits beside them now.
+3. **Committing the tiles alone**: `App.tsx` holds both parts, and interactive staging is not
+   available here, so the tiles' commit was made with the old checklist put back for it, and the
+   journey line committed on top.
+
+### Limits
+
+- Nobody from the audience has seen the pictures. "Reads pictures faster than words" is the brief's
+  premise, not something measured here.
+- The name rule is English and three short lists.
+- The level-3 count can change between moves, as the backend's list of what is to come does.
+
+### The tests
+
+`frontend/test_pictures.py`, new, 18: the three built-in pictures and their squares; nine names
+through the rule; a taught tile's picture and mark, and the same colour as a kept tile of the
+same name; "Change my tiles"; the words and pictures readable in light and dark; the fullest home
+screen with wrapping names at four sizes, every picture whole and no name cut.
+`frontend/test_checklist.py` 7 → 26: the journey as a list with the current step marked, its dots
+and path; the three levels; the last move and one more thing at level 3; the dot's arrival with
+and without reduced motion; the fit at four sizes and three levels. `frontend/test_contrast.py`
+18 → 23. The host fit test counts every tile's picture and measures the journey line at two
+levels.
+
+## 2026-11-10d — the suite on `feat/interface-look`: one failure, so not merged
+
+At `8f214db`, on mains, as two halves, then `npm run build` and the host fit test. 856 MB free at
+the start, 379 MB before the re-run.
+
+| Run | Passed | Skipped | Failed | Time |
+|---|---|---|---|---|
+| Backend half (`backend tools test_basetemp.py`) | 1386 | 9 | 0 | 2862s |
+| Frontend half (`frontend`) | 715 | 3 | 0 | 1604s |
+| Host fit test (`SIMBA_HOST_TESTS=1`, after `npm run build`) | 2 | 0 | **1** (125%) | 545s |
+| Host fit test at 125%, re-run alone | 1 | 0 | 0 | 221s |
+
+2101 passed in the halves, 42 more than on 2026-11-10b: the 42 new tests of this branch. The
+backend half took 2862s against 1872s that afternoon, with about half the memory free.
+
+**The failure:** at 125%, on the way to the third ending ("completed with nine results and a
+sentence"), a press on Start on the home screen waited 30s for the button to be stable. The same
+failure as 2026-11-04c (twice, at 100%) and 2026-11-10b (at 150%), all on code without this
+branch's changes. This branch adds no motion near Start: the tiles' pictures are still, and the
+tiles' entrance is as it was. Before it failed, 125% had passed the home screen with its pictures,
+the brand and two endings; 100% and 150% passed whole, the journey line and the pictures
+included; and 125% passed whole on its own re-run.
+
+**Not merged.** The task said to merge only if everything passes, and to report a failure rather
+than merge. On 2026-11-10b a failure of this kind was merged after a re-run; this time the rule is
+kept as written, and the merge is Raham's call. The host fit test failing at random about one run
+in three this week is the larger problem, and it is in STATUS.md.
+
+**Merged afterwards, on Raham's decision**, the only failure being the known intermittent one,
+which passed on its own re-run.

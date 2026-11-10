@@ -66,6 +66,12 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     assert not history["scrolls"], history
     assert history["smallest_text_px"] >= 20, history
     assert history["teach_in_viewport"] and history["teach_clear"], history
+    # Every tile with its picture, wholly inside it (2026-11-10): the three
+    # things SIMBA can do, large on a new person's screen and small under
+    # three tiles of the person's own.
+    assert result["overlay"]["pictures"] == 3 and result["overlay"]["pictures_whole"], \
+        result["overlay"]
+    assert history["pictures"] == 6 and history["pictures_whole"], history
     # And a new person's first open (2026-10-18): the welcome, its four
     # questions each fitting, nothing to scroll and every button in the window.
     welcome = result["welcome"]
@@ -85,6 +91,16 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
         assert not ending["scrolls"], (name, ending)
     # And the sign-in screen, the registration's first (2026-10-16): measured
     # headless only until then, where Electron lays text out wider.
+    # The journey line (2026-11-10): every move, "Doing this now" and Pause in
+    # the window, one move marked as where the person is; at the simplest
+    # level, only that move and how many are left.
+    journey = result["journey"]
+    assert journey["usual"]["rows"] == 6 and journey["simplest"]["rows"] == 1, journey
+    for level in ("usual", "simplest"):
+        shown = journey[level]
+        assert shown["current"] == 1 and shown["rows_inside"] and shown["here_inside"], shown
+        assert shown["pause_inside"] and not shown["scrolls"], shown
+    assert journey["simplest"]["left"] == "Then 2 more things.", journey
     sign_in = result["sign_in"]
     assert sign_in["buttons"], sign_in
     assert sign_in["off_screen"] == [], sign_in

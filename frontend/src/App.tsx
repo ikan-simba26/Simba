@@ -31,6 +31,7 @@ import {
   CheckIcon,
   ChoiceCard,
   FlowIcon,
+  PictureChip,
   AlertIcon,
   PageIcon,
   PauseIcon,
@@ -42,6 +43,7 @@ import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED,
          WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
+import { pictureForFlow, pictureForName } from "./pictures";
 import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
@@ -348,7 +350,10 @@ function Home() {
   // start of a long sentence, cut off, said little.
   const shown = remembered.map((past) => past.label ?? past.goal);
   const apart = tellApart(shown, remembered.map((past) => past.goal));
-  const spacing = own ? "gap-5 short:gap-3"
+  // With tiles of their own, and names long enough to take two lines, the
+  // fullest home screen scrolled by 19px at 100% and 14px at 150% (measured
+  // 2026-11-10, on main): a little closer, and the tiles a little less tall.
+  const spacing = own ? "gap-4 short:gap-2.5"
     : remembered.length > 0 ? "gap-6 short:gap-5" : "gap-8 short:gap-5";
 
   return (
@@ -381,13 +386,12 @@ function Home() {
                   <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
                           title={tile.label}
                           className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     border-accent/40 bg-surface px-5 py-1.5 text-left
                                      shadow-card transition-[box-shadow,border-color,transform]
                                      duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-2">
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <FlowIcon flow={tile.flow} />
-                    </span>
+                                     active:translate-y-px short:py-1">
+                    {/* Its picture by its name (`pictures.ts`), on its colour. */}
+                    <PictureChip kind={pictureForName(tile.label)} />
                     <span className="line-clamp-2 text-body font-semibold leading-snug
                                      text-ink">
                       {tile.label}
@@ -400,13 +404,13 @@ function Home() {
                   <button type="button" onClick={() => startRoutine(routine)}
                           data-testid="own-routine" title={routine.label}
                           className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-3 text-left
+                                     border-accent/40 bg-surface px-5 py-1.5 text-left
                                      shadow-card transition-[box-shadow,border-color,transform]
                                      duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-2">
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <AgainIcon />
-                    </span>
+                                     active:translate-y-px short:py-1">
+                    {/* By its name too, and with the mark of a tile a helper
+                        taught on its corner. */}
+                    <PictureChip kind={pictureForName(routine.label)} taught />
                     <span className="line-clamp-2 text-body font-semibold leading-snug
                                      text-ink">
                       {routine.label}
@@ -439,18 +443,18 @@ function Home() {
                                     transition-[box-shadow,border-color,transform] duration-200
                                     hover:border-accent/50 hover:shadow-lift active:translate-y-px
                                     ${own
-                                      ? "items-center gap-4 px-5 py-3 text-left short:py-2"
+                                      ? "items-center gap-4 px-5 py-1.5 text-left short:py-1"
                                       : "flex-col items-center gap-4 px-5 pt-5 pb-5 text-center short:gap-3 short:pt-4 short:pb-4"}`}>
-                  {/* Under the person's own tiles, in their shape, an icon
-                      beside the words (2026-10-18): a picture each, above
+                  {/* Under the person's own tiles, in their shape, a picture
+                      beside the words (2026-10-18): a large one each, above
                       them, put the box to ask in off the bottom at 100% and
-                      150%. */}
+                      150%. Each on its own colour since 2026-11-10. */}
                   {own ? (
-                    <span className="shrink-0 text-accent" aria-hidden>
-                      <FlowIcon flow={flow} />
-                    </span>
+                    <PictureChip kind={pictureForFlow(flow)} />
                   ) : (
-                    <span className="h-20 w-28 short:h-16 short:w-24">
+                    <span className="h-20 w-28 rounded-2xl p-1.5 short:h-16 short:w-24"
+                          style={{ background: `var(--pic-${pictureForFlow(flow)}-tint)` }}
+                          data-picture={pictureForFlow(flow)} aria-hidden>
                       <FlowIllustration flow={flow} />
                     </span>
                   )}
@@ -844,13 +848,31 @@ function Step({ index }: { index: number }) {
  *
  * The safe mechanical moves — filling in the form, opening the calendar,
  * searching — used to be a screen each, with a button to press for each.
- * Now they run, and each is one line here: done ones ticked, the one being
- * done marked, in the backend's plain words. One button, Pause, which stops
- * SIMBA before its next move. Anything that is a real choice, that went
- * wrong, or that would pay, book, register or change a record still asks.
+ * Now they run, and each is one line here, in the backend's plain words. One
+ * button, Pause, which stops SIMBA before its next move. Anything that is a
+ * real choice, that went wrong, or that would pay, book, register or change
+ * a record still asks.
+ *
+ * Drawn as a path since 2026-11-10: a dot for each move, joined by a line,
+ * done ones filled and ticked, the one being done larger with "Doing this
+ * now" beside it, and those to come empty, the line to them dashed. Still an
+ * ordered list, the one being done marked as the current step, so a screen
+ * reader reads it as it did. At the simplest level, the least: the move
+ * being done and how many are still to come.
  */
 function Checklist() {
-  const { checklist, coming, pausing, pause } = useStore();
+  const { checklist, coming, pausing, pause, level } = useStore();
+  const reduce = useReducedMotion() ?? false;
+  const simplest = level === 3;
+  const at = checklist.length - 1;
+  const rows: { key: string; label: string; state: "done" | "now" | "to come" }[] = [
+    ...checklist.map((row, index) => ({
+      key: `row-${row.index}`, label: row.label,
+      state: index < at ? ("done" as const) : ("now" as const) })),
+    ...coming.map((label, index) => ({ key: `coming-${index}-${label}`, label,
+                                       state: "to come" as const })),
+  ];
+  const shown = simplest ? rows.filter((row) => row.state === "now") : rows;
   return (
     <Card className="px-12 py-10 short:py-7">
       <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
@@ -858,35 +880,71 @@ function Checklist() {
         <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
           {CHECKLIST.heading}
         </h1>
-        <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite" data-testid="checklist-lines">
-          {checklist.map((row, index) => {
-            const done = index < checklist.length - 1;
-            return (
-              <li key={row.index} className="flex items-center gap-4 text-lead text-ink"
-                  data-state={done ? "done" : "now"}>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full
-                                  ${done ? "bg-accent text-accent-ink"
-                                         : "border-2 border-accent text-accent"}`}>
-                  {done ? <CheckIcon size={20} /> : <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
-                </span>
-                <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.now}</span>
-                <span className={done ? "text-soft" : "font-semibold"}>{row.label}</span>
-              </li>
-            );
-          })}
-          {/* What is next, so nothing comes as a surprise (2026-10-15): an
-              empty dashed ring and the softer text. Softer, never fainter
-              than 4.5:1 (`test_contrast.py`). */}
-          {coming.map((label) => (
-            <li key={`coming-${label}`} className="flex items-center gap-4 text-lead"
-                data-state="to come">
-              <span className="h-9 w-9 shrink-0 rounded-full border-2 border-dashed border-edge"
-                    aria-hidden />
-              <span className="sr-only">{CHECKLIST.next}</span>
-              <span className="text-soft">{label}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-3 short:gap-2">
+          <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite"
+              data-testid="checklist-lines" data-level={level}>
+            {shown.map((row, index) => {
+              const done = row.state === "done";
+              const now = row.state === "now";
+              return (
+                <li key={row.key} className="relative flex items-center gap-4 text-lead"
+                    data-state={row.state} aria-current={now ? "step" : undefined}>
+                  {/* The path to the next dot: solid where it has been, dashed
+                      where it has still to go. Under the dots, which are solid. */}
+                  {index < shown.length - 1 && (
+                    <span aria-hidden data-testid="journey-path"
+                          className={`absolute top-1/2 h-[calc(100%+12px)] short:h-[calc(100%+8px)]
+                                      ${done ? "left-[20.5px] border-l-[3px] border-accent"
+                                             : "left-[21px] border-l-2 border-dashed border-edge"}`} />
+                  )}
+                  <span className="relative z-[1] flex w-11 shrink-0 justify-center" aria-hidden>
+                    {done ? (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full
+                                       bg-accent text-accent-ink">
+                        <CheckIcon size={20} />
+                      </span>
+                    ) : now ? (
+                      // Larger, with a pale ring round it, and grown into
+                      // place when it arrives: once, small and slow, and not
+                      // at all under reduced motion.
+                      <motion.span key={row.key} data-testid="journey-now"
+                                   initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+                                   animate={{ scale: 1, opacity: 1 }}
+                                   transition={{ duration: 0.4, ease: EASE }}
+                                   className="flex h-11 w-11 items-center justify-center
+                                              rounded-full border-[3px] border-accent bg-surface
+                                              shadow-[0_0_0_5px_var(--tint)]">
+                        <span className="h-3.5 w-3.5 rounded-full bg-accent" />
+                      </motion.span>
+                    ) : (
+                      <span className="h-9 w-9 rounded-full border-2 border-dashed border-edge
+                                       bg-surface" />
+                    )}
+                  </span>
+                  {now ? (
+                    // Said, not only shown: where the person is, in the words
+                    // a screen reader always read here. Placed after the words
+                    // on screen, read before them.
+                    <span className="order-last shrink-0 rounded-full bg-tint px-3
+                                     py-0.5 text-caption font-medium text-accent"
+                          data-testid="journey-here">
+                      {CHECKLIST.now}
+                    </span>
+                  ) : (
+                    <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.next}</span>
+                  )}
+                  {/* Softer, never fainter than 4.5:1 (`test_contrast.py`). */}
+                  <span className={now ? "font-semibold text-ink" : "text-soft"}>{row.label}</span>
+                </li>
+              );
+            })}
+          </ol>
+          {simplest && coming.length > 0 && (
+            <p className="pl-[60px] text-body text-soft" data-testid="journey-left">
+              {CHECKLIST.left(coming.length)}
+            </p>
+          )}
+        </div>
         <div>
           <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
             <span data-icon="pause"><PauseIcon size={24} /></span>

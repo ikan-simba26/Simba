@@ -206,6 +206,19 @@ HOME_JS = """(label) => {
         teach_in_viewport: teach !== null && teach.top >= 0 && teach.bottom <= innerHeight
                            && teach.right <= innerWidth,
         teach_clear: teach !== null && teach.bottom <= greeting.top,
+        // Every tile's picture (2026-11-10), and whether each is wholly
+        // inside its tile.
+        pictures: [...document.querySelectorAll(
+            '[data-testid=tile], [data-testid=own-tile], [data-testid=own-routine]')]
+            .filter(t => t.querySelector('[data-picture]')).length,
+        pictures_whole: [...document.querySelectorAll(
+            '[data-testid=tile], [data-testid=own-tile], [data-testid=own-routine]')]
+            .every(t => { const b = t.getBoundingClientRect();
+                          const p = t.querySelector('[data-picture]');
+                          if (!p) return false;
+                          const r = p.getBoundingClientRect();
+                          return r.left >= b.left && r.right <= b.right && r.top >= b.top
+                                 && r.bottom <= b.bottom && r.width > 0; }),
     };
 }"""
 
@@ -391,6 +404,70 @@ def read_sign_in(overlay: Page, scale: str, out: Path = OUT, name: str = "sign-i
     return measured
 
 
+#: Where the journey line's parts are (2026-11-10): every line and "Doing
+#: this now" wholly in the window and the card, and Pause too.
+JOURNEY_JS = """() => {
+  const card = document.querySelector('[data-testid=checklist]').getBoundingClientRect();
+  const inside = (r) => r.top >= 0 && r.bottom <= innerHeight && r.left >= card.left - 1
+                        && r.right <= card.right + 1;
+  const rows = [...document.querySelectorAll('[data-testid=checklist-lines] li')];
+  const pause = [...document.querySelectorAll('[data-testid=checklist] button')]
+    .find(b => b.innerText.trim() === 'Pause');
+  const here = document.querySelector('[data-testid=journey-here]');
+  return {rows: rows.length,
+          current: rows.filter(r => r.getAttribute('aria-current') === 'step').length,
+          rows_inside: rows.every(r => inside(r.getBoundingClientRect())),
+          here_inside: here !== null && inside(here.getBoundingClientRect()),
+          pause_inside: pause !== undefined && pause.getBoundingClientRect().bottom <= innerHeight,
+          left: (document.querySelector('[data-testid=journey-left]') || {}).innerText || null,
+          scrolls: document.scrollingElement.scrollHeight > innerHeight};
+}"""
+
+
+def read_journey(overlay: Page, scale: str) -> dict[str, dict]:
+    """The journey line (2026-11-10), played into the real window: three moves
+    done, one being done and two to come, at the level the person starts at
+    and at the simplest, where only the move being done is shown."""
+    from frontend.test_terminal_states import AWAIT_RESPONSE, Backend
+
+    lines = ["Filling in where you're starting from", "Filling in where you're going",
+             "Opening the calendar", "Choosing 15 October", "Searching", "Reading the trains"]
+    backend = Backend()
+    backend.script = [
+        ("task.started", {"goal": "trains", "estimated_steps": 6,
+                          "stages": ["From", "To", "Day", "Search", "Trains"]}),
+        ("state.changed", {"state": "acting"}),
+        *[("step.presented", {"step_index": i, "step_total": 9, "instruction": lines[i - 1],
+                              "detail": "", "fields": [], "actions": [],
+                              "requires_confirmation": False, "findings": [], "stage": 3,
+                              "coming": lines[i:]}) for i in (1, 2, 3, 4)],
+        (AWAIT_RESPONSE, {}),
+    ]
+    saved = overlay.evaluate("window.localStorage.getItem('simba.profile')")
+    measured: dict[str, dict] = {}
+    try:
+        for name, level in (("usual", None), ("simplest", 3)):
+            said(scale, f"the journey line, {name}")
+            if level is not None:
+                overlay.evaluate("""(level) => { const p = JSON.parse(
+                    window.localStorage.getItem('simba.profile') || '{}');
+                    p.level = level; p.welcomed = true;
+                    window.localStorage.setItem('simba.profile', JSON.stringify(p)); }""", level)
+            backend.responses.clear()
+            overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{backend.port}")
+            overlay.wait_for_timeout(800)  # a press on a button just arrived is ignored
+            overlay.fill("input[aria-label='What would you like me to do?']", "trains")
+            overlay.get_by_role("button", name="Start").click()
+            overlay.wait_for_selector("[data-testid=checklist]", timeout=15000)
+            overlay.wait_for_timeout(1500)
+            measured[name] = overlay.evaluate(JOURNEY_JS)
+            capture_view(overlay, OUT / f"journey-{scale}-{name}.png")
+    finally:
+        overlay.evaluate("(p) => p === null ? window.localStorage.removeItem('simba.profile')"
+                         " : window.localStorage.setItem('simba.profile', p)", saved)
+    return measured
+
+
 def launch(scale: str) -> tuple[subprocess.Popen, Path]:
     electron = FRONTEND / "node_modules" / ".bin" / ("electron.cmd" if os.name == "nt" else "electron")
     log = OUT / f"host-{scale}.log"
@@ -564,6 +641,7 @@ def measure(scale: str) -> dict:
             endings = read_endings(overlay, scale)
             said(scale, "the sign-in screen")
             sign_in = read_sign_in(overlay, scale)
+            journey = read_journey(overlay, scale)
             said(scale, "done")
             browser.close()
     except Exception as error:
@@ -593,6 +671,7 @@ def measure(scale: str) -> dict:
         "endings": endings,
         "welcome": welcome,
         "sign_in": sign_in,
+        "journey": journey,
         "window_title": title,
         "brand": brand,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},

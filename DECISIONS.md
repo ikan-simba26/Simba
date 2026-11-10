@@ -6130,3 +6130,91 @@ page. Each says what it costs to change.
 - **The bar's capture in the tests is one, and the frontend tests hold the heading and every
   row inside 160px** in the three shapes the bar takes (a question over the list; the list at
   its longest with Undo and Finish; the note with Start again) at the three sizes.
+
+
+## Picture tiles and a journey line go in after the feature freeze
+
+**Date:** 2026-11-10. **Decided by Raham**, as a follow-on to *Teach a task* (2026-11-10),
+after the 1 November freeze; the task says so and asks for it to be recorded here. It is all in
+the overlay, so **Aly reviews** all of it. Nothing in the backend, the contract, the safety
+rules, the final screen, the vault or the teaching flow changed.
+
+**Decision.** Two changes to how the overlay looks, and none to what it does, on
+`feat/interface-look`. (1) Every tile on the home screen wears a simple picture on its own calm
+colour: the three things SIMBA can do by what they are, a tile the person kept or a helper
+taught by its name. (2) The checklist of safe moves is drawn as a journey line: a dot for each
+move joined by a path, done ones filled, the one being done larger with "Doing this now" beside
+it, those to come empty; at the simplest detail level only the move being done and how many
+are left.
+
+**Why.** The people SIMBA is for often read pictures faster than words. The home screen's own
+tiles had a small line icon in the accent colour, all alike, and a taught tile had no picture of
+what it does at all; the checklist was a column of lines that did not change with the detail
+level the person had chosen.
+
+**Alternatives.** Leave it for after the report, as the freeze says; or do the tiles only. The
+journey line is the one screen a person watches while SIMBA works, and the levels not reaching
+it was an old gap.
+
+**Cost.** Time from evaluation and writing, again. "One accent" in `index.css` is no longer
+quite true: four more colours, each only ever with its picture. More for Aly to review, and the
+replies' choice cards change picture too (below).
+
+**Undoing it:** revert `3ee89ef` and `83cb766`; `8f214db` checks both in the host and goes with
+them. No file on disk and no message changed shape.
+
+
+## Picture tiles and the journey line: what was settled along the way
+
+**Date:** 2026-11-10 (`feat/interface-look`). Asked for: pictures and calm colours on every tile,
+pictures from a name, the journey line, the levels, calm motion, fit, before and after pictures.
+How each is done was not specified; these are the choices. **Aly** for all of them.
+
+- **The name rule** (`frontend/src/pictures.ts`): the first word in the name that is on one of
+  three lists decides — train: train, trains, railway, railways; bill: bill, bills, electricity,
+  electric; book: course, courses, register, registration — whole words, any case; a name with
+  none of them gets a globe, "something on a website". "Trains, then my bill" is a train;
+  "Billboard" is a globe. *Cost:* "My water bill" is a bill and "Water" is a globe; the lists are
+  English only.
+- **A kept tile is pictured by its name, not by the flow it runs.** The brief said by name, and
+  only then do the picture and the words always say the same thing. *Cost:* a kept railways tile
+  named "Weekend" wears the globe, though SIMBA knows it is a train search.
+- **Four colours, one per picture, not one per tile.** Two train tiles are the same blue. A colour
+  per tile would either be arbitrary or carry a meaning of its own; this way colour never says
+  anything the picture does not. Train blue, bill amber, book plum, globe slate, chosen calm and
+  dark rather than bright: each picture at least 6.25:1 on its pale square in all four themes,
+  the pale at least 12.4:1 under ink. Not the brand's teal, which is the accent: a teal tile would
+  look like the thing to press. Palette A keeps B's picture colours.
+- **The pictures changed wherever a thing SIMBA can do is drawn**, the replies' choice cards
+  ("Which did you mean?") included: the bolt is now a bill with a bolt on it, the cap an open book.
+  One thing, one picture, everywhere. *Cost:* the replies look different, which the task did not
+  ask for.
+- **A new person's large pictures sit on a pale square** of their colour, the same size as
+  before; what was drawn in the accent's tint is drawn in the surface colour now, so it shows.
+- **A taught tile's mark is a small badge on its picture's corner**: the arrow going round that
+  was its whole picture until now. A shape, never a colour, tells it from a kept tile. The same in
+  "Change my tiles".
+- **The compact tiles are less tall and a little closer together.** Measured on `main`, the
+  fullest home screen with names that wrap to two lines already scrolled by 19px at 100% and 14px
+  at 150%; no test had names that long. The pictures alone made it 3px and 6px. Now 0 at every
+  size, and `test_pictures.py` holds it there with such names. *Cost:* a one-line tile is 52px
+  tall, from 56, and 44px in a short window, a press target's least.
+- **"You are here" is "Doing this now"**, the words a screen reader has heard on that line since
+  2026-10-14, now on screen too, beside the move's words. The brief offered "You are here" and
+  asked for existing wording where it exists.
+- **"What are you doing?" was not added to the checklist.** The brief said to keep the one the
+  checklist has; it has none, only Pause. It is on every step screen. Adding it would be new
+  behaviour.
+- **At the simplest level, the move being done and "Then 2 more things."** That is a count, and
+  "Step 2 of 6" was taken off on 2026-10-14 because it grew as questions were asked again. This
+  one counts only the lines the backend says are still to come, which can change from one line to
+  the next as well. *Cost:* it can go from "2 more" to "3 more". **Flagged.** Levels 1 and 2 show
+  every move, as before; no level shows more than before.
+- **Motion:** the dot for the move being done grows in from 60% of its size over 0.4s, once, when
+  it becomes the one; nothing pulses or loops; none under reduced motion, which is Windows'
+  "Animation effects" setting as Chromium reads it. The path is still.
+- **The path is solid where SIMBA has been and dashed where it has still to go**, in the edge
+  colour, under the dots.
+- **The before and after pictures are of the overlay page alone**, built from the source at the
+  window's content size, headless; the host's own captures of the fullest home screen and the
+  journey line are in `.scratch/screenshots/fit/`.

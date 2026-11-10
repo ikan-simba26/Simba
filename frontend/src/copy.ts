@@ -588,6 +588,9 @@ export const CHECKLIST = {
   now: "Doing this now",
   /** A line still to come, for a screen reader (2026-10-15). */
   next: "Still to do",
+  /** At the simplest level, under the move being done, in place of the
+   *  moves themselves (2026-11-10): how many are still to come. */
+  left: (n: number) => (n === 1 ? "Then 1 more thing." : `Then ${n} more things.`),
 } as const;
 
 /**
