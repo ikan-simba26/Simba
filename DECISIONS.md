@@ -6218,3 +6218,48 @@ How each is done was not specified; these are the choices. **Aly** for all of th
 - **The before and after pictures are of the overlay page alone**, built from the source at the
   window's content size, headless; the host's own captures of the fullest home screen and the
   journey line are in `.scratch/screenshots/fit/`.
+
+
+## The host fit test keeps its own window shown, and says when it had to
+
+**Date:** 2026-11-11 (`fix/host-fit-flake`). Asked for: the cause of the host fit test's random
+failure, fixed in the right place, with no retry and no longer timeout. Found: the host's window
+minimised mid-run from outside the test, which leaves the overlay with no animation frames for
+Playwright's "stable" check (EVALUATION.md, 2026-11-11). How to fix it was not specified; these
+are the choices. **Raham** reviews; `tools/evaluation/` is shared.
+
+- **In the test, not in the app.** A person cannot press a button on a minimised window, and the
+  backend already asks whether the window is shown before every action (`window_watch`,
+  2026-10-05). Making the host's window impossible to minimise, or restoring it from the host,
+  would change the product for a test's sake. *Cost:* none to the product; the test now does
+  something to the desktop it did not do before (below).
+- **Shown again without being activated** (`SW_SHOWNOACTIVATE`), from the test, five times a
+  second. It never takes the keyboard from whoever is working, but the window does come back on
+  screen after someone put it away. *Alternative:* fail at once with "the window was minimised"
+  — honest, but it leaves the test failing at random, which was the problem. *Cost:* a person
+  who minimises it during a run sees it come back within 0.2s, until the run ends.
+- **A minimise is reported, not failed.** Each one is said with its time, and the result carries
+  `window_kept_shown`; the test asserts nothing on it. The measurements it makes are of layout,
+  which a minimise and restore does not change. *Cost:* a run that had to show its window again
+  passes like one that did not; the line is there for anyone reading.
+- **The failure diagnostic was moved, not only fixed.** Asked inside the Playwright session, with
+  a 3s limit each (`page.evaluate` has none, and would wait forever on a page that runs nothing),
+  and with the memory free: earlier reports suspected memory, and today's two failures came
+  with 1105 and 1360 MB free, so it is now recorded rather than guessed.
+- **Not done: the site view's capture count.** 10 to 13 of 20 at 100% and 125% in every run, 20
+  of 20 at 150%, which does not match CLAUDE.md's 20 of 20 and is not this failure. Flagged, not
+  touched.
+
+## `fix/host-fit-flake` merged with one timing assertion failing — Raham, 2026-11-11
+
+The suite had one failure, `test_calm.py::test_the_shape_does_not_slow_the_window`, 154ms
+of extra main-thread work in 5s against a 150ms limit, 27 minutes into the frontend half. It
+passed 5 of 5 run alone (42 to 115ms more). The branch changes only
+`tools/evaluation/display_fit_run.py`; the test and the app are as on `main`. Held back as the
+task said, then merged on Raham's decision (EVALUATION.md, 2026-11-11b).
+
+**Flagged**: the assertion measures main-thread time in a browser sharing the machine with the
+run, so it moves with load; alone its spread already reaches 115ms of the 150. Options: leave
+it (it will fail again now and then); measure the turn several times and take the median;
+raise the limit. Recommended: the median of three, which costs about 10s of suite time and
+changes no limit. Not done here: not this task.

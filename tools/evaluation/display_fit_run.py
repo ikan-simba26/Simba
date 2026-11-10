@@ -547,16 +547,53 @@ def capture_view(page: Page, path: Path, theme: str | None = None) -> None:
         path.write_bytes(pool.submit(asyncio.run, shoot()).result())
 
 
-#: Whether the page is getting frames, from inside it. Playwright's click waits
-#: on `requestAnimationFrame`, and a page with none times out on "visible,
-#: enabled and stable" with nothing to say why (2026-11-02).
-FRAMES_JS = """() => new Promise((answer) => {
-    const say = (frames) => answer({frames, hidden: document.hidden,
-                                    focused: document.hasFocus(),
-                                    window: window.__simbaWindow ?? null});
-    const none = setTimeout(() => say(false), 2000);
-    requestAnimationFrame(() => { clearTimeout(none); say(true); });
-})"""
+#: What a page says of itself, polled on a timer: it answers only if its
+#: main thread runs.
+PAGE_STATE_JS = """() => ({hidden: document.hidden, focused: document.hasFocus(),
+                         window: window.__simbaWindow ?? null})"""
+
+
+def tell_frames(scale: str, overlay: Page, site: Page) -> None:
+    """At a failure: whether each view's page runs code, whether it gets
+    animation frames, and how much memory the machine had.
+
+    Playwright's click waits for "visible, enabled and stable", and stable is
+    checked frame by frame with `requestAnimationFrame`. A button that moves
+    logs "element is not stable" and is tried again; a press that logs nothing
+    after the wait for 30s is that check never coming back (2026-11-11). Both
+    asked with a limit: `evaluate` has none, and would wait forever on a page
+    whose main thread does not run.
+    """
+    for name, page in (("overlay", overlay), ("site view", site)):
+        try:
+            state = page.wait_for_function(PAGE_STATE_JS, polling=100, timeout=3000).json_value()
+        except Exception as error:  # noqa: BLE001 - no answer is itself the finding
+            state = f"no answer within 3s: {error!r}"[:160]
+        try:
+            page.wait_for_function("() => true", polling="raf", timeout=3000)
+            frames = True
+        except Exception:  # noqa: BLE001
+            frames = False
+        said(scale, f"the {name} at that moment: frames {frames}, {state}")
+    said(scale, f"memory free: {free_memory_mb()} MB")
+
+
+def free_memory_mb() -> int | None:
+    """The machine's free physical memory, on Windows; None elsewhere."""
+    if os.name != "nt":
+        return None
+    import ctypes
+
+    class Status(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong),
+                    ("total", ctypes.c_ulonglong), ("free", ctypes.c_ulonglong),
+                    ("page_total", ctypes.c_ulonglong), ("page_free", ctypes.c_ulonglong),
+                    ("virtual_total", ctypes.c_ulonglong), ("virtual_free", ctypes.c_ulonglong),
+                    ("extended", ctypes.c_ulonglong)]
+
+    status = Status(length=ctypes.sizeof(Status))
+    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+    return status.free // (1024 * 1024)
 
 
 def host_line(log: Path) -> dict:
@@ -570,86 +607,177 @@ def host_line(log: Path) -> dict:
     return {}
 
 
+class KeepShown:
+    """Keeps the host's window from staying minimised while it is measured,
+    and says each time it had to (2026-11-11).
+
+    The host fit test failed at random about one run in three for a week: a
+    press on Start waiting 30s for the button to be "stable", or no picture
+    of the page within 4s. Both were the host's window minimised in the middle
+    of the run by something outside the test, a person at the machine or
+    Windows; nothing in the repository minimises a window. A minimised window
+    is painted about once a second, irregularly: Playwright's check for
+    "stable" waits for animation frames, and with the window minimised a
+    press on Start failed 21 of 40 times with exactly the logged failure, 0
+    frames at that moment, against 0 of 180 with the window covered but not
+    minimised (EVALUATION.md, 2026-11-11).
+
+    A person never meets this: nobody presses a button on a minimised window,
+    and the backend asks whether the window is shown before every action
+    (`backend/orchestrator/browser.window_watch`). The test, though, needs its
+    window shown for as long as it measures. So it is put back, without being
+    activated: it never takes the keyboard from whoever is working. Not a
+    retry and no longer wait: the window is shown again, and every time is in
+    the result, so a run where it happened says so.
+    """
+
+    def __init__(self, scale: str) -> None:
+        import threading
+
+        self.scale = scale
+        self.restored: list[float] = []
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._watch, daemon=True)
+        self._hwnd = self._find() if os.name == "nt" else 0
+        if self._hwnd:
+            self._thread.start()
+
+    @staticmethod
+    def _find() -> int:
+        """The host's window: the visible, titled window of the process
+        listening on `PORT`."""
+        import ctypes
+        import ctypes.wintypes as wt
+
+        done = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"(Get-NetTCPConnection -LocalPort {PORT} -State Listen).OwningProcess"],
+            capture_output=True, text=True, timeout=30)
+        pids = {int(line) for line in done.stdout.split() if line.strip().isdigit()}
+        user32 = ctypes.windll.user32
+        found: list[int] = []
+
+        @ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+        def each(hwnd, _):
+            owner = wt.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value in pids and user32.IsWindowVisible(hwnd)                     and user32.GetWindowTextLengthW(hwnd):
+                found.append(hwnd)
+            return True
+
+        for _ in range(40):  # the window comes a moment after CDP answers
+            user32.EnumWindows(each, 0)
+            if found:
+                return found[0]
+            time.sleep(0.25)
+        return 0
+
+    def _watch(self) -> None:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        while not self._stop.wait(0.2):
+            if user32.IsIconic(self._hwnd):
+                user32.ShowWindow(self._hwnd, 4)  # SW_SHOWNOACTIVATE
+                at = round(time.monotonic() - STARTED.get(self.scale, time.monotonic()), 1)
+                self.restored.append(at)
+                said(self.scale, "the host's window was minimised from outside the test; "
+                                 "shown again, not activated")
+
+    def close(self) -> dict:
+        self._stop.set()
+        if self._thread.is_alive():
+            self._thread.join(timeout=2)
+        return {"watched": bool(self._hwnd), "restored_at_s": self.restored}
+
+
 def measure(scale: str) -> dict:
     STARTED[scale] = time.monotonic()
     proc, log = launch(scale)
     said(scale, "host answering on CDP")
+    shown = KeepShown(scale)
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.connect_over_cdp(CDP)
             pages = [p for c in browser.contexts for p in c.pages]
             overlay = next(p for p in pages if p.url.startswith("file:"))
             site = next(p for p in pages if not p.url.startswith("file:"))
-            overlay.wait_for_load_state()
-            # A new person's first open: the welcome, each question measured
-            # and kept as a picture, then skipped through to the home screen.
-            welcome = read_welcome(overlay, scale)
-            overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
-            overlay.wait_for_timeout(1200)  # let the entrance animation finish
+            try:
+                overlay.wait_for_load_state()
+                # A new person's first open: the welcome, each question measured
+                # and kept as a picture, then skipped through to the home screen.
+                welcome = read_welcome(overlay, scale)
+                overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
+                overlay.wait_for_timeout(1200)  # let the entrance animation finish
 
-            # Electron's CDP has no `Browser.getWindowForTarget`, so the window
-            # comes from the host's own line; the page's idea of it is kept
-            # beside it as a cross-check.
-            page_window = overlay.evaluate("""() => ({
-                screen_x: screenX, screen_y: screenY,
-                outer: [outerWidth, outerHeight],
-                avail: [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight],
-            })""")
+                # Electron's CDP has no `Browser.getWindowForTarget`, so the window
+                # comes from the host's own line; the page's idea of it is kept
+                # beside it as a cross-check.
+                page_window = overlay.evaluate("""() => ({
+                    screen_x: screenX, screen_y: screenY,
+                    outer: [outerWidth, outerHeight],
+                    avail: [screen.availLeft, screen.availTop, screen.availWidth, screen.availHeight],
+                })""")
 
-            said(scale, "home screen up")
-            view = read_home(overlay)
+                said(scale, "home screen up")
+                view = read_home(overlay)
 
-            site_view = site.evaluate("() => ({inner: [innerWidth, innerHeight], dpr: devicePixelRatio})")
-            site_view["layout"] = site_layout(site)
-            site.set_content("<h1 style='font:48px sans-serif'>site view</h1>"
-                             "<p>" + "text " * 400 + "</p>")
-            said(scale, "site view laid out; capturing it")
-            ok = 0
-            for _ in range(CAPTURES):
-                try:
-                    site.screenshot(timeout=5000)
-                    ok += 1
-                except Exception:  # noqa: BLE001 — a failed capture is the measurement
-                    pass
+                site_view = site.evaluate("() => ({inner: [innerWidth, innerHeight], dpr: devicePixelRatio})")
+                site_view["layout"] = site_layout(site)
+                site.set_content("<h1 style='font:48px sans-serif'>site view</h1>"
+                                 "<p>" + "text " * 400 + "</p>")
+                said(scale, "site view laid out; capturing it")
+                ok = 0
+                for _ in range(CAPTURES):
+                    try:
+                        site.screenshot(timeout=5000)
+                        ok += 1
+                    except Exception:  # noqa: BLE001 — a failed capture is the measurement
+                        pass
 
-            OUT.mkdir(parents=True, exist_ok=True)
-            name = f"home-{scale}.png"
-            said(scale, f"site view captured {ok}/{CAPTURES}; capturing the overlay")
-            capture_view(overlay, OUT / name)
-            said(scale, "overlay captured; the home screen with history")
+                OUT.mkdir(parents=True, exist_ok=True)
+                name = f"home-{scale}.png"
+                said(scale, f"site view captured {ok}/{CAPTURES}; capturing the overlay")
+                capture_view(overlay, OUT / name)
+                said(scale, "overlay captured; the home screen with history")
 
-            # The same screen for someone with history: the overlay pointed
-            # at a backend that offers three remembered goals.
-            history = ScriptedHistory()
-            overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{history.port}")
-            overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
-            overlay.wait_for_function(
-                "g => document.body.textContent.includes(g)", arg=HISTORY[0], timeout=15000)
-            overlay.wait_for_timeout(1200)
-            overlay.get_by_test_id("own-tile").first.wait_for(timeout=15000)
-            with_history = read_home(overlay)
-            with_history["own_tiles"] = overlay.get_by_test_id("own-tile").count()
-            capture_view(overlay, OUT / f"home-{scale}-history.png")
+                # The same screen for someone with history: the overlay pointed
+                # at a backend that offers three remembered goals.
+                history = ScriptedHistory()
+                overlay.goto(overlay.url.split("?")[0] + f"?ws=ws://127.0.0.1:{history.port}")
+                overlay.get_by_role("textbox", name=TEXTBOX).wait_for()
+                overlay.wait_for_function(
+                    "g => document.body.textContent.includes(g)", arg=HISTORY[0], timeout=15000)
+                overlay.wait_for_timeout(1200)
+                overlay.get_by_test_id("own-tile").first.wait_for(timeout=15000)
+                with_history = read_home(overlay)
+                with_history["own_tiles"] = overlay.get_by_test_id("own-tile").count()
+                capture_view(overlay, OUT / f"home-{scale}-history.png")
 
-            title = window_title()
-            brand = read_brand(overlay, scale)
-            # Every load from here is a screen, not an opening: the logo has
-            # been measured, and there are seventeen endings to reach.
-            overlay.add_init_script("window.__simbaSplash = false")
-            brand["steps"] = read_brand_steps(overlay, scale)
+                title = window_title()
+                brand = read_brand(overlay, scale)
+                # Every load from here is a screen, not an opening: the logo has
+                # been measured, and there are seventeen endings to reach.
+                overlay.add_init_script("window.__simbaSplash = false")
+                brand["steps"] = read_brand_steps(overlay, scale)
 
-            endings = read_endings(overlay, scale)
-            said(scale, "the sign-in screen")
-            sign_in = read_sign_in(overlay, scale)
-            journey = read_journey(overlay, scale)
-            said(scale, "done")
-            browser.close()
+                endings = read_endings(overlay, scale)
+                said(scale, "the sign-in screen")
+                sign_in = read_sign_in(overlay, scale)
+                journey = read_journey(overlay, scale)
+                said(scale, "done")
+                browser.close()
+            except Exception as error:
+                # Asked here, while Playwright is still connected: asked after
+                # the `with`, as until 2026-11-11, it only ever said "Event loop
+                # is closed", in all four failures of the press on Start.
+                said(scale, f"failed: {error!r}"[:300])
+                tell_frames(scale, overlay, site)
+                error.add_note("fit: told")
+                raise
     except Exception as error:
-        said(scale, f"failed: {error!r}"[:300])
-        try:
-            said(scale, f"the overlay at that moment: {overlay.evaluate(FRAMES_JS)}")
-        except Exception as gone:  # noqa: BLE001 - a dead page is itself the finding
-            said(scale, f"the overlay did not answer: {gone!r}"[:200])
+        if "fit: told" not in getattr(error, "__notes__", []):
+            said(scale, f"failed: {error!r}"[:300])
         # The host's own account of why it went, if it said (frontend/electron/main.ts).
         text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
         for line in text.splitlines():
@@ -657,6 +785,7 @@ def measure(scale: str) -> dict:
                 print(line, flush=True)
         raise
     finally:
+        kept = shown.close()
         stop(proc)
 
     fit = host_line(log)
@@ -676,6 +805,7 @@ def measure(scale: str) -> dict:
         "brand": brand,
         "site_view": {**site_view, "captures": f"{ok}/{CAPTURES}"},
         "screenshot": name,
+        "window_kept_shown": kept,
     }
     content = fit.get("content")
     if content:
