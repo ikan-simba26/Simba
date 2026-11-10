@@ -225,3 +225,195 @@ def test_the_checklist_fits_at_150_percent(browser, overlay: str,  # noqa: F811
         assert box and box["y"] + box["height"] <= 632
     finally:
         context.close()
+
+
+# --- the journey line (2026-11-10) -----------------------------------------
+#
+# The same lines drawn as a path of dots: done ones filled, the one being
+# done larger with "Doing this now" beside it, those to come empty. Still a
+# list with the current step marked; at the simplest level only the move
+# being done and how many are left; calm motion, and none when asked.
+
+SIX = ["Filling in where you're starting from", "Filling in where you're going",
+       "Opening the calendar", "Choosing 15 October", "Searching", "Reading the trains"]
+
+
+def six_line(index: int) -> dict:
+    return {"step_index": index, "step_total": 9, "instruction": SIX[index - 1], "detail": "",
+            "fields": [], "actions": [], "requires_confirmation": False, "findings": [],
+            "stage": 3, "coming": SIX[index:]}
+
+
+#: Three done, the fourth being done, two to come.
+FOURTH = RUNNING[:2] + [("step.presented", six_line(i)) for i in (1, 2, 3, 4)] + [
+    (AWAIT_RESPONSE, {})]
+
+
+def at_level(browser, level: int | None, size: str = "100%", reduced: bool = False,
+             theme: str = "light"):
+    from frontend.test_home import SIZES
+
+    width, height, scale = SIZES[size]
+    context = browser.new_context(viewport={"width": width, "height": height},
+                                  device_scale_factor=scale, color_scheme=theme,
+                                  reduced_motion="reduce" if reduced else "no-preference")
+    if level is not None:
+        context.add_init_script(
+            "window.localStorage.setItem('simba.profile', JSON.stringify("
+            f"{{welcomed: true, askEach: false, readAloud: false, level: {level}}}))")
+    return context, context.new_page()
+
+
+def test_the_journey_is_a_list_with_where_you_are_marked(page: Page, overlay: str,  # noqa: F811
+                                                         backend: Backend) -> None:
+    begin(page, overlay, backend, FOURTH)
+    # Still an ordered list a screen reader reads as one, every move a line.
+    assert page.get_by_role("list").filter(has_text=SIX[0]).count() == 1
+    assert lines(page) == [(SIX[0], "done"), (SIX[1], "done"), (SIX[2], "done"),
+                           (SIX[3], "now"), (SIX[4], "to come"), (SIX[5], "to come")]
+    # One current step, and it is the move being done.
+    current = page.locator("[data-testid=checklist-lines] li[aria-current=step]")
+    assert current.count() == 1 and current.get_attribute("data-state") == "now"
+    # Where you are, said in the words a screen reader always heard here, now
+    # on screen too, and read before the move's words.
+    here = page.get_by_test_id("journey-here")
+    assert here.inner_text() == "Doing this now" and here.is_visible()
+    assert current.inner_text().split("\n")[0] == "Doing this now"
+    for state, words in (("done", "Done"), ("to come", "Still to do")):
+        hidden = page.eval_on_selector_all(
+            f"[data-testid=checklist-lines] li[data-state='{state}'] .sr-only",
+            "els => els.map(e => e.innerText)")
+        assert set(hidden) == {words}, (state, hidden)
+    # Done dots filled, the one being done larger, those to come empty.
+    dots = page.eval_on_selector_all(
+        "[data-testid=checklist-lines] li",
+        """items => items.map(i => { const d = i.querySelector('[aria-hidden] > span');
+             const s = getComputedStyle(d);
+             return [i.dataset.state, Math.round(d.getBoundingClientRect().width),
+                     s.backgroundColor === getComputedStyle(document.body).getPropertyValue('--accent')
+                       || s.backgroundColor, s.borderStyle]; })""")
+    widths = {state: width for state, width, _, _ in dots}
+    assert widths["now"] > widths["done"] == widths["to come"], dots
+    assert {style for state, _, _, style in dots if state == "to come"} == {"dashed"}
+    # A path from each dot to the next: solid where it has been, dashed on.
+    paths = page.eval_on_selector_all(
+        "[data-testid=journey-path]",
+        "ps => ps.map(p => [p.closest('li').dataset.state, getComputedStyle(p).borderLeftStyle])")
+    assert paths == [["done", "solid"]] * 3 + [["now", "dashed"], ["to come", "dashed"]], paths
+    # Pause, and nothing else to press, as before.
+    buttons = page.eval_on_selector_all(
+        "[data-testid=checklist] button", "bs => bs.map(b => b.innerText.trim())")
+    assert buttons == ["Pause"]
+
+
+@pytest.mark.parametrize("level, shown", [(1, 6), (2, 6), (3, 1)])
+def test_the_simplest_level_shows_only_where_you_are_and_how_many_are_left(
+        browser, overlay: str, backend: Backend, level: int, shown: int) -> None:  # noqa: F811
+    context, page = at_level(browser, level)
+    try:
+        begin(page, overlay, backend, FOURTH)
+        assert page.get_by_test_id("checklist-lines").get_attribute("data-level") == str(level)
+        listed = lines(page)
+        assert len(listed) == shown, listed
+        left = page.get_by_test_id("journey-left")
+        if level == 3:
+            # The move being done, and how many are left: never the others.
+            assert listed == [(SIX[3], "now")]
+            assert left.inner_text() == "Then 2 more things."
+            assert page.locator("[data-testid=checklist-lines] li[aria-current=step]").count() == 1
+            assert page.get_by_test_id("journey-path").count() == 0
+        else:
+            assert left.count() == 0
+        # Never more than the checklist had: every word it had is a line here.
+        assert {words for words, _ in listed} <= set(SIX)
+        assert page.get_by_role("button", name="Pause").is_visible()
+    finally:
+        context.close()
+
+
+def test_the_last_move_at_the_simplest_level_says_nothing_is_left(
+        browser, overlay: str, backend: Backend) -> None:  # noqa: F811
+    context, page = at_level(browser, 3)
+    try:
+        last = RUNNING[:2] + [("step.presented", six_line(i)) for i in range(1, 7)] + [
+            (AWAIT_RESPONSE, {})]
+        begin(page, overlay, backend, last)
+        assert lines(page) == [(SIX[5], "now")]
+        assert page.get_by_test_id("journey-left").count() == 0
+    finally:
+        context.close()
+
+
+def test_one_more_thing_is_said_as_one(browser, overlay: str,  # noqa: F811
+                                       backend: Backend) -> None:
+    context, page = at_level(browser, 3)
+    try:
+        five = RUNNING[:2] + [("step.presented", six_line(i)) for i in range(1, 6)] + [
+            (AWAIT_RESPONSE, {})]
+        begin(page, overlay, backend, five)
+        assert page.get_by_test_id("journey-left").inner_text() == "Then 1 more thing."
+    finally:
+        context.close()
+
+
+def test_the_dot_grows_into_place_and_not_under_reduced_motion(
+        browser, overlay: str, backend: Backend) -> None:  # noqa: F811
+    for reduced in (False, True):
+        context, page = at_level(browser, None, reduced=reduced)
+        try:
+            backend.script = FOURTH
+            backend.responses.clear()
+            page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
+            page.fill("input[aria-label='What would you like me to do?']", GOAL)
+            page.get_by_role("button", name="Start").click()
+            # Every frame of the dot's arrival, from the moment it is there.
+            seen = page.evaluate("""() => new Promise((done) => {
+              const frames = [];
+              const look = () => {
+                const dot = document.querySelector('[data-testid=journey-now]');
+                if (dot) frames.push([getComputedStyle(dot).transform,
+                                      getComputedStyle(dot).opacity]);
+                if (frames.length >= 40) done(frames); else requestAnimationFrame(look);
+              };
+              look();
+            })""")
+            moving = [frame for frame in seen if frame != ["none", "1"]]
+            if reduced:
+                assert moving == [], seen[:5]
+            else:
+                assert moving, "the dot should grow into place"
+                # Small: from 60% of its size, never larger than itself.
+                assert seen[-1] == ["none", "1"], seen[-1]
+        finally:
+            context.close()
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+@pytest.mark.parametrize("size", ["100%", "125%", "150%", "150%, 632"])
+def test_the_journey_fits_at_every_size_and_level(browser, overlay: str,  # noqa: F811
+                                                  backend: Backend, size: str,
+                                                  level: int) -> None:
+    from frontend.test_home import SIZES
+
+    context, page = at_level(browser, level, size)
+    try:
+        begin(page, overlay, backend, FOURTH)
+        height = SIZES[size][1]
+        assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
+        box = page.get_by_role("button", name="Pause").bounding_box()
+        assert box and box["y"] + box["height"] <= height
+        # Every line, its dot and "Doing this now" wholly in the window and in
+        # the card, nothing overlapping the line under it.
+        rows = page.eval_on_selector_all(
+            "[data-testid=checklist-lines] li",
+            """items => items.map(i => { const r = i.getBoundingClientRect();
+                 return [Math.round(r.top), Math.round(r.bottom), Math.round(r.right)]; })""")
+        card = page.get_by_test_id("checklist").bounding_box()
+        for top, bottom, right in rows:
+            assert 0 <= top and bottom <= height and right <= card["x"] + card["width"] + 1
+        for above, below in zip(rows, rows[1:]):
+            assert above[1] <= below[0], rows
+        here = page.get_by_test_id("journey-here").bounding_box()
+        assert here["x"] + here["width"] <= card["x"] + card["width"]
+    finally:
+        context.close()

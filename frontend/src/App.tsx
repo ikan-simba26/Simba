@@ -848,13 +848,31 @@ function Step({ index }: { index: number }) {
  *
  * The safe mechanical moves — filling in the form, opening the calendar,
  * searching — used to be a screen each, with a button to press for each.
- * Now they run, and each is one line here: done ones ticked, the one being
- * done marked, in the backend's plain words. One button, Pause, which stops
- * SIMBA before its next move. Anything that is a real choice, that went
- * wrong, or that would pay, book, register or change a record still asks.
+ * Now they run, and each is one line here, in the backend's plain words. One
+ * button, Pause, which stops SIMBA before its next move. Anything that is a
+ * real choice, that went wrong, or that would pay, book, register or change
+ * a record still asks.
+ *
+ * Drawn as a path since 2026-11-10: a dot for each move, joined by a line,
+ * done ones filled and ticked, the one being done larger with "Doing this
+ * now" beside it, and those to come empty, the line to them dashed. Still an
+ * ordered list, the one being done marked as the current step, so a screen
+ * reader reads it as it did. At the simplest level, the least: the move
+ * being done and how many are still to come.
  */
 function Checklist() {
-  const { checklist, coming, pausing, pause } = useStore();
+  const { checklist, coming, pausing, pause, level } = useStore();
+  const reduce = useReducedMotion() ?? false;
+  const simplest = level === 3;
+  const at = checklist.length - 1;
+  const rows: { key: string; label: string; state: "done" | "now" | "to come" }[] = [
+    ...checklist.map((row, index) => ({
+      key: `row-${row.index}`, label: row.label,
+      state: index < at ? ("done" as const) : ("now" as const) })),
+    ...coming.map((label, index) => ({ key: `coming-${index}-${label}`, label,
+                                       state: "to come" as const })),
+  ];
+  const shown = simplest ? rows.filter((row) => row.state === "now") : rows;
   return (
     <Card className="px-12 py-10 short:py-7">
       <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
@@ -862,35 +880,71 @@ function Checklist() {
         <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
           {CHECKLIST.heading}
         </h1>
-        <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite" data-testid="checklist-lines">
-          {checklist.map((row, index) => {
-            const done = index < checklist.length - 1;
-            return (
-              <li key={row.index} className="flex items-center gap-4 text-lead text-ink"
-                  data-state={done ? "done" : "now"}>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full
-                                  ${done ? "bg-accent text-accent-ink"
-                                         : "border-2 border-accent text-accent"}`}>
-                  {done ? <CheckIcon size={20} /> : <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
-                </span>
-                <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.now}</span>
-                <span className={done ? "text-soft" : "font-semibold"}>{row.label}</span>
-              </li>
-            );
-          })}
-          {/* What is next, so nothing comes as a surprise (2026-10-15): an
-              empty dashed ring and the softer text. Softer, never fainter
-              than 4.5:1 (`test_contrast.py`). */}
-          {coming.map((label) => (
-            <li key={`coming-${label}`} className="flex items-center gap-4 text-lead"
-                data-state="to come">
-              <span className="h-9 w-9 shrink-0 rounded-full border-2 border-dashed border-edge"
-                    aria-hidden />
-              <span className="sr-only">{CHECKLIST.next}</span>
-              <span className="text-soft">{label}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-3 short:gap-2">
+          <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite"
+              data-testid="checklist-lines" data-level={level}>
+            {shown.map((row, index) => {
+              const done = row.state === "done";
+              const now = row.state === "now";
+              return (
+                <li key={row.key} className="relative flex items-center gap-4 text-lead"
+                    data-state={row.state} aria-current={now ? "step" : undefined}>
+                  {/* The path to the next dot: solid where it has been, dashed
+                      where it has still to go. Under the dots, which are solid. */}
+                  {index < shown.length - 1 && (
+                    <span aria-hidden data-testid="journey-path"
+                          className={`absolute top-1/2 h-[calc(100%+12px)] short:h-[calc(100%+8px)]
+                                      ${done ? "left-[20.5px] border-l-[3px] border-accent"
+                                             : "left-[21px] border-l-2 border-dashed border-edge"}`} />
+                  )}
+                  <span className="relative z-[1] flex w-11 shrink-0 justify-center" aria-hidden>
+                    {done ? (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full
+                                       bg-accent text-accent-ink">
+                        <CheckIcon size={20} />
+                      </span>
+                    ) : now ? (
+                      // Larger, with a pale ring round it, and grown into
+                      // place when it arrives: once, small and slow, and not
+                      // at all under reduced motion.
+                      <motion.span key={row.key} data-testid="journey-now"
+                                   initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+                                   animate={{ scale: 1, opacity: 1 }}
+                                   transition={{ duration: 0.4, ease: EASE }}
+                                   className="flex h-11 w-11 items-center justify-center
+                                              rounded-full border-[3px] border-accent bg-surface
+                                              shadow-[0_0_0_5px_var(--tint)]">
+                        <span className="h-3.5 w-3.5 rounded-full bg-accent" />
+                      </motion.span>
+                    ) : (
+                      <span className="h-9 w-9 rounded-full border-2 border-dashed border-edge
+                                       bg-surface" />
+                    )}
+                  </span>
+                  {now ? (
+                    // Said, not only shown: where the person is, in the words
+                    // a screen reader always read here. Placed after the words
+                    // on screen, read before them.
+                    <span className="order-last shrink-0 rounded-full bg-tint px-3
+                                     py-0.5 text-caption font-medium text-accent"
+                          data-testid="journey-here">
+                      {CHECKLIST.now}
+                    </span>
+                  ) : (
+                    <span className="sr-only">{done ? CHECKLIST.done : CHECKLIST.next}</span>
+                  )}
+                  {/* Softer, never fainter than 4.5:1 (`test_contrast.py`). */}
+                  <span className={now ? "font-semibold text-ink" : "text-soft"}>{row.label}</span>
+                </li>
+              );
+            })}
+          </ol>
+          {simplest && coming.length > 0 && (
+            <p className="pl-[60px] text-body text-soft" data-testid="journey-left">
+              {CHECKLIST.left(coming.length)}
+            </p>
+          )}
+        </div>
         <div>
           <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
             <span data-icon="pause"><PauseIcon size={24} /></span>
