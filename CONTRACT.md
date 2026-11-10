@@ -602,6 +602,9 @@ of it works as it did on 2026-11-03: no tile appears, nothing asks to teach.
 | `teach.watching.question.kind` (stage 2) | optional field, `"typed"` or `"day"` | backend -> frontend |
 | `tile.change` with a routine's `id` | no field changed: a routine is renamed or removed like a tile | frontend -> backend |
 | `error` code `ROUTINE_NOT_READ` | new code | backend -> frontend |
+| `teach.watching.kept` (2026-11-10) | optional field, a list of short lines | backend -> frontend |
+| `teach.watching.start_again` (2026-11-10) | optional field, true or false | backend -> frontend |
+| `teach.answer.action` `"undo"` and `"restart"` (2026-11-10) | two more values of an existing field | frontend -> backend |
 
 *To undo any one:* drop it on both sides. Nothing else reads it.
 
@@ -639,6 +642,21 @@ pressed Finish: the next click on the page is the answer, and nothing is let
 through. `note` says what was wrong with the last press of the bar ("First,
 tell me whether what you typed is the same every time.").
 
+Since 2026-11-10 (`feat/interface-teach-entry`, additive, **pending Nahail and
+Aly**) two more optional fields:
+```json
+{ "lines": ["..."], "kept": ["Pressed Accept all cookies.", "Typed in Reference No."],
+  "start_again": false, "question": null, "pointing": false, "note": null }
+```
+`kept` is each thing kept so far in a few words, newest last, one for one
+with `lines`, for the bar's list (`voice.kept_line`): what was done and where,
+never what was typed; a password is `"Typed a password."` and nothing more.
+A backend that omits it gets the bar as it was, the count and the last of
+`lines`, and no Undo. `start_again` is true when the last thing could not be
+taken back (below): the website is not on the page it was, nothing on it is
+let through, the list stays as it was, and the bar offers Start again in
+place of Undo last thing and Finish; absent, false.
+
 ### `teach.answer`
 The helper's press on the bar.
 ```json
@@ -649,6 +667,21 @@ The helper's press on the bar.
 ```
 `finish` with a question open, or nothing shown, is answered with a `note`.
 `cancel` (or `task.cancel`) is answered with `task.failed` and the stop reason.
+
+Since 2026-11-10 (additive, **pending Nahail and Aly**) two more actions:
+```json
+{ "action": "undo" }
+{ "action": "restart" }
+```
+`undo` takes the last thing off the list. A typed value is taken out of its
+box as well; a press that moved the website to another page takes the
+website back, and comes off the list only once the page is really the one
+it was pressed on, with what the list says was typed there in its boxes
+again. When it cannot be — the page cannot be reached by going back, or a
+choice was made from a list, a day picked or a password typed on it — the
+answer is `teach.watching` with `note` saying so and `start_again: true`.
+`restart` opens the first page again with nothing kept, and watching goes on.
+Both are ignored while pointing. A backend from before them ignores them.
 
 **After the answer is pointed at** the backend sends `task.started` (goal "Show
 me once") and one `step.presented` with `routine`: the read-back. Its two fields
