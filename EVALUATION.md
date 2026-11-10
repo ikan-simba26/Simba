@@ -8240,3 +8240,133 @@ in three this week is the larger problem, and it is in STATUS.md.
 
 **Merged afterwards, on Raham's decision**, the only failure being the known intermittent one,
 which passed on its own re-run.
+
+## 2026-11-11 — the host fit test's random failure: the host's window minimised mid-run
+
+The host fit test (`SIMBA_HOST_TESTS=1`) had failed at random four times in a week (2026-11-04c
+twice, 2026-11-10b, 2026-11-10d), each time a press on Start waiting 30s for the button to be
+"stable", each time gone on re-run. Raham's task: find the cause, with evidence; no retry and no
+longer timeout as the fix. **Branch** `fix/host-fit-flake`, from `main` at `b2f5948`. Probes in
+`.scratch/host-fit-flake/` (not committed).
+
+### Not the button moving: the page's frame check never came back
+
+Playwright's click waits for "visible, enabled and stable", and *stable* is checked frame by
+frame with `requestAnimationFrame`: two frames with the same box. A box that differs returns
+false, and Playwright logs `element is not stable` and tries again (read in its own source,
+`coreBundle.js`, `_checkElementIsStable` and `_retryAction`). All four failures logged exactly one
+line, `waiting for element to be visible, enabled and stable`, and nothing more for 30s. The
+same Playwright in the same host logs its retries within milliseconds when a check does fail
+(`element is not enabled`, three times in the first second, on a probe's empty box). So in every
+failure the page-side check never returned: the overlay got no animation frames, or ran nothing.
+**That rules out, as the cause: an entrance animation, a late layout shift, and the press guard**
+(which ignores a person's press and never touches Playwright's check). A window still being
+fitted happens once, in the host's first second; the failures came 89 to 197s in.
+
+The test's own diagnostic for this, the overlay's frames asked at a failure (2026-11-02), had
+never worked: it ran after the Playwright session had closed, and said "Event loop is closed!"
+in all four failures.
+
+### The cause, caught and reproduced
+
+With the diagnostic moved inside the session, the first run of the test failed 2 of 3, and both
+times the host's own window said **`minimised`** (`window.__simbaWindow`, written by
+`frontend/electron/main.ts` on Windows' minimise and restore):
+
+| Scale | When | Failure | The window | Memory free |
+|---|---|---|---|---|
+| 125% | 230s | a press on Start, 30s for "stable" (as the four before) | `minimised` | 1105 MB |
+| 150% | 109s | no picture of the page within 4s (as 2026-11-04c's first run) | `minimised` | 1360 MB |
+
+Nothing in the repository minimises a window (searched outside `node_modules`, the venv and
+`.scratch`). A minimised host window was minimised from outside: a person at the machine or
+Windows. Raham was not sure whether he had.
+
+Then the same thing on purpose, at 125%, each ending reached exactly as the fit test reaches it
+(`test_terminal_states.reach`: load, wait, type, press Start, answer, wait for the ending):
+
+| Host window | Rounds | Failed | Longest round | At the failures |
+|---|---|---|---|---|
+| Covered by a maximised window, in front of nothing | 120 + 60 | **0** | 5.9s / 8.6s | — |
+| Covered, focus moved to the site view | frames only | — | — | 31–32 frames in 600ms, as before |
+| Minimised once, 10s per action | 40 | **21** | 11.6s | 0 frames in 600ms, every one |
+| Minimised every 3s, the test's 30s | 40 | **18** | 31.0s | the logged failure, word for word |
+| Minimised every 3s, **with the fix** | 40 | **0** | 3.3s | 34 minimised, 34 shown again |
+
+Minimised, the overlay drops from 30–32 frames in 600ms to 0–3, and the press on Start fails
+every other time, as the site view's captures alternate. Covered but shown, it keeps 30–32 and
+never failed.
+
+**A person does not meet this.** Nobody presses a button on a minimised window, and the backend
+asks whether the window is shown before every action on the site
+(`backend/orchestrator/browser.window_watch`, since 2026-10-05). It is the test: it needs the
+window shown for ten minutes and assumed it stayed so.
+
+### The fix, in the test
+
+`KeepShown` in `tools/evaluation/display_fit_run.py` watches the host's own window five times a
+second while it is measured. When it is minimised, it is shown again with `SW_SHOWNOACTIVATE`,
+so it never takes the keyboard from whoever is working, and the time is said and kept in the
+result (`window_kept_shown`). Not a retry and no longer wait: the press is made on a window that
+is shown, as the test assumed. A failed press now also says, inside the session and with a 3s
+limit, whether each view runs code and gets frames, the window's state, and the memory free.
+
+### The proof: five runs in a row
+
+After `npm run build`, on mains, `fix/host-fit-flake` at `35d4e34`:
+
+| Run | Result | 100% | 125% | 150% | Wall clock | Minimised and shown again | Memory free at start |
+|---|---|---|---|---|---|---|---|
+| 1 | 3 passed | 212s | 209s | 160s | 589s | 2 (100% at 53s and 177s) | 512 MB |
+| 2 | 3 passed | 212s | 218s | 164s | 601s | 2 (125% at 201s, 150% at 9s) | 2362 MB |
+| 3 | 3 passed | 212s | 204s | 158s | 582s | 1 (150% at 99s) | 1167 MB |
+| 4 | 3 passed | 210s | 213s | 163s | 593s | 0 | 1868 MB |
+| 5 | 3 passed | 212s | 212s | 164s | 596s | 2 (150% at 5s and 107s) | 2274 MB |
+
+**15 of 15.** In four of the five runs the window was minimised from outside at least once, 7
+times in all; before the fix each of those could have failed the run, which fits a failure
+about one run in three.
+
+### Open
+
+- **What minimises the window is not known.** Seven times in fifty minutes, at 5s to 201s into a
+  host, at every scale. A person is possible; so is something on the machine. Found by watching,
+  not by asking: the watcher says when, never why.
+- **The site view's captures are 10 to 13 of 20 at 100% and 125%** in every one of these runs,
+  and 20 of 20 at 150%; of the 47 counts in the saved logs since 2026-11-04, 42 are 10 to 13 and
+  5 are 20. CLAUDE.md records 20 of 20 for the covered view. Not this failure: no assertion reads
+  the count. With the window covered by another and shown, probes got 10, 17 and 19 of 20. Not
+  settled here.
+
+## 2026-11-11b — the suite on `fix/host-fit-flake`: one timing assertion over its limit
+
+Run as two halves, then `npm run build`, then the host fit test, on mains, `fix/host-fit-flake`
+at `35d4e34` (the docs for it uncommitted):
+
+| Part | Result | Wall clock |
+|---|---|---|
+| `pytest backend tools test_basetemp.py` | 1386 passed, 9 skipped | 1930s |
+| `pytest frontend` | **714 passed, 1 failed**, 3 skipped | 1648s |
+| `npm run build` | built | 2s |
+| host fit test, `SIMBA_HOST_TESTS=1` | 3 passed | 584s |
+
+**The failure**: `frontend/test_calm.py::test_the_shape_does_not_slow_the_window`. The turning
+shape cost 271ms of main-thread work in 5s against 117ms held still: **154ms more, the limit is
+150ms**. p95 frame 16.8ms both, so no frame was late. The branch changes only
+`tools/evaluation/display_fit_run.py`, which nothing in `test_calm.py` uses; the test and the app
+are the same as on `main`.
+
+Run on its own five times straight after, same machine, same build:
+
+| Run | Turning | Still | Difference | Result |
+|---|---|---|---|---|
+| 1 | 180ms | 132ms | 48ms | passed |
+| 2 | 194ms | 109ms | 85ms | passed |
+| 3 | 238ms | 123ms | 115ms | passed |
+| 4 | 136ms | 94ms | 42ms | passed |
+| 5 | 157ms | 97ms | 60ms | passed |
+
+Median 60ms, 2026-10-07 recorded about 70ms; the spread on its own reaches 115ms, and 27 minutes
+into a full frontend half it reached 154ms. The assertion measures main-thread time in a
+browser that shares the machine with the test run, so it moves with load. **Not merged on this
+result**: the task says a failure means no merge.
