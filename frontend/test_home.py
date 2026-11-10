@@ -155,11 +155,20 @@ def box_fits(page: Page) -> tuple[bool, dict]:
     button = page.get_by_role("button", name="Start", exact=True).bounding_box()
     scrolls = page.evaluate(
         "() => document.scrollingElement.scrollHeight > window.innerHeight")
+    # And the way in for a helper (2026-11-10), in the top right corner:
+    # wholly in the window, and above the person's column.
+    entry = page.get_by_test_id("teach-entry").bounding_box()
+    greeting = page.get_by_test_id("greeting").bounding_box()
     measured = {"box_bottom": round(rect["y"] + rect["height"]),
                 "start_bottom": round(button["y"] + button["height"]),
-                "height": viewport["height"], "scrolls": scrolls}
+                "height": viewport["height"], "scrolls": scrolls,
+                "entry_top": round(entry["y"]), "entry_bottom": round(entry["y"] + entry["height"]),
+                "entry_right": round(entry["x"] + entry["width"]),
+                "greeting_top": round(greeting["y"])}
     fits = (rect["y"] >= 0 and measured["box_bottom"] <= viewport["height"]
-            and measured["start_bottom"] <= viewport["height"] and not scrolls)
+            and measured["start_bottom"] <= viewport["height"] and not scrolls
+            and measured["entry_top"] >= 0 and measured["entry_bottom"] <= measured["greeting_top"]
+            and measured["entry_right"] <= viewport["width"])
     return fits, measured
 
 

@@ -179,6 +179,9 @@ HOME_JS = """(label) => {
     const box = document.querySelector(`[aria-label="${label}"]`)
         || [...document.querySelectorAll('textarea,input')][0];
     const r = box.getBoundingClientRect();
+    const entry = document.querySelector('[data-testid=teach-entry]');
+    const teach = entry ? entry.getBoundingClientRect() : null;
+    const greeting = document.querySelector('[data-testid=greeting]').getBoundingClientRect();
     // The smallest text a person can see: every element that
     // holds text of its own, is rendered, and is inside the
     // window.
@@ -198,6 +201,11 @@ HOME_JS = """(label) => {
         input_text_px: parseFloat(getComputedStyle(box).fontSize),
         cards: document.querySelectorAll('[data-testid=tile]').length,
         remembered: document.querySelectorAll('[data-testid=remembered]').length,
+        // The way in for a helper (2026-11-10), in the top right corner:
+        // wholly in the window, and above the person's column.
+        teach_in_viewport: teach !== null && teach.top >= 0 && teach.bottom <= innerHeight
+                           && teach.right <= innerWidth,
+        teach_clear: teach !== null && teach.bottom <= greeting.top,
     };
 }"""
 

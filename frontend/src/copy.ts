@@ -152,6 +152,10 @@ export const TILES = {
 export const TEACH = {
   /** In "Change my settings": opens the screen behind it. */
   open: "Show me once",
+  /** On the home screen, apart from the rest and quiet (2026-11-10): the
+   *  same screen, for a helper, with the line under it saying so. */
+  enter: "Teach a task",
+  enterDetail: "For a helper, like a carer or a teacher.",
   ask: "Show me a task once",
   detail: "This is for a helper, like a carer, a family member or a teacher. Do the task once on the real website while I watch. Then it becomes a tile, and I can do it again with one press.",
   how: "I'll step aside so you can use the website. I never keep a password, and on a real website I only read.",
@@ -177,6 +181,16 @@ export const TEACH = {
   pointingDetail: "The thing this task is for, like the amount or the list of trains.",
   finish: "Finish",
   stop: "Stop watching",
+  /** The things kept so far, each in a few words (2026-11-10). A lead-in,
+   *  for a screen reader. */
+  kept: "What I've kept so far",
+  /** Above the last few, when the bar has no room for them all. */
+  more: (n: number) => (n === 1 ? "1 more before these." : `${n} more before these.`),
+  /** Takes the last thing off the list, and the website back if it moved. */
+  undo: "Undo last thing",
+  /** When the website could not be taken back: the first page again, with
+   *  nothing kept. */
+  startAgain: "Start again",
   /** On "Change my tiles", beside a tile a helper showed. */
   save: "Save to a file",
 } as const;
@@ -727,6 +741,10 @@ export const LABELS: Record<string, string> = {
   "teach.stop": TEACH.stop,
   "teach.save": TEACH.save,
   "teach.fromFile": TEACH.fromFile,
+  "teach.enter": TEACH.enter,
+  "teach.undo": TEACH.undo,
+  "teach.startAgain": TEACH.startAgain,
+  "teach.kept": TEACH.kept,
   "welcome.readYes": WELCOME.readYes,
   "welcome.readNo": WELCOME.readNo,
   "welcome.askEach": WELCOME.askEach,

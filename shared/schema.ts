@@ -349,6 +349,14 @@ export interface TeachWatching {
   question?: TeachQuestion | null;
   pointing?: boolean;
   note?: string | null;
+  /** Additive and optional (2026-11-10): each thing kept so far in a few
+   *  words, newest last, for the bar's list. A password is "Typed a
+   *  password." and nothing more. Absent: the count and the last line. */
+  kept?: string[] | null;
+  /** Additive and optional (2026-11-10): the last thing could not be taken
+   *  back. Nothing on the website is let through; the bar offers Start again
+   *  in place of Undo and Finish. */
+  start_again?: boolean;
 }
 
 /** A routine saved to a file (2026-11-04, pending agreement), in answer to
@@ -398,9 +406,11 @@ export interface TeachStart {
   url: string;
 }
 
-/** The helper's press on the bar (2026-11-04, pending agreement). */
+/** The helper's press on the bar (2026-11-04, pending agreement). Additive
+ *  (2026-11-10): "undo" takes the last thing off, and the website back when
+ *  that thing moved it; "restart" opens the first page again, nothing kept. */
 export interface TeachAnswer {
-  action: "same" | "ask" | "finish" | "cancel";
+  action: "same" | "ask" | "finish" | "cancel" | "undo" | "restart";
   step?: number;
 }
 

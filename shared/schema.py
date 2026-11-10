@@ -394,6 +394,15 @@ class TeachWatching(BaseModel):
     question: Optional[TeachQuestion] = None
     pointing: bool = False
     note: Optional[str] = None
+    # Additive and optional (2026-11-10). Each thing kept so far in a few
+    # words, newest last, for the bar's list ("Typed in Reference No.",
+    # "Pressed Check Bill."); a password is "Typed a password." and nothing
+    # more. Absent: the bar shows the count and the last of `lines`.
+    kept: Optional[List[str]] = None
+    # Additive and optional (2026-11-10). True when the last thing could not
+    # be taken back: the website is not on the page it was, nothing on it is
+    # let through, and the bar offers Start again in place of Undo and Finish.
+    start_again: bool = False
 
 
 class RoutineFile(BaseModel):
@@ -451,9 +460,11 @@ class TeachStart(BaseModel):
 class TeachAnswer(BaseModel):
     """The helper's press on the bar (2026-11-04, pending agreement): "same"
     or "ask" for the question about the value at `step`, "finish" when the
-    task has been shown, "cancel" to stop watching."""
+    task has been shown, "cancel" to stop watching. Additive (2026-11-10):
+    "undo" takes the last thing off, and the website back when that thing
+    moved it; "restart" opens the first page again with nothing kept."""
 
-    action: Literal["same", "ask", "finish", "cancel"]
+    action: Literal["same", "ask", "finish", "cancel", "undo", "restart"]
     step: Optional[int] = None
 
 

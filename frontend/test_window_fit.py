@@ -49,6 +49,10 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     # The text box is on screen with nothing to scroll.
     assert result["overlay"]["box_in_viewport"], result["overlay"]
     assert not result["overlay"]["scrolls"], result["overlay"]
+    # And the way in for a helper (2026-11-10): "Teach a task" in the top
+    # right corner, wholly in the window and above the person's column.
+    assert result["overlay"]["teach_in_viewport"], result["overlay"]
+    assert result["overlay"]["teach_clear"], result["overlay"]
     # And for someone with history: the three tiles and two remembered goals
     # under them, as long as a line holds. Not measured until 2026-09-30, when
     # six cards had put the box below the bottom of the window at every scale.
@@ -61,6 +65,7 @@ def test_the_window_fits_and_the_site_view_does_not_change(scale: str) -> None:
     assert history["box_in_viewport"], history
     assert not history["scrolls"], history
     assert history["smallest_text_px"] >= 20, history
+    assert history["teach_in_viewport"] and history["teach_clear"], history
     # And a new person's first open (2026-10-18): the welcome, its four
     # questions each fitting, nothing to scroll and every button in the window.
     welcome = result["welcome"]

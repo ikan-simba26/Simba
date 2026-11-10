@@ -484,3 +484,288 @@ def test_no_room_on_the_home_screen_and_nothing_is_watched(
     kept, overlay = run(full())
     assert kept is None and overlay.types() == ["help.requested"]
     assert overlay.of("help.requested")[0]["reason"] == voice.TEACH_NO_ROOM
+
+
+# --- undoing the last thing (2026-11-10) -------------------------------------------------
+#
+# A helper who pressed the wrong thing takes it back from the bar. The routine
+# that is kept must still match the page: a typed value taken back is cleared
+# from its box; a press that moved the website to another page takes the
+# website back, and is only taken off the list once the page is really the
+# earlier one; when it cannot be, the bar says so and offers Start again, and
+# nothing is let through until then.
+
+
+def _kept(overlay: Overlay) -> list[str]:
+    return overlay.bar().get("kept") or []
+
+
+def test_the_bar_lists_each_thing_kept_in_a_few_words_newest_last(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: len(_kept(o)) == 3)
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    _, overlay, _ = run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+    assert _kept(overlay) == ["Pressed Accept all cookies.", "Typed in Reference No.",
+                              "Pressed Check Bill."]
+    # Beside the read-back's longer lines, one for one.
+    assert len(overlay.bar()["lines"]) == 3
+    # What was typed is in the question, where the helper decides about it,
+    # never in the list.
+    assert REFERENCE not in json.dumps(_kept(overlay))
+    assert not overlay.bar().get("start_again")
+
+
+def test_a_password_is_listed_as_a_password_and_nothing_else(tmp_path: Path) -> None:
+    page_html = ("data:text/html,<form><label>Name <input name=user></label>"
+                 "<label>Password <input type=password name=pw></label>"
+                 "<button type=button onclick=\"document.title='in'\">Sign in</button></form>")
+
+    async def helper(page, overlay):
+        await page.get_by_label("Password").fill("hunter2-secret")
+        await page.get_by_role("button", name="Sign in").click()
+        await overlay.until(lambda o: len(_kept(o)) == 2)
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    _, overlay, _ = run(_on_page(page_html, helper, RoutineStore(tmp_path / "r.json")))
+    assert _kept(overlay) == ["Typed a password.", "Pressed Sign in."]
+    assert "hunter2" not in json.dumps(overlay.sent)
+
+
+def test_undo_takes_a_typed_value_off_the_list_and_out_of_its_box(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        box = page.get_by_role("textbox", name="Reference No.")
+        await box.fill(REFERENCE)
+        await box.press("Tab")
+        await overlay.until(lambda o: o.bar()["question"] is not None)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: _kept(o) == [] and o.bar()["question"] is None)
+        # The page matches the list: the box is empty again.
+        assert await box.input_value() == ""
+        assert overlay.bar()["lines"] == []
+        # Typed again, it is kept again, and asked about again.
+        await box.fill(REFERENCE)
+        await box.press("Tab")
+        await overlay.until(lambda o: o.bar()["question"] is not None)
+        assert _kept(overlay) == ["Typed in Reference No."]
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+
+
+def test_undo_of_a_press_that_moved_the_page_takes_the_website_back(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    """The bill shown, the search taken back, shown again, kept, and run
+    from its tile five times: the routine after an undo is the routine."""
+    from backend.orchestrator.test_routine_run import go as run_routine
+
+    async def helper(page, overlay):
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: len(_kept(o)) == 3)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: len(_kept(o)) == 2)
+        # Really the earlier page: the form, with the number still in it.
+        assert page.url.rstrip("/") == billing_replica.rstrip("/")
+        assert await page.get_by_role("textbox", name="Reference No.").input_value() == REFERENCE
+        assert _kept(overlay) == ["Pressed Accept all cookies.", "Typed in Reference No."]
+        assert not overlay.bar().get("start_again") and overlay.bar()["note"] is None
+        # Done again: kept once, not twice.
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: len(_kept(o)) == 3)
+        question = overlay.bar()["question"]
+        overlay.say("teach.answer", {"action": "ask", "step": question["step"]})
+        await overlay.until(lambda o: o.bar()["question"] is None)
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["pointing"])
+        await page.get_by_text("14,382", exact=True).first.click()
+        await overlay.until(lambda o: o.of("step.presented"))
+        overlay.say("step.response", {"step_index": 1, "action_id": "confirm",
+                                      "input_values": {"name": "My bill", "answer": "Amount due"}})
+
+    store = RoutineStore(tmp_path / "routines.json")
+    kept, overlay, _ = run(_on_page(billing_replica, helper, store))
+    assert kept is not None and [(s.kind, s.label) for s in kept.steps] == [
+        ("click", "Accept all cookies"), ("fill", "Reference No."), ("click", "Check Bill")]
+    assert kept.steps[2].expect_url == "/bill"
+    # From the tile, five times over: each run finds the amount, with no model.
+    for _ in range(5):
+        done = run_routine(kept, [("confirm", {"value1": REFERENCE})])
+        ending = done.of("task.completed")
+        assert ending and ending[0]["findings"][0]["values"] == ["14,382"], done.types()
+        assert ending[0]["llm_calls"] == 0
+
+
+def test_undo_of_a_press_that_stayed_on_the_page_only_takes_it_off_the_list(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await overlay.until(lambda o: len(_kept(o)) == 1)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: _kept(o) == [])
+        assert page.url.rstrip("/") == billing_replica.rstrip("/")
+        assert overlay.bar()["note"] is None and not overlay.bar().get("start_again")
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+
+
+#: Pages served to the browser from the test (`_on_routed`), so a site that
+#: is not one of ours can be shaped: a press that replaces the page in the
+#: history, so going back cannot reach it; a sign-in page.
+SITE = "http://undo.test"
+SECOND = f"{SITE}/second"
+PAGES = {
+    f"{SITE}/first": (f"<h1>First</h1><button onclick=\"location.replace('{SECOND}')\">"
+                      "Go on</button>"),
+    SECOND: "<h1>Second</h1><button>Keep going</button>",
+    f"{SITE}/login": ("<h1>Sign in</h1><label>Password <input type=password name=pw></label>"
+                      f"<a href='{SITE}/home'>Go on</a>"),
+    f"{SITE}/home": "<h1>Home</h1>",
+}
+
+
+async def _on_routed(url: str, helper, store: RoutineStore):
+    """`_on_page`, on `PAGES`, which the browser is given from here."""
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        page = await browser.new_page(viewport={"width": 1280, "height": 800})
+
+        async def serve(route):
+            html = PAGES.get(route.request.url)
+            if html is None:
+                await route.abort()
+            else:
+                await route.fulfill(status=200, content_type="text/html", body=html)
+
+        await page.route(f"{SITE}/**", serve)
+        overlay = Overlay()
+        try:
+            job = asyncio.create_task(teach(page, overlay, url, store))
+            await overlay.until(lambda o: o.of("teach.watching") or o.of("help.requested"))
+            await helper(page, overlay)
+            kept = await asyncio.wait_for(job, 30)
+            return kept, overlay, page.url
+        finally:
+            await browser.close()
+
+
+def test_when_the_website_cannot_be_taken_back_it_is_said_and_start_again_is_offered(
+        tmp_path: Path) -> None:
+    async def helper(page, overlay):
+        await page.get_by_role("button", name="Go on").click()
+        await page.get_by_role("heading", name="Second").wait_for()
+        await overlay.until(lambda o: len(_kept(o)) == 1)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: o.bar().get("start_again"))
+        # Said plainly, and nothing taken off a list the page no longer matches.
+        assert overlay.bar()["note"] == voice.TEACH_NOT_BACK
+        assert _kept(overlay) == ["Pressed Go on."]
+        # Nothing is let through, and nothing kept, until Start again.
+        await page.goto(SECOND)
+        await page.get_by_role("button", name="Keep going").click()
+        await asyncio.sleep(0.5)
+        assert _kept(overlay) == ["Pressed Go on."]
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["note"] == voice.TEACH_START_AGAIN_FIRST)
+        assert not overlay.bar()["pointing"]
+        # Start again: the first page, with nothing kept, and watching as before.
+        overlay.say("teach.answer", {"action": "restart"})
+        await overlay.until(lambda o: not o.bar().get("start_again") and _kept(o) == [])
+        await page.get_by_role("heading", name="First").wait_for()
+        assert overlay.bar()["note"] is None
+        await page.get_by_role("button", name="Go on").click()
+        await overlay.until(lambda o: _kept(o) == ["Pressed Go on."])
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    kept, overlay, _ = run(_on_routed(f"{SITE}/first", helper, RoutineStore(tmp_path / "r.json")))
+    assert kept is None
+
+
+def test_a_page_where_a_password_was_typed_cannot_be_put_back(tmp_path: Path) -> None:
+    async def helper(page, overlay):
+        await page.get_by_label("Password").fill("hunter2-secret")
+        await page.get_by_role("link", name="Go on").click()
+        await page.get_by_role("heading", name="Home").wait_for()
+        await overlay.until(lambda o: len(_kept(o)) == 2)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: o.bar().get("start_again"))
+        # The sign-in page again, but not as it was: the password cannot be
+        # put back, so the list stays and Start again is the way on.
+        assert overlay.bar()["note"] == voice.TEACH_NOT_BACK
+        assert _kept(overlay) == ["Typed a password.", "Opened Go on."]
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    _, overlay, _ = run(_on_routed(f"{SITE}/login", helper, RoutineStore(tmp_path / "r.json")))
+    assert "hunter2" not in json.dumps(overlay.sent)
+
+
+def test_a_consent_press_pressed_again_after_going_back_is_one_press(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await page.get_by_role("textbox", name="Reference No.").fill(REFERENCE)
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: len(_kept(o)) == 3)
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: len(_kept(o)) == 2)
+        # The banner is back on the page it was pressed on; pressed again, it
+        # is the same press, and the number the list keeps is in its box.
+        await page.get_by_role("button", name="Accept all cookies").click()
+        await asyncio.sleep(0.5)
+        assert _kept(overlay) == ["Pressed Accept all cookies.", "Typed in Reference No."]
+        await page.get_by_role("button", name="Check Bill").click()
+        await page.wait_for_url("**/bill")
+        await overlay.until(lambda o: len(_kept(o)) == 3)
+        assert _kept(overlay)[2] == "Pressed Check Bill."
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+
+
+def test_undo_with_nothing_kept_and_while_pointing_does_nothing(
+        billing_replica: str, tmp_path: Path) -> None:  # noqa: F811
+    async def helper(page, overlay):
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: len(o.of("teach.watching")) >= 2)
+        assert _kept(overlay) == [] and overlay.bar()["note"] is None
+        await _to_the_results(page, overlay)
+        overlay.say("teach.answer", {"action": "ask", "step": 0})
+        overlay.say("teach.answer", {"action": "finish"})
+        await overlay.until(lambda o: o.bar()["pointing"])
+        overlay.say("teach.answer", {"action": "undo"})
+        await overlay.until(lambda o: len(o.of("teach.watching")) >= 6)
+        assert overlay.bar()["pointing"] and len(_kept(overlay)) == 2
+        assert page.url.endswith("/bill")
+        overlay.say("teach.answer", {"action": "cancel"})
+
+    run(_on_page(billing_replica, helper, RoutineStore(tmp_path / "r.json")))
+
+
+def test_each_kind_of_move_is_said_in_a_few_words() -> None:
+    said = voice.kept_line
+    assert said(Step("fill", "textbox", "Reference No.")) == "Typed in Reference No."
+    assert said(Step("fill", "textbox", "Password", secret=True)) == "Typed a password."
+    assert said(Step("select", "combobox", "Class")) == "Chose from Class."
+    assert said(Step("press", "textbox", "Reference No.", value="Enter")) == \
+        "Pressed Enter in Reference No."
+    assert said(Step("click", "link", "View full bill detail")) == "Opened View full bill detail."
+    assert said(Step("click", "button", "Check Bill")) == "Pressed Check Bill."
+    assert said(Step("click", "button", "")) == "Pressed the button with no name."
+    assert said(Step("click", "textbox", "From")) == "Clicked in From."
+    assert said(Step("click", "option", "15", day=True)) == "Chose 15 on the calendar."
+    assert said(Step("click", "button", "Book train {}", row="Train No.")) == "Pressed Book train."
+    # A sentence each, with one full stop, whatever the name ends in.
+    for line in (said(Step("fill", "textbox", "Reference No.")), said(Step("click", "button",
+                                                                           "Check Bill"))):
+        assert line.endswith(".") and not line.endswith("..")
