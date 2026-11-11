@@ -1,22 +1,24 @@
-# Showing SIMBA in five minutes
+# Showing SIMBA in eight minutes
 
 A script for showing the system to someone: what to run, what to type, what to
 point at, and what to do when a part of it fails in front of them.
 
 The shape of it: **show them the real website first.** The clutter is the
 problem SIMBA exists for, and nobody feels it from a description. Then the same
-task, in SIMBA, in one window.
+task, in SIMBA, in one window. Then a helper teaching it a task of their own.
+**With only five minutes, leave out "Teach a task"** (4:40 to 7:40) and close
+straight after the bill.
 
-Everything below has been run end to end. The recordings in `demo/` were made
-on 2026-10-16 and 17 on our own copies, billing and adapt again on 2026-11-01,
-and show the overlay as it is now: named
-stages in place of a count, the safe moves running as a checklist, the
-trains as tickets, the answer on the real page ("See it on the real page"),
-and a booking through its final screen to the site's confirmation. At a
-watchable pace: railways 35 seconds, a booking 78, billing 29, a greeting
-8. **The live railways run is slower** — about 55 seconds of task
-time against 26 on the copy (EVALUATION.md, 2026-10-16), before any pauses
-for narration.
+Everything below has been run end to end, last on 2026-11-11 on our copies,
+every step walked in the overlay against the real backend. The recordings in
+`demo/` were all made again that day and show the overlay as it is now: the
+picture tiles, named stages, the safe moves as a journey line, the trains as
+tickets, the answer on the real page ("See it on the real page"), a booking
+through its final screen, and a helper teaching the bill and running it from
+its new tile. At a watchable pace: railways 50 seconds, a booking 59, billing
+33, a greeting 6, teaching 79. **The live railways run is slower** — about 55
+seconds of task time against 26 on the copy (EVALUATION.md, 2026-10-16),
+before any pauses for narration.
 
 ---
 
@@ -45,11 +47,12 @@ much on the day.
 "show them the real website" is still rehearsed on the real page, by looking at
 it, not by searching.
 
-**The recordings show the flow as it is** (re-recorded 2026-10-16; the
-booking again on 2026-10-17): the questions, the read-back, the checklist,
-the answer and the real page; and, in `demo/booking.webm`, a booking on our
-copy through its final screen, ending "Booked on the practice site." with
-the booking number and that no real ticket was booked and no money taken.
+**The recordings show the flow as it is** (all re-recorded 2026-11-11): the
+questions, the read-back, the journey line, the answer and the real page;
+in `demo/booking.webm`, a booking on our copy through its final screen,
+ending "Booked on the practice site." with the booking number and that no
+real ticket was booked and no money taken; and in `demo/teach.webm`, the bill
+taught once on the billing copy and run from its new tile.
 They are made on our own copies, so **the live site is never used to make
 them** — `tools/record_demo.py` asks the
 backend where a train goal would run and refuses to record the railways clip
@@ -107,9 +110,15 @@ for every failure below. They are not committed — record them the day before,
 with the stack on our copy of the train search:
 
 ```powershell
-.\run.ps1 railways-local                                  # in one terminal
-python -m tools.record_demo railways booking billing hello fold   # in another
+.\run.ps1 railways-local                                        # in one terminal
+python -m tools.record_demo railways booking billing hello fold teach   # in another
 ```
+
+**`teach` needs room on the home screen** — fewer than three tiles under
+"Yours", and none called "My bill" — or it stops and says so. It teaches the
+bill, keeps it as "My bill", and runs it from that tile, so take the tile off
+afterwards ("Change my tiles", "Take it off") before rehearsing the teaching
+yourself.
 
 **`adapt` needs a stack of its own.** The trained estimator starts billing at
 the simplest level, so with the model on nothing can fold and the clip shows no
@@ -125,8 +134,16 @@ judging pages in that terminal. `adapt` prints `folded after` a few seconds; the
 health check at `http://127.0.0.1:8000/` should say `provisional rules` for this
 clip and `trained model` for the others.
 
-It prints what each clip did. Every task clip should end on "found an answer";
-one that ends on "I'm stuck" is not a fallback for a run that worked.
+It prints what each clip did. Every task clip should end on "found an answer"
+(the booking and the scripted `fold` on "done"); one that ends on "I'm stuck"
+is not a fallback for a run that worked.
+
+**For "Teach a task", check the home screen and the starter file.** The
+home screen needs room for one more tile and no tile already called "My bill":
+if there is one, "Change my tiles", then "Take it off" beside it. Know where
+the starter file is — `D:\simba\demo\starters\my-bill.simba-routine.json` —
+because the fallback for teaching is to add it from the file dialog
+(`demo/starters/README.md`).
 
 **Do not minimise the SIMBA window while recording.** The clips are drawn in a
 separate browser, but the backend still drives the page inside the SIMBA
@@ -137,7 +154,7 @@ not.
 
 ---
 
-## The five minutes
+## The eight minutes
 
 ### 0:00 — the problem, on the real site (40 seconds)
 
@@ -154,7 +171,9 @@ attempt the search yourself; the point is the clutter, not a race.
 ### 0:40 — the same task, in SIMBA (2 minutes)
 
 Switch to the SIMBA window. Before typing, point at what is **not** there:
-no menu, no address bar, no advertisement. One question, in large type.
+no menu, no address bar, no advertisement. One question, in large type, and
+under it three tiles, each with its own picture: a book, a bill, a train.
+"Teach a task" in the top right corner is for later.
 
 Type, exactly:
 
@@ -162,20 +181,21 @@ Type, exactly:
 trains to Rawalpindi tomorrow
 ```
 
-Press Start. It asks only what the sentence did not say — where from, and
-which of the site's two Lahore stations — then reads the journey back once.
-Type `Lahore` into the box when asked, and press `Lahore Cantt`.
+Press Start. It asks only what the sentence did not say — where from, with
+the site's own two Lahore stations to choose between — then reads the
+journey back once. Type `Lahore` into the box when asked, press
+`Lahore Cantt` under it, then `Use this station`.
 
 | What is on screen | What to say |
 |---|---|
 | "Let me see what you need." | It is working out what you asked for. Nothing has started yet. |
-| "Where are you travelling from?", one box | It read the rest out of the sentence: the destination, and that "tomorrow" is a date. This is the one thing it could not know. The row at the top is where you are: From, To, Day, Search, Trains. |
-| "Which Lahore station do you mean?", two buttons | The site's own list has two Lahore stations, so it asks rather than picking. |
-| "Lahore Cantt to Rawalpindi, tomorrow, 17 October. Is that right?" | Said back once, before anything on the site is touched. If any of it were wrong, this is where they would stop it. |
-| **Press "What are you doing?"** on any step | It shows the real page, close up on what it is about to press, ringed; "Show the whole page" inside it. This is the one way to see the page while it works. |
-| "I'm doing what you asked.", a list that ticks off | The person decided; SIMBA clicks. Filling in, the calendar, the search run by themselves, one line each, with one Pause. Anything that is a real choice, or that would book or pay, still asks. |
-| The ending | The answer, as the biggest thing on the screen: each train as a ticket, leaves, arrives, how long, the fastest marked, and what was not done ("I only looked up times…"). |
-| **Press "See it on the real page"** | The page as the search ended, the trains ringed where they are. It was read again before closing; if it had changed, no answer would be shown. |
+| "Where are you travelling from?", one box | It read the rest out of the sentence: the destination, and that "tomorrow" is a date. This is the one thing it could not know. The row at the top is where you are: From, To, Day, Search, Trains, Book. |
+| **Press "What are you doing?"** now, on this first question | It shows the real page as it is, under "This is the page I'm working on."; "Hide the page" goes back. This is the one way to see the page while it works. It also folds the step to the simplest level, the third dot — say so (see "Ten minutes before"). |
+| `Lahore` typed: "Lahore Jn" and "Lahore Cantt" under the box | The site's own list has two Lahore stations, so it shows both rather than picking. Press "Lahore Cantt", then "Use this station". |
+| "Lahore Cantt to Rawalpindi, tomorrow, 12 November.", "Yes, that's right" | Said back once, before anything on the site is touched. If any of it were wrong, this is where they would stop it ("No, change something"). |
+| "I'm doing what you asked.", a journey line | The person decided; SIMBA clicks. Filling in, the calendar, the search run by themselves: the one being done is the large dot, "Doing this now", and at the simplest level only that one and "Then 3 more things." One Pause. Anything that is a real choice, or that would book or pay, still asks. |
+| The ending | The answer, as the biggest thing on the screen: each train as a ticket, leaves, arrives, how long, the fastest marked, and what was not done ("I only looked up times…"). Under it, "Shall I keep this on your home screen as Trains to Rawalpindi?" — **press "Not now"**; the home screen stays as rehearsed. |
+| **Press "See it on the real page"** | "What I read is ringed.": the page as the search ended, the trains ringed where they are. It was read again before closing; if it had changed, no answer would be shown. "Back to the answer" returns. |
 
 If someone asks what a goal that says everything looks like, type
 `trains from Rawalpindi to Multan tomorrow` — only the read-back is asked.
@@ -206,9 +226,13 @@ Press the card **"Check my electricity bill"**. The card's words do not say
 *which* bill, so the first screen asks for the reference number. It opens at the
 simplest level, the third dot lit: people rated this page as busy, and SIMBA has
 read that from the page before you touch anything. Type
-`04141234567890`. It asks about cookies — "This site asks about cookies.
-Shall I say yes?" — press Yes; then it looks the bill up by itself. The
-ending says it plainly: **Rs 14,382, due 15 September 2026**.
+`04141234567890` and press "Use this number". It asks about cookies — "This
+site asks about cookies." — press Yes; then it looks the bill up by itself,
+on a journey line under the stages Reference, Look up, Your bill, Pay. The
+ending says it plainly: **"Your bill is Rs 14,382, due 15 September 2026."**
+It offers to keep the bill on the home screen as "My bill": **press "Not
+now"** — the next part teaches a tile of that name, and two would be
+confusing.
 
 Beside "Back to start" there is a quieter button, **"Pay this bill"**. Press
 it. It opens the payment page and shows the **final screen**: what will
@@ -223,7 +247,44 @@ number, and that this was a practice copy, so no money was taken.
 To show the other way, press "Don't pay" instead: "I didn't do it. Nothing
 was changed."
 
-### 4:40 — the close
+### 4:40 — Teach a task (3 minutes)
+
+The three tiles were built in. This is how a helper — a carer, a family
+member, a teacher — gives the person one of their own, by doing it once.
+Press **"Back to start"**.
+
+| What to do | What is on screen | What to say |
+|---|---|---|
+| Point at **"Teach a task"**, top right | "For a helper, like a carer or a teacher." under it | It is apart from the person's tiles on purpose: this is the helper's way in, not the person's. |
+| Press **"Teach a task"** | "Show me a task once", what will happen, a box for "Which website" | It says who it is for, and that on a real website it only reads. |
+| Type `127.0.0.1:5100`, press **"Start watching"** | The window becomes **a bar across the top** — "I'm watching." — and **the billing copy below it** | SIMBA steps aside. The helper uses the real site; SIMBA watches. |
+| On the website: **"Accept all cookies"** at the bottom, then click **Reference No.**, type `04141234567890`, press **"Check Bill"** | Each thing appears on the bar as it is done: "Pressed Accept all cookies.", "Clicked in Reference No.", and so on | It keeps each move in plain words. "Undo last thing" takes the last one back. |
+| The bar asks **"Is what you typed in Reference No. the same every time?"** — press **"Ask each time"** | Then "Finish" | A reference number is the person's, not the helper's. It will be asked for each time, and it is never kept, not even in a saved file. |
+| Press **"Finish"** | "Last thing: click the answer on the website." | What the task is *for*: SIMBA cannot guess it, so the helper points. |
+| **Click the amount, 14,382**, in the P/WITHIN column | "Here's what I learned. Is it right?", four numbered lines | Read the lines out: ask about cookies; ask what to type in Reference No.; press Check Bill; read the answer from P/WITHIN — "It says 14,382 now." |
+| Type `My bill` in **"Name on the home screen"**; in **"What the answer is"**, replace P/WITHIN with `Amount due`. Press **"Keep it"** | "It's on the home screen now, as My bill." | The name is what the person will see. The page's own column name means nothing to them. |
+| Press **"Back to start"** | **"Yours: My bill"**, a new tile with the bill's picture and a small mark on its corner | The mark says a helper taught it. One press now does the whole task. |
+| Press the **"My bill"** tile. Type `04141234567890`, press **"Use this"**; press **Yes** to cookies | "What should I type in Reference No.?", then the cookie question | The reference asked, as the helper chose. Everything else runs by itself. |
+| The ending | **"My bill: 04141234567890"**, **14,382**, "Amount due", "I only did what your helper showed me. I didn't book, pay or change anything." | Same answer as the built-in bill, from one helper's single demonstration. |
+| Press **"See it on the real page"** | "What I read is ringed.": the bill, 14,382 ringed | **The proof**: it read the number the helper pointed at, from the page itself. |
+
+**If teaching goes wrong live** — a press not listed on the bar, the wrong
+thing kept, the website not loading under the bar — do not fix it in front of
+them. Press **"Stop watching"** (on the read-back, "Stop this"), then:
+
+1. Press **"Teach a task"**, then **"Add one from a file"**.
+2. In the file dialog, open `D:\simba\demo\starters\my-bill.simba-routine.json`.
+3. **Nothing on the screen changes** — it only speaks up when a file cannot be
+   used. Press **"Not now"**: "My bill" is on the home screen.
+4. Carry on from pressing the "My bill" tile.
+
+Say: *this is the same task, taught once yesterday and saved to a file — a
+helper can share one with someone else this way.* The file was made with
+"Save to a file" from a real teaching, and asks for the reference number like
+the one you just taught (`demo/starters/README.md`). If even that fails, play
+`demo/teach.webm`.
+
+### 7:40 — the close
 
 One sentence, then stop: *the site is unchanged and still does what it always
 did; what changed is what the person has to deal with.*
@@ -244,15 +305,24 @@ train search: the screens are the same, **the trains in it are invented**. Then 
 | **A port is already in use** | `port 8000 is already in use - another SIMBA run is probably up` | An earlier run is still alive. Close its window and press Ctrl+C in its terminal. If that terminal is gone, find what holds the port — `Get-NetTCPConnection -LocalPort 8000 -State Listen` — and stop that one process (`Stop-Process -Id <its OwningProcess>`), then start again. Never stop every `python` or `electron`: other programs on the machine may be using them. |
 | **The model has no quota** | The reading screen waits ~8 seconds, then works normally | Nothing to do. It fell back to keywords. If you want to avoid the wait entirely, set `$env:SIMBA_ROUTER = "keywords"` before `run.ps1`. |
 | **A step genuinely fails** | "I couldn't do that. I'm carrying on." or the stuck screen | Show it deliberately: *it tells you, it does not pretend, and it stops rather than guess.* Then move to the billing task or the recordings. |
+| **"Teach a task" says the home screen is full** | "There are already three tiles on the home screen. Take one off first." | "Not now", then "Change my tiles" and "Take it off" beside one, then "Teach a task" again. Check this ten minutes before. |
+| **The website does not appear under the bar** | The bar says "I'm watching." over an empty or old page | "Stop watching", then the starter file (4:40, *If teaching goes wrong live*). |
+| **The bar lists a press you did not mean** | An extra line under "I'm watching." | Press "Undo last thing" once; the website goes back too. If the bar offers "Start again" instead, it could not take the page back: press it and teach from the beginning, or use the starter file. |
+| **The read-back is wrong** | A line you did not do, or a step missing | "Stop this", then the starter file. Do not keep a routine you would not trust. |
+| **"I couldn't use that file."** | Under "Show me a task once", after choosing a file | The wrong file, or no room on the home screen. Choose `my-bill.simba-routine.json` in `D:\simba\demo\starters\`, after taking a tile off if the row is full. |
+| **Two tiles called "My bill"** | The bill was kept earlier with "Keep it", then taught | Harmless; the taught one has the mark on its picture's corner. Press that one, and take the other off afterwards. |
+| **The taught tile ends "I'm stuck"** | The run stops on a step | Say what happened, then play `demo/teach.webm`. |
 | **Everything is broken** | — | `python -m tools.record_demo mock` needs no stack at all, or play the clips in `demo/`. |
 
 ---
 
 ## If they ask
 
-- **"Does it work on any website?"** No. Three flows today: a course
-  registration, an electricity bill, and train times. Anything else is
-  declined rather than attempted.
+- **"Does it work on any website?"** Not by itself. Three flows are built in:
+  a course registration, an electricity bill, and train times; anything else
+  typed is declined rather than attempted. A helper can teach it a task on
+  another website by doing it once ("Teach a task"); on a real website a
+  taught task only reads.
 - **"Does it pay the bill?"** Only on our own copies of a site, and only
   after a final screen that says exactly what will happen and waits for "Pay
   it" or "Don't pay". On a real site it reads and never books or pays, and it

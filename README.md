@@ -357,7 +357,7 @@ root (`python -m pytest`), not from inside a package directory. The root
 | `CLAUDE.md` | The project's rules, in full. Read before changing anything. |
 | `CONTRACT.md` | Every message between frontend and backend. |
 | `RUNNING.md` | Every flow, every switch, every failure, day to day. |
-| `DEMO.md` | Showing SIMBA to someone in under five minutes. |
+| `DEMO.md` | Showing SIMBA to someone in eight minutes, or five without "Teach a task". |
 | `ARCHITECTURE.md` | Why it is two processes and a covered view. |
 | `DECISIONS.md` | What was settled, when, and on what evidence. |
 | `EVALUATION.md` | Every measurement, with its conditions. |
