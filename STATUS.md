@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **2099 passing, 12 skipped, 8 failed** · backend 1385 in 3189s, frontend 714 in 2086s, as two halves, on mains, on `docs/demo-show-me-once` at `1c1f83a`: 7 in `test_routine_lists.py`, a teaching of list choices that sometimes keeps neither station press (2 of 4 runs alone, new), and 1 in `test_after_the_guard.py` that passed 5 of 5 alone. Host fit test 3 of 3 (737s), after `npm run build`, on mains. **Not merged** (EVALUATION.md, 2026-11-11c, 2026-11-11d)
+**Last updated:** 2026-11-11 · **2099 passing, 12 skipped, 8 failed** · backend 1385 in 3189s, frontend 714 in 2086s, as two halves, on mains, on `docs/demo-show-me-once` at `1c1f83a`: 7 in `test_routine_lists.py`, a teaching of list choices that sometimes keeps neither station press (2 of 4 runs alone, new), and 1 in `test_after_the_guard.py` that passed 5 of 5 alone. Host fit test 3 of 3 (737s), after `npm run build`, on mains. Merged into `main` on Raham's decision; the teaching failure is open, for `fix/teach-list-choice` (EVALUATION.md, 2026-11-11c, 2026-11-11d)
 
 ---
 
@@ -103,8 +103,9 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
 - **Suite**: backend 1385 passed and **7 failed**, all in `test_routine_lists.py` (one teaching of the
   train search shared by 7 tests; at failure neither station press was kept); on its own it
   failed 2 of 4 runs, then 0 of 20 of its first test. Frontend 714 passed and 1 failed
-  (`test_after_the_guard.py`, 100%), 5 of 5 on its own. Host fit test 3 of 3. **Not merged**
-  (EVALUATION.md, 2026-11-11d).
+  (`test_after_the_guard.py`, 100%), 5 of 5 on its own. Host fit test 3 of 3. Held back,
+  then **merged into `main` on Raham's decision**; the teaching failure goes to
+  `fix/teach-list-choice` (EVALUATION.md, 2026-11-11d).
 - **Flagged**: nothing says a file was added; the read-back names the bill's answer
   "P/WITHIN"; two tiles can be called "My bill"; `record_demo` could keep its window shown.
   See DECISIONS.md.

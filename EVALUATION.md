@@ -8477,4 +8477,6 @@ if perception finds an element at the press point; otherwise it is let through a
 kept or logged. Why perception finds nothing over an open list some of the time is not
 settled. Whether a person teaching meets it is not known: in the SIMBA window the train
 search taught through the overlay kept both stations (1 of 1, 2026-11-11c), at a helper's pace.
-**Not merged on this result.**
+Held back on this result, as the task says; **merged into `main` on Raham's decision** on
+2026-11-11, the failures being in code the branch does not touch, with the teaching failure
+given a branch of its own (`fix/teach-list-choice`).

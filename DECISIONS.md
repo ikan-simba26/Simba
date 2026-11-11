@@ -6316,3 +6316,11 @@ Settled while doing the task, none of them asked for; each can be undone without
    the instruction; or start `KeepShown` on the stack's port for the length of a recording and
    print restores. Recommended: the second — twenty lines, the test's own class — next time
    the tool is touched.
+
+## `docs/demo-show-me-once` merged with the suite not clean — Raham, 2026-11-11
+
+Eight failures: seven in `test_routine_lists.py` from one teaching that kept neither station
+press (2 of 4 runs of the file alone; new; in code the branch does not touch), and one in
+`test_after_the_guard.py` that passed 5 of 5 alone. Held back as the task said, then merged on
+Raham's decision, with the teaching failure to be found on `fix/teach-list-choice` from the new
+`main` (EVALUATION.md, 2026-11-11d).
