@@ -6324,3 +6324,13 @@ press (2 of 4 runs of the file alone; new; in code the branch does not touch), a
 `test_after_the_guard.py` that passed 5 of 5 alone. Held back as the task said, then merged on
 Raham's decision, with the teaching failure to be found on `fix/teach-list-choice` from the new
 `main` (EVALUATION.md, 2026-11-11d).
+
+## Teaching logs a press it lets through without keeping — `fix/teach-list-choice`, 2026-11-11
+
+The dropped station press of 2026-11-11d could not be reproduced (0 of 55 runs after 4 of 9;
+EVALUATION.md, 2026-11-11e). Rather than a guessed fix, `teach.py` now says when a press is let
+through unkept, and how many list options the page held — one log line, no change to what is
+kept. **Flagged**: the cause is open. Options: wait for it with the line in place; or make the
+test's helper slower and say so; or change the recorder to keep a press on a list option by
+its box when the point finds nothing. Recommended: wait with the line in place — the other two
+change what is tested or kept without knowing why. Branch not merged: a log line, not a fix.

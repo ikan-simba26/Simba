@@ -693,7 +693,16 @@ class Teaching:
             element = (element_at(elements, point.get("x", -1), point.get("y", -1))
                        or element_over(elements, event.get("box") or {}))
             if element is None:
-                return "go"  # nothing perception counts as something to press
+                # Nothing perception counts as something to press: let through,
+                # not kept — and said, since 2026-11-11, when a station chosen
+                # from a list went unkept in 4 of 9 runs of
+                # test_routine_lists.py for an hour and never since. If this
+                # line is absent when that recurs, the press never reached
+                # the recorder at all.
+                log.info("teaching: a press at %s not kept: nothing to press there "
+                         "(%d options on the page)", point,
+                         sum(1 for e in elements if e.role == "option"))
+                return "go"
             changes = bool(CHANGE_WORDS.search(element.label or ""))
             if changes and not on_replica(url):
                 return self._end(voice.TEACH_STOPPED_CHANGE)
