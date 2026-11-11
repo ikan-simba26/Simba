@@ -8371,3 +8371,112 @@ into a full frontend half it reached 154ms. The assertion measures main-thread t
 browser that shares the machine with the test run, so it moves with load. Held back on this result, as the task says;
 **merged into `main` on Raham's decision** on 2026-11-11, the one failure being this timing
 assertion, which the branch does not touch.
+
+## 2026-11-11c — starter tasks, the demo script walked, and the clips recorded again (`docs/demo-show-me-once`)
+
+One `.\run.ps1 railways-local` stack on mains at the machine's own 150%, its routines and
+tiles in files of their own under `.scratch/` (`SIMBA_ROUTINES`, `SIMBA_TILES`), so nobody's
+own tiles were touched; `adapt` on a second stack with `SIMBA_PAGE_MODEL=0`. The overlay built
+from source in a browser of its own against the real backend; the helper's presses on the
+SIMBA window's site view over CDP. A watcher that shows the host window again if it is
+minimised (`KeepShown`, 2026-11-11) ran throughout: **0 restores**.
+
+### Starter tasks, made with "Save to a file"
+
+`python -m tools.starter_tasks make`: each taught once through "Teach a task", then saved with
+the tiles editor's "Save to a file" and the download kept in `demo/starters/`.
+
+| Tile | Teaching (script's time) | Moves read back | Asked each time | File | Typed reference in it |
+|---|---|---|---|---|---|
+| My bill | 33s | 4 | the reference | 1542 bytes | no |
+| Train times | 46s | 8 | From, To, the day | 3320 bytes | — (no value in any `fill`) |
+
+### Each added from its file and run from its tile: 5 of 5 each
+
+`python -m tools.starter_tasks check 5` (`logs/starter_tasks.json`): a fresh overlay each run,
+"Teach a task", "Add one from a file", "Not now", the tile pressed, the person's questions
+answered, then the tile taken off again.
+
+| Tile | Right | Adding | Whole run, each | Asked |
+|---|---|---|---|---|
+| My bill | **5 of 5** (14,382 read) | 5.5–5.7s | 30.8–32.0s | reference, cookies |
+| Train times | **5 of 5** (trains for the stations asked) | 5.5–5.7s | 31.4–32.2s | From, To, day |
+
+The trains alternated Lahore Cantt → Karachi Cantt (runs 1, 3, 5) and Hyderabad Jn → Sukkur
+(2, 4), neither the helper's day. The whole run includes the tool's 1.8s beat on each screen.
+
+**Failures on the way, all in the tools, none in the app:** (1) the site view was looked for
+with `time.sleep`, during which the sync Playwright API hears nothing, so the page the backend
+had already opened was never seen; (2) after "Keep it" the overlay shows "It's on the home
+screen now, as My bill." with "Back to start", not the home screen; (3) a check's guard read
+the home screen before its tiles arrived and missed a tile already there; (4) after a file
+is added the screen does not change (only a file that cannot be used is said), so the tile is
+reached with "Not now"; (5) one trains run of two in a trial waited 30s for a step that the
+checklist had replaced while the safe moves ran — `record_demo` now reads that as a new
+screen. Each fixed before the counted runs.
+
+### The demo script, walked
+
+Every step of DEMO.md's five minutes run on the copies with a script answering as the
+presenter does (`.scratch/starters/walk.py`, 40 screens logged). Still as the script says:
+the multan read-back only; "hello" and "book a flight to Dubai"; the bill card at the
+simplest level, cookies, "Rs 14,382, due 15 September 2026"; "Pay this bill", the final
+screen with amount, month, due date and reference, "Paid on the practice site." with a
+receipt number, and "Don't pay" ending "I didn't do it. Nothing was changed." **Changed since
+the script was written**, and now in it: the stations under the From box ("Lahore Jn",
+"Lahore Cantt", then "Use this station") instead of a separate question; "Book" at the end of
+the stage row; the checklist a journey line ("Then 3 more things." at the simplest level);
+"What are you doing?" on the first question showing the whole page with "Hide the page"; and
+every ending offering "Keep it" — the bill's as "My bill".
+
+### The clips
+
+`python -m tools.record_demo`, all seven, the overlay's own 1280x800 only:
+
+| Clip | Length | Size | Ended |
+|---|---|---|---|
+| `demo/railways.webm` | 50s | 4.4 MB | found an answer, real page shown |
+| `demo/booking.webm` | 59s | 5.9 MB | final screen, Book it, done |
+| `demo/billing.webm` | 33s | 3.1 MB | found an answer, real page shown |
+| `demo/hello.webm` | 6s | 0.7 MB | greeted |
+| `demo/fold.webm` | 42s | 3.1 MB | done (mock) |
+| `demo/adapt.webm` | 46s | 3.1 MB | folded after 5.4s, found an answer |
+| `demo/teach.webm` | 79s | 6.9 MB | taught (4 moves, 43s), run from its tile, found an answer, real page shown |
+
+The teach clip's site pictures under the bar: 67 shown, 0 missed. Watched, not just counted:
+15 stills taken from it by playing it in a headless page — the bar over the billing copy with
+the reference being typed, the question with "Ask each time", the read-back, the "My bill"
+tile with its mark, 14,382 "Amount due", and the amount ringed on the real page.
+
+## 2026-11-11d — the suite on `docs/demo-show-me-once`: a new intermittent failure in teaching list choices
+
+Two halves, then `npm run build`, then the host fit test, on mains, at `1c1f83a`. Nothing in
+`backend/`, `shared/` or `frontend/` differs from `main` (`git diff main --stat`).
+
+| Part | Result | Wall clock |
+|---|---|---|
+| `pytest backend tools test_basetemp.py` | 1385 passed, **7 failed**, 9 skipped | 3189s |
+| `pytest frontend` | 714 passed, **1 failed**, 3 skipped | 2086s |
+| `npm run build` | built | — |
+| host fit test, `SIMBA_HOST_TESTS=1` | **3 passed**, 0 restores | 737s |
+
+**Frontend**: `test_after_the_guard.py::test_the_next_screen_goes_back_to_the_level_before_the_guard[100%]`,
+level 1 where 3 was expected. My two-minute run of `test_routine_lists.py` overlapped that half.
+On its own, idle, the file passed **5 of 5** (10 tests each).
+
+**Backend: all 7 in `test_routine_lists.py`**, which teaches the train search once (a
+module-scoped fixture) and checks what was kept, so one bad teaching fails all 7 together.
+Run on its own on an idle machine: passed, failed, passed, failed (whole file, 4 runs); the
+first test alone failed 1 of 4, then 0 of 10, and 0 of 10 at `0010a20`, before the last
+change to `teach.py`. **Not seen in any earlier entry**; it passed in this morning's suite.
+
+What a failing run shows, with the teach log live: after "kept a fill on a textbox" for From,
+**no "kept a click on a option"** — for either station — though the page took the station (the
+helper's next questions came). In `teach.py` (`_on_event`, kind `click`) a press is kept only
+if perception finds an element at the press point; otherwise it is let through and nothing is
+kept or logged. Why perception finds nothing over an open list some of the time is not
+settled. Whether a person teaching meets it is not known: in the SIMBA window the train
+search taught through the overlay kept both stations (1 of 1, 2026-11-11c), at a helper's pace.
+Held back on this result, as the task says; **merged into `main` on Raham's decision** on
+2026-11-11, the failures being in code the branch does not touch, with the teaching failure
+given a branch of its own (`fix/teach-list-choice`).

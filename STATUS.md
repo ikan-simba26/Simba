@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **2100 passing, 12 skipped, 1 failed** · backend 1386 in 1930s, frontend 714 in 1648s, as two halves, on mains, on `fix/host-fit-flake` at `35d4e34`: the one failure is `test_calm.py::test_the_shape_does_not_slow_the_window`, 154ms over a 150ms limit, which passed 5 of 5 on its own (42 to 115ms). The host fit test (`SIMBA_HOST_TESTS=1`) 3 of 3 (584s), after `npm run build`, on mains; and 15 of 15 in five runs in a row before that. then merged into `main` on Raham's decision (EVALUATION.md, 2026-11-11, 2026-11-11b)
+**Last updated:** 2026-11-11 · **2099 passing, 12 skipped, 8 failed** · backend 1385 in 3189s, frontend 714 in 2086s, as two halves, on mains, on `docs/demo-show-me-once` at `1c1f83a`: 7 in `test_routine_lists.py`, a teaching of list choices that sometimes keeps neither station press (2 of 4 runs alone, new), and 1 in `test_after_the_guard.py` that passed 5 of 5 alone. Host fit test 3 of 3 (737s), after `npm run build`, on mains. Merged into `main` on Raham's decision; the teaching failure is open, for `fix/teach-list-choice` (EVALUATION.md, 2026-11-11c, 2026-11-11d)
 
 ---
 
@@ -83,6 +83,32 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-11 (later): starter tasks, Teach a task in DEMO.md, the clips again — `docs/demo-show-me-once`
+
+- **Two starter tasks in `demo/starters/`**, made by teaching each once through the real overlay
+  and pressing "Save to a file", never written by hand (`python -m tools.starter_tasks make`):
+  "My bill" on the billing copy (the reference asked each time) and "Train times" on the
+  railways copy (From, To and the day asked each time). **Each added with "Add one from a file"
+  and run from its tile: 5 of 5 each** (EVALUATION.md, 2026-11-11c). Nothing loads them by
+  itself; how routines are stored is unchanged.
+- **DEMO.md**: a three-minute "Teach a task" at 4:40 — the bill taught on the billing copy,
+  "Ask each time" for the reference, Finish, the amount pointed at and named, run from its new
+  picture tile, the proof — and its fallback, the starter file. The rest walked on the copies
+  and brought up to date: the stations under the From box, "Book" in the stages, the journey
+  line, "What are you doing?" showing the whole page, "Not now" on every keep offer. Seven new
+  rows in "If something fails". Now eight minutes, or five without teaching.
+- **Seven clips recorded again**, among them a new `teach` (79s): the overlay's own picture, and
+  while the bar is up the SIMBA window's site view under it (`demo/README.md`).
+- **Suite**: backend 1385 passed and **7 failed**, all in `test_routine_lists.py` (one teaching of the
+  train search shared by 7 tests; at failure neither station press was kept); on its own it
+  failed 2 of 4 runs, then 0 of 20 of its first test. Frontend 714 passed and 1 failed
+  (`test_after_the_guard.py`, 100%), 5 of 5 on its own. Host fit test 3 of 3. Held back,
+  then **merged into `main` on Raham's decision**; the teaching failure goes to
+  `fix/teach-list-choice` (EVALUATION.md, 2026-11-11d).
+- **Flagged**: nothing says a file was added; the read-back names the bill's answer
+  "P/WITHIN"; two tiles can be called "My bill"; `record_demo` could keep its window shown.
+  See DECISIONS.md.
 
 ### Changed on 2026-11-11: the host fit test's random failure, found — `fix/host-fit-flake`
 
