@@ -251,6 +251,14 @@ def _area(element: Element) -> float:
     return element.rect[2] * element.rect[3] if element.rect else float("inf")
 
 
+def _coordinate(value: object) -> int:
+    """A coordinate the page reported, as a whole number for a log line; -1
+    for anything that is not a number, so nothing the page sent is written."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return -1
+    return int(value) if value == value and abs(value) < 1e9 else -1
+
+
 def element_at(elements: list[Element], x: float, y: float) -> Element | None:
     """The element under a point, in the page's own coordinates: the smallest
     one perception read whose box holds it, so a link inside a row is the
@@ -693,7 +701,19 @@ class Teaching:
             element = (element_at(elements, point.get("x", -1), point.get("y", -1))
                        or element_over(elements, event.get("box") or {}))
             if element is None:
-                return "go"  # nothing perception counts as something to press
+                # Nothing perception counts as something to press: let through,
+                # not kept — and said, since 2026-11-11, when a station chosen
+                # from a list went unkept in 4 of 9 runs of
+                # test_routine_lists.py for an hour and never since. If this
+                # line is absent when that recurs, the press never reached
+                # the recorder at all.
+                # Two numbers and a count, nothing else: the point arrives from
+                # the page, so it is read as numbers and never written as given.
+                log.info("teaching: a press at (%d, %d) not kept: nothing to press there "
+                         "(%d options on the page)", _coordinate(point.get("x")),
+                         _coordinate(point.get("y")),
+                         sum(1 for e in elements if e.role == "option"))
+                return "go"
             changes = bool(CHANGE_WORDS.search(element.label or ""))
             if changes and not on_replica(url):
                 return self._end(voice.TEACH_STOPPED_CHANGE)

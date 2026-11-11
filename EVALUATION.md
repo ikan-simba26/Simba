@@ -8480,3 +8480,43 @@ search taught through the overlay kept both stations (1 of 1, 2026-11-11c), at a
 Held back on this result, as the task says; **merged into `main` on Raham's decision** on
 2026-11-11, the failures being in code the branch does not touch, with the teaching failure
 given a branch of its own (`fix/teach-list-choice`).
+
+## 2026-11-11e — the station press that teaching sometimes drops: not reproduced (`fix/teach-list-choice`)
+
+The failure of 2026-11-11d, looked for on its own branch from `main` at `650c6e9`.
+
+**What a failing run kept** (the saved log of the failing single run): click From, fill From,
+click To, fill To, the date box, Next Month, the day, the search — **both station presses
+missing**, the day and the search kept. No log line at all for either station press; at that
+time the recorder said nothing when it let a press through unkept, so whether perception
+found nothing there or the press never reached the recorder is not known.
+
+| Attempt | Runs | Failed |
+|---|---|---|
+| In the suite, 06:14 | 1 | 1 |
+| The file alone, ~07:00 | 4 | 2 |
+| Its first test alone, ~07:10 | 4 | 1 |
+| Its first test alone, after | 20 | 0 |
+| At `0010a20`, before the last change to `teach.py` | 10 | 0 |
+| With a line logged for every press let through unkept | 15 | 0 |
+| The same, all 8 cores kept busy | 10 | 0 |
+
+Four failures in nine runs within an hour, then **none in 55**. Not load (0 of 10 at full CPU);
+not the last change to `teach.py` shown either way (0 of 10 before it, but 0 of 20 after it in
+the same hour). Free memory 948 MB of 8070 when it would not fail. **Cause not found.**
+
+**Changed**: `teach.py` now logs "teaching: a press at … not kept: nothing to press there (N
+options on the page)" when it lets a press through without keeping it. Nothing else; 59 of 59
+in `test_routine_lists.py` and `test_teach.py`. The next failure will say which way it went:
+that line present means perception found nothing at the press; absent means the press never
+reached the recorder.
+
+## 2026-11-11f — `fix/teach-list-choice`: the backend half, before merging
+
+Only the backend half, as asked: `pytest backend tools test_basetemp.py`, on mains, at `551664c`:
+**1406 passed, 0 failed, 9 skipped, 1880s** (1385 + the 7 of `test_routine_lists.py`, this time
+passing, + 14 new in `test_teach_log.py`). The new line for a press let through unkept was
+written 0 times. The line was checked first: it writes two whole numbers (the press's point,
+read as numbers; anything else as -1) and a count of list options, and its message holds only
+`%d`, so no typed value, label or secret can reach it. Merged into `main` on Raham's decision;
+the cause stays open.
