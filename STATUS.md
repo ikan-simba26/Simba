@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **2099 passing, 12 skipped, 8 failed** · backend 1385 in 3189s, frontend 714 in 2086s, as two halves, on mains, on `docs/demo-show-me-once` at `1c1f83a`: 7 in `test_routine_lists.py`, a teaching of list choices that sometimes keeps neither station press (2 of 4 runs alone, new), and 1 in `test_after_the_guard.py` that passed 5 of 5 alone. Host fit test 3 of 3 (737s), after `npm run build`, on mains. Merged into `main` on Raham's decision; the teaching failure is open, for `fix/teach-list-choice` (EVALUATION.md, 2026-11-11c, 2026-11-11d)
+**Last updated:** 2026-11-11 · **backend 1406 passed, 9 skipped, 0 failed** in 1880s, on mains, on `fix/teach-list-choice` at `551664c` (only the backend half, as asked; the frontend half last ran on `docs/demo-show-me-once`: 714 passed, 1 failed that passed 5 of 5 alone). Merged into `main` on Raham's decision. **Open**: the dropped station press in teaching, cause not found; a log line now says which way it goes next time (EVALUATION.md, 2026-11-11d to f)
 
 ---
 
@@ -90,9 +90,19 @@ not run, the LLM has no honest baseline, and the contract is an unratified draft
   from the list (`test_routine_lists.py`, 7 tests failing together): 4 of 9 runs in one hour,
   then 0 of 55, under full CPU load too, and before the last change to `teach.py` too
   (EVALUATION.md, 2026-11-11e).
-- `teach.py` now logs a press it lets through without keeping, so the next failure says
-  whether perception found nothing there or the press never arrived. Nothing kept changes.
-- **Not merged**: a log line, not a fix, and no full suite run on it.
+- **The cause is still open.** No fix was made: none could be tested against a failure that
+  would not come back.
+- **What the new log line will tell us.** `teach.py` now writes "teaching: a press at (x, y)
+  not kept: nothing to press there (N options on the page)" whenever it lets a press through
+  without keeping it. When the stations go missing again: **the line present** means the press
+  reached the recorder and perception found nothing at that point, with how many list options
+  it did see; **the line absent** means the press never reached the recorder at all. Nothing
+  kept changes.
+- **It writes nothing typed or secret**: two whole numbers and a count. The point comes from
+  the page, so it is read as numbers and anything else is written as -1; the message holds
+  only `%d` (`backend/orchestrator/test_teach_log.py`, 14 tests).
+- **Backend half**: 1406 passed, 0 failed, 9 skipped in 1880s, on mains, at `551664c`; the line
+  written 0 times. **Merged into `main` on Raham's decision** (EVALUATION.md, 2026-11-11f).
 
 ### Changed on 2026-11-11 (later): starter tasks, Teach a task in DEMO.md, the clips again — `docs/demo-show-me-once`
 

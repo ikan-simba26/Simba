@@ -8510,3 +8510,13 @@ options on the page)" when it lets a press through without keeping it. Nothing e
 in `test_routine_lists.py` and `test_teach.py`. The next failure will say which way it went:
 that line present means perception found nothing at the press; absent means the press never
 reached the recorder.
+
+## 2026-11-11f — `fix/teach-list-choice`: the backend half, before merging
+
+Only the backend half, as asked: `pytest backend tools test_basetemp.py`, on mains, at `551664c`:
+**1406 passed, 0 failed, 9 skipped, 1880s** (1385 + the 7 of `test_routine_lists.py`, this time
+passing, + 14 new in `test_teach_log.py`). The new line for a press let through unkept was
+written 0 times. The line was checked first: it writes two whole numbers (the press's point,
+read as numbers; anything else as -1) and a count of list options, and its message holds only
+`%d`, so no typed value, label or secret can reach it. Merged into `main` on Raham's decision;
+the cause stays open.
