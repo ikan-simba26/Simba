@@ -6263,3 +6263,56 @@ run, so it moves with load; alone its spread already reaches 115ms of the 150. O
 it (it will fail again now and then); measure the turn several times and take the median;
 raise the limit. Recommended: the median of three, which costs about 10s of suite time and
 changes no limit. Not done here: not this task.
+
+## Starter tasks, the teach clip and the eight-minute script — `docs/demo-show-me-once`, 2026-11-11
+
+Settled while doing the task, none of them asked for; each can be undone without touching the app.
+
+- **The starter files live in `demo/starters/`**, beside the clips and DEMO.md that use them, and
+  are committed (the `.webm` files beside them are not). Named as "Save to a file" named them.
+- **"Train times" asks From, To and the day each time.** The task named the tile, not what it
+  asks; a fixed route would be one person's journey, and every question is the site's own list
+  or calendar. "My bill" asks the reference, as the task said.
+- **The teach clip shows the site view under the bar.** "Capture only the SIMBA window": the
+  recording browser holds only the overlay, which while teaching is a 160px bar; the SIMBA
+  window shows the site view below it. So the clip lays the site view's own picture (taken over
+  CDP from that window's site view, from y=160 down) under the bar, refreshed between presses,
+  with an orange ring where each helper's press lands. No other window, no desktop. The ring is
+  the clip's, not the app's.
+- **Made, checked and recorded on a stack whose routines and tiles are files under `.scratch/`**
+  (`SIMBA_ROUTINES`, `SIMBA_TILES`), so nobody's own home screen was read or changed, and every
+  run started with room for a tile. `make` and `check` take their tile off again with the
+  overlay's own "Take it off".
+- **A window watcher ran beside the recordings**, the fit test's `KeepShown` pointed at port
+  9222 from `.scratch/`, not added to `record_demo`. It restored nothing (0 restores); see the
+  flag below.
+- **DEMO.md is now an eight-minute script** with "Teach a task" at 4:40 to 7:40, and says to
+  leave that part out for five minutes. The task asked for about three minutes more, not for
+  something else to go.
+- **The presenter presses "Not now" on every "Keep it" offer** in the script: the bill's offer
+  names it "My bill", the name the teach section gives its tile.
+- **`record_demo.drive`**: the answering loop, split out so `starter_tasks check` runs a tile
+  the same way; a step gone between being seen and read is now a new screen, not a 30s wait.
+
+**Flagged for review.**
+
+1. *Nothing says a file was added.* After "Add one from a file" succeeds, "Show me a task once"
+   stays exactly as it was; only a file that cannot be used is said. Options: leave it (DEMO.md
+   and `demo/starters/README.md` say to press "Not now"); go back to the home screen once it is
+   kept; or say "Added: My bill." on that screen. Recommended: go home, the tile in view — one
+   line in `store.ts` on the `history.offered` that answers an import, and a test; a change to
+   the interface after the freeze, so Aly's call. Not done here: no new features.
+2. *The read-back fills "What the answer is" with the page's own words* — "P/WITHIN" for the
+   bill. A helper who presses "Keep it" without changing it gives the person "P/WITHIN" under
+   the amount. Options: leave it and say so in DEMO.md (done); leave it empty and require it,
+   like the name; or offer the column's heading only when it reads as words. Recommended:
+   empty and required, as the name is — small, in `teach.py` and `ReadBack.tsx`; Raham's and
+   Aly's.
+3. *A kept bill and a taught bill can share the name "My bill".* Options: leave it (the taught
+   one has its mark); refuse a name already on the home screen; or add a number. Recommended:
+   leave it — rare, and visible.
+4. *Should `record_demo` keep its own window shown, as the fit test now does?* DEMO.md says
+   not to minimise it, and on 2026-10-05 two clips ended "I'm stuck" that way. Options: leave
+   the instruction; or start `KeepShown` on the stack's port for the length of a recording and
+   print restores. Recommended: the second — twenty lines, the test's own class — next time
+   the tool is touched.
