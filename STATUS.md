@@ -84,6 +84,16 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
+### Changed on 2026-11-11 (evening): the dropped station press, looked for — `fix/teach-list-choice`
+
+- **Open, cause not found.** Teaching the train search sometimes keeps neither station chosen
+  from the list (`test_routine_lists.py`, 7 tests failing together): 4 of 9 runs in one hour,
+  then 0 of 55, under full CPU load too, and before the last change to `teach.py` too
+  (EVALUATION.md, 2026-11-11e).
+- `teach.py` now logs a press it lets through without keeping, so the next failure says
+  whether perception found nothing there or the press never arrived. Nothing kept changes.
+- **Not merged**: a log line, not a fix, and no full suite run on it.
+
 ### Changed on 2026-11-11 (later): starter tasks, Teach a task in DEMO.md, the clips again — `docs/demo-show-me-once`
 
 - **Two starter tasks in `demo/starters/`**, made by teaching each once through the real overlay
