@@ -23,6 +23,11 @@ backend where a train goal would run before recording one, and refuses if the
 answer is the live site (since 2026-10-01; until then the railways clip was the
 one time a recording used the live site).
 
+**`teach` (2026-11-11)** types no goal: a helper teaches the bill on the
+billing copy with "Teach a task" and the person runs it from its new tile
+(`tools/starter_tasks.py`). While the bar is up, the clip shows the SIMBA
+window's site view under it, as the window does; still only that window.
+
 **Clips answer questions.** Since 2026-09-30 a goal that leaves something out
 is asked about, and a clip that only pressed the first button on every screen
 would press "That's it" on an empty box until the run gave up. Each clip says
@@ -41,6 +46,7 @@ import threading
 import time
 from pathlib import Path
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
 from tools.evaluation.adaptation_stack_run import SIMPLER, hesitate
@@ -87,6 +93,11 @@ CLIPS: list[tuple[str, str, str, str]] = [
     # nothing folds from there (DEMO.md).
     ("adapt", "real", "What do I owe on my electricity bill?",
      "billing, hesitating on the cookie question until it folds, then calm, and back"),
+    # Nothing is typed as a goal: a helper teaches the bill (2026-11-11).
+    ("teach", "real", "",
+     "Teach a task: the bill shown once on the billing copy, the bar over the page, "
+     "Ask each time for the reference, Finish, the amount pointed at and named, then "
+     "My bill run from its new picture tile, and the answer on the real page"),
 ]
 
 #: What each clip types when it is asked something, in order, and which answer
@@ -98,13 +109,15 @@ ANSWERS: dict[str, dict[str, list[str]]] = {
                 "pick": ["Lahore Cantt", "Karachi Cantt", "AC Standard"]},
     "billing": {"type": ["04141234567890"]},
     "adapt": {"type": ["04141234567890"]},
+    # The person's side of the taught bill: the reference, asked each time.
+    "teach": {"type": ["04141234567890"]},
     # The mock's third step has a box to fill (2026-10-15: its button waits
     # for it).
     "fold": {"type": ["S-2026-0142"]},
 }
 
 #: Clips whose closing screen then opens "See it on the real page" for a beat.
-SHOWS_PROOF = {"railways", "booking", "billing"}
+SHOWS_PROOF = {"railways", "booking", "billing", "teach"}
 
 #: The live site. No clip may run there.
 LIVE_RAILWAYS = "pakrailways.gov.pk"
@@ -245,14 +258,42 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
     page.goto(f"{page_url}?ws={ws}")
     page.wait_for_timeout(BEAT_MS)
 
-    # Typed rather than filled, so the recording shows it being written.
-    box = page.get_by_role("textbox", name="What would you like me to do?")
-    box.click()
-    box.type(goal, delay=45)
-    page.wait_for_timeout(700)
-    page.keyboard.press("Enter")
+    seen: list[str] = []
+    if name == "teach":
+        # A helper teaches the bill on the billing copy, then the person
+        # presses its new tile (2026-11-11, `tools/starter_tasks.py`).
+        from tools.starter_tasks import teach_then_press
 
-    script = ANSWERS.get(name, {})
+        seen += teach_then_press(playwright, page, "bill", shown=True)
+    else:
+        # Typed rather than filled, so the recording shows it being written.
+        box = page.get_by_role("textbox", name="What would you like me to do?")
+        box.click()
+        box.type(goal, delay=45)
+        page.wait_for_timeout(700)
+        page.keyboard.press("Enter")
+
+    seen += drive(page, name)
+    page.wait_for_timeout(2500)  # let the last screen be read
+
+    video = page.video
+    context.close()          # the file is only written when the context closes
+    browser.close()
+    kept = OUT / f"{name}.webm"
+    if kept.exists():
+        kept.unlink()
+    Path(video.path()).rename(kept)
+    return kept, seen
+
+
+def drive(page, name: str, script: dict[str, list[str]] | None = None) -> list[str]:
+    """Answer whatever a started task asks, as `ANSWERS[name]` says (or
+    `script`), until it ends. Returns what was on screen along the way.
+
+    Shared since 2026-11-11 with `tools/starter_tasks.py`, which runs a
+    routine from its tile the same way without recording it.
+    """
+    script = ANSWERS.get(name, {}) if script is None else script
     typed, picks = list(script.get("type", [])), list(script.get("pick", []))
     seen: list[str] = []
     #: The screen last acted on, by its words: a new screen is new words.
@@ -301,7 +342,14 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
             continue
         shell = page.locator("[data-testid=step-shell]")
         if shell.count() and shell.first.is_visible():
-            words = " ".join(shell.first.inner_text().split())
+            # A step can go between being seen and being read: the checklist
+            # takes its place while the safe moves run. Then it is a new
+            # screen, read on the next pass, not a 30s wait for one that went
+            # (2026-11-11: once in two trains runs from a tile).
+            try:
+                words = " ".join(shell.first.inner_text(timeout=2000).split())
+            except PlaywrightTimeout:
+                continue
             ready = shell.first.locator("xpath=.//button[not(@disabled)]"
                                         "[not(ancestor::*[@data-testid='top-line'])]").count()
             # The same screen still up long after it was answered: the press
@@ -319,20 +367,17 @@ def record(playwright, name: str, ws: str, goal: str, page_url: str) -> tuple[Pa
                     seen.append(f"folded after {folded}s" if folded else "never folded")
                     page.wait_for_timeout(BEAT_MS * 2)  # let the fold be seen
                     last = " ".join(shell.first.inner_text().split())
-                heading = shell.first.locator("h1").first.inner_text().strip()
+                try:
+                    heading = shell.first.locator("h1").first.inner_text(timeout=2000).strip()
+                except PlaywrightTimeout:
+                    last = ""  # gone while waiting its beat: read whatever came
+                    continue
                 done = answer_screen(page, shell.first, typed, picks)
                 if done:
                     seen.append(f"{heading[:40]} -> {done}")
-    page.wait_for_timeout(2500)  # let the last screen be read
-
-    video = page.video
-    context.close()          # the file is only written when the context closes
-    browser.close()
-    kept = OUT / f"{name}.webm"
-    if kept.exists():
-        kept.unlink()
-    Path(video.path()).rename(kept)
-    return kept, seen
+    else:
+        seen.append("no ending within 300s")
+    return seen
 
 
 def start_mock() -> subprocess.Popen:
