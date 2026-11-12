@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · phase 3 of the advisor's direction, `feat/orchestrator-teach-any-site`: the routine, teaching, site and mock tests, 195 passed, and the overlay's site tests, 28; full suite not run. **Deadline 19 November.** **Open**: the dropped station press in teaching (passed this time)
+**Last updated:** 2026-11-13 · phase 4 of the advisor's direction, `feat/orchestrator-payment-handover`: backend half 1540 passed, 2 failed then rewritten to the new rule (8 of 8), 9 skipped, 1920s; the overlay tests it touches run before merging. **Deadline 19 November.** **Next needs Raham**: phase 5's live runs (his accounts, a paid key, a shop that agrees)
 
 ---
 
@@ -83,6 +83,24 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-13 (night): payment handover and live changes, phase 4 — `feat/orchestrator-payment-handover`
+
+- **CLAUDE.md's final-step rule is rewritten** by the advisor's direction (F, G), **pending
+  Nahail and Aly**: on a live site an order, booking, registration or submission happens after
+  its final screen and "do it"; paying is always the person's.
+- **Handover**: a press that pays on a live site, a page asking for card or bank details, a
+  one-time code, a CAPTCHA or a bot check — the overlay becomes a bar ("Your turn: pay on the
+  page below…"), the real page shows below it, and SIMBA reads nothing until "I've finished".
+  Then it quotes the page ("The website says it went through.") or says it cannot tell. "Stop,
+  change nothing" ends it. `handover` and `handover.done` in the contract, pending agreement.
+- **A test card gateway on the billing copy** (`/gateway/…`, `SIMBA_CARD_GATEWAY=1`): card page,
+  one-time code, receipt; test card and code only, labelled on every page. A whole card payment
+  through it passes end to end with SIMBA never touching the card. **Safepay's sandbox is not
+  done**: it needs Raham's account (DECISIONS.md).
+- **Tests**: 31 new or rewritten for the rule, all pass (EVALUATION.md, 2026-11-13b).
+- **Flagged**: what counts as paying; twenty minutes' wait; the stand-in gateway; teaching still
+  read-only on a live site. See DECISIONS.md, *Payment handover and live changes, phase 4*.
 
 ### Changed on 2026-11-13 (later still): teach on any website, phase 3 — `feat/orchestrator-teach-any-site`
 

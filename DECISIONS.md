@@ -6504,3 +6504,47 @@ Each of these was decided while building, not asked for. **Flagged for review** 
 - **The website panel is one row shorter**: "Show me a task here" sits in the website's own row,
   and "What I can do here" is not shown in a short window. With a taught tile above, the panel
   scrolled the home screen at 150% (found by the new test).
+
+
+## Payment handover and live changes, phase 4: what was settled — `feat/orchestrator-payment-handover`, 2026-11-13
+
+**The rule, as built** (CLAUDE.md's final-step rule rewritten, *pending Nahail and Aly*): on a
+live site an order, booking, registration or submission happens after its final screen and the
+person's "do it"; a press that pays is never SIMBA's. Settled while building:
+
+- **What counts as paying, on a live site**: a press whose words are pay, pay now, payment, make
+  payment, purchase, buy now or complete purchase (`loop.PAY_WORDS`). "Place order" with cash on
+  delivery is an order, which SIMBA presses after the final screen. On our replicas the pretend
+  payment with no card is pressed by SIMBA, as since 2026-10-16.
+- **A page that asks for card or bank details is handed over before any move**, whoever's plan
+  it is, on any site, ours included (`loop.page_asks_for_payment`: a box labelled or named for a
+  card, CVV, expiry, IBAN or bank account, or one the page says autocompletes `cc-…`).
+- **Nothing on the page is read while it is the person's.** The loop waits on `handover.done`
+  without perceiving; afterwards it reads only the title, headings and large text for the page's
+  own words that it went through (thank you, payment successful or received, order placed or
+  confirmed, booking confirmed, receipt, paid). Found: quoted, "The website says it went
+  through." Not found: "I can't tell from the page whether the payment went through. Please
+  check your bank or the website before you try again." — never a guess either way.
+- **A check for a person (CAPTCHA, bot check, one-time code) is handed over too**, and the task
+  goes on after; still there after two handovers, SIMBA stops.
+- **Twenty minutes** is how long a handed-over page waits: long enough to find a card and wait
+  for a bank's code. *Flagged*: chosen without anyone paying with it.
+- **On a live site with no written plan, the final screen shows the page's own amounts** (up to
+  three lines with Rs, PKR, $, £ or €, as the page writes them) beside "What I'll press". A
+  written plan's final screen is as it was.
+- **The sandbox gateway is a stand-in, not Safepay** (H). Safepay's sandbox needs an account
+  Raham has not made yet, and its API could not be tried without one; integrating it blind,
+  four days out, is a risk to the demo. Built instead: a test card gateway on the billing copy
+  (`/gateway/checkout`), labelled "TEST GATEWAY — test cards only. No real money" on every page,
+  taking only 4242 4242 4242 4242 and the code 123456, with a card page and a bank's one-time
+  code page, handing back to a receipt — the same round trip, which is what the handover needs
+  to show. On with `SIMBA_CARD_GATEWAY=1`; off, the bill is paid the pretend way as before.
+  *Flagged*: options are the stand-in (done); Safepay's sandbox once Raham has an account (a
+  day, untested); both. Recommended: show the stand-in on the 19th and say plainly what it is.
+- **Teaching stays read-only on a live site.** The advisor's C says keep every safety rule; a
+  routine that changes something on a live site would need the live final screen for routines
+  too. *Flagged*: options are keep (done), or let a live routine's change go through the final
+  screen as a planner's does (an afternoon, and tests). Recommended: keep for the 19th.
+- **The old tests of the old rule were rewritten, not deleted**: "on a site that is not ours a
+  change is never made" now checks the final screen comes first and Pay is never pressed;
+  "card details are never typed" now checks the handover and that the number is never sent.
