@@ -8654,3 +8654,26 @@ Rewritten to expect two handovers and then the stop, with no model asked: 8 of 8
 been sent. It had not: the assertion chained three checks, and the one that failed was the
 one-time code, 123456, which is inside the reference number 04141234567890. Looked for as a
 whole value it is absent too; the card number never was present.
+
+
+## 2026-11-13c — the overlay half after visible status and the first-time setup (`feat/interface-setup`)
+
+`pytest frontend`, on mains, at the phase 7b commit: **760 passed, 2 failed, 1 error, 3 skipped,
+1782s**. All three came from the new behaviour meeting old tests, none from a defect, and each
+test was brought to the new rule rather than the behaviour bent to the test:
+
+- `test_brand.py`, "it tries again only while it is up": the window now keeps trying on the home
+  screen, by the advisor's direction (L). Rewritten to check it keeps trying, no more than about
+  once a second, and that a press's connection is the only one from then on — the reason the old
+  rule existed. 1 of 1.
+- `test_forget_run.py`, both tests: the reset's helper skipped exactly four welcome questions;
+  against the real backend there are now six. It skips until the welcome has gone. 2 of 2.
+
+An earlier run of the same half, on phase 6 alone, is **not counted**: 36 of its errors were
+`test_sites.py` importing a half-old backend, because the phase 7b backend was being written
+while it ran — a mistake in how the run was done, not a result.
+
+The backend tests 7b touches, beside that run: **142 passed, 2 failed** in
+`test_open_goal.py`, then **144 of 144** and **62 of 62** on two re-runs, in both orders.
+Read as timing under load (two real-browser tests, started as the overlay run started its
+browsers), not proved; recorded as an intermittent to watch.

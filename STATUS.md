@@ -84,6 +84,21 @@ shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
 
+### Changed on 2026-11-13 (morning): visible status and the first-time setup, phases 6 and 7b — `feat/interface-status`, `feat/interface-setup`
+
+- **Always visible** (L): "Connected · Your turn" in the bottom left of every screen; "I can't
+  reach SIMBA's helper. Trying again." when it cannot, and it does try again by itself. On the
+  home screen the window reconnects after each task (`frontend/test_sites.py`, 6 tests).
+- **First-time setup** (K): after name, level, reading aloud and asking, two more skippable
+  questions — **which AI helper** (Gemini, Groq, or another OpenAI-compatible with its address and
+  model) **and its key**, kept encrypted on this computer, checked at once, said in plain words
+  ("It works. This key is saved.", "That key didn't work…", "…today's free allowance is used
+  up."), never shown again but its last four characters; and **the websites used most**, which go
+  first in the list as "Your websites" (`frontend/test_setup.py`, 11; `test_ai_settings.py`, 13).
+- **Contract**: `ai.setup`, `ai.status`, `history.offered.ai`; pending agreement.
+- **Flagged**: the AI key survives "Forget me". See DECISIONS.md.
+- **The installer** (7a) is on its own branch, `feat/infra-installer`, waiting for Raham.
+
 ### Changed on 2026-11-13 (night): payment handover and live changes, phase 4 — `feat/orchestrator-payment-handover`
 
 - **CLAUDE.md's final-step rule is rewritten** by the advisor's direction (F, G), **pending

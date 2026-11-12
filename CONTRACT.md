@@ -759,6 +759,9 @@ website box, and a goal is routed to the three flows or answered.
 | `CatalogueTask.taught_on` (phase 3) | optional field | backend -> frontend |
 | `handover` (phase 4) | new message type, shape `HandOver` | backend -> frontend |
 | `handover.done` (phase 4) | new message type, shape `HandoverDone` | frontend -> backend |
+| `ai.setup` (phase 7b) | new message type, shape `AiSetup` | frontend -> backend |
+| `ai.status` (phase 7b) | new message type, shape `AiStatus` | backend -> frontend |
+| `history.offered.ai` (phase 7b) | optional field, shape `AiStatus` | backend -> frontend |
 | `task.start.routine` with `site` (phase 3) | no field changed: the routine runs on `site` | frontend -> backend |
 
 *To undo any one:* drop it on both sides. Nothing else reads it.
@@ -854,6 +857,22 @@ ends in `task.failed`: stopped, nothing changed.
 ```
 ```json
 { "action": "done" }
+```
+
+### Phase 7b: the AI provider, set up in the app (2026-11-13)
+`history.offered.ai` says whether an AI provider is set up (`configured`), its
+name, and — when it was set up in the app — the key's last four characters
+(`ends_with`); present, the first-time setup asks about it. `ai.setup` sends
+the provider (`gemini`, `groq`, or `openai` with `base_url` and `model`) and the
+key, once; the backend keeps it encrypted with this Windows account's key,
+checks it with one small question, and answers `ai.status` with `check`: `ok`,
+`key`, `limit`, `network`, `other`, or what was wrong with the setup itself
+(`provider`, `address`, `model`, `vault`). The key never comes back.
+```json
+{ "provider": "gemini", "key": "<the key>" }
+```
+```json
+{ "configured": true, "provider": "Gemini", "ends_with": "9f3c", "check": "ok" }
 ```
 
 ### `site.add`

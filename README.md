@@ -8,10 +8,10 @@
 ## What SIMBA is
 
 SIMBA does web tasks for people who find busy websites overwhelming.
-You say what you want, such as "trains to Karachi tomorrow", and the real website opens out of sight.
+You say what you want, such as "trains to Karachi tomorrow", on a website you pick from a list or type, and the real website opens out of sight.
 You see one plain step at a time, and it gets simpler if you seem to be struggling.
-You decide, SIMBA clicks, and it checks every click worked; if it can't go on, it stops and says so.
-On a real website it only reads: booking and paying happen only on practice copies we built.
+You decide, SIMBA clicks, and it checks every click worked; if it can't go on, it stops and says so, and a helper can show it the task once.
+Anything that books, orders or pays waits for a final screen; paying itself is always yours, on the real page (since 2026-11-13).
 
 New here? Read this file top to bottom and you will have it running. It
 assumes nothing is installed yet. `DEMO.md` is for showing it to someone,

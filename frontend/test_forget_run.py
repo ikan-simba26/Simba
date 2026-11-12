@@ -98,9 +98,14 @@ def forget(page: Page) -> None:
     page.get_by_test_id("change-settings").click()
     page.get_by_test_id("forget").click()
     page.get_by_test_id("forget-yes").click()
-    for _ in range(4):
-        page.get_by_test_id("welcome-skip").click()
-        page.wait_for_timeout(250)
+    # Every question skipped: four, and since 2026-11-13 the AI helper and the
+    # websites too, which the real backend offers.
+    for _ in range(6):
+        if page.locator("div:not([data-leaving]) > [data-testid=welcome]").count() == 0:
+            break
+        page.locator("div:not([data-leaving]) > [data-testid=welcome]").get_by_test_id(
+            "welcome-skip").click()
+        page.wait_for_timeout(350)
     page.get_by_test_id("can-help").wait_for(timeout=15000)
     page.wait_for_timeout(500)
 
