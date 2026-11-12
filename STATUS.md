@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · phase 1 of the advisor's direction, `feat/catalogue-any-site`: the tests it touches pass (backend 139, overlay 442 + 47 after one fix, the new 21 in `frontend/test_sites.py` among them); the full suite not run for it. **Deadline 19 November** (DECISIONS.md, *The advisor's direction of 12 November*). **Open**: the dropped station press in teaching, as on 2026-11-11
+**Last updated:** 2026-11-13 · phase 2 of the advisor's direction, `feat/orchestrator-ai-live-sites`: backend/orchestrator 873 passed, 5 skipped, 0 failed (after the blocked-page fix; 992 with perception before it); the overlay tests it touches run before merging; full suite not run. **Deadline 19 November.** **Open**: the dropped station press in teaching
 
 ---
 
@@ -83,6 +83,36 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-13 (later): AI on any website, phase 2 — `feat/orchestrator-ai-live-sites`
+
+- **A goal on any website runs the AI planner** once a provider is set up (`llm_loop.OpenGoalPlanner`).
+  It reads the page's elements and what the page says, acts one asked move at a time, and
+  answers by quoting the page. **An answer is shown only if the page says it word for word**, and
+  is the answer only when the person presses "Yes, that's it"; "No, keep looking" goes back to
+  the model; the page must still say it before closing. 6 tests through the real loop.
+- **Gemini first, Groq at once** on a rate limit, no connection, a timeout, a server error or a
+  key refused (`llm.FallbackProvider`, `GROQ_API_KEY` in `.env`; 21 tests). The step says which
+  worked it out, at every level: "Worked out with Groq."
+- **AI first, then teach**: when the AI cannot, the stuck screen offers "Ask a helper to show me
+  once" on that address. A site whose robots.txt says no — or will not say — is not used
+  (`robots.py`, fail-closed; 9 tests).
+- **A bot check, a CAPTCHA, a one-time code or a refusal stops any run before its next move**
+  (`loop.blocked`), found live: timeanddate answered with "Just a moment…" and the model quoted it.
+- **More words mark a press as a change** (apply, send, order, sign up, …); on a live site such a
+  press still ends the run until phase 4.
+- **Live, once each, free Gemini, no personal data** (EVALUATION.md, 2026-11-13): gov.uk "25 December
+  Christmas Day" in 1 call, 11.7s; Wikipedia's featured article in 1 call, 9.1s; timeanddate wrong
+  before the fix, stopped in 5.0s with 0 calls after it. Not yet: a goal that needs a search, Groq
+  live, a run through the Electron window.
+- **Contract**: `goal.answered` `not_allowed`, `step.presented.worked_out_by`,
+  `help.requested.teach_site`; additive, pending Nahail and Aly.
+- **Flagged**: the answer is quoted, not pointed at by id (the plan said `finish(element_id)`);
+  every AI move is asked; the model now reads page text; fail-closed robots.txt; a "Security check"
+  heading stops a run. See DECISIONS.md, *AI on any website, phase 2*.
+- **The installer** (phase 7a) was built in its own session on `feat/infra-installer`: a 199.6 MB
+  `SIMBA-Setup.exe`, by that session's report installed and run 3 times; **not merged**, waiting
+  on Raham.
 
 ### Changed on 2026-11-13: any website, phase 1 — the list of websites, any address, Add a website — `feat/catalogue-any-site`
 

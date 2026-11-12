@@ -598,6 +598,34 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
     return False
 
 
+#: What a page says when it is a check that a person is there, or a refusal,
+#: rather than the website (2026-11-13). Found live: timeanddate answered a
+#: headless run with Cloudflare's "Just a moment…", and the model quoted it
+#: as the answer. Matched on the title, the headings and the larger text,
+#: never on the body, where "captcha" can be a word in an article.
+BLOCKED_WORDS = re.compile(
+    r"(just a moment|checking your browser|verify(ing)? you are (a )?human|"
+    r"are you a robot|i'?m not a robot|captcha|attention required|access denied|"
+    r"request blocked|you have been blocked|unusual traffic|"
+    r"\b403 forbidden\b|security check|one[- ]time (password|code)|\botp\b|"
+    r"verification code)", re.IGNORECASE)
+
+
+def blocked(snapshot: "Snapshot", elements: "list[Element] | None" = None) -> bool:
+    """Whether the page is a bot check, a CAPTCHA, a one-time code or a
+    refusal: something only the person may do (CLAUDE.md; the advisor's hard
+    rules). SIMBA never tries to get past one."""
+    said = [snapshot.title] + [h.text for h in snapshot.content.headings] \
+        + [v.text for v in snapshot.content.values]
+    if any(BLOCKED_WORDS.search(text or "") for text in said):
+        return True
+    for element in elements or []:
+        words = " ".join(filter(None, [element.label, element.name]))
+        if re.search(r"captcha|one[- ]time|\botp\b|verification code", words, re.IGNORECASE):
+            return True
+    return False
+
+
 def on_replica(url: str) -> bool:
     """Whether a page is one of our replicas: served from this machine."""
     from urllib.parse import urlparse
@@ -1582,6 +1610,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         lapsed = await durability_failure(page, filled, task.about.holds)
         if lapsed is not None:
             await give_up(lapsed)
+            return
+
+        # A bot check, a CAPTCHA, a one-time code or a refusal (2026-11-13):
+        # never got past, never read as the website. The person's to do.
+        if blocked(before, elements):
+            await give_up(voice.BLOCKED)
             return
 
         # Only a task with a success expectation can finish early. `holds`

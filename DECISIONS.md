@@ -6475,3 +6475,10 @@ Each of these was decided while building, not asked for. **Flagged for review** 
 - **The answer is in the question's own sentence** ("The page says: 26 December. Is this what you
   wanted?"): a step's detail line is not shown at the simplest level, and the answer is the one
   thing that must be read.
+
+- **A bot check, a CAPTCHA, a one-time code or a refusal stops every run before its next move**
+  (`loop.blocked`, 2026-11-13, found live on timeanddate): read from the title, headings, large
+  text and the names of boxes, never the body, where "captcha" can be a word in an article.
+  *Flagged*: a heading such as "Security check" on a bank's ordinary page would stop a run
+  wrongly; a stop costs the person one more thing to do, and a missed check would be SIMBA
+  trying to get past one. Phase 4 turns this stop into a handover with the page shown.

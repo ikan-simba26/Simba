@@ -177,3 +177,32 @@ def test_what_the_page_says_is_cut_to_fit_a_free_tier():
     assert len(rendered) <= 2400 + len("\n(... the rest is cut)")
     assert rendered.endswith("(... the rest is cut)")
     assert render_content(None) == "(the page says nothing readable)"
+
+
+CHALLENGE = """<!doctype html><html><head><title>Just a moment...</title></head><body>
+<h1>Just a moment…</h1><p>Checking your browser before accessing the site.</p></body></html>"""
+
+CAPTCHA_FORM = """<!doctype html><html><head><title>Track your application</title></head>
+<body><h1>Track your application</h1>
+<label for="ref">Tracking number</label><input id="ref" name="ref">
+<label for="cap">Enter the captcha</label><input id="cap" name="captcha">
+<button>Track</button></body></html>"""
+
+
+@pytest.mark.parametrize("html", [CHALLENGE, CAPTCHA_FORM], ids=["bot check", "captcha box"])
+def test_a_check_for_a_person_stops_before_the_model_is_asked(tmp_path, html):
+    """Found live on 2026-11-13: timeanddate answered with a bot check, and
+    the model quoted "Just a moment…" as the answer. A page that wants a
+    person is the person's: SIMBA stops and asks no model."""
+    (tmp_path / "index.html").write_text(html, encoding="utf-8")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path))
+    server = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        provider = Scripted([answer("Just a moment…")])
+        connection = run(f"http://127.0.0.1:{server.server_address[1]}/index.html", provider)
+    finally:
+        server.shutdown()
+    assert connection.payload_of("help.requested")["reason"] == voice.BLOCKED
+    assert provider.pages == []
+    assert "task.completed" not in connection.types()

@@ -740,6 +740,10 @@ KEEP_LOOKING = "No, keep looking"
 AI_COULD_NOT = "I couldn't work out how to do this on this website."
 #: `help.requested.suggestion` with it: what the overlay's button does.
 AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
+#: `help.requested.reason` when the page is a bot check, a CAPTCHA, a
+#: one-time code or a refusal (2026-11-13). SIMBA never gets past one.
+BLOCKED = ("The website wants to check that a person is using it. That part is "
+           "yours to do, so I've stopped here.")
 #: `goal.answered`'s `not_allowed`, said by the overlay; here for the log.
 NOT_ALLOWED = "This website asks programs like me not to use that page."
 
