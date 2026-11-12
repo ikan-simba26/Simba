@@ -8677,3 +8677,13 @@ The backend tests 7b touches, beside that run: **142 passed, 2 failed** in
 `test_open_goal.py`, then **144 of 144** and **62 of 62** on two re-runs, in both orders.
 Read as timing under load (two real-browser tests, started as the overlay run started its
 browsers), not proved; recorded as an intermittent to watch.
+
+
+## 2026-11-13d — the host fit test, in the real window, after phases 1 to 8
+
+`SIMBA_HOST_TESTS=1 pytest frontend/test_window_fit.py`, after `npm run build`, on mains.
+**First: 3 failed** — at 100%, 125% and 150% alike, the smallest text on the home screen was
+18px against the project's floor of 20px. The new status line (phase 6) was set in the caption
+size. The headless tests had measured its place, not its size; only the real-window test
+checks the floor. Fixed: the line in the 20px size, the site list's foot raised to leave it room
+(`fix/interface-status-size`). **Then: 3 passed**, 589s.
