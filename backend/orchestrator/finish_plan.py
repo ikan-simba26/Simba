@@ -214,6 +214,15 @@ def payment_task(reference: str):
     )
 
 
+def card_gateway() -> bool:
+    """Whether the bill is paid by card through the billing copy's test
+    gateway (2026-11-13): `SIMBA_CARD_GATEWAY=1`. Off, it is the pretend
+    payment with no card, as since 2026-10-16."""
+    import os
+
+    return os.environ.get("SIMBA_CARD_GATEWAY", "").strip() == "1"
+
+
 class PaymentPlanner:
     """Pays the bill the person looked up, on the billing replica: opens its
     payment page (a page to read), then the final screen. Nothing to ask: the
@@ -242,6 +251,24 @@ class PaymentPlanner:
                         expect=Expectation(title_contains="Pay Your Bill"), fields=[],
                         actions=voice.actions(voice.OPEN_PAYMENT), safe=True,
                         doing=voice.DOING_PAYMENT_PAGE, stage=self.stage, kind="read")
+        if "final" not in self._done and card_gateway():
+            # By card, through the test gateway (2026-11-13): the final screen
+            # opens the card page; the loop hands that page to the person, who
+            # pays there, and reads the receipt once they have.
+            self._done.add("final")
+            return Move(
+                instruction=voice.FINAL_PAY_CARD, detail=voice.FINAL_WAITS,
+                operations=[Operation("click", Target("button", "Pay by card (test gateway)"))],
+                expect=Expectation(title_contains="Card payment"), fields=[],
+                actions=voice.final_actions(voice.PAY_BY_CARD, voice.DONT_PAY),
+                final_answers=(voice.PAY_BY_CARD, voice.DONT_PAY),
+                changes=True, stage=self.stage, kind="confirm",
+                final=(
+                    FinalRead("Amount", "Amount payable", plain=voice.rupees),
+                    FinalRead("Bill", "Billing month"),
+                    FinalRead("Due", "Due date", plain=voice.page_date),
+                    FinalRead("Reference number", "Reference No."),
+                ))
         if "final" not in self._done:
             self._done.add("final")
             return Move(

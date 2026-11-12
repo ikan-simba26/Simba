@@ -52,16 +52,26 @@ and a step that changes something (a second press could make the change twice).
 
 ## Rules
 
-- **The final-step rule** (2026-10-16, replacing "never execute an
-  irreversible action"). An action that pays, books, registers or changes a
-  record happens only **(a) on a replica** — a site we wrote, served from this
-  machine — and **(b) after a dedicated final screen** that says in plain
-  words exactly what will happen, shows the key details (what, how much,
-  when) as the page states them, and has two buttons: do it / don't. No
-  default, no timer. "Don't" ends the task and says nothing was changed. On a
-  live site SIMBA reads and never books, pays or changes anything, and it
-  never types payment details anywhere. `loop.carry_out` enforces (a) and (b)
-  whichever planner asks.
+- **The final-step rule** (2026-10-16; **changed 2026-11-13 by the advisor's
+  direction, pending Nahail and Aly** — DECISIONS.md). An action that books,
+  orders, registers, submits or changes a record happens only **after a
+  dedicated final screen** that says in plain words exactly what will happen,
+  shows the key details (what, how much, when) as the page states them, and
+  has two buttons: do it / don't. No default, no timer. "Don't" ends the task
+  and says nothing was changed. This now holds on a live site too, not only on
+  a replica. **Paying is always the person's**: a press that pays on a live
+  site, a page asking for card or bank details, a one-time code, a CAPTCHA or
+  a check that a person is there — SIMBA hands the real page to the person
+  ("handover") and never types, reads, logs or keeps what they enter; it reads
+  the page afterwards and says what it shows, or that it cannot tell. Cash on
+  delivery is an order, which SIMBA may place after the final screen. No real
+  purchase is made in development or testing: tests use replicas, the test
+  gateway, or stop at the final screen; a real one is Raham's own, with his
+  own account. `loop.carry_out` enforces all of it whichever planner asks.
+  Until 2026-11-13 the rule read: "only (a) on a replica … On a live site SIMBA
+  reads and never books, pays or changes anything."
+- **The LLM never sees a payment detail** (2026-11-13). Nothing on a page is
+  read while it is handed over.
 - **The LLM never sees a credential.** The vault injects values directly into
   the DOM. Secrets never enter a prompt or a log.
 - **The LLM never emits a selector.** Perception assigns integer IDs to

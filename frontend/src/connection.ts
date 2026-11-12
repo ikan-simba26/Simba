@@ -17,6 +17,7 @@ import type {
   MessageType,
   RoutineExport,
   RoutineImport,
+  HandoverDone,
   SiteAdd,
   StepResponse,
   Telemetry,
@@ -112,6 +113,11 @@ export class BackendConnection {
     // The website to do it on, listed or typed (2026-11-13).
     if (site) payload.site = site;
     this.send("task.start", payload);
+  }
+
+  /** The person's word on the handover bar (2026-11-13). */
+  handoverDone(answer: HandoverDone): void {
+    this.send("handover.done", answer);
   }
 
   /** A website added to the list (2026-11-13). */

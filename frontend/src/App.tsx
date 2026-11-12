@@ -20,6 +20,7 @@ import { LevelControl } from "./components/LevelControl";
 import { FinalCheck } from "./components/FinalCheck";
 import { ReadBack } from "./components/ReadBack";
 import { TeachBar } from "./components/TeachBar";
+import { HandoverBar } from "./components/HandoverBar";
 import { TeachIntro } from "./components/TeachIntro";
 import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
@@ -99,7 +100,11 @@ export default function App() {
   const screen = useScreen();
   const listed = useStore((state) => state.sites.length > 0) && screen === "idle";
 
+  // The real page handed to the person, to pay or pass a check (2026-11-13).
+  const handover = useStore((state) => state.handover);
+
   if (teaching) return <TeachBar bar={teaching} />;
+  if (handover) return <HandoverBar bar={handover} />;
 
   return (
     // The bottom padding is the one space on every screen nothing reads:

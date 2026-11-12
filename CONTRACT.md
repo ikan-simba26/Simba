@@ -757,6 +757,8 @@ website box, and a goal is routed to the three flows or answered.
 | `step.presented.worked_out_by` (phase 2) | optional field | backend -> frontend |
 | `help.requested.teach_site` (phase 2) | optional field | backend -> frontend |
 | `CatalogueTask.taught_on` (phase 3) | optional field | backend -> frontend |
+| `handover` (phase 4) | new message type, shape `HandOver` | backend -> frontend |
+| `handover.done` (phase 4) | new message type, shape `HandoverDone` | frontend -> backend |
 | `task.start.routine` with `site` (phase 3) | no field changed: the routine runs on `site` | frontend -> backend |
 
 *To undo any one:* drop it on both sides. Nothing else reads it.
@@ -832,6 +834,27 @@ move's expected address under the start's path, moved to the new address
 (`routines.moved_to`). Every move is still found by role and label and checked;
 a site laid out differently stops as a changed site does. robots.txt is asked
 first, and `not_allowed` answers a no.
+
+### Phase 4: the real page handed to the person (2026-11-13)
+`handover` is sent when the page is the person's to act on: `reason` is
+`payment` (a press that pays on a live site, after its final screen; a page
+asking for card or bank details; a one-time code) or `check` (a CAPTCHA, a
+check that a person is there). `sentence` is what the bar says; `site` the
+page's host. The overlay steps aside to a bar, the host shows the website
+below it (`[simba] host bar 160`), and nothing on the page is read until the
+person answers `handover.done` with `done` or `cancel` (or `task.cancel`).
+After `done`, a payment ends in `task.completed` quoting the page's own words
+(`heading` "The website says it went through.", `caveat` that SIMBA did not
+see or keep the card details) or in `help.requested` with `unconfirmed` when
+the page says nothing either way; a check goes on with the task. `cancel`
+ends in `task.failed`: stopped, nothing changed.
+```json
+{ "reason": "payment", "site": "127.0.0.1:5100",
+  "sentence": "Your turn: pay on the page below. Type your card details or code there yourself. I don't see or keep them. Press I've finished when it's done." }
+```
+```json
+{ "action": "done" }
+```
 
 ### `site.add`
 "Add a website" on the home screen. Answered with `history.offered` as it now

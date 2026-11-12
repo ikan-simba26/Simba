@@ -9,6 +9,7 @@ import { create } from "zustand";
 
 import type {
   CatalogueSite,
+  HandOver,
   SiteAdd,
   AnyEnvelope,
   Level,
@@ -232,6 +233,14 @@ interface Store {
    *  (2026-11-13): the box for the address starts with it. */
   teachAddress: string | null;
   teaching: TeachWatching | null;
+  /**
+   * The real page handed to the person (2026-11-13): to pay or to pass a
+   * check. While set, the overlay is the handover bar and nothing else, and
+   * the host shows the website below it. Cleared by their answer, and by
+   * whatever the backend sends next.
+   */
+  handover: HandOver | null;
+  answerHandover: (action: "done" | "cancel") => void;
   /** A file that could not be read in, said once on the screen it came from. */
   fileNote: string | null;
   setTeachOpen: (open: boolean, address?: string) => void;
@@ -451,6 +460,7 @@ export const useStore = create<Store>((set, get) => {
     teachOpen: false,
     teachAddress: null,
     teaching: null,
+    handover: null,
     fileNote: null,
     sites: [],
     genres: [],
@@ -541,6 +551,13 @@ export const useStore = create<Store>((set, get) => {
       ...(open ? { welcomeOpen: false, reply: null, addSiteOpen: false } : {}) }),
 
     chooseSite: (id) => set({ chosenSite: id }),
+
+    answerHandover: (action) => {
+      connection.handoverDone({ action });
+      hostBar(false);
+      set({ handover: null, state: "thinking",
+            ...(action === "cancel" ? { stoppedByPerson: true } : {}) });
+    },
 
     setAddSiteOpen: (open) => set({ addSiteOpen: open, siteNote: null, addingSite: false,
                                     ...(open ? { welcomeOpen: false } : {}) }),
@@ -772,7 +789,20 @@ function endTeaching(set: SetStore): void {
   });
 }
 
+/** What ends a handover from the backend's side (2026-11-13). */
+const HANDED_BACK = new Set(["step.presented", "help.requested", "task.completed", "task.failed"]);
+
 function apply(message: AnyEnvelope, set: SetStore): void {
+  // Whatever the backend says after a handover (2026-11-13) — a step, the
+  // ending, a stop — means the page is not the person's any more: the bar goes
+  // and the website is covered again.
+  if (HANDED_BACK.has(message.type)) {
+    set((current) => {
+      if (!current.handover) return {};
+      hostBar(false);
+      return { handover: null };
+    });
+  }
   switch (message.type) {
     case "task.started":
       set({
@@ -866,6 +896,11 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       });
       return;
     }
+    case "handover":
+      // The page is the person's (2026-11-13): the bar, the website below it.
+      hostBar(true);
+      set({ handover: message.payload as HandOver, step: null, state: "waiting" });
+      return;
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
       set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });

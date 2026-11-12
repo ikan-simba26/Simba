@@ -48,7 +48,11 @@ export type MessageType =
   | "routine.import"
   // Pending agreement (2026-11-13, the advisor's direction): a website added
   // to the list on the home screen.
-  | "site.add";
+  | "site.add"
+  // Pending agreement (2026-11-13): the real page handed to the person — to
+  // pay, or to pass a check for a person — and their word that they are done.
+  | "handover"
+  | "handover.done";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -452,6 +456,20 @@ export interface TaskStart {
    * is one and this is its site, otherwise by the AI planner.
    */
   site?: string;
+}
+
+/** The real page, handed to the person to pay or to pass a check
+ *  (2026-11-13, pending agreement). The overlay steps aside to a bar with
+ *  `sentence`, the website below it, until `handover.done`. */
+export interface HandOver {
+  reason: "payment" | "check";
+  sentence: string;
+  site: string;
+}
+
+/** The person's answer on the handover bar (2026-11-13, pending agreement). */
+export interface HandoverDone {
+  action: "done" | "cancel";
 }
 
 /** A website added to the home screen's list (2026-11-13, pending agreement).
