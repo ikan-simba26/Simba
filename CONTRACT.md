@@ -735,6 +735,79 @@ that only opens a page) and `shows` (the page's labels for a final screen's
 details). Only the backend reads the file; the overlay passes it through.
 A SIMBA without them reads the file and stops honestly at the row press.
 
+## Any website (2026-11-13)
+
+Added 2026-11-13 on `feat/catalogue-any-site`, by the advisor's direction of
+12 November, approved by Raham (DECISIONS.md, *The advisor's direction of 12
+November*). **Pending agreement: Nahail and Aly.** Every change is additive. A
+side that ignores all of it works as it did on 2026-11-12: no list, no
+website box, and a goal is routed to the three flows or answered.
+
+**For Nahail and Aly, the whole list:**
+
+| Change | Kind | Direction |
+|---|---|---|
+| `history.offered.sites` and `.genres` | optional fields, new shapes `CatalogueSite`, `CatalogueTask` | backend -> frontend |
+| `task.start.site` | optional field | frontend -> backend |
+| `goal.answered.kind` `"not_yet"` | one more value of an existing field | backend -> frontend |
+| `goal.answered.site` | optional field | backend -> frontend |
+| `site.add` | new message type | frontend -> backend |
+| `error` code `SITE_NOT_ADDED` | new code | backend -> frontend |
+
+*To undo any one:* drop it on both sides. Nothing else reads it.
+
+### `history.offered.sites` and `.genres`
+The websites SIMBA can work with, for the list on the home screen's left, and
+the genres to group them under, in order. Read from `data/catalogue.json`
+(shipped) and `data/catalogue.local.json` (added in the app, never
+committed). A routine a helper taught appears as a `taught` task on the site
+it was taught on, by host and port.
+```json
+{ "goals": [], "genres": ["Travel", "Bills"],
+  "sites": [
+    { "id": "pakrailways", "name": "Pakistan Railways",
+      "address": "https://www.pakrailways.gov.pk/train", "genre": "Travel", "added": false,
+      "tasks": [ { "label": "Find train times", "goal": "Find train times",
+                   "how": "built-in", "flow": "railways" } ] },
+    { "id": "iesco-bill", "name": "IESCO electricity bill",
+      "address": "https://bill.pitc.com.pk/iescobill", "genre": "Bills", "added": false,
+      "tasks": [ { "label": "Look up my bill", "goal": "Look up my electricity bill",
+                   "how": "ai" } ] } ] }
+```
+`how` is `built-in` (a written plan: send `flow`), `ai` (the AI planner works it
+out on the live page) or `taught` (send `routine`, its id).
+
+### `task.start.site`
+The website to work on: a listed site's address, or one the person typed (the
+backend makes `gov.uk` into `https://gov.uk/` and refuses anything that is
+not `http` or `https`). With no `flow`, the backend routes the goal as usual;
+a built-in flow runs only when the site is that flow's own; anything else is
+done on `site` by the AI planner. A goal with no `site` that has an address
+written in it ("bank holidays on gov.uk") is treated as if `site` were that
+address.
+```json
+{ "goal": "When is the next bank holiday?", "input_mode": "text",
+  "site": "https://www.gov.uk/bank-holidays" }
+```
+
+### `goal.answered` `not_yet`
+A goal on a website SIMBA cannot do yet — until the AI planner is set up, every
+goal on a site with no built-in plan. `site` is where the overlay offers a
+helper's "Show me once". `flows` is empty. No task starts.
+```json
+{ "kind": "not_yet", "goal": "Track my passport application", "flows": [],
+  "site": "https://dgip.gov.pk/" }
+```
+
+### `site.add`
+"Add a website" on the home screen. Answered with `history.offered` as it now
+stands, or `error` with code `SITE_NOT_ADDED` and, as its `message`, the reason
+the overlay says in words: `name` (none given), `address` (not a web
+address), `listed` (already in the list), `full` (30 added already).
+```json
+{ "name": "My clinic", "address": "clinic.example.pk", "genre": "Health" }
+```
+
 ## Notes
 
 - Timestamps are epoch milliseconds.

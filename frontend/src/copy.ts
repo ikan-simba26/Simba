@@ -112,6 +112,56 @@ export function greetingAt(hour: number, name?: string): string {
   return `${hello}, ${name}. ${rest.join(". ")}`;
 }
 
+/* --------------------------------------------------------------- websites */
+
+/**
+ * The websites SIMBA can work with (2026-11-13, the advisor's direction): a
+ * list on the home screen's left, by genre, from the catalogue; "Add a
+ * website" under it; and a box beside the one to ask in, for any address.
+ */
+export const SITES = {
+  /** Above the list on the left. A lead-in. */
+  list: "Websites I can use",
+  /** At the foot of the list: where a new website is added. */
+  add: "Add a website",
+  /** The screen behind it. */
+  addAsk: "Add a website",
+  addDetail: "Give it a name you will know. Then it is in the list, and you can ask me to do things there.",
+  /** Above each box on that screen. Lead-ins. */
+  name: "What to call it",
+  address: "Its address",
+  genre: "What kind of website",
+  namePlaceholder: "My clinic",
+  addressPlaceholder: "clinic.example.pk",
+  addIt: "Add it",
+  /** Why a website could not be added, by the backend's reason. */
+  notAdded: {
+    name: "Give it a name first.",
+    address: "That doesn't look like a website's address.",
+    listed: "That website is in the list already.",
+    full: "The list is full. Take one off first.",
+  } as Record<string, string>,
+  /** Beside the box to ask in, for the website to do it on. */
+  where: "Which website",
+  wherePlaceholder: "Any website, like gov.uk",
+  /** Above the selected website's tasks. A lead-in. */
+  hereICan: "What I can do here",
+  /** How SIMBA does each one, under its name. */
+  how: {
+    "built-in": "I know this one",
+    ai: "I'll work it out",
+    taught: "A helper showed me",
+  } as Record<string, string>,
+  /** Above the box when a website is chosen. */
+  askHere: (name: string) => `What would you like me to do on ${name}?`,
+  /** Lets go of the chosen website. */
+  notThis: "Choose another website",
+  /** For a helper, on the chosen website. */
+  showHere: "Show me a task here",
+  /** Above the three tiles when the list is there too. A lead-in. */
+  ready: "Ready to go",
+} as const;
+
 /* -------------------------------------------------------- your own tiles */
 
 /**
@@ -293,6 +343,13 @@ export const REPLY = {
   clarify: "Which of these did you mean?",
   /** Above the words the person typed, echoed back quietly. A lead-in. */
   youAsked: "You asked",
+  /** A goal on a website SIMBA has no way to do yet (2026-11-13). */
+  notYet: (where: string) => `I don't know how to do that on ${where} yet.`,
+  notYetDetail: "A helper can show me once. Then I can do it on my own.",
+  showMeOnce: "Ask a helper to show me once",
+  /** Above the cards after a refusal, when the list of websites is there
+   *  (2026-11-13): the same height as "Here's what I can do". A lead-in. */
+  canDoOrWhere: "Tell me the website, or choose one of these",
 } as const;
 
 /* ---------------------------------------------------------------- status */
@@ -688,6 +745,14 @@ export const SITUATIONS: Record<string, string> = {
   "reply.greeting": REPLY.greeting,
   "reply.unsupported": REPLY.unsupported,
   "reply.clarify": REPLY.clarify,
+  "reply.notYet": REPLY.notYet("gov.uk"),
+  "reply.notYetDetail": REPLY.notYetDetail,
+  "sites.addDetail": SITES.addDetail,
+  "sites.notAdded.name": SITES.notAdded.name,
+  "sites.notAdded.address": SITES.notAdded.address,
+  "sites.notAdded.listed": SITES.notAdded.listed,
+  "sites.notAdded.full": SITES.notAdded.full,
+  "sites.askHere": SITES.askHere("Wikipedia"),
   "choose.more": CHOOSE.more(5),
   "choose.none": CHOOSE.none,
   "choose.hint": CHOOSE.hint,
@@ -708,6 +773,14 @@ export const LEADS: Record<string, string> = {
   "welcome.level3": WELCOME.levelName(3),
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
+  "reply.canDoOrWhere": REPLY.canDoOrWhere,
+  "sites.list": SITES.list,
+  "sites.name": SITES.name,
+  "sites.address": SITES.address,
+  "sites.genre": SITES.genre,
+  "sites.where": SITES.where,
+  "sites.hereICan": SITES.hereICan,
+  "sites.ready": SITES.ready,
 };
 
 /** Everything that goes on a button. Never punctuated, never two for one place. */
@@ -780,4 +853,12 @@ export const LABELS: Record<string, string> = {
   "status.done": STATUS.done,
   "stages.label": STAGES.label,
   "choose.matches": CHOOSE.matches,
+  "sites.add": SITES.add,
+  "sites.addIt": SITES.addIt,
+  "sites.notThis": SITES.notThis,
+  "sites.showHere": SITES.showHere,
+  "sites.how.builtIn": SITES.how["built-in"],
+  "sites.how.ai": SITES.how.ai,
+  "sites.how.taught": SITES.how.taught,
+  "reply.showMeOnce": REPLY.showMeOnce,
 };

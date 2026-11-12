@@ -55,6 +55,9 @@ MessageType = Literal[
     "teach.answer",
     "routine.export",
     "routine.import",
+    # Pending agreement (2026-11-13, the advisor's direction): a website added
+    # to the list on the home screen.
+    "site.add",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -106,6 +109,34 @@ class TaughtTile(BaseModel):
     site: str
 
 
+How = Literal["built-in", "ai", "taught"]
+
+
+class CatalogueTask(BaseModel):
+    """Something SIMBA can do on a listed website (2026-11-13), and how:
+    `built-in` runs a written plan (`flow`), `ai` asks the AI planner to work
+    it out on the live page, `taught` runs a routine a helper showed
+    (`routine`, its id). Pressing it sends `goal` with `site`."""
+
+    label: str
+    goal: str
+    how: How
+    flow: Optional["FlowName"] = None
+    routine: Optional[str] = None
+
+
+class CatalogueSite(BaseModel):
+    """A website SIMBA can work with, listed on the home screen's left by
+    genre (2026-11-13). `added`: added in the app, not shipped."""
+
+    id: str
+    name: str
+    address: str
+    genre: str
+    tasks: List[CatalogueTask]
+    added: bool = False
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -121,10 +152,17 @@ class HistoryOffered(BaseModel):
     # as tiles, in the order they were kept. They share the home screen's row
     # of three with `tiles`. Absent: none.
     routines: Optional[List[TaughtTile]] = None
+    # Additive and optional (2026-11-13). The websites SIMBA can work with, in
+    # the list's order, and the genres in theirs. Also sent again after each
+    # `site.add`. Absent: no list, and the home screen is as it was.
+    sites: Optional[List[CatalogueSite]] = None
+    genres: Optional[List[str]] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]
-AnswerKind = Literal["greeting", "unsupported", "clarify"]
+# "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to do
+# yet. The overlay offers a helper's "Show me once" on that website (`site`).
+AnswerKind = Literal["greeting", "unsupported", "clarify", "not_yet"]
 
 
 class GoalAnswered(BaseModel):
@@ -138,6 +176,9 @@ class GoalAnswered(BaseModel):
     kind: AnswerKind
     goal: str
     flows: List[FlowName]
+    # Additive and optional (2026-11-13). The website the goal was for, when
+    # there was one: where "Show me once" opens for `not_yet`.
+    site: Optional[str] = None
 
 
 class Finding(BaseModel):
@@ -448,6 +489,11 @@ class TaskStart(BaseModel):
     # its id (`history.offered.routines`): run as shown, asking only what the
     # helper said changes. The goal is its name and is not classified.
     routine: Optional[str] = None
+    # Additive and optional (2026-11-13). The website to work on: a listed
+    # site's address, or one the person typed. With no `flow`, the goal is done
+    # there — by a built-in plan if the goal is one and the site is its site,
+    # otherwise by the AI planner. Absent: the goal is routed as before.
+    site: Optional[str] = None
 
 
 class TeachStart(BaseModel):
@@ -481,6 +527,17 @@ class RoutineImport(BaseModel):
     kept, and an `error` with code `ROUTINE_NOT_READ` saying why when not."""
 
     file: str
+
+
+class SiteAdd(BaseModel):
+    """A website added to the home screen's list (2026-11-13, pending
+    agreement): what to call it, its address as typed, and its genre. Answered
+    with `history.offered` as it now stands, or `error` `SITE_NOT_ADDED` whose
+    message is one of `name`, `address`, `listed`, `full`."""
+
+    name: str
+    address: str
+    genre: str
 
 
 class TileChange(BaseModel):

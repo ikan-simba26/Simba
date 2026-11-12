@@ -33,8 +33,10 @@ export function addressOf(typed: string): string | null {
 }
 
 export function TeachIntro() {
-  const { startTeaching, setTeachOpen, tiles, routines, importRoutine, fileNote } = useStore();
-  const [typed, setTyped] = useState("");
+  const { startTeaching, setTeachOpen, tiles, routines, importRoutine, fileNote,
+          teachAddress } = useStore();
+  // Offered on a website (2026-11-13), the box starts with its address.
+  const [typed, setTyped] = useState(teachAddress ?? "");
   const file = useRef<HTMLInputElement>(null);
   const url = addressOf(typed);
   const full = tiles.length + routines.length >= ROW;

@@ -8520,3 +8520,72 @@ written 0 times. The line was checked first: it writes two whole numbers (the pr
 read as numbers; anything else as -1) and a count of list options, and its message holds only
 `%d`, so no typed value, label or secret can reach it. Merged into `main` on Raham's decision;
 the cause stays open.
+
+
+## 2026-11-12 — live sites screened read-only, and the AI providers' free tiers (step 0 of the advisor's direction)
+
+Asked for by Raham for the advisor's direction of 12 November (DECISIONS.md): which live sites
+work with perception today, and what the AI providers allow for free. **Nothing was clicked,
+filled or submitted, and no account was made.**
+
+**Method.** `python -m tools.screen_site <origin> <path>` once per site, from git bash with
+`MSYS_NO_PATHCONV=1`: robots.txt for SIMBA's screener user agent, then one load of one page at
+1280x800 and perception's read of it. 3s pause between pages (the tool's own). On mains, 12
+November, about 23:00 PKT, from Lahore, on `main` at `233e737`. **No conditions block was
+written**: `screen_site` does not print one, and this was not re-run to add it, which would have
+been twenty more visits to other people's sites. Read the load times as one visit, one moment,
+±2x (EVALUATION.md, 2026-09-17h).
+
+**Failed, and done again.** The first run was worthless: git bash turned each path argument
+into a Windows path (`/train` became `/Program Files/Git/train`), so every page "loaded" as 0
+elements or an error. Found by reading the table, not by a test; stopped and run again with
+`MSYS_NO_PATHCONV=1`. The rows below are the second run.
+
+| Site | Page | robots | HTTP | Load | Elements | Unnamed | Inferred | Dead links | Overlay/occluded |
+|---|---|---|---|---|---|---|---|---|---|
+| Pakistan Railways | `/train` | no robots.txt | 200 | 6.0s | 18 | 4 | 0 | 3 | 0/0 |
+| Daraz | `/` | allowed (cart, checkout, customer disallowed) | 200 | 3.1s | 338 | 17 | 24 | 2 | 0/0 |
+| foodpanda | `/` | allowed (login disallowed) | 200 | 4.3s | 147 | 1 | 0 | 1 | 0/0 |
+| FCCU | `/` | allowed | 200 | 7.6s | 81 | 4 | 4 | 5 | 0/0 |
+| PITC IESCO bill | `/iescobill` | no robots.txt (404) | 200 | 2.2s | 9 | 1 | 0 | 1 | 0/0 |
+| SSGC | `/` | allowed | 200 | 7.6s | 182 | 36 | 1 | 9 | 0/0 |
+| Directorate of Passports | `/` | allowed | 200 | 3.6s | 108 | 5 | 1 | 3 | 1/20 |
+| Daewoo Express | `/` | allowed | 200 | 4.4s | 42 | 3 | 0 | 13 | 0/0 |
+| Rozee | `/` | allowed | 200 | 11.9s | 2322 | 39 | 2 | 8 | 0/0 |
+| Imtiaz | `/` | allowed | 200 | 5.3s | 81 | 9 | 14 | 3 | 0/22 |
+| Naheed | `/` | allowed | 200 | 2.9s | 394 | 38 | 83 | 51 | 0/0 |
+| Wikipedia | `/wiki/Main_Page` | allowed | 200 | 2.9s | 263 | 0 | 0 | 1 | 0/0 |
+| gov.uk | `/bank-holidays` | allowed | 200 | 3.1s | 56 | 0 | 0 | 0 | 0/0 |
+| Open Library | `/` | allowed | 200 | 4.2s | 163 | 0 | 7 | 18 | 0/0 |
+| Shaukat Khanum | `/` | allowed | 200 | 3.1s | 124 | 17 | 0 | 1 | 0/0 |
+| Chughtai Lab | `/` | allowed | 200 | 2.4s | 86 | 1 | 1 | 3 | 0/0 |
+| timeanddate | `/weather/pakistan/lahore` | allowed | 200 | 2.4s | 73 | 0 | 0 | 2 | 0/0 |
+| PIA | `/` | allowed | 200 | 3.0s | 132 | 0 | 33 | 5 | 0/0 |
+| PTA DIRBS | `/` | allowed | 200 | 2.9s | 31 | 1 | 0 | 1 | 0/0 |
+| OLX | `/` | allowed | 200 | 2.3s | 158 | 5 | 0 | 2 | 0/0 |
+
+All 20 loaded with HTTP 200; no robots.txt disallowed the page read. **What this does not
+show**: whether a form asks for a CAPTCHA when it is used, whether a task can be done, or
+anything past the first page. "Inferred" is controls only perception's layout inference finds:
+Naheed's 83 means a planner there leans on inference for a fifth of the page.
+
+**Daraz is out for ordering.** Its robots.txt disallows `/checkout/`, `/cart/` and
+`/customer/`; its terms of use (daraz.pk/terms-of-use, read 12 November through a search
+result's summary, not in full) limit access to personal shopping and list robots among
+prohibited tools.
+
+**The AI providers, as their own pages said on 12 November 2026** (fetched by an agent; the
+Gemini pages redirect from ai.google.dev to aistudio.google.com/docs):
+
+| Provider | Free tier | Paid, per 1M tokens in / out | OpenAI-compatible base URL |
+|---|---|---|---|
+| Gemini | Per project, not per key; the docs give no per-model numbers and point to the AI Studio console. Third-party reports, unconfirmed: 20 requests a day on Flash, 500 on Flash-Lite | 3.8 Flash and 3.6 Flash $0.75 / $3.75 to 31 Dec 2026, then $1.50 / $7.50; 3.5 Flash-Lite $0.30 / $2.50; 3.1 Flash-Lite $0.25 / $1.50 (from a summary of a cut-off page) | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| Groq | `openai/gpt-oss-120b` and `-20b`, `qwen/qwen3.8-27b`: 30 a minute, 1,000 a day, **8,000 tokens a minute**, 200,000 a day (the page may be showing the Developer plan's figures) | Not on groq.com/pricing | `https://api.groq.com/openai/v1` |
+| OpenRouter `:free` | 20 a minute; 50 a day, or 1,000 a day after buying 10 credits | Per model | `https://openrouter.ai/api/v1` (implied by its examples) |
+
+**Terms that matter for this audience** (Gemini API additional terms, effective 23 March 2026):
+on the free tier ("Unpaid Services") Google uses what is sent to improve its products, human
+reviewers may read it, and "Do not submit sensitive, confidential, or personal information to
+the Unpaid Services"; users must be 18 or over; it is "for developers ... not for consumer use".
+Groq signals a rate limit with HTTP 429 and `retry-after` in seconds. The 8,000 tokens a minute
+is the number that bites: a SIMBA prompt with a page's element list is a few thousand tokens.

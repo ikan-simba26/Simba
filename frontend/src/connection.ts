@@ -17,6 +17,7 @@ import type {
   MessageType,
   RoutineExport,
   RoutineImport,
+  SiteAdd,
   StepResponse,
   Telemetry,
   TaskStart,
@@ -97,7 +98,7 @@ export class BackendConnection {
   // --- sending -------------------------------------------------------------
 
   startTask(goal: string, flow?: FlowName, confirmEach = false, startLevel?: Level,
-            tile?: string, routine?: string): void {
+            tile?: string, routine?: string, site?: string): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
     // Only when the person asked to be asked every time (2026-10-14).
@@ -108,7 +109,14 @@ export class BackendConnection {
     if (tile) payload.tile = tile;
     // A routine a helper showed, by id (2026-11-04).
     if (routine) payload.routine = routine;
+    // The website to do it on, listed or typed (2026-11-13).
+    if (site) payload.site = site;
     this.send("task.start", payload);
+  }
+
+  /** A website added to the list (2026-11-13). */
+  addSite(site: SiteAdd): void {
+    this.send("site.add", site);
   }
 
   /** Start watching a helper on this website (2026-11-04). */

@@ -45,7 +45,10 @@ export type MessageType =
   | "teach.start"
   | "teach.answer"
   | "routine.export"
-  | "routine.import";
+  | "routine.import"
+  // Pending agreement (2026-11-13, the advisor's direction): a website added
+  // to the list on the home screen.
+  | "site.add";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -96,6 +99,32 @@ export interface TaughtTile {
   site: string;
 }
 
+/** How SIMBA does a task on a listed website (2026-11-13). */
+export type How = "built-in" | "ai" | "taught";
+
+/** Something SIMBA can do on a listed website (2026-11-13), and how:
+ *  `built-in` runs a written plan (`flow`), `ai` asks the AI planner to work it
+ *  out on the live page, `taught` runs a routine a helper showed (`routine`).
+ *  Pressing it sends `goal` with `site`. */
+export interface CatalogueTask {
+  label: string;
+  goal: string;
+  how: How;
+  flow?: FlowName;
+  routine?: string;
+}
+
+/** A website SIMBA can work with, listed on the home screen's left by genre
+ *  (2026-11-13). `added`: added in the app, not shipped. */
+export interface CatalogueSite {
+  id: string;
+  name: string;
+  address: string;
+  genre: string;
+  tasks: CatalogueTask[];
+  added?: boolean;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
   /** Additive and optional (2026-10-18): the person's own tiles, in order. */
@@ -103,10 +132,17 @@ export interface HistoryOffered {
   /** Additive and optional (2026-11-04): the routines helpers have shown, as
    *  tiles. They share the home screen's row of three with `tiles`. */
   routines?: TaughtTile[];
+  /** Additive and optional (2026-11-13): the websites SIMBA can work with, in
+   *  the list's order, and the genres in theirs. Sent again after each
+   *  `site.add`. Absent: no list, and the home screen is as it was. */
+  sites?: CatalogueSite[];
+  genres?: string[];
 }
 
 export type FlowName = "registration" | "billing" | "railways";
-export type AnswerKind = "greeting" | "unsupported" | "clarify";
+/** "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to
+ *  do yet; the overlay offers a helper's "Show me once" on it (`site`). */
+export type AnswerKind = "greeting" | "unsupported" | "clarify" | "not_yet";
 
 /**
  * A typed goal that did not start a task, and what to offer instead.
@@ -117,6 +153,8 @@ export interface GoalAnswered {
   kind: AnswerKind;
   goal: string;
   flows: FlowName[];
+  /** Additive and optional (2026-11-13): the website the goal was for. */
+  site?: string;
 }
 
 /**
@@ -399,6 +437,21 @@ export interface TaskStart {
    * id. Runs as shown, asking only what the helper said changes.
    */
   routine?: string;
+  /**
+   * Additive and optional (2026-11-13): the website to work on, listed or
+   * typed. With no `flow`, the goal is done there — by a built-in plan if it
+   * is one and this is its site, otherwise by the AI planner.
+   */
+  site?: string;
+}
+
+/** A website added to the home screen's list (2026-11-13, pending agreement).
+ *  Answered with `history.offered`, or `error` `SITE_NOT_ADDED` whose message
+ *  is one of `name`, `address`, `listed`, `full`. */
+export interface SiteAdd {
+  name: string;
+  address: string;
+  genre: string;
 }
 
 /** Start watching a helper on this address (2026-11-04, pending agreement). */
