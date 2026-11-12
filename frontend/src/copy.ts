@@ -393,6 +393,17 @@ export const STATUS = {
   done: "Finished",
 } as const;
 
+/**
+ * The status line, always on screen (2026-11-13, the advisor's direction, L):
+ * whether SIMBA's backend can be reached. Beside it, what it is doing, from
+ * `STATUS`.
+ */
+export const CONNECTION = {
+  connected: "Connected",
+  connecting: "Connecting",
+  unreachable: "I can't reach SIMBA's helper. Trying again.",
+} as const;
+
 /* -------------------------------------------------------------- presence */
 
 /**
@@ -771,6 +782,7 @@ export const SITUATIONS: Record<string, string> = {
   "reply.notYetDetail": REPLY.notYetDetail,
   "reply.notAllowed": REPLY.notAllowed("gov.uk"),
   "reply.notAllowedDetail": REPLY.notAllowedDetail,
+  "connection.unreachable": CONNECTION.unreachable,
   "step.workedOutBy": WORKED_OUT_BY("Gemini"),
   "sites.addDetail": SITES.addDetail,
   "sites.notAdded.name": SITES.notAdded.name,
@@ -887,6 +899,8 @@ export const LABELS: Record<string, string> = {
   "sites.how.taught": SITES.how.taught,
   "sites.taughtOn": SITES.taughtOn("IESCO electricity bill"),
   "handover.done": HANDOVER.done,
+  "connection.connected": CONNECTION.connected,
+  "connection.connecting": CONNECTION.connecting,
   "handover.stop": HANDOVER.stop,
   "reply.showMeOnce": REPLY.showMeOnce,
 };

@@ -404,9 +404,32 @@ export const useStore = create<Store>((set, get) => {
   const append = (entry: LogEntry) =>
     set((current) => ({ log: [...current.log, entry] }));
 
+  // On the home screen the window stays connected by itself (2026-11-13): the
+  // backend closes the connection when a task ends, and a backend started
+  // after the window is reached as soon as it is up. Never in the middle of
+  // anything — a closing screen's offer belongs to the connection it came on.
+  let retry: number | undefined;
+  let wait = 1000;
+  const keepConnected = () => {
+    window.clearTimeout(retry);
+    retry = window.setTimeout(() => {
+      const now = get();
+      const idle = !now.task && !now.asking && !now.step && !now.completed && !now.failed
+        && !now.help && !now.teaching && !now.handover && now.checklist.length === 0;
+      if (idle && !connection.isOpen && now.status !== "connecting") {
+        connection.connect(now.wsUrl);
+      }
+    }, wait);
+  };
+
   const connection = new BackendConnection({
     onStatus: (status, detail) => {
       set({ status, statusDetail: detail });
+      if (status === "open") wait = 1000;
+      if (status === "closed" || status === "error") {
+        keepConnected();
+        if (status === "error") wait = Math.min(wait * 2, 10_000);
+      }
       // A reset not yet answered, from this session or one before it: this
       // connection opens with an offer made as if it had not happened. That
       // one is not shown, and the reset is said again (2026-10-21).

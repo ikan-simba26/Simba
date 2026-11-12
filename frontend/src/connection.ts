@@ -73,13 +73,19 @@ export class BackendConnection {
     const socket = new WebSocket(url);
     this.socket = socket;
 
+    // A connection that closes without ever having opened could not be made
+    // (2026-11-13): said as an error, not as the ordinary close after a task,
+    // which the browser would otherwise report last.
+    let opened = false;
     socket.onopen = () => {
+      opened = true;
       this.handlers.onStatus("open");
       const queued = this.pending;
       this.pending = [];
       for (const send of queued) send();
     };
-    socket.onclose = () => this.handlers.onStatus("closed");
+    socket.onclose = () =>
+      this.handlers.onStatus(opened ? "closed" : "error", opened ? undefined : `could not reach ${url}`);
     socket.onerror = () => this.handlers.onStatus("error", `could not reach ${url}`);
     socket.onmessage = (event) => this.receive(event.data);
   }

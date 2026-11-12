@@ -501,3 +501,54 @@ def test_stop_on_the_handover_bar_says_nothing_was_changed(
     page.wait_for_timeout(800)
     assert backend.sent("handover.done")[-1] == {"action": "cancel"}
     assert page.get_by_test_id("handover-bar").count() == 0
+
+
+# --- phase 6: always says whether it is connected, and what it is doing (2026-11-13) ----
+
+
+def overlaps(a: dict, b: dict) -> bool:
+    return not (a["right"] <= b["left"] or b["right"] <= a["left"]
+                or a["bottom"] <= b["top"] or b["bottom"] <= a["top"])
+
+
+@pytest.mark.parametrize("size", list(SIZES))
+def test_the_status_line_says_connected_and_covers_nothing(
+        size, browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, size, pages)
+    line = page.get_by_test_id("status-line")
+    assert line.inner_text().replace("\n", " ").split() == ["Connected", "·", "Ready"]
+    status = edges(page, "status-line")
+    assert status["bottom"] <= SIZES[size][1]
+    for testid in ("site-list", "add-site", "change-settings", "greeting"):
+        assert not overlaps(status, edges(page, testid)), testid
+    start = page.get_by_role("button", name="Start", exact=True).bounding_box()
+    assert not overlaps(status, {"left": start["x"], "right": start["x"] + start["width"],
+                                 "top": start["y"], "bottom": start["y"] + start["height"]})
+
+
+def test_the_status_line_says_what_it_is_doing(browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "150%", pages)
+    ask_on(page, "a step please", "https://www.gov.uk/")
+    page.get_by_test_id("worked-out-by").wait_for(timeout=10000)
+    assert page.get_by_test_id("status-activity").inner_text() == "Your turn"
+
+
+def test_a_backend_that_cannot_be_reached_is_said_and_tried_again(
+        browser, overlay, pages):  # noqa: F811
+    import socket as sockets
+
+    with sockets.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    page = browser.new_page(viewport={"width": 1280, "height": 800})
+    pages.append(page)
+    attempts: list[str] = []
+    page.on("websocket", lambda ws: attempts.append(ws.url))
+    page.goto(f"{overlay}?ws=ws://127.0.0.1:{port}/ws")
+    line = page.get_by_test_id("status-line")
+    page.wait_for_function(
+        "() => document.querySelector('[data-testid=status-line]')?.dataset.connection === 'error'",
+        timeout=15000)
+    assert "I can't reach SIMBA's helper. Trying again." in line.inner_text()
+    page.wait_for_timeout(4500)
+    assert len(attempts) >= 2  # tried again by itself

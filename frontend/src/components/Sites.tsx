@@ -56,8 +56,8 @@ export function SiteList() {
 
   return (
     <nav aria-label={SITES.list} data-testid="site-list"
-         className="fixed top-20 bottom-6 left-6 z-[1] flex flex-col gap-3 rounded-xl border
-                    border-edge bg-surface/80 p-3 shadow-card short:top-14 short:bottom-2"
+         className="fixed top-20 bottom-9 left-6 z-[1] flex flex-col gap-3 rounded-xl border
+                    border-edge bg-surface/80 p-3 shadow-card short:top-14 short:bottom-9"
          style={{ width: SITE_LIST_WIDTH }}>
       <p className="px-2 pt-1 text-small font-medium text-soft">{SITES.list}</p>
       {/* The list scrolls on its own; the rest of the screen never does. */}
