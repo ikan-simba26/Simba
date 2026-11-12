@@ -64,7 +64,8 @@ def test_the_first_message_lists_the_websites_by_genre(client):
     assert {site["genre"] for site in sites} <= set(genres)
     railways = next(site for site in sites if site["id"] == "pakrailways")
     assert railways["tasks"][0] == {"label": "Find train times", "goal": "Find train times",
-                                    "how": "built-in", "flow": "railways", "routine": None}
+                                    "how": "built-in", "flow": "railways", "routine": None,
+                                    "taught_on": None}
 
 
 def test_a_website_added_comes_back_in_the_list(client, tmp_path):
@@ -186,3 +187,65 @@ def test_with_a_provider_a_goal_on_a_website_goes_to_the_ai_planner(client, monk
                                     "input_mode": "text",
                                     "site": "https://www.gov.uk/bank-holidays"})
             ws.receive_json()
+
+
+def test_a_routine_pressed_on_a_sister_site_runs_there(client, monkeypatch):
+    """Phase 3 (2026-11-13): a taught routine sent with another website is
+    moved there; the page that opens is the sister site's, not the one it was
+    taught on. The run itself is `test_routine_moved.py`'s."""
+    from backend.orchestrator.routines import Answer, Routine, Step
+
+    taught = Routine(id="r1", label="My bill", start="https://bill.pitc.com.pk/iescobill",
+                     steps=(Step("click", "button", "Search", expect_url="/iescobill/general"),),
+                     answer=Answer("Amount due", "Payable"))
+
+    class Store:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get(self, routine_id):
+            return taught if routine_id == "r1" else None
+
+        def all(self):
+            return [taught]
+
+    class Opened(Exception):
+        pass
+
+    def open_page(address):
+        raise Opened(address)
+
+    monkeypatch.setattr(app_module, "RoutineStore", Store)
+    monkeypatch.setattr(app_module, "open_page", open_page)
+    with pytest.raises(Opened, match="https://bill.pitc.com.pk/lescobill"):
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+            send(ws, "task.start", {"goal": "My bill", "input_mode": "text", "routine": "r1",
+                                    "site": "https://bill.pitc.com.pk/lescobill"})
+            ws.receive_json()
+
+
+def test_a_sister_site_that_says_no_is_not_used(client, monkeypatch):
+    from backend.orchestrator.routines import Answer, Routine, Step
+
+    taught = Routine(id="r1", label="My bill", start="https://bill.pitc.com.pk/iescobill",
+                     steps=(Step("click", "button", "Search"),), answer=Answer("A", "B"))
+
+    class Store:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get(self, routine_id):
+            return taught
+
+        def all(self):
+            return [taught]
+
+    monkeypatch.setattr(app_module, "RoutineStore", Store)
+    client.robots["allowed"] = False
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "My bill", "input_mode": "text", "routine": "r1",
+                                "site": "https://www.ssgc.com.pk/"})
+        answer = ws.receive_json()
+    assert answer["payload"]["kind"] == "not_allowed"

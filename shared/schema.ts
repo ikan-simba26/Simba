@@ -112,6 +112,9 @@ export interface CatalogueTask {
   how: How;
   flow?: FlowName;
   routine?: string;
+  /** Additive and optional (2026-11-13): taught on another website of the
+   *  same genre, by that website's name; pressed here, it runs here. */
+  taught_on?: string;
 }
 
 /** A website SIMBA can work with, listed on the home screen's left by genre

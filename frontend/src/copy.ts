@@ -152,6 +152,8 @@ export const SITES = {
     ai: "I'll work it out",
     taught: "A helper showed me",
   } as Record<string, string>,
+  /** Under a task a helper taught on a sister website (2026-11-13). */
+  taughtOn: (name: string) => `A helper showed me on ${name}`,
   /** Above the box when a website is chosen. */
   askHere: (name: string) => `What would you like me to do on ${name}?`,
   /** Lets go of the chosen website. */
@@ -871,5 +873,6 @@ export const LABELS: Record<string, string> = {
   "sites.how.builtIn": SITES.how["built-in"],
   "sites.how.ai": SITES.how.ai,
   "sites.how.taught": SITES.how.taught,
+  "sites.taughtOn": SITES.taughtOn("IESCO electricity bill"),
   "reply.showMeOnce": REPLY.showMeOnce,
 };

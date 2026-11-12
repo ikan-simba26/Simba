@@ -756,6 +756,8 @@ website box, and a goal is routed to the three flows or answered.
 | `goal.answered.kind` `"not_allowed"` (phase 2) | one more value of an existing field | backend -> frontend |
 | `step.presented.worked_out_by` (phase 2) | optional field | backend -> frontend |
 | `help.requested.teach_site` (phase 2) | optional field | backend -> frontend |
+| `CatalogueTask.taught_on` (phase 3) | optional field | backend -> frontend |
+| `task.start.routine` with `site` (phase 3) | no field changed: the routine runs on `site` | frontend -> backend |
 
 *To undo any one:* drop it on both sides. Nothing else reads it.
 
@@ -819,6 +821,17 @@ The answer to an open goal is a question first — "The page says: 26 December.
 Is this what you wanted?" — asked only after SIMBA has found those exact words
 on the page; "Yes, that's it" closes the task with it as the finding, "No,
 keep looking" goes back to the planner.
+
+### Phase 3: a taught routine on a sister website (2026-11-13)
+A routine a helper taught is listed, as a `taught` task, on the website it was
+taught on and on every other listed website of the same genre; on those it
+carries `taught_on`, the name of the website where it was taught. Pressed
+there, the overlay sends `task.start` with `routine` and that website's
+address as `site`, and the backend runs the routine there: its start, and each
+move's expected address under the start's path, moved to the new address
+(`routines.moved_to`). Every move is still found by role and label and checked;
+a site laid out differently stops as a changed site does. robots.txt is asked
+first, and `not_allowed` answers a no.
 
 ### `site.add`
 "Add a website" on the home screen. Answered with `history.offered` as it now
