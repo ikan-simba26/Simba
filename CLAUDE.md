@@ -203,6 +203,17 @@ Findings from the `spike/` Electron + CDP + Playwright test.
 
 ## Current phase
 
+**Changed 2026-11-13 by the advisor's direction (Ma'am Samia, 12 November),
+approved by Raham; pending Nahail and Aly** (DECISIONS.md, *The advisor's
+direction of 12 November*). The deadline is **19 November 2026**; building
+stops on 17 November. The feature freeze and "Do not add new sites or flows"
+are lifted for the advisor's list: SIMBA works on any website (a catalogue of
+sites by genre, any address typed, the AI planner first, then a helper's
+"Show me once"), live tasks behind the final screen with payment always handed
+to the person, an installer and a first-time setup. The text below is the
+October phase, kept for the record.
+
+
 October 2026: from skeleton to evidence. Feature freeze is 1 November;
 November is evaluation and writing; December is the report and demo.
 

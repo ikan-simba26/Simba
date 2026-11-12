@@ -39,7 +39,9 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, PROOF, REPLY, SETTINGS, STOPPED, TEACH, TILES,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SETTINGS, SITES, STOPPED,
+         TEACH,
+         TILES,
          WHICH, greetingAt,
          presence } from "./copy";
 import { FlowIllustration } from "./components/Illustrations";
@@ -48,6 +50,7 @@ import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import { Welcome } from "./components/Welcome";
+import { AddSite, SITE_LIST_WIDTH, SiteList, SitePanel, hostOf } from "./components/Sites";
 import { TilesEditor } from "./components/TilesEditor";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
@@ -91,6 +94,10 @@ export default function App() {
   // While SIMBA watches a helper (2026-11-04), the overlay is the bar at the
   // top and nothing else: the host shows the real website below it.
   const teaching = useStore((state) => state.teaching);
+  // The websites on the left (2026-11-13), on the home screen alone, when the
+  // backend offers a list. The column moves right by the list's width.
+  const screen = useScreen();
+  const listed = useStore((state) => state.sites.length > 0) && screen === "idle";
 
   if (teaching) return <TeachBar bar={teaching} />;
 
@@ -99,10 +106,12 @@ export default function App() {
     // 32px, and 4px in a short window, since the step row and the real page's
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
-                    short:pt-3 short:pb-1">
+                    short:pt-3 short:pb-1"
+         style={listed ? { paddingLeft: SITE_LIST_WIDTH + 48 } : undefined}>
       {!opening && (
         <>
           <CornerLogo />
+          {listed && <SiteList />}
           <TeachEntry />
           <PresenceBar />
           {/* Most of the window, not a third of it: 880 of 1280. The first
@@ -216,7 +225,8 @@ function PresenceBar() {
  */
 function useScreen(): string {
   const { step, help, completed, failed, stoppedByPerson, task, reply, state,
-          asking, checklist, declined, welcomeOpen, tilesOpen, teachOpen } = useStore();
+          asking, checklist, declined, welcomeOpen, tilesOpen, teachOpen,
+          addSiteOpen } = useStore();
   const stuck = state === "stuck" || Boolean(help);
 
   return declined
@@ -237,6 +247,9 @@ function useScreen(): string {
             ? "working"
             : reply
               ? `reply-${reply.kind}`
+              // "Add a website", from the foot of the list (2026-11-13).
+              : addSiteOpen
+                ? "addsite"
               // "Show me once", for a helper, from the settings (2026-11-04).
               : teachOpen
                 ? "teach"
@@ -274,6 +287,7 @@ function Column() {
             {screen === "idle" && <Home />}
             {screen === "welcome" && <Welcome />}
             {screen === "teach" && <TeachIntro />}
+            {screen === "addsite" && <AddSite />}
             {screen === "tiles" && <TilesEditor />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
@@ -337,7 +351,10 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
  */
 function Home() {
   const { startTask, history, profile, openWelcome, tiles, startTile, setTilesOpen, routines,
-          startRoutine } = useStore();
+          startRoutine, sites, chosenSite } = useStore();
+  // A website chosen in the list (2026-11-13): what SIMBA can do there takes
+  // the row of three's place, and the box asks about it.
+  const chosen = sites.find((site) => site.id === chosenSite);
   // The person's own tiles first, when they have any (2026-10-18); the three
   // things SIMBA can do are then smaller, under them. A routine a helper
   // showed is one of them (2026-11-04), after the rest, with its own mark.
@@ -422,9 +439,12 @@ function Home() {
           </section>
         )}
 
+        {chosen ? <SitePanel site={chosen} /> : (
         <section className="flex flex-col gap-3 short:gap-2" aria-label={HOME.canHelp}>
+          {/* With the list on the left, these three are what is ready to go,
+              not all SIMBA can do (2026-11-13). */}
           <p className="text-small font-medium text-soft" data-testid="can-help">
-            {HOME.canHelp}
+            {sites.length > 0 ? SITES.ready : HOME.canHelp}
           </p>
           <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="tiles">
             {/* Its own AnimatePresence: the screens' one above starts with
@@ -468,6 +488,7 @@ function Home() {
             </AnimatePresence>
           </ul>
         </section>
+        )}
 
         {/* One row, the lead-in beside the goals: stacked, two goals and
             their lead-in took 166px and put the box under the bottom of the
@@ -500,7 +521,8 @@ function Home() {
       <div className="flex flex-col gap-3">
         {/* In a short window the box's lead-in goes: the greeting above has
             just asked the same question. The box keeps it as its name. */}
-        <AskBox lead={HOME.askHeading} leadWhenShort={false} />
+        <AskBox lead={chosen ? SITES.askHere(chosen.name) : HOME.askHeading}
+                leadWhenShort={false} />
         <div className="flex items-center justify-between gap-4">
           <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
                   data-testid="change-settings">
@@ -612,10 +634,15 @@ function Section({ lead, children }: { lead: string; children: React.ReactNode }
  */
 function AskBox({ lead, autoFocus, leadWhenShort = true }:
                 { lead?: string; autoFocus?: boolean; leadWhenShort?: boolean }) {
-  const { startTask } = useStore();
+  const { startTask, sites, chosenSite } = useStore();
   const [goal, setGoal] = useState("");
+  // Any website (2026-11-13): typed here, or the one chosen in the list. Only
+  // when the backend offers a list, so a backend without one sees no box.
+  const [where, setWhere] = useState("");
+  const chosen = sites.find((site) => site.id === chosenSite);
   const start = () => {
-    if (goal.trim()) startTask(goal.trim());
+    const site = where.trim() || chosen?.address;
+    if (goal.trim()) startTask(goal.trim(), undefined, undefined, undefined, site);
   };
 
   return (
@@ -642,6 +669,19 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
           placeholder={HOME.placeholder}
           aria-label={HOME.askHeading}
         />
+        {sites.length > 0 && (
+          <input
+            className="w-56 shrink-0 rounded-lg border border-edge bg-surface px-4 py-3 text-body
+                       text-ink outline-none placeholder:text-soft focus-visible:border-accent
+                       short:py-2"
+            value={where}
+            onChange={(event) => setWhere(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && start()}
+            placeholder={chosen ? chosen.name : SITES.wherePlaceholder}
+            aria-label={SITES.where}
+            data-testid="ask-where"
+          />
+        )}
         <Button size="md" wide={false} onClick={start} disabled={!goal.trim()}>
           {HOME.start}
         </Button>
@@ -663,12 +703,13 @@ function AskBox({ lead, autoFocus, leadWhenShort = true }:
  * they typed.
  */
 function Reply() {
-  const { reply, startTask } = useStore();
+  const { reply, startTask, sites, setTeachOpen, startOver } = useStore();
   if (!reply) return null;
 
   const heading =
     reply.kind === "greeting" ? REPLY.greeting
     : reply.kind === "unsupported" ? REPLY.unsupported
+    : reply.kind === "not_yet" ? REPLY.notYet(hostOf(reply.site ?? ""))
     : REPLY.clarify;
 
   return (
@@ -688,7 +729,22 @@ function Reply() {
         )}
       </div>
 
-      {reply.kind === "clarify" ? (
+      {reply.kind === "not_yet" ? (
+        // A website with no way to do it yet (2026-11-13): AI first, then a
+        // helper. "Show me once" opens on this website's address.
+        <div className="flex flex-col gap-4" data-testid="not-yet">
+          <p className="text-lead text-ink short:text-body">{REPLY.notYetDetail}</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button size="md" wide={false} data-testid="show-me-once"
+                    onClick={() => setTeachOpen(true, reply.site)}>
+              {REPLY.showMeOnce}
+            </Button>
+            <Button variant="secondary" size="md" wide={false} onClick={startOver}>
+              {ONWARD}
+            </Button>
+          </div>
+        </div>
+      ) : reply.kind === "clarify" ? (
         <div className="flex flex-col gap-3">
           {reply.flows.map((flow) => (
             <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
@@ -698,6 +754,12 @@ function Reply() {
           ))}
         </div>
       ) : reply.kind === "unsupported" ? (
+        <>
+        {sites.length > 0 && (
+          <p className="text-lead text-ink short:text-body" data-testid="try-where">
+            {REPLY.tryWhere}
+          </p>
+        )}
         <Section lead={REPLY.canDo}>
           {reply.flows.map((flow) => (
             <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
@@ -706,6 +768,7 @@ function Reply() {
             </ChoiceCard>
           ))}
         </Section>
+        </>
       ) : (
         // The greeting's heading already says "Here's what I can help with";
         // a lead above the cards saying it again is the same sentence twice.
