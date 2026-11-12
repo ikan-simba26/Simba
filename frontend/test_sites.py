@@ -44,6 +44,34 @@ def shipped_offer(tmp_path_factory) -> dict:
     return offer.model_dump(exclude_none=True)
 
 
+def _stuck(payload):
+    return [("task.started", {"goal": payload["goal"], "estimated_steps": 3}),
+            ("state.changed", {"state": "stuck"}),
+            ("help.requested", {"reason": "I couldn't work out how to do this on this website.",
+                                "suggestion": "A helper can show me once. Then I can do it on my own.",
+                                "teach_site": payload["site"]})]
+
+
+def _not_allowed(payload):
+    return [("goal.answered", {"kind": "not_allowed", "goal": payload["goal"], "flows": [],
+                               "site": payload["site"]})]
+
+
+def _a_step(payload):
+    return [("task.started", {"goal": payload["goal"], "estimated_steps": 3}),
+            ("state.changed", {"state": "waiting"}),
+            ("step.presented", {
+                "step_index": 1, "step_total": 3, "instruction": "Click Show more.",
+                "detail": "The rest of the list is behind it.", "fields": [],
+                "actions": [{"id": "confirm", "label": "Yes, do that", "kind": "primary"},
+                            {"id": "cancel", "label": "Stop this", "kind": "secondary"}],
+                "requires_confirmation": True, "worked_out_by": "Groq"})]
+
+
+#: Goals the scripted backend answers with a whole scene.
+SCRIPTS = {"stuck please": _stuck, "not allowed please": _not_allowed, "a step please": _a_step}
+
+
 class Backend:
     """Says hello with the offer, keeps what the overlay sends, and answers
     `site.add` and a goal as the real backend would for these tests."""
@@ -84,6 +112,9 @@ class Backend:
                                 "address": "https://clinic.example.pk/",
                                 "genre": payload["genre"], "tasks": [], "added": True})
                             await send("history.offered", offer)
+                        elif message["type"] == "task.start" and payload.get("goal") in SCRIPTS:
+                            for kind, body in SCRIPTS[payload["goal"]](payload):
+                                await send(kind, body)
                         elif message["type"] == "task.start" and payload.get("site"):
                             await send("goal.answered", {
                                 "kind": "not_yet", "goal": payload["goal"], "flows": [],
@@ -346,3 +377,51 @@ def test_a_website_that_cannot_be_added_says_why(browser, overlay, backend, page
     assert page.get_by_test_id("add-site-screen").is_visible()
     page.get_by_test_id("add-site-back").click()
     page.get_by_test_id("site-list").wait_for()
+
+
+# --- phase 2: AI first, then teach (2026-11-13) --------------------------------------
+
+
+def ask_on(page: Page, goal: str, site: str) -> None:
+    page.get_by_role("textbox", name=BOX).fill(goal)
+    page.get_by_test_id("ask-where").fill(site)
+    page.get_by_role("button", name="Start", exact=True).click()
+
+
+@pytest.mark.parametrize("size", ["100%", "150%"])
+def test_when_the_ai_cannot_a_helper_is_offered_on_that_website(
+        size, browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, size, pages)
+    ask_on(page, "stuck please", "https://dgip.gov.pk/")
+    offer = page.get_by_test_id("stuck-show-me-once")
+    offer.wait_for(timeout=10000)
+    page.wait_for_timeout(600)
+    assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+    offer.click()
+    page.get_by_test_id("teach-intro").wait_for()
+    assert page.get_by_test_id("teach-address").input_value() == "https://dgip.gov.pk/"
+
+
+def test_a_website_that_says_no_is_told_plainly(browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "150%", pages)
+    ask_on(page, "not allowed please", "https://dgip.gov.pk/")
+    page.get_by_test_id("not-allowed").wait_for(timeout=10000)
+    assert page.get_by_text("dgip.gov.pk asks programs like me not to use that page.").is_visible()
+    # No helper is offered: a taught task would use the page just the same.
+    assert page.get_by_test_id("show-me-once").count() == 0
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+def test_a_move_the_ai_chose_says_who_worked_it_out(
+        level, browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "150%", pages)
+    ask_on(page, "a step please", "https://www.gov.uk/")
+    line = page.get_by_test_id("worked-out-by")
+    line.wait_for(timeout=10000)
+    # The level's dots, by their names for a screen reader (`copy.LEVEL`).
+    name = {1: "Show more", 2: "Show the usual amount", 3: "Show less"}[level]
+    page.get_by_role("button", name=name, exact=True).click()
+    page.wait_for_timeout(900)  # the fold
+    assert line.is_visible()
+    assert line.inner_text().strip() == "Worked out with Groq."
+    assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")

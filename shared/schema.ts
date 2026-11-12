@@ -142,7 +142,7 @@ export interface HistoryOffered {
 export type FlowName = "registration" | "billing" | "railways";
 /** "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to
  *  do yet; the overlay offers a helper's "Show me once" on it (`site`). */
-export type AnswerKind = "greeting" | "unsupported" | "clarify" | "not_yet";
+export type AnswerKind = "greeting" | "unsupported" | "clarify" | "not_yet" | "not_allowed";
 
 /**
  * A typed goal that did not start a task, and what to offer instead.
@@ -245,6 +245,9 @@ export interface StepPresented {
    * Absent: an ordinary step.
    */
   routine?: string[];
+  /** Additive and optional (2026-11-13): which AI provider worked this move
+   *  out, said small under the step. Absent: a plan, a routine, replay. */
+  worked_out_by?: string;
 }
 
 /**
@@ -301,6 +304,9 @@ export interface HelpRequested {
    * not confirm it: not "stuck", and the reason is what must be read.
    */
   unconfirmed?: boolean;
+  /** Additive and optional (2026-11-13): the AI planner could not do a goal
+   *  on this website; the overlay offers a helper's "Show me once" there. */
+  teach_site?: string;
 }
 
 /** What can follow an answer, on our replicas (2026-10-16): a quiet second

@@ -65,12 +65,14 @@ from backend.orchestrator.catalogue import (
 )
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
-from backend.orchestrator.llm import provider_from_env
-from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
+from backend.orchestrator.llm import LLMError, provider_from_env
+from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalPlanner
+from backend.orchestrator import robots
 from backend.estimator import page_model
 from backend.estimator.pairing import Recorder, recording_enabled
 from backend.estimator.rules import Decision, LevelRules
-from backend.orchestrator.loop import Connection, follow_override, run_brief, run_task
+from backend.orchestrator.loop import Connection, Task, follow_override, run_brief, run_task
+from backend.orchestrator.plan import About
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
@@ -308,6 +310,22 @@ def site_for(payload: dict, goal: str) -> str | None:
     return None
 
 
+def open_goal_provider():
+    """The AI provider for a goal with no plan (2026-11-13), or None when none
+    is set up: then SIMBA says it cannot do it yet and offers a helper. Asked
+    whatever `SIMBA_USE_HARDCODED_PLAN` says: that flag is about the three
+    built-in tasks, which keep their written plans."""
+    try:
+        return provider_from_env()
+    except LLMError:
+        return None
+
+
+#: How many moves a goal with no plan is told to expect. A guess the person
+#: never sees as a count: the stages are not named for an open goal.
+OPEN_GOAL_STEPS = 6
+
+
 def is_flows_site(flow: str, site: str, catalogue: CatalogueStore) -> bool:
     """Whether a built-in flow may run for a goal on `site`: the site is the one
     the flow runs on now, or one the catalogue lists that flow on. A train goal
@@ -495,6 +513,9 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         if rules is not None:
             rules.start_from(payload.get("start_level"))
 
+        # The website the goal is for (2026-11-13), set below when there is one.
+        site = None
+        open_provider = None
         # A routine a helper showed (2026-11-04): run as shown, by its id.
         # Its name is the goal; nothing is read or classified.
         routine = routines.get(payload.get("routine")) if payload.get("routine") else None
@@ -507,7 +528,6 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         tile = tiles.get(payload.get("tile")) if payload.get("tile") else None
         # The website the goal is for, if one was picked, typed or written in
         # the goal (2026-11-13). Never for a tile or a flow the person pressed.
-        site = None
         if tile is not None:
             goal = tile.label
             decided = Route("flow", tile.flow, (tile.flow,), "tile")
@@ -529,9 +549,16 @@ async def ws_endpoint(websocket: WebSocket) -> None:
                 site is None or is_flows_site(decided.flow, site, catalogue)):
             break
         if site is not None and decided.kind != "greeting":
-            # A goal on a website with no written plan for it. Until the AI
-            # planner takes these (phase 2), SIMBA says it cannot do it yet
-            # and offers a helper's "Show me once" there.
+            # A goal on a website with no written plan for it (2026-11-13):
+            # the AI planner, if one is set up and the site allows it; else
+            # SIMBA says it cannot do it yet and offers a helper there.
+            if not await robots.allowed(site):
+                await connection.send("goal.answered", GoalAnswered(
+                    kind="not_allowed", goal=goal, flows=[], site=site))
+                continue
+            open_provider = open_goal_provider()
+            if open_provider is not None:
+                break
             await connection.send("goal.answered", GoalAnswered(
                 kind="not_yet", goal=goal, flows=[], site=site))
             continue
@@ -544,6 +571,24 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # (2026-10-18): a signal for the estimator of its own.
     if recorder is not None:
         recorder.note_start_level(payload.get("start_level"))
+
+    if open_provider is not None and site is not None:
+        # The AI planner on a goal nobody wrote a plan for (2026-11-13): every
+        # move asked, every move checked, the answer the person's to agree,
+        # and a helper offered if it cannot be done.
+        task = Task(goal=goal, estimated_steps=OPEN_GOAL_STEPS, success=None, about=About())
+        planner = OpenGoalPlanner(open_provider, task)
+        log.info("open goal on %s, with %s", host_of(site),
+                 getattr(open_provider, "label", "the model"))
+        async with open_page(site) as page:
+            await run_task(page, connection, planner, task, site, recorder, rules,
+                           vault=Vault(), window=window_watch(page), teach_site=site)
+        log.info("open goal: %d model calls", planner.calls_made)
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass
+        return
 
     if routine is not None:
         # Asks only what the helper said changes, then runs as the checklist,

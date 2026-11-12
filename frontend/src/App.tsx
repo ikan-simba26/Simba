@@ -710,6 +710,7 @@ function Reply() {
     reply.kind === "greeting" ? REPLY.greeting
     : reply.kind === "unsupported" ? REPLY.unsupported
     : reply.kind === "not_yet" ? REPLY.notYet(hostOf(reply.site ?? ""))
+    : reply.kind === "not_allowed" ? REPLY.notAllowed(hostOf(reply.site ?? ""))
     : REPLY.clarify;
 
   return (
@@ -729,7 +730,18 @@ function Reply() {
         )}
       </div>
 
-      {reply.kind === "not_yet" ? (
+      {reply.kind === "not_allowed" ? (
+        // The website's robots.txt says no (2026-11-13): SIMBA does not use
+        // it, and offers no helper either, since a taught task would too.
+        <div className="flex flex-col gap-4" data-testid="not-allowed">
+          <p className="text-lead text-ink short:text-body">{REPLY.notAllowedDetail}</p>
+          <div>
+            <Button variant="secondary" size="md" wide={false} onClick={startOver}>
+              {ONWARD}
+            </Button>
+          </div>
+        </div>
+      ) : reply.kind === "not_yet" ? (
         // A website with no way to do it yet (2026-11-13): AI first, then a
         // helper. "Show me once" opens on this website's address.
         <div className="flex flex-col gap-4" data-testid="not-yet">
@@ -1635,14 +1647,27 @@ function Failed() {
  * to press, or if pressing it does not lead anywhere.
  */
 function Stuck() {
-  const { help, startOver } = useStore();
+  const { help, startOver, setTeachOpen } = useStore();
+  // AI first, then teach (2026-11-13): when the AI planner could not do a
+  // goal on a website, a helper can show SIMBA there, from here.
+  const teachSite = help?.teach_site;
   return (
     <div className="flex flex-col gap-8 short:gap-5">
       <Card tone="stuck" className="px-12 py-10 short:py-7">
         <StuckNote reason={help?.reason} suggestion={help?.suggestion}
                    unconfirmed={help?.unconfirmed ?? false} />
       </Card>
-      <OnwardButton onClick={startOver} />
+      {teachSite ? (
+        <div className="flex flex-wrap items-center gap-4">
+          <Button size="md" wide={false} data-testid="stuck-show-me-once"
+                  onClick={() => { startOver(); setTeachOpen(true, teachSite); }}>
+            {REPLY.showMeOnce}
+          </Button>
+          <OnwardButton onClick={startOver} />
+        </div>
+      ) : (
+        <OnwardButton onClick={startOver} />
+      )}
     </div>
   );
 }

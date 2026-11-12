@@ -162,7 +162,9 @@ class HistoryOffered(BaseModel):
 FlowName = Literal["registration", "billing", "railways"]
 # "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to do
 # yet. The overlay offers a helper's "Show me once" on that website (`site`).
-AnswerKind = Literal["greeting", "unsupported", "clarify", "not_yet"]
+# "not_allowed" (2026-11-13, additive): the website's robots.txt asks programs
+# not to use that page, so SIMBA does not.
+AnswerKind = Literal["greeting", "unsupported", "clarify", "not_yet", "not_allowed"]
 
 
 class GoalAnswered(BaseModel):
@@ -278,6 +280,10 @@ class StepPresented(BaseModel):
     # "Type 04141234567890 in Reference No.", "Press Check Bill.". Absent: an
     # ordinary step.
     routine: Optional[List[str]] = None
+    # Additive and optional (2026-11-13). Which AI provider worked this move
+    # out, said small under the step: "Gemini", "Groq". Absent: a written
+    # plan, a routine a helper showed, or a replayed run.
+    worked_out_by: Optional[str] = None
 
 
 class StepFailed(BaseModel):
@@ -335,6 +341,9 @@ class HelpRequested(BaseModel):
     # something was tried and the site did not confirm it: not "stuck", and
     # the reason is the one thing the person must read.
     unconfirmed: bool = False
+    # Additive and optional (2026-11-13). The AI planner could not do a goal
+    # on this website: the overlay offers a helper's "Show me once" there.
+    teach_site: Optional[str] = None
 
 
 class TaskOffer(BaseModel):

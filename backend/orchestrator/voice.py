@@ -716,6 +716,43 @@ def describe(kind: str, label: str) -> str:
     return f"Click {label}."
 
 
+# --- any goal, on any website (2026-11-13) ----------------------------------
+#
+# The model's answer is never the answer until the page says it word for word
+# and the person says it is what they wanted (`llm_loop.OpenGoalPlanner`).
+
+#: The answer the model found, asked about before anything is closed. In
+#: the question's own sentence, which every level shows.
+IS_THIS_IT = "Is this what you wanted?"
+
+
+def found_this(answer: str) -> str:
+    """The question about an answer: 'The page says: 26 December. Is this
+    what you wanted?'"""
+    return f"The page says: {answer}. {IS_THIS_IT}"
+
+
+#: The finding's name on the closing screen.
+WHAT_I_FOUND = "What I found"
+THATS_IT = "Yes, that's it"
+KEEP_LOOKING = "No, keep looking"
+#: `help.requested.reason` when the model could not choose a move twice over.
+AI_COULD_NOT = "I couldn't work out how to do this on this website."
+#: `help.requested.suggestion` with it: what the overlay's button does.
+AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
+#: `goal.answered`'s `not_allowed`, said by the overlay; here for the log.
+NOT_ALLOWED = "This website asks programs like me not to use that page."
+
+
+def is_this_it() -> list[StepAction]:
+    """Yes, No, and the one way to stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=THATS_IT, kind="primary"),
+        StepAction(id=DECLINE_ID, label=KEEP_LOOKING, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]
+
+
 # --- the final step (2026-10-16) ---------------------------------------------
 #
 # A move that books, pays, registers or changes a record happens only on a

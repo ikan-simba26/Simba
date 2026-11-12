@@ -18,7 +18,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import type { Finding, Level, StepAction, StepField, StepPresented } from "@shared/schema";
 
-import { CHOOSE, FOUND, SIGN_IN, STAGES } from "../copy";
+import { CHOOSE, FOUND, SIGN_IN, STAGES, WORKED_OUT_BY } from "../copy";
 import { NoticeLine, useNotice } from "./Notices";
 import { SpeakButton } from "./Speak";
 import { useStore } from "../store";
@@ -253,6 +253,13 @@ export function StepShell({
         <Fold show={spec.detail && Boolean(step.detail)} gap={spec.gap * 0.3}>
           <p className="text-small text-soft">{step.detail}</p>
         </Fold>
+        {/* Which AI provider worked this move out (2026-11-13), at every
+            level: one small line, so it is always known when a model chose. */}
+        {step.worked_out_by && (
+          <p className="text-small text-soft" data-testid="worked-out-by">
+            {WORKED_OUT_BY(step.worked_out_by)}
+          </p>
+        )}
 
         <Fold show={fields.length > 0} gap={spec.gap}>
           <div className="flex flex-col gap-3">
