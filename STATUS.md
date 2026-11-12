@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · phase 4 of the advisor's direction, `feat/orchestrator-payment-handover`: backend half 1540 passed, 2 failed then rewritten to the new rule (8 of 8), 9 skipped, 1920s; the overlay tests it touches run before merging. **Deadline 19 November.** **Next needs Raham**: phase 5's live runs (his accounts, a paid key, a shop that agrees)
+**Last updated:** 2026-11-13 · phases 1, 2, 3, 4, 6, 7b and 8 of the advisor's direction merged into `main` and pushed; host fit test 3 of 3 in the real window after one fix (EVALUATION.md, 2026-11-13d); backend half 1540 + 8 passed at phase 4, overlay half 760 + 3 passed at phase 7b. **Deadline 19 November.** **Waiting on Raham**: phase 5's live runs, and whether to merge the installer (`feat/infra-installer`)
 
 ---
 

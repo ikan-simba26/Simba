@@ -27,7 +27,7 @@ export function StatusLine({ activity }: { activity: Activity }) {
   const fault = status === "error";
   return (
     <p className="pointer-events-none fixed bottom-1.5 left-6 z-[2] flex items-center gap-2
-                  text-caption text-soft"
+                  text-small text-soft"
        role="status" aria-live="polite" data-testid="status-line"
        data-connection={status}>
       <span className={`inline-block h-2 w-2 rounded-full ${fault ? "bg-stuck"
