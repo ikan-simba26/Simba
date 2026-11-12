@@ -60,6 +60,9 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, WebSocket
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
+from backend.orchestrator.catalogue import (
+    CatalogueError, CatalogueStore, address_in, clean_address, host_of, offered,
+)
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
 from backend.orchestrator.llm import provider_from_env
@@ -87,6 +90,8 @@ from backend.orchestrator.routines import NotARoutine, RoutineStore, export, fil
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import (
+    CatalogueSite,
+    CatalogueTask,
     ErrorPayload,
     GoalAnswered,
     HelpRequested,
@@ -96,6 +101,7 @@ from shared.schema import (
     RoutineExport,
     RoutineFile,
     RoutineImport,
+    SiteAdd,
     TaughtTile,
     TeachStart,
     TileChange,
@@ -222,7 +228,8 @@ async def health() -> dict[str, str]:
 
 
 def past_goals(tiles: TileStore | None = None,
-               routines: RoutineStore | None = None) -> HistoryOffered:
+               routines: RoutineStore | None = None,
+               catalogue: CatalogueStore | None = None) -> HistoryOffered:
     """What this person has asked for before, most recent first — since the
     last "Forget me and start again", never before it (2026-10-21).
 
@@ -245,11 +252,70 @@ def past_goals(tiles: TileStore | None = None,
            for tile in (tiles.all() if tiles is not None else [])]
     # And the routines helpers have shown (2026-11-04), by name and the
     # site's host only: their moves stay in the encrypted store.
+    kept = routines.all() if routines is not None else []
     taught = [TaughtTile(id=r.id, label=r.label, site=urlsplit(r.start).netloc)
-              for r in (routines.all() if routines is not None else [])]
+              for r in kept]
+    # And the websites SIMBA can work with, by genre (2026-11-13), with each
+    # taught routine on the site it was taught on.
+    listed = (catalogue or CatalogueStore()).load()
+    sites = [CatalogueSite(id=site.id, name=site.name, address=site.address, genre=site.genre,
+                           added=site.added,
+                           tasks=[CatalogueTask(label=t.label, goal=t.goal, how=t.how,
+                                                flow=t.flow, routine=t.routine)
+                                  for t in site.tasks])
+             for site in offered(listed, kept)]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
                                  for goal, site in goals],
-                          tiles=own, routines=taught)
+                          tiles=own, routines=taught, sites=sites, genres=listed.genres)
+
+
+#: The `error` code for a website that could not be added (2026-11-13).
+SITE_NOT_ADDED = "SITE_NOT_ADDED"
+
+
+async def add_site(connection: Connection, message: dict, tiles: TileStore,
+                   routines: RoutineStore, catalogue: CatalogueStore) -> bool:
+    """`site.add` from "Add a website" (2026-11-13). Whether it was one.
+    Answered with the home screen's offer as it now stands, or an `error`
+    whose message is the reason, for the overlay to say in words."""
+    if message.get("type") != "site.add":
+        return False
+    try:
+        wanted = SiteAdd.model_validate(message.get("payload") or {})
+        catalogue.add(wanted.name, wanted.address, wanted.genre)
+    except CatalogueError as error:
+        log.info("catalogue: a site not added: %s", error.reason)
+        await connection.send("error", ErrorPayload(code=SITE_NOT_ADDED, message=error.reason))
+        return True
+    except ValueError:
+        await connection.send("error", ErrorPayload(code=SITE_NOT_ADDED, message="name"))
+        return True
+    await connection.send("history.offered", past_goals(tiles, routines, catalogue))
+    return True
+
+
+def site_for(payload: dict, goal: str) -> str | None:
+    """The website a `task.start` is for (2026-11-13): `site` as sent, or an
+    address written in the goal. None when there is neither, or when what was
+    sent is not a web address — then the goal is routed as it always was."""
+    for candidate in (payload.get("site"), address_in(goal)):
+        if not candidate:
+            continue
+        try:
+            return clean_address(str(candidate))
+        except CatalogueError:
+            continue
+    return None
+
+
+def is_flows_site(flow: str, site: str, catalogue: CatalogueStore) -> bool:
+    """Whether a built-in flow may run for a goal on `site`: the site is the one
+    the flow runs on now, or one the catalogue lists that flow on. A train goal
+    on gov.uk is not a train search on Pakistan Railways."""
+    if host_of(flow_setup(flow)[3]) == host_of(site):
+        return True
+    listed = catalogue.for_address(site)
+    return listed is not None and any(task.flow == flow for task in listed.tasks)
 
 
 def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None = None) -> bool:
@@ -272,6 +338,8 @@ def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None =
         tiles.clear()
         if routines is not None:
             routines.clear()
+        # And the websites the person added (2026-11-13).
+        CatalogueStore().clear()
         Vault().clear()
         try:
             TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB)).forget_the_person()
@@ -365,10 +433,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     connection = Connection(websocket, task_id="t_skeleton")
     tiles = TileStore()
     routines = RoutineStore()
+    catalogue = CatalogueStore()
 
     # Offered before anything is asked for, so the home screen has something
     # to show the moment it connects.
-    await connection.send("history.offered", past_goals(tiles, routines))
+    await connection.send("history.offered", past_goals(tiles, routines, catalogue))
 
     # Channel B's other half: every step's page features, paired with whatever
     # telemetry the overlay sends about it, appended to `data/steps.jsonl`,
@@ -385,7 +454,10 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # The person's tiles changed on the home screen: answered with the
         # home screen's offer as it now stands (2026-10-18).
         if change_tile(tiles, message, routines):
-            await connection.send("history.offered", past_goals(tiles, routines))
+            await connection.send("history.offered", past_goals(tiles, routines, catalogue))
+            return
+        # A website added to the list (2026-11-13).
+        if await add_site(connection, message, tiles, routines, catalogue):
             return
         # A routine saved to a file, or read from one (2026-11-04).
         if await share_routine(connection, message, tiles, routines):
@@ -433,6 +505,9 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # One of the person's own tiles (2026-10-18): its flow and its kept
         # details, and its name as the goal. Nothing is read or classified.
         tile = tiles.get(payload.get("tile")) if payload.get("tile") else None
+        # The website the goal is for, if one was picked, typed or written in
+        # the goal (2026-11-13). Never for a tile or a flow the person pressed.
+        site = None
         if tile is not None:
             goal = tile.label
             decided = Route("flow", tile.flow, (tile.flow,), "tile")
@@ -441,14 +516,25 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             # again: they have already answered the question.
             decided = Route("flow", chosen, (chosen,), "chosen")
         else:
+            site = site_for(payload, goal)
             decided = await route(goal, model)
         # The flow only, never the words typed (2026-10-18): this line goes to
-        # logs/backend.log, and a goal can hold a reference number.
-        log.info("routed -> %s %s (%s)", decided.kind,
-                 decided.flow or list(decided.flows), decided.via)
+        # logs/backend.log, and a goal can hold a reference number. The site by
+        # its host only.
+        log.info("routed -> %s %s (%s)%s", decided.kind,
+                 decided.flow or list(decided.flows), decided.via,
+                 f" on {host_of(site)}" if site else "")
 
-        if decided.kind == "flow" and decided.flow is not None:
+        if decided.kind == "flow" and decided.flow is not None and (
+                site is None or is_flows_site(decided.flow, site, catalogue)):
             break
+        if site is not None and decided.kind != "greeting":
+            # A goal on a website with no written plan for it. Until the AI
+            # planner takes these (phase 2), SIMBA says it cannot do it yet
+            # and offers a helper's "Show me once" there.
+            await connection.send("goal.answered", GoalAnswered(
+                kind="not_yet", goal=goal, flows=[], site=site))
+            continue
         await connection.send(
             "goal.answered",
             GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)),

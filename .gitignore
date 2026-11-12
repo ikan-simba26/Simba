@@ -77,3 +77,6 @@ data/rating/examples/
 # Routines a helper showed SIMBA (backend/orchestrator/routines.py): encrypted
 # like the vault, and still never committed.
 data/routines.json
+# The person's own: their tiles (encrypted) and the websites they added (2026-11-13).
+data/tiles.json
+data/catalogue.local.json

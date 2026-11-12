@@ -44,6 +44,9 @@ from shared.schema import (  # noqa: E402
     BaseModel,
     Finding,
     GoalAnswered,
+    CatalogueSite,
+    CatalogueTask,
+    ErrorPayload,
     HistoryOffered,
     LoadUpdated,
     PastGoal,
@@ -213,6 +216,23 @@ async def health() -> dict[str, str]:
     }
 
 
+def offered_sites(added: list[CatalogueSite]) -> tuple[list[CatalogueSite], list[str]]:
+    """The shipped list of websites, as the real backend offers it, and the
+    ones added on this connection (2026-11-13). The mock never writes a file:
+    a site added here is gone with the connection."""
+    from backend.orchestrator.catalogue import CatalogueStore
+
+    shipped = CatalogueStore(local=Path(__file__).parent / "no-local-catalogue.json").load()
+    sites = [CatalogueSite(id=site.id, name=site.name, address=site.address, genre=site.genre,
+                           tasks=[CatalogueTask(label=t.label, goal=t.goal, how=t.how,
+                                                flow=t.flow) for t in site.tasks])
+             for site in shipped.sites]
+    genres = list(shipped.genres)
+    if any(site.genre not in genres for site in added):
+        genres.append("Other")
+    return sites + added, genres
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
@@ -237,29 +257,60 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
     # The home screen's cards. Two, so the screen shows a choice rather than
     # a single button that looks like the only option.
-    await send(
-        "history.offered",
-        HistoryOffered(
-            goals=[
-                PastGoal(goal="Register for CS-401", site="http://127.0.0.1:5000"),
-                PastGoal(goal="Check my electricity bill", site="http://127.0.0.1:5100"),
-            ]
-        ),
-    )
+    goals = [
+        PastGoal(goal="Register for CS-401", site="http://127.0.0.1:5000"),
+        PastGoal(goal="Check my electricity bill", site="http://127.0.0.1:5100"),
+    ]
+    added: list[CatalogueSite] = []
+
+    async def offer() -> None:
+        sites, genres = offered_sites(added)
+        await send("history.offered", HistoryOffered(goals=goals, sites=sites, genres=genres))
+
+    await offer()
 
     # Routed exactly as the real backend routes. Anything that is not a
     # request for a flow is answered, and the socket is kept for the next.
     model = configured_classifier()
     while True:
-        start = (await receive("task.start")).get("payload", {})
+        message = json.loads(await ws.receive_text())
+        if message.get("type") == "site.add":
+            # "Add a website" (2026-11-13), checked as the real backend checks.
+            from backend.orchestrator.catalogue import CatalogueError, clean_address
+
+            wanted = message.get("payload") or {}
+            name = " ".join(str(wanted.get("name", "")).split())[:40]
+            try:
+                if not name:
+                    raise CatalogueError("name", "no name")
+                address = clean_address(str(wanted.get("address", "")))
+            except CatalogueError as error:
+                await send("error", ErrorPayload(code="SITE_NOT_ADDED", message=error.reason))
+                continue
+            added.append(CatalogueSite(id=f"added-{len(added) + 1}", name=name,
+                                       address=address, genre=str(wanted.get("genre") or "Other"),
+                                       tasks=[], added=True))
+            await offer()
+            continue
+        if message.get("type") != "task.start":
+            print(f"mock_backend: ignoring unexpected message {message.get('type')!r}")
+            continue
+        start = message.get("payload", {})
         goal = (start.get("goal") or "").strip()
         chosen = start.get("flow")
         decided = (Route("flow", chosen, (chosen,), "chosen") if chosen in ROUTABLE
                    else await route(goal, model))
         print(f"mock_backend: routed {goal!r} -> {decided.kind} "
               f"{decided.flow or list(decided.flows)} ({decided.via})")
-        if decided.kind == "flow" and decided.flow is not None:
+        if decided.kind == "flow" and decided.flow is not None and (
+                chosen in ROUTABLE or not start.get("site")):
             break
+        if start.get("site") and decided.kind != "greeting":
+            # The mock has no AI planner: a goal on a website with no written
+            # plan is "not yet", as the real backend says without one.
+            await send("goal.answered", GoalAnswered(kind="not_yet", goal=goal, flows=[],
+                                                     site=str(start["site"])))
+            continue
         await send("goal.answered",
                    GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)))
 

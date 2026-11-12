@@ -1,0 +1,132 @@
+{
+  "about": "The websites SIMBA can work with, by genre (2026-11-13). Adding a website is data, not code: a site here is listed on the home screen's left. Each task says how SIMBA does it: built-in (a written plan, run with `flow`), or ai (the AI planner works it out on the live page). Routines a helper taught are added at run time, from data/routines.json. Sites a person adds in the app go to data/catalogue.local.json, which is never committed. Every live site here was screened read-only on 2026-11-12 (robots.txt allows the page; EVALUATION.md).",
+  "genres": [
+    "Travel",
+    "Bills",
+    "Education",
+    "Government",
+    "Health",
+    "Shopping",
+    "Look things up",
+    "Practice sites"
+  ],
+  "sites": [
+    {
+      "id": "pakrailways",
+      "name": "Pakistan Railways",
+      "address": "https://www.pakrailways.gov.pk/train",
+      "genre": "Travel",
+      "tasks": [
+        {"label": "Find train times", "goal": "Find train times", "how": "built-in", "flow": "railways"}
+      ]
+    },
+    {
+      "id": "daewoo",
+      "name": "Daewoo Express buses",
+      "address": "https://daewoo.com.pk/",
+      "genre": "Travel",
+      "tasks": [
+        {"label": "Find bus times", "goal": "Find bus times between two cities", "how": "ai"}
+      ]
+    },
+    {
+      "id": "iesco-bill",
+      "name": "IESCO electricity bill",
+      "address": "https://bill.pitc.com.pk/iescobill",
+      "genre": "Bills",
+      "tasks": [
+        {"label": "Look up my bill", "goal": "Look up my electricity bill", "how": "ai"}
+      ]
+    },
+    {
+      "id": "ssgc",
+      "name": "Sui Southern Gas",
+      "address": "https://www.ssgc.com.pk/",
+      "genre": "Bills",
+      "tasks": [
+        {"label": "Look up my gas bill", "goal": "Look up my gas bill", "how": "ai"}
+      ]
+    },
+    {
+      "id": "fccu",
+      "name": "Forman Christian College",
+      "address": "https://www.fccollege.edu.pk/",
+      "genre": "Education",
+      "tasks": [
+        {"label": "Fill in the admissions form", "goal": "Fill in the admissions form", "how": "ai"}
+      ]
+    },
+    {
+      "id": "passports",
+      "name": "Directorate of Passports",
+      "address": "https://dgip.gov.pk/",
+      "genre": "Government",
+      "tasks": [
+        {"label": "Track my passport", "goal": "Track my passport application", "how": "ai"}
+      ]
+    },
+    {
+      "id": "chughtai",
+      "name": "Chughtai Lab",
+      "address": "https://chughtailab.com/",
+      "genre": "Health",
+      "tasks": [
+        {"label": "Find a test's price", "goal": "Find the price of a blood test", "how": "ai"}
+      ]
+    },
+    {
+      "id": "olx",
+      "name": "OLX Pakistan",
+      "address": "https://www.olx.com.pk/",
+      "genre": "Shopping",
+      "tasks": [
+        {"label": "Search for something", "goal": "Search for a used phone", "how": "ai"}
+      ]
+    },
+    {
+      "id": "govuk-holidays",
+      "name": "UK bank holidays",
+      "address": "https://www.gov.uk/bank-holidays",
+      "genre": "Look things up",
+      "tasks": [
+        {"label": "The next bank holiday", "goal": "When is the next bank holiday?", "how": "ai"}
+      ]
+    },
+    {
+      "id": "timeanddate",
+      "name": "Weather in Lahore",
+      "address": "https://www.timeanddate.com/weather/pakistan/lahore",
+      "genre": "Look things up",
+      "tasks": [
+        {"label": "Today's weather", "goal": "What is the weather in Lahore today?", "how": "ai"}
+      ]
+    },
+    {
+      "id": "wikipedia",
+      "name": "Wikipedia",
+      "address": "https://en.wikipedia.org/wiki/Main_Page",
+      "genre": "Look things up",
+      "tasks": [
+        {"label": "Look something up", "goal": "Look something up on Wikipedia", "how": "ai"}
+      ]
+    },
+    {
+      "id": "practice-bill",
+      "name": "Electricity bill (practice copy)",
+      "address": "http://127.0.0.1:5100",
+      "genre": "Practice sites",
+      "tasks": [
+        {"label": "Check my electricity bill", "goal": "Check my electricity bill", "how": "built-in", "flow": "billing"}
+      ]
+    },
+    {
+      "id": "practice-course",
+      "name": "Course registration (practice copy)",
+      "address": "http://127.0.0.1:5000",
+      "genre": "Practice sites",
+      "tasks": [
+        {"label": "Register for a course", "goal": "Register for a course", "how": "built-in", "flow": "registration"}
+      ]
+    }
+  ]
+}
