@@ -162,6 +162,10 @@ export const SITES = {
   ready: "Ready to go",
 } as const;
 
+/** Under a move the AI planner chose (2026-11-13, the advisor's direction):
+ *  which provider worked it out, small. */
+export const WORKED_OUT_BY = (provider: string) => `Worked out with ${provider}.`;
+
 /* -------------------------------------------------------- your own tiles */
 
 /**
@@ -347,6 +351,10 @@ export const REPLY = {
   notYet: (where: string) => `I don't know how to do that on ${where} yet.`,
   notYetDetail: "A helper can show me once. Then I can do it on my own.",
   showMeOnce: "Ask a helper to show me once",
+  /** A website whose robots.txt asks programs not to use that page
+   *  (2026-11-13). */
+  notAllowed: (where: string) => `${where} asks programs like me not to use that page.`,
+  notAllowedDetail: "So I won't. You can still use the website yourself.",
   /** Above the cards after a refusal, when the list of websites is there
    *  (2026-11-13): the same height as "Here's what I can do". A lead-in. */
   canDoOrWhere: "Tell me the website, or choose one of these",
@@ -747,6 +755,9 @@ export const SITUATIONS: Record<string, string> = {
   "reply.clarify": REPLY.clarify,
   "reply.notYet": REPLY.notYet("gov.uk"),
   "reply.notYetDetail": REPLY.notYetDetail,
+  "reply.notAllowed": REPLY.notAllowed("gov.uk"),
+  "reply.notAllowedDetail": REPLY.notAllowedDetail,
+  "step.workedOutBy": WORKED_OUT_BY("Gemini"),
   "sites.addDetail": SITES.addDetail,
   "sites.notAdded.name": SITES.notAdded.name,
   "sites.notAdded.address": SITES.notAdded.address,

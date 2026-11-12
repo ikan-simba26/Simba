@@ -8589,3 +8589,38 @@ reviewers may read it, and "Do not submit sensitive, confidential, or personal i
 the Unpaid Services"; users must be 18 or over; it is "for developers ... not for consumer use".
 Groq signals a rate limit with HTTP 429 and `retry-after` in seconds. The 8,000 tokens a minute
 is the number that bites: a SIMBA prompt with a page's element list is a few thousand tokens.
+
+
+## 2026-11-13 — the AI planner on live websites: four runs, one defect found and fixed (`feat/orchestrator-ai-live-sites`)
+
+`python -m tools.evaluation.open_goal_live_run <site> <goal>`, once each, read-only. The real
+loop and `OpenGoalPlanner`, a headless Chromium at 1280x800, the provider in `.env`: Gemini,
+`gemini-3.1-flash-lite`, its OpenAI-compatible endpoint, **free tier** — so only pages with no
+personal data (DECISIONS.md, 2026-11-13). No Groq key was set, so the fallback was not used. The
+script answers every step "go ahead" and the first answer the page says word for word "Yes,
+that's it": **whether an answer is right was judged by reading it against the page afterwards**.
+On mains, 13 November about 01:30 PKT, on `feat/orchestrator-ai-live-sites` at `e1e9a5e`;
+conditions block in `.scratch/open-goal-live/` with each result. One run each: ±2x on every time.
+
+| Site | Goal | Outcome | Answer | Moves shown | Model calls | Time |
+|---|---|---|---|---|---|---|
+| gov.uk bank holidays | When is the next bank holiday in England and Wales? | answered | "25 December Christmas Day" — right (the next after 12 November) | 1 (the question) | 1 | 11.7s |
+| timeanddate, Lahore | What is the temperature in Lahore now? | answered | **"Just a moment…" — wrong**: the page was a bot check | 2 | 2 | 7.5s |
+| Wikipedia main page | What is today's featured article on Wikipedia about? | answered | "The Royal Gloucestershire Hussars" — the article's title, as the page gives it | 1 | 1 | 9.1s |
+| timeanddate, Lahore, after the fix | the same | **stopped**: "The website wants to check that a person is using it…" | none | 0 | 0 | 5.0s |
+
+**Failed, and fixed.** timeanddate answered the headless browser with a bot check (title "Just
+a moment…"). The model pressed the site's logo, then quoted the check's own words as the answer;
+they were on the page word for word, so the planner's check passed them. A person would have
+said "No, keep looking" — but the advisor's rule is that a CAPTCHA, a one-time code or a blocked
+site stops SIMBA and is handed to the person. `loop.blocked` now reads the page's title,
+headings and large text, and any box named for a captcha or a one-time code, before every move
+of every planner; such a page ends the run before a model is asked (`test_open_goal.py`, 2
+cases). The same goal, run again: stopped in 5.0s with 0 model calls.
+
+**What this shows and does not.** Three of three readable pages answered in one or two model
+calls, 7.5 to 11.7s, every answer a quotation of the page. Nothing here typed, searched or
+pressed past a link. The screening of 12 November loaded timeanddate's page whole; this
+run met the check — a site can decide differently per visit, and a headless browser is more
+likely to be checked than SIMBA's own window. **Not measured yet**: a goal that needs a search
+or a form, the Groq fallback live, and any run through the Electron window.

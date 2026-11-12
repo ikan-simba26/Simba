@@ -753,6 +753,9 @@ website box, and a goal is routed to the three flows or answered.
 | `goal.answered.site` | optional field | backend -> frontend |
 | `site.add` | new message type | frontend -> backend |
 | `error` code `SITE_NOT_ADDED` | new code | backend -> frontend |
+| `goal.answered.kind` `"not_allowed"` (phase 2) | one more value of an existing field | backend -> frontend |
+| `step.presented.worked_out_by` (phase 2) | optional field | backend -> frontend |
+| `help.requested.teach_site` (phase 2) | optional field | backend -> frontend |
 
 *To undo any one:* drop it on both sides. Nothing else reads it.
 
@@ -798,6 +801,24 @@ helper's "Show me once". `flows` is empty. No task starts.
 { "kind": "not_yet", "goal": "Track my passport application", "flows": [],
   "site": "https://dgip.gov.pk/" }
 ```
+
+### Phase 2: the AI planner on a website (2026-11-13)
+Once an AI provider is set up, a goal on a website with no plan is not
+answered `not_yet`: it runs, as an ordinary task, with the AI planner choosing
+each move. Three additions say what the person needs to know:
+
+- `goal.answered` `not_allowed`: the website's robots.txt asks programs not to
+  use that page (or would not say), so nothing is opened. `site` is the page.
+- `step.presented.worked_out_by`: which provider chose this move, `"Gemini"`
+  or `"Groq"`, shown small under the step at every level. Absent for a written
+  plan, a routine and replay.
+- `help.requested.teach_site`: the AI planner could not do it; the stuck
+  screen offers a helper's "Show me once" on this address.
+
+The answer to an open goal is a question first — "The page says: 26 December.
+Is this what you wanted?" — asked only after SIMBA has found those exact words
+on the page; "Yes, that's it" closes the task with it as the finding, "No,
+keep looking" goes back to the planner.
 
 ### `site.add`
 "Add a website" on the home screen. Answered with `history.offered` as it now

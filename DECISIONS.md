@@ -6435,3 +6435,50 @@ Each of these was decided while building, not asked for. **Flagged for review** 
 - **The added list has an end: 30.** A list the person scrolls, not a database.
 - **`data/tiles.json` was not in `.gitignore`.** It held the person's tiles, encrypted; it is now
   ignored, with `data/catalogue.local.json`.
+
+
+## AI on any website, phase 2: what was settled along the way — `feat/orchestrator-ai-live-sites`, 2026-11-13
+
+- **The answer is quoted, not pointed at by element id.** The approved plan said
+  `finish(element_id)`; built, the model answers with `action: "answer"` and the answer copied
+  word for word from "What the page says", which the planner now also gets (headings, labelled
+  values, table rows, cut at 2,400 characters). Why: most answers are table cells and headings,
+  which are not interactive elements and have no id. What holds the same: nothing is shown until
+  SIMBA has found those exact words on the page (`Content.says`), the person says "Yes, that's
+  it" before it is the answer, and the page must still say it before closing. *Flagged*: the
+  model reads page text now, so a live page's personal details (a bill's name and address) reach
+  the provider; the paid-key rule of 13 November covers it.
+- **Every AI move is asked, never run as the checklist.** The model marks no move safe, so each
+  waits for "Yes, do that". Slower; a run the person did not see is the risk this avoids.
+  *Flagged for review*: options are keep (done), or let reading moves (open a page, search) run
+  by themselves as the written plans' do. Recommended: keep until the live runs are measured.
+- **The fallback moves on at once.** In the chain, Gemini does not wait out its rate limit (up
+  to a minute of "Give me a moment"); Groq, last, does. A rate limit, no connection, a timeout, a
+  server error, a key refused or a model not found all move to Groq; a response of the wrong
+  shape does not — that is the planner's to retry, and another provider would hide it.
+- **`SIMBA_USE_HARDCODED_PLAN` no longer means "no model at all".** The launchers set it, and
+  it keeps the three built-in tasks on their written plans; a goal on any other website uses the
+  AI planner whenever a provider is set up. With none, it is "not yet" and a helper is offered.
+- **robots.txt is asked before the AI opens a page, and an unclear answer is a no**: a site that
+  does not answer in 6s, or refuses to show its robots.txt (401, 403), is not used. A page where
+  the rules should be (Pakistan Railways answers with its home page) is no rules. Our copies are
+  never asked. *Flagged*: fail-closed will refuse some sites a person could open; recommended.
+- **More words mark a press as a change** (default deny): apply, send, sign up, create account,
+  order, proceed to, subscribe, donate, save changes, delete, transfer. On a live site such a
+  press still ends the run (phase 4 turns it into the final screen). Tested both ways: 16 that
+  change, 10 that only read (`test_robots.py`).
+- **Which provider worked a move out is shown at every level**, one small line ("Worked out with
+  Groq."), so the person can always tell when a model chose.
+- **When the AI cannot, the stuck screen offers "Ask a helper to show me once" on that address**
+  (`help.requested.teach_site`); a site whose robots.txt says no offers no helper, since a taught
+  task would use the page just the same.
+- **The answer is in the question's own sentence** ("The page says: 26 December. Is this what you
+  wanted?"): a step's detail line is not shown at the simplest level, and the answer is the one
+  thing that must be read.
+
+- **A bot check, a CAPTCHA, a one-time code or a refusal stops every run before its next move**
+  (`loop.blocked`, 2026-11-13, found live on timeanddate): read from the title, headings, large
+  text and the names of boxes, never the body, where "captcha" can be a word in an article.
+  *Flagged*: a heading such as "Security check" on a bank's ordinary page would stop a run
+  wrongly; a stop costs the person one more thing to do, and a missed check would be SIMBA
+  trying to get past one. Phase 4 turns this stop into a handover with the page shown.

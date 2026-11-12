@@ -529,6 +529,9 @@ class Move:
     # replica, and only after its final screen (`final`, the details it shows
     # as the page states them; `final_answers`, its two answers' words).
     changes: bool = False
+    #: Which AI provider chose this move, for the person to see (2026-11-13):
+    #: "Gemini", "Groq". None for a written plan, a routine, replay.
+    worked_out_by: str | None = None
     final: tuple[FinalRead, ...] = ()
     final_answers: tuple[str, str] | None = None
     # Its words say it books, and the planner says it only opens a page to
@@ -553,7 +556,13 @@ REPLICA_HOSTS = ("127.0.0.1", "localhost")
 #: words, ignoring case.
 CHANGE_WORDS = re.compile(
     r"\b(register|enrol|enroll|book|reserve|pay|purchase|buy|checkout|check out|"
-    r"place order|submit|confirm)\b", re.IGNORECASE)
+    r"place order|submit|confirm|"
+    # 2026-11-13: the AI planner works on live sites now, so more of the words
+    # a form's last button uses are read as a change (DECISIONS.md, default
+    # deny). A press wrongly read as one costs one more question; one missed
+    # would be a change nobody agreed to.
+    r"apply|send|sign up|signup|create account|order|order now|proceed to|subscribe|"
+    r"donate|save changes|delete|remove account|transfer)\b", re.IGNORECASE)
 
 
 #: What a box for card or bank details is called, by its label or its name.
@@ -586,6 +595,34 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
                 filled = None
             if (filled or "").strip().lower().startswith("cc-"):
                 return True
+    return False
+
+
+#: What a page says when it is a check that a person is there, or a refusal,
+#: rather than the website (2026-11-13). Found live: timeanddate answered a
+#: headless run with Cloudflare's "Just a moment…", and the model quoted it
+#: as the answer. Matched on the title, the headings and the larger text,
+#: never on the body, where "captcha" can be a word in an article.
+BLOCKED_WORDS = re.compile(
+    r"(just a moment|checking your browser|verify(ing)? you are (a )?human|"
+    r"are you a robot|i'?m not a robot|captcha|attention required|access denied|"
+    r"request blocked|you have been blocked|unusual traffic|"
+    r"\b403 forbidden\b|security check|one[- ]time (password|code)|\botp\b|"
+    r"verification code)", re.IGNORECASE)
+
+
+def blocked(snapshot: "Snapshot", elements: "list[Element] | None" = None) -> bool:
+    """Whether the page is a bot check, a CAPTCHA, a one-time code or a
+    refusal: something only the person may do (CLAUDE.md; the advisor's hard
+    rules). SIMBA never tries to get past one."""
+    said = [snapshot.title] + [h.text for h in snapshot.content.headings] \
+        + [v.text for v in snapshot.content.values]
+    if any(BLOCKED_WORDS.search(text or "") for text in said):
+        return True
+    for element in elements or []:
+        words = " ".join(filter(None, [element.label, element.name]))
+        if re.search(r"captcha|one[- ]time|\botp\b|verification code", words, re.IGNORECASE):
+            return True
     return False
 
 
@@ -1024,6 +1061,10 @@ class _Run:
         #: headless browser, and every test that does not give one.
         self.window = window
         self._can_save: bool | None = None
+        #: A website where a helper could show SIMBA the task, offered on the
+        #: stuck screen when the AI planner could not do it (2026-11-13, "AI
+        #: first, then teach"). None: nothing is offered.
+        self.teach_site: str | None = None
         self.started = time.monotonic()
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
@@ -1111,6 +1152,7 @@ class _Run:
                 step_kind=kind_of(move),
                 stage=move.stage,
                 coming=coming or [],
+                worked_out_by=move.worked_out_by,
             ),
         )
         log.info("checklist line %d: %s", self.shown, kind_of(move))
@@ -1138,8 +1180,9 @@ class _Run:
             "help.requested",
             HelpRequested(
                 reason=reason,
-                suggestion=voice.HELP_SUGGESTION,
+                suggestion=voice.AI_THEN_TEACH if self.teach_site else voice.HELP_SUGGESTION,
                 unconfirmed=unconfirmed,
+                teach_site=self.teach_site,
             ),
         )
 
@@ -1212,6 +1255,7 @@ class _Run:
                 stage=move.stage,
                 note=move.note,
                 final=final,
+                worked_out_by=move.worked_out_by,
             ),
         )
         log.info("step %d on screen: %s%s", index, kind_of(move), ", final" if final else "")
@@ -1300,8 +1344,12 @@ async def run_task(
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
     auto: bool = False,
+    teach_site: str | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
+
+    `teach_site` (2026-11-13): where the stuck screen offers a helper's "Show
+    me once" if this run cannot be done — a goal the AI planner was given.
 
     `recorder` pairs what the page was like with what the person did on it,
     for the estimator's training set. `app.py` supplies one; a caller that
@@ -1312,6 +1360,7 @@ async def run_task(
     none, the level is whatever the overlay shows and nothing here moves it.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    run.teach_site = teach_site
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -1563,6 +1612,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             await give_up(lapsed)
             return
 
+        # A bot check, a CAPTCHA, a one-time code or a refusal (2026-11-13):
+        # never got past, never read as the website. The person's to do.
+        if blocked(before, elements):
+            await give_up(voice.BLOCKED)
+            return
+
         # Only a task with a success expectation can finish early. `holds`
         # alone is not a finish line: a filled form nobody has searched with
         # holds every value the goal named. Nor a planner that must finish
@@ -1582,6 +1637,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         move = await planner.next_move(elements, history, setback)
         log.info("page read in %.1fs (%d elements); next move chosen in %.1fs", read_s,
                  len(elements), time.monotonic() - choosing)
+        by = getattr(planner, "worked_out_by", None)
+        if move is not None and by and move.worked_out_by is None:
+            move = replace(move, worked_out_by=by)
         setback = None
 
         if move is None:
@@ -1787,6 +1845,18 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     read_before = {name: list(values) for name, values in found.items()}
     _, final, _ = await perceive(page)
     findings = findings_in(final, task, found, rows)
+    # A goal with no plan (2026-11-13) ends with the answer the person agreed
+    # was it, and only if the page still says it, word for word.
+    answer = getattr(planner, "answer", None)
+    if getattr(planner, "must_answer", False):
+        if answer is None:
+            await give_up(last_failure or getattr(planner, "stuck_reason", None)
+                          or voice.AI_COULD_NOT)
+            return
+        if not final.content.says(answer.value):
+            await give_up(voice.ANSWER_CHANGED, unconfirmed=True)
+            return
+        findings = [answer]
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
     unfinished = (
@@ -1855,7 +1925,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     try:
         proof, proof_note = await asyncio.wait_for(
             take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said,
-                                           found)),
+                                           found) if answer is None
+                       else [(answer.value, True)]),
             PROOF_DEADLINE_S)
     except asyncio.TimeoutError:
         proof, proof_note = None, voice.NO_PROOF_PICTURE

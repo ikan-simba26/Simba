@@ -23,11 +23,17 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SIMBA_ROUTINES", str(tmp_path / "routines.json"))
     monkeypatch.setenv("SIMBA_TRACE_DB", str(tmp_path / "traces.db"))
 
-    # No task may open a page here: a test that reaches one has failed.
-    def no_page(name):
-        raise AssertionError(f"a flow was started: {name}")
-    monkeypatch.setattr(app_module, "flow_setup_for_run", no_page, raising=False)
+    # Nothing here reaches another computer: robots.txt is answered "allowed"
+    # unless a test says otherwise, and no AI provider is set up — so a goal on
+    # a website is "not yet" and no page is opened (phase 2 opens one only
+    # with a provider; `test_open_goal.py` covers that run).
+    async def allowed(address):
+        return client_robots["allowed"]
+    client_robots = {"allowed": True}
+    monkeypatch.setattr(app_module.robots, "allowed", allowed)
+    monkeypatch.setattr(app_module, "open_goal_provider", lambda: None)
     with TestClient(app_module.app) as test_client:
+        test_client.robots = client_robots
         yield test_client
 
 
@@ -150,3 +156,33 @@ def test_a_built_in_flow_runs_only_on_its_own_site(tmp_path):
     assert app_module.is_flows_site("railways", "https://pakrailways.gov.pk/train", catalogue)
     assert not app_module.is_flows_site("billing", "https://bill.pitc.com.pk/", catalogue)
     assert not app_module.is_flows_site("registration", "http://127.0.0.1:5100/", catalogue)
+
+
+def test_a_website_that_asks_programs_not_to_is_not_used(client):
+    client.robots["allowed"] = False
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "Track my passport", "input_mode": "text",
+                                "site": "https://dgip.gov.pk/"})
+        answer = ws.receive_json()
+    assert answer["payload"] == {"kind": "not_allowed", "goal": "Track my passport",
+                                 "flows": [], "site": "https://dgip.gov.pk/"}
+
+
+def test_with_a_provider_a_goal_on_a_website_goes_to_the_ai_planner(client, monkeypatch):
+    """The routing only: the run itself is `test_open_goal.py`'s. Here the page
+    opening is the end of the test."""
+    class Opened(Exception):
+        pass
+
+    def open_page(address):
+        raise Opened(address)
+    monkeypatch.setattr(app_module, "open_goal_provider", lambda: object())
+    monkeypatch.setattr(app_module, "open_page", open_page)
+    with pytest.raises(Opened, match="https://www.gov.uk/bank-holidays"):
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+            send(ws, "task.start", {"goal": "When is the next bank holiday?",
+                                    "input_mode": "text",
+                                    "site": "https://www.gov.uk/bank-holidays"})
+            ws.receive_json()
