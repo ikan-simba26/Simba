@@ -275,6 +275,17 @@ SIMBA: nothing is driving a website.
 
 ---
 
+## Building the Windows installer
+
+    backend/venv/Scripts/python tools/build_installer.py
+
+About 10-15 minutes, and everything it downloads or writes stays under
+`.scratch/installer-build/`; the installer is
+`.scratch/installer-build/dist/SIMBA-Setup-<version>.exe`. Its docstring lists the
+steps. It is not signed, so Windows SmartScreen warns the first time it is run
+(*More info*, then *Run anyway*). `tools/evaluation/installed_app_run.py` installs
+it, launches it, says hello and uninstalls it again.
+
 ## Switches
 
 All environment variables, all read at the backend.

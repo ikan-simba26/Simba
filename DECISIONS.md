@@ -6334,3 +6334,73 @@ kept. **Flagged**: the cause is open. Options: wait for it with the line in plac
 test's helper slower and say so; or change the recorder to keep a press on a list option by
 its box when the point finds nothing. Recommended: wait with the line in place — the other two
 change what is tested or kept without knowing why. Branch not merged: a log line, not a fix.
+
+---
+
+## The Windows installer — `feat/infra-installer`, 2026-11-13
+
+Asked for by the advisor on 2026-11-12; the plan (electron-builder, an embedded Python and no
+PyInstaller, a random CDP port per launch when installed) approved by Raham on 2026-11-13.
+What follows is what the task did not specify.
+
+**Python 3.12.10, not the 3.12.3 the suite runs on.** 3.12.10 is the last 3.12 release with
+Windows binaries (3.12.11 onwards are source-only security releases). It carries a year of
+security fixes over 3.12.3, and every pinned wheel is for the cp312 ABI that all 3.12.x
+share. The zip's SHA-256 is pinned in `tools/build_installer.py`, checked on first download
+against the MD5 python.org lists for it (`fe8ef205…`, matched). *Alternative:* 3.12.3, to match
+the tested interpreter exactly. *Cost of this choice:* the full suite has not been run on
+3.12.10; the bundled backend's smoke test and the installed app's "hello" have.
+
+**Packages installed with the build machine's pip, `--target`, wheels only.** The embeddable
+Python has no pip. `--only-binary=:all: --platform win_amd64 --python-version 3.12` keeps the
+build from compiling anything, and `backend/requirements.txt` pins the full set, so the bundle
+is exactly the tested versions.
+
+**Packages in `resources\backend\site\`, not `python\Lib\site-packages\`**, and a path budget of
+170 characters from the install folder that stops the build. Measured: the longest file would
+otherwise have been 176, leaving 83 characters for the install folder before Windows' 260-char
+limit (EVALUATION.md, 2026-11-13).
+
+**CDP port 0 when installed.** Chromium picks a free port itself and names it in
+`DevToolsActivePort` in the profile folder; the host deletes the old file before the app is
+ready and reads the new one. *Alternative:* the host picks a port with a throwaway listener
+first — that leaves a window in which something else can take it, and needs the port before
+the app is ready, which an async check cannot give. The backend's port *is* chosen that way
+(after ready, so it can be), and handed to the overlay with `?ws=`, which `connection.ts`
+already reads. No `CONTRACT.md` change.
+
+**Development is untouched.** `SIMBA_CDP_PORT` still overrides; unset, development keeps 9222,
+and the host starts no backend unless `app.isPackaged`.
+
+**The host waits for the backend before opening the overlay.** The overlay connects only when
+asked, and a home screen whose first press finds no backend would fail. So the window shows
+once the backend answers (6-7 s on a warm launch, 17 s on the first; EVALUATION.md). If the
+backend exits or never answers, the overlay opens anyway (at once, or after 60 s) with no
+backend behind it; what it then shows was not tried.
+
+**Stopping the backend: `taskkill /PID <pid> /T /F` on `will-quit`.** The PID is the one the
+host got from `spawn`; `/T` reaches Playwright's driver (`node.exe`), which the backend
+started. The same form `run.ps1` uses; no name, no filter.
+
+**The installer never kills anything.** electron-builder's NSIS installer, finding SIMBA open
+during an install or uninstall, stops every process running from the install folder
+(`taskkill /IM` or a matched `Stop-Process`). `frontend/installer/installer.nsh` replaces that
+check with one that only looks, and asks the person to close SIMBA and press Retry.
+
+**Every writable path moved to `%APPDATA%\SIMBA`**, by environment variables the host sets:
+`SIMBA_TILES`, `SIMBA_VAULT`, `SIMBA_ROUTINES`, `SIMBA_TRACE_DB`, `SIMBA_LOG_FILE` (already
+honoured) and two new ones, `SIMBA_STEPS` (`data/steps.jsonl`) and `SIMBA_LLM_LOG_DIR` (the
+model's transcripts), both read at import, both defaulting to the old paths.
+
+**Per-user install by default, with the choice of folder.** `oneClick: false`,
+`perMachine: false`: the wizard asks "only for me / anyone", and only-for-me needs no
+administrator. An all-users install under Program Files also works: nothing is written there
+and every module is byte-compiled at build time.
+
+**The profile folder is kept on uninstall** (`deleteAppDataOnUninstall: false`, the default):
+a person's tiles, routines and saved sign-ins survive a reinstall.
+
+**`appId: "simba"`**, the same id `main.ts` gives Windows for taskbar grouping, so the Start
+menu shortcut and the running window are one taskbar button.
+
+**Unsigned.** SmartScreen warns on first run (`docs/why-desktop.md`). Not bought, as asked.

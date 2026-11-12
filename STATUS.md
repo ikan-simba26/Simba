@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **backend 1406 passed, 9 skipped, 0 failed** in 1880s, on mains, on `fix/teach-list-choice` at `551664c` (only the backend half, as asked; the frontend half last ran on `docs/demo-show-me-once`: 714 passed, 1 failed that passed 5 of 5 alone). Merged into `main` on Raham's decision. **Open**: the dropped station press in teaching, cause not found; a log line now says which way it goes next time (EVALUATION.md, 2026-11-11d to f)
+**Last updated:** 2026-11-13 · `feat/infra-installer` (not merged): **a Windows installer**, `SIMBA-Setup-0.0.1.exe`, 199.6 MB, built by `tools/build_installer.py`; installed, launched 3 times and greeted "hello" 3 of 3 from the bundled backend, nothing left running after closing or uninstalling (EVALUATION.md, 2026-11-13). Tests run: the host's window fit and brand checks and the touched backend modules only, not the full suite. The last full backend run is 2026-11-11: 1406 passed, 9 skipped, 0 failed, on `fix/teach-list-choice` at `551664c`
 
 ---
 
@@ -2027,7 +2027,25 @@ On `feat/railways-ask`, **not merged**.
 - **`DEMO.md`** — the five-minute demo, with a fallback for every part of it
   that can fail, resting on the six clips `tools/record_demo.py` makes in `demo/`.
 
+- **A Windows installer** (2026-11-13, `feat/infra-installer`, not merged).
+  `backend/venv/Scripts/python tools/build_installer.py` builds
+  `.scratch/installer-build/dist/SIMBA-Setup-<version>.exe`: Electron plus the Windows
+  embeddable Python 3.12.10 with `backend/requirements.txt`, no PyInstaller. Installed,
+  the host starts the bundled backend, both ports are random per launch on 127.0.0.1,
+  and everything it writes goes to `%APPDATA%\SIMBA`. 199.6 MB; install 261 s, cold
+  start 6-7 s warm and 17 s on the first launch, on a loaded machine.
+  `tools/evaluation/installed_app_run.py` repeats the whole check. `docs/why-desktop.md`
+  is the report's page on why SIMBA is a desktop app.
+
 **Open**
+- **The installed app has no model key**, so it routes by keywords and cannot plan
+  with the LLM; `.env` is looked for inside the install folder. Flagged 2026-11-13.
+- **The installed app starts no replica**, so registration and billing, which run on our replicas,
+  cannot run from it. Flagged 2026-11-13.
+- **If the installed host crashes, its backend is not stopped** (reasoned, not tried):
+  it is stopped on a normal quit only. Flagged 2026-11-13.
+- **Two copies of the installed app can be open at once**, sharing one profile.
+  Flagged 2026-11-13.
 - No CI. The Electron tests skip silently without a host.
 - Nothing supervises the Electron host.
 - `test_levels.py` measures `dist/`, which can be stale.
