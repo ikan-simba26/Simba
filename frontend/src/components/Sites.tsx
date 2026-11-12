@@ -49,15 +49,18 @@ export function hostOf(address: string): string {
 
 /** The list on the left. */
 export function SiteList() {
-  const { sites, genres, chosenSite, chooseSite, setAddSiteOpen } = useStore();
-  const groups = genres
-    .map((genre) => ({ genre, sites: sites.filter((site) => site.genre === genre) }))
-    .filter((group) => group.sites.length > 0);
+  const { sites, genres, chosenSite, chooseSite, setAddSiteOpen, profile } = useStore();
+  // The websites they chose in the setup first (2026-11-13), then every genre.
+  const favourites = sites.filter((site) => (profile.favourites ?? []).includes(site.id));
+  const groups = [
+    ...(favourites.length ? [{ genre: SITES.yours, sites: favourites }] : []),
+    ...genres.map((genre) => ({ genre, sites: sites.filter((site) => site.genre === genre) })),
+  ].filter((group) => group.sites.length > 0);
 
   return (
     <nav aria-label={SITES.list} data-testid="site-list"
-         className="fixed top-20 bottom-6 left-6 z-[1] flex flex-col gap-3 rounded-xl border
-                    border-edge bg-surface/80 p-3 shadow-card short:top-14 short:bottom-2"
+         className="fixed top-20 bottom-9 left-6 z-[1] flex flex-col gap-3 rounded-xl border
+                    border-edge bg-surface/80 p-3 shadow-card short:top-14 short:bottom-9"
          style={{ width: SITE_LIST_WIDTH }}>
       <p className="px-2 pt-1 text-small font-medium text-soft">{SITES.list}</p>
       {/* The list scrolls on its own; the rest of the screen never does. */}
@@ -73,9 +76,10 @@ export function SiteList() {
             </p>
             <ul className="flex flex-col">
               {inGenre.map((site) => {
+                // Listed twice when it is a favourite: once at the top.
                 const chosen = site.id === chosenSite;
                 return (
-                  <li key={site.id}>
+                  <li key={`${genre}-${site.id}`}>
                     <button type="button" data-testid="site" aria-pressed={chosen}
                             title={hostOf(site.address)}
                             onClick={() => chooseSite(chosen ? null : site.id)}

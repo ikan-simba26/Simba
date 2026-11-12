@@ -22,6 +22,23 @@ before any pauses for narration.
 
 ---
 
+## What changed for the advisor's review (2026-11-13)
+
+The eight minutes below still run as written. Since 13 November SIMBA also works
+on any website, and the advisor asked to see that, so there is a second part,
+**"Any website" (about six minutes)**, after the close. Run it after the eight
+minutes, or in their place from 2:40 if time is short. It needs:
+
+- **An AI key**, set up in the first-time setup or in `.env` (Gemini; Groq as its
+  fallback). For the review use a **paid** key: the free tier's terms let Google
+  read what is sent (DECISIONS.md, 2026-11-13). Without one, every goal on a
+  website with no plan is answered "I don't know how to do that on … yet", and
+  the part still shows "Ask a helper to show me once" — say so and go on.
+- **The card gateway on**: start with `$env:SIMBA_CARD_GATEWAY = "1"` before
+  `run.ps1`, so "Pay this bill" goes through the test card gateway.
+- **Internet**, for the live websites. Nothing is booked, ordered or paid on
+  them; the bank holiday and Wikipedia pages are read only.
+
 ## Rehearsing
 
 **Rehearse on `railways-local`. Run the live railways flow only for the real
@@ -291,6 +308,33 @@ did; what changed is what the person has to deal with.*
 
 ---
 
+## Any website (about six minutes, 2026-11-13)
+
+The advisor's question: *what if I need this done on website XYZ?* The answer,
+shown: pick it or type it; if the AI can't do it, a helper shows SIMBA once, and
+from then on it is a tile.
+
+| What to do | What is on screen | What to say |
+|---|---|---|
+| **"Back to start"** and point at the left | "Websites I can use": Travel, Bills, Education, Government, Health, Shopping, Look things up, Practice sites | Not three tasks: a list of websites, by kind. It is a file anyone can add to. |
+| Point at **"Add a website"** at the foot of the list | | Where a new website goes: name, address, what kind. It is in the list at once. |
+| Press **"UK bank holidays"**, then **"The next bank holiday"** | "I'll work it out" under it | No written plan for this site. The AI works it out on the live page. |
+| Wait | "The page says: 25 December Christmas Day. Is this what you wanted?" and "Worked out with Gemini." | It answers only with words the page itself says, word for word, and it is your answer only when you say so. The small line says which AI chose. |
+| **"Yes, that's it"** | The answer, and "See it on the real page" | The answer ringed on the real page. |
+| Back to start. Type `When was the Royal Gloucestershire Hussars formed?` and, in **"Which website"**, `en.wikipedia.org` | | Any website, typed. **Not yet run live** (a goal that needs a search): rehearse it once; if it stops, that is the next row. |
+| If the AI says it can't | "I couldn't work out how to do this on this website." and **"Ask a helper to show me once"** | AI first, then teach: the helper is offered on that same website. |
+| Press it | "Show me a task once", the address filled in | A helper does it once; from then on it is a tile, and it is offered on websites of the same kind too. |
+| **"Not now"**, back to start. Press **"Check my electricity bill"**, the number, cookies, then **"Pay this bill"** | The final screen: amount, month, due date, reference | Paying, booking, ordering: always a final screen first, on any website. |
+| **"Go to card payment"** | The window becomes a bar: "Your turn: pay on the page below…", and the card page below it | Payment is always the person's. SIMBA never types, reads or keeps card details. |
+| On the page: `4242 4242 4242 4242`, `12/30`, `123`, **Pay**; then the code `123456`, **Confirm**; then **"I've finished"** on the bar | "The website says it went through." and the receipt's own words | It reads the page after, and quotes it. This is a test gateway: no money. |
+| Point at the bottom left | "Connected · Finished" | Always says whether it is connected and what it is doing. |
+
+**If something here fails**: the live site slow or refusing — say so, the
+stuck screen is the system working, and go to the card payment, which is local.
+No key — the "not yet" screen and its helper offer are the answer. The bar does
+not show the page — "Stop, change nothing", and show `backend/orchestrator/test_gateway.py`'s
+end-to-end test passing instead.
+
 ## If something fails
 
 Say what happened, in one short sentence, and move. A demo that admits a
@@ -318,16 +362,22 @@ train search: the screens are the same, **the trains in it are invented**. Then 
 
 ## If they ask
 
-- **"Does it work on any website?"** Not by itself. Three flows are built in:
-  a course registration, an electricity bill, and train times; anything else
-  typed is declined rather than attempted. A helper can teach it a task on
-  another website by doing it once ("Teach a task"); on a real website a
-  taught task only reads.
-- **"Does it pay the bill?"** Only on our own copies of a site, and only
-  after a final screen that says exactly what will happen and waits for "Pay
-  it" or "Don't pay". On a real site it reads and never books or pays, and it
-  never types card details anywhere (CLAUDE.md, the final-step rule). The
-  payment on our billing copy is a pretend one: no card, no money.
+- **"Does it work on any website?"** Yes (since 2026-11-13). Pick one from the
+  list, or type any address. Three tasks have written plans; on any other
+  website the AI works it out, one move at a time, each move asked and
+  checked, and answers only with the page's own words. If it can't, it says so
+  and offers "Ask a helper to show me once", and from then on that task is a
+  tile. A website whose robots.txt asks programs not to is not used.
+- **"Does it pay the bill?"** It gets you to the payment, and you pay. Anything
+  that books, orders, registers or pays waits for a final screen that says
+  exactly what will happen, with the page's own amounts, and "do it" or
+  "don't". Then the payment page is handed to you — card details, the bank's
+  code, the press that pays — and SIMBA never types, reads or keeps them. It
+  reads the page afterwards and tells you what it says. A CAPTCHA is handed to
+  you the same way. Here the gateway is a test one, with a test card.
+- **"Which AI is it?"** Gemini, with Groq taking over when Gemini is busy or
+  down; each step says which one worked it out. It is set up once, in the
+  first-time setup, and the key stays on this computer, locked.
 - **"Does the model see my password?"** No. Credentials go straight into the
   page; they never enter a prompt or a log.
 - **"What if it clicks the wrong thing?"** After every action it checks the

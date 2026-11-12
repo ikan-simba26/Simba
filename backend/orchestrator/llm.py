@@ -744,6 +744,21 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
     rate limits, then Groq (`GROQ_MODEL`, `GROQ_BASE_URL`), which does wait.
     `SIMBA_LLM_FALLBACK=0` keeps the configured one alone."""
     _load_dotenv()
+    # Set up in the app's first-time setup (2026-11-13), it wins over `.env`.
+    from backend.orchestrator.ai_settings import AiStore, provider_for
+
+    saved = AiStore().load()
+    if saved is not None:
+        groq_key = os.environ.get("GROQ_API_KEY")
+        chained = (bool(groq_key) and saved.provider != "groq"
+                   and os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() != "0")
+        first = provider_for(saved, transcript)
+        first.wait_out_rate_limits = not chained
+        if not chained:
+            return first
+        return FallbackProvider([first, OpenAICompatibleProvider(
+            api_key=groq_key or "", base_url=os.environ.get("GROQ_BASE_URL") or GROQ_BASE_URL,
+            model=os.environ.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL, transcript=transcript)])
     choice = os.environ.get("SIMBA_LLM_PROVIDER", "anthropic").strip().lower()
 
     if choice == "anthropic":

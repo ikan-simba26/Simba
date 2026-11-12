@@ -21,6 +21,7 @@ import { FinalCheck } from "./components/FinalCheck";
 import { ReadBack } from "./components/ReadBack";
 import { TeachBar } from "./components/TeachBar";
 import { HandoverBar } from "./components/HandoverBar";
+import { StatusLine } from "./components/StatusLine";
 import { TeachIntro } from "./components/TeachIntro";
 import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
@@ -128,12 +129,19 @@ export default function App() {
           </div>
         </>
       )}
+      {!opening && <StatusNow />}
       <TrustPanel />
       <ProofPanel />
       <DebugPanel />
       <Splash up={opening} />
     </div>
   );
+}
+
+/** The status line, with what the presence mark means now (2026-11-13). */
+function StatusNow() {
+  const mode = usePresenceMode();
+  return <StatusLine activity={mode} />;
 }
 
 /** The small logo, on the home screen and no other. */

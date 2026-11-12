@@ -15,7 +15,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import type { Level, StepPresented } from "@shared/schema";
 
-import { TEACH, WELCOME } from "../copy";
+import { SITES, TEACH, WELCOME } from "../copy";
 import { ARRIVE } from "../design";
 import { NAME_MAX, cleanName } from "../profile";
 import { useStore } from "../store";
@@ -23,7 +23,10 @@ import { StepShell } from "./StepShell";
 import { Button } from "./ui";
 
 const QUESTIONS = ["name", "level", "read", "ask"] as const;
-type Question = (typeof QUESTIONS)[number];
+/** Asked after those (2026-11-13, the advisor's direction, K) when the backend
+ *  offers them: the AI helper and its key, and the websites to start with. A
+ *  backend that offers neither gets the four questions as before. */
+type Question = (typeof QUESTIONS)[number] | "ai" | "sites";
 
 /** The question every example shows: one a journey asks. */
 const SAMPLE: StepPresented = {
@@ -49,7 +52,10 @@ const SAMPLE: StepPresented = {
 const EXAMPLE_WIDTH = 700;
 
 export function Welcome() {
-  const { profile, updateProfile, finishWelcome, forgetEverything, setTeachOpen } = useStore();
+  const { profile, updateProfile, finishWelcome, forgetEverything, setTeachOpen, ai,
+          sites } = useStore();
+  const questions: Question[] = [...QUESTIONS, ...(ai ? ["ai" as const] : []),
+                                 ...(sites.length ? ["sites" as const] : [])];
   const [at, setAt] = useState(0);
   // Opened again from "Change my settings", rather than a first open: only
   // then is there anything to forget (2026-10-18).
@@ -57,8 +63,8 @@ export function Welcome() {
   const [forgetting, setForgetting] = useState(false);
   // A new round after forgetting: every question starts empty again.
   const [round, setRound] = useState(0);
-  const question: Question = QUESTIONS[at];
-  const next = () => (at + 1 < QUESTIONS.length ? setAt(at + 1) : finishWelcome());
+  const question: Question = questions[Math.min(at, questions.length - 1)];
+  const next = () => (at + 1 < questions.length ? setAt(at + 1) : finishWelcome());
 
   if (forgetting) {
     return (
@@ -116,6 +122,9 @@ export function Welcome() {
                               pick: () => updateProfile({ askEach: false }) }]}
                   onAnswer={next} onSkip={next} />
         )}
+        {question === "ai" && <AiQuestion onDone={next} onSkip={next} />}
+        {question === "sites" && <SitesQuestion chosen={profile.favourites ?? []}
+          onDone={(favourites) => { updateProfile({ favourites }); next(); }} onSkip={next} />}
       </motion.div>
     </div>
   );
@@ -281,5 +290,135 @@ function Example({ level }: { level: Level }) {
                    onAction={() => undefined} waiting answered={false} level={level} />
       </div>
     </div>
+  );
+}
+
+
+type Provider = "gemini" | "groq" | "openai";
+
+/**
+ * The AI helper (2026-11-13): which provider, and the key it gave them. Saved
+ * encrypted on this computer by the backend and checked with one small
+ * question; the key is never shown again, only its last four characters. The
+ * box is a password box and is emptied once sent.
+ */
+function AiQuestion({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
+  const { ai, aiChecking, setUpAi } = useStore();
+  const [provider, setProvider] = useState<Provider>("gemini");
+  const [key, setKey] = useState("");
+  const [address, setAddress] = useState("");
+  const [model, setModel] = useState("");
+  const [sent, setSent] = useState(false);
+  const ready = key.trim().length >= 8 && !aiChecking
+    && (provider !== "openai" || (address.trim() !== "" && model.trim() !== ""));
+  const save = () => {
+    if (!ready) return;
+    setUpAi(provider === "openai"
+      ? { provider, key: key.trim(), base_url: address.trim(), model: model.trim() }
+      : { provider, key: key.trim() });
+    setKey("");
+    setSent(true);
+  };
+  const verdict = sent && !aiChecking && ai?.check && ai.check !== "not_checked"
+    ? WELCOME.aiCheck[ai.check] : null;
+  const field = "simba-field-frame w-full min-w-0 rounded-xl px-5 py-3 text-body text-ink " +
+                "shadow-card outline-none placeholder:text-soft short:py-2";
+  return (
+    <>
+      <Heading ask={WELCOME.aiAsk} detail={WELCOME.aiDetail} />
+      {ai?.configured && !sent && (
+        <p className="text-body text-ink" data-testid="ai-saved">
+          {WELCOME.aiSaved(ai.provider ?? "", ai.ends_with ?? undefined)}
+        </p>
+      )}
+      <div className="grid grid-cols-3 gap-4 short:gap-3" role="radiogroup">
+        {([["gemini", WELCOME.aiGemini], ["groq", WELCOME.aiGroq],
+           ["openai", WELCOME.aiOther]] as [Provider, string][]).map(([name, label]) => (
+          <Button key={name} size="md" variant={provider === name ? "primary" : "secondary"}
+                  aria-pressed={provider === name} data-testid={`ai-${name}`}
+                  onClick={() => setProvider(name)}>
+            {label}
+          </Button>
+        ))}
+      </div>
+      <div className={`grid gap-4 short:gap-3 ${provider === "openai" ? "grid-cols-3" : ""}`}>
+        <label className="flex min-w-0 flex-col gap-2">
+          <span className="text-small font-medium text-soft">{WELCOME.aiKey}</span>
+          <input type="password" autoComplete="off" spellCheck={false} value={key}
+                 data-testid="ai-key" className={field}
+                 onChange={(event) => setKey(event.target.value)}
+                 onKeyDown={(event) => event.key === "Enter" && save()} />
+        </label>
+        {provider === "openai" && (
+          <>
+            <label className="flex min-w-0 flex-col gap-2">
+              <span className="text-small font-medium text-soft">{SITES.address}</span>
+              <input value={address} data-testid="ai-address" className={field}
+                     placeholder={TEACH.placeholder} onChange={(event) => setAddress(event.target.value)} />
+            </label>
+            <label className="flex min-w-0 flex-col gap-2">
+              <span className="text-small font-medium text-soft">{WELCOME.aiModel}</span>
+              <input value={model} data-testid="ai-model" className={field}
+                     onChange={(event) => setModel(event.target.value)} />
+            </label>
+          </>
+        )}
+      </div>
+      {(aiChecking || verdict) && (
+        <p className="rounded-lg bg-tint px-5 py-3 text-body text-ink" role="status"
+           data-testid="ai-check" data-check={aiChecking ? "checking" : ai?.check}>
+          {aiChecking ? WELCOME.aiChecking : verdict}
+        </p>
+      )}
+      <Footer onSkip={onSkip}>
+        <div className="flex items-center gap-4">
+          {sent && ai?.check === "ok" ? (
+            <Button size="md" wide={false} onClick={onDone} data-testid="ai-next">
+              {WELCOME.next}
+            </Button>
+          ) : (
+            <Button size="md" wide={false} disabled={!ready} onClick={save}
+                    data-testid="ai-save">
+              {WELCOME.aiSave}
+            </Button>
+          )}
+        </div>
+      </Footer>
+    </>
+  );
+}
+
+/** The websites to start with (2026-11-13): first in the list on the home
+ *  screen. Practice copies are not offered: they are for showing SIMBA. */
+function SitesQuestion({ chosen, onDone, onSkip }: {
+  chosen: string[]; onDone: (favourites: string[]) => void; onSkip: () => void;
+}) {
+  const sites = useStore((state) => state.sites);
+  const offered = sites.filter((site) => !site.address.includes("127.0.0.1"));
+  const [picked, setPicked] = useState<string[]>(chosen);
+  const toggle = (id: string) =>
+    setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
+  return (
+    <>
+      <Heading ask={WELCOME.sitesAsk} detail={WELCOME.sitesDetail} />
+      <div className="grid max-h-[40dvh] grid-cols-3 gap-3 overflow-y-auto pr-1 short:gap-2"
+           data-testid="setup-sites">
+        {offered.map((site) => (
+          <button key={site.id} type="button" onClick={() => toggle(site.id)}
+                  aria-pressed={picked.includes(site.id)} data-testid="setup-site"
+                  className={`truncate rounded-lg border px-4 py-2 text-left text-body
+                              ${picked.includes(site.id)
+                                ? "border-accent bg-tint font-semibold text-ink"
+                                : "border-edge bg-surface text-ink hover:border-accent/50"}`}>
+            {site.name}
+          </button>
+        ))}
+      </div>
+      <Footer onSkip={onSkip}>
+        <Button size="md" wide={false} onClick={() => onDone(picked)} data-testid="sites-done">
+          {WELCOME.sitesDone}
+        </Button>
+      </Footer>
+    </>
   );
 }

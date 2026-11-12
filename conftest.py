@@ -65,3 +65,15 @@ def _own_added_websites(tmp_path_factory, monkeypatch) -> None:
     if "SIMBA_CATALOGUE_LOCAL" not in os.environ:
         monkeypatch.setenv("SIMBA_CATALOGUE_LOCAL",
                            str(tmp_path_factory.mktemp("catalogue") / "catalogue.local.json"))
+
+
+@pytest.fixture(autouse=True)
+def _own_ai_setup(tmp_path_factory, monkeypatch) -> None:
+    """Every test gets its own (empty) AI setup file (2026-11-13), so a key set
+    up in the app on the machine running them is never read by a test, and no
+    test can overwrite it."""
+    import os
+
+    if "SIMBA_AI_SETTINGS" not in os.environ:
+        monkeypatch.setenv("SIMBA_AI_SETTINGS",
+                           str(tmp_path_factory.mktemp("ai") / "ai.json"))

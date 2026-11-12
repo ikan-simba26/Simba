@@ -6548,3 +6548,33 @@ person's "do it"; a press that pays is never SIMBA's. Settled while building:
 - **The old tests of the old rule were rewritten, not deleted**: "on a site that is not ours a
   change is never made" now checks the final screen comes first and Pay is never pressed;
   "card details are never typed" now checks the handover and that the number is never sent.
+
+
+## Visible status and the first-time setup, phases 6 and 7b: what was settled — `feat/interface-status`, `feat/interface-setup`, 2026-11-13
+
+- **The status line is small, in the bottom left corner, on every screen**: "Connected · Your
+  turn". Connection in one word (Connected, Connecting, or "I can't reach SIMBA's helper. Trying
+  again."), and what SIMBA is doing in the presence mark's own names (Ready, Thinking, Working on
+  it, Your turn, Stopped, Finished). The screen's own sentence still says the rest. The site list
+  moved up 12px to make room; measured not to cover anything at 100%, 125% and 150%.
+- **The window reconnects by itself on the home screen**, after a second, and after a failed
+  attempt in 2, 4, … up to 10 seconds; never while a task, a closing screen's offer, teaching or
+  a handover is on, since an offer belongs to the connection it came on. The backend closing the
+  connection after a task, as it always has, reads as Connected.
+- **A connection that closes without ever having opened is an error**: the browser reports
+  "error" then "close", and the close used to hide the error.
+- **The setup's two new questions are asked only when the backend offers them** (`ai` and
+  `sites` in `history.offered`), after the four of 2026-10-18; a backend that offers neither
+  gets the welcome as it was, and its tests are unchanged.
+- **The key is kept by the backend, encrypted with this Windows account's own key**
+  (`data/ai.json`, `ai_settings.py`), like the vault; the window sends it once and empties the
+  box. A key set up in the app wins over `.env`. The check is one small question; its answer is
+  reduced to a word (ok, key, limit, network, other), never the provider's message, which can
+  echo part of a key. *Flagged*: "Forget me and start again" does not clear the AI key — it is
+  the computer's setup, not the person's. Options: keep (done), or clear it too. Recommended:
+  keep; a carer setting SIMBA up for several people should not re-enter it each time.
+- **The websites chosen in the setup are "Your websites"**, at the top of the list, kept in the
+  overlay's profile like the person's name. Practice copies are not offered there.
+- **The logo's "try again only while it is up" rule is replaced** (`test_brand.py`): keeping
+  trying on the home screen is the advisor's L; the old rule's reason — never replacing the
+  connection a press opened — is kept by not trying while anything is connecting or asked.

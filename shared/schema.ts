@@ -52,7 +52,10 @@ export type MessageType =
   // Pending agreement (2026-11-13): the real page handed to the person — to
   // pay, or to pass a check for a person — and their word that they are done.
   | "handover"
-  | "handover.done";
+  | "handover.done"
+  // Pending agreement (2026-11-13): the AI provider set up in the app.
+  | "ai.setup"
+  | "ai.status";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -132,6 +135,27 @@ export interface CatalogueSite {
   added?: boolean;
 }
 
+/** How the last check of the AI provider went (2026-11-13). */
+export type AiCheck = "ok" | "key" | "limit" | "network" | "other" | "provider" | "address"
+  | "model" | "vault" | "not_checked";
+
+/** Whether an AI provider is set up (2026-11-13, pending agreement). Never
+ *  the key: only its last four characters, when set up in the app. */
+export interface AiStatus {
+  configured: boolean;
+  provider?: string;
+  ends_with?: string;
+  check?: AiCheck;
+}
+
+/** The AI provider entered in the first-time setup (2026-11-13). */
+export interface AiSetup {
+  provider: "gemini" | "groq" | "openai";
+  key: string;
+  base_url?: string;
+  model?: string;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
   /** Additive and optional (2026-10-18): the person's own tiles, in order. */
@@ -144,6 +168,8 @@ export interface HistoryOffered {
    *  `site.add`. Absent: no list, and the home screen is as it was. */
   sites?: CatalogueSite[];
   genres?: string[];
+  /** Additive and optional (2026-11-13): whether an AI provider is set up. */
+  ai?: AiStatus;
 }
 
 export type FlowName = "registration" | "billing" | "railways";

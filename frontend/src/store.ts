@@ -8,6 +8,8 @@
 import { create } from "zustand";
 
 import type {
+  AiSetup,
+  AiStatus,
   CatalogueSite,
   HandOver,
   SiteAdd,
@@ -241,6 +243,12 @@ interface Store {
    */
   handover: HandOver | null;
   answerHandover: (action: "done" | "cancel") => void;
+  /** Whether an AI provider is set up (2026-11-13), as the backend last said,
+   *  and whether a setup is being checked. Null: the backend did not say,
+   *  and the setup does not ask. */
+  ai: AiStatus | null;
+  aiChecking: boolean;
+  setUpAi: (setup: AiSetup) => void;
   /** A file that could not be read in, said once on the screen it came from. */
   fileNote: string | null;
   setTeachOpen: (open: boolean, address?: string) => void;
@@ -404,9 +412,32 @@ export const useStore = create<Store>((set, get) => {
   const append = (entry: LogEntry) =>
     set((current) => ({ log: [...current.log, entry] }));
 
+  // On the home screen the window stays connected by itself (2026-11-13): the
+  // backend closes the connection when a task ends, and a backend started
+  // after the window is reached as soon as it is up. Never in the middle of
+  // anything — a closing screen's offer belongs to the connection it came on.
+  let retry: number | undefined;
+  let wait = 1000;
+  const keepConnected = () => {
+    window.clearTimeout(retry);
+    retry = window.setTimeout(() => {
+      const now = get();
+      const idle = !now.task && !now.asking && !now.step && !now.completed && !now.failed
+        && !now.help && !now.teaching && !now.handover && now.checklist.length === 0;
+      if (idle && !connection.isOpen && now.status !== "connecting") {
+        connection.connect(now.wsUrl);
+      }
+    }, wait);
+  };
+
   const connection = new BackendConnection({
     onStatus: (status, detail) => {
       set({ status, statusDetail: detail });
+      if (status === "open") wait = 1000;
+      if (status === "closed" || status === "error") {
+        keepConnected();
+        if (status === "error") wait = Math.min(wait * 2, 10_000);
+      }
       // A reset not yet answered, from this session or one before it: this
       // connection opens with an offer made as if it had not happened. That
       // one is not shown, and the reset is said again (2026-10-21).
@@ -461,6 +492,8 @@ export const useStore = create<Store>((set, get) => {
     teachAddress: null,
     teaching: null,
     handover: null,
+    ai: null,
+    aiChecking: false,
     fileNote: null,
     sites: [],
     genres: [],
@@ -551,6 +584,12 @@ export const useStore = create<Store>((set, get) => {
       ...(open ? { welcomeOpen: false, reply: null, addSiteOpen: false } : {}) }),
 
     chooseSite: (id) => set({ chosenSite: id }),
+
+    setUpAi: (setup) => {
+      set({ aiChecking: true });
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.setUpAi(setup);
+    },
 
     answerHandover: (action) => {
       connection.handoverDone({ action });
@@ -890,12 +929,16 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         // A chosen website that is no longer listed is let go.
         const chosen = answered.chosenSite ?? current.chosenSite;
         return { history: offered.goals, tiles: offered.tiles ?? [],
-                 routines: offered.routines ?? [],
+                 routines: offered.routines ?? [], ai: offered.ai ?? current.ai,
                  sites, genres: offered.genres ?? [], ...answered,
                  chosenSite: sites.some((site) => site.id === chosen) ? chosen : null };
       });
       return;
     }
+    case "ai.status":
+      // How the AI setup's check went (2026-11-13).
+      set({ ai: message.payload as AiStatus, aiChecking: false });
+      return;
     case "handover":
       // The page is the person's (2026-11-13): the bar, the website below it.
       hostBar(true);
