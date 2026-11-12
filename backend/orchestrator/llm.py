@@ -29,7 +29,9 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LOG_DIR = REPO_ROOT / "logs"
+#: `SIMBA_LLM_LOG_DIR` moves the transcripts: the installed app keeps them in
+#: the person's profile folder (`frontend/electron/backend.ts`, 2026-11-13).
+LOG_DIR = Path(os.environ.get("SIMBA_LLM_LOG_DIR") or REPO_ROOT / "logs")
 
 ANTHROPIC_DEFAULT_MODEL = "claude-opus-5"
 OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
