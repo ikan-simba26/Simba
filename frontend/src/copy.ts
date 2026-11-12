@@ -347,8 +347,9 @@ export const REPLY = {
   notYet: (where: string) => `I don't know how to do that on ${where} yet.`,
   notYetDetail: "A helper can show me once. Then I can do it on my own.",
   showMeOnce: "Ask a helper to show me once",
-  /** After a refusal, when the list of websites is there. */
-  tryWhere: "Tell me which website, and I'll see what I can do there.",
+  /** Above the cards after a refusal, when the list of websites is there
+   *  (2026-11-13): the same height as "Here's what I can do". A lead-in. */
+  canDoOrWhere: "Tell me the website, or choose one of these",
 } as const;
 
 /* ---------------------------------------------------------------- status */
@@ -746,7 +747,6 @@ export const SITUATIONS: Record<string, string> = {
   "reply.clarify": REPLY.clarify,
   "reply.notYet": REPLY.notYet("gov.uk"),
   "reply.notYetDetail": REPLY.notYetDetail,
-  "reply.tryWhere": REPLY.tryWhere,
   "sites.addDetail": SITES.addDetail,
   "sites.notAdded.name": SITES.notAdded.name,
   "sites.notAdded.address": SITES.notAdded.address,
@@ -773,6 +773,7 @@ export const LEADS: Record<string, string> = {
   "welcome.level3": WELCOME.levelName(3),
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
+  "reply.canDoOrWhere": REPLY.canDoOrWhere,
   "sites.list": SITES.list,
   "sites.name": SITES.name,
   "sites.address": SITES.address,

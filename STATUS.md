@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-11 · **backend 1406 passed, 9 skipped, 0 failed** in 1880s, on mains, on `fix/teach-list-choice` at `551664c` (only the backend half, as asked; the frontend half last ran on `docs/demo-show-me-once`: 714 passed, 1 failed that passed 5 of 5 alone). Merged into `main` on Raham's decision. **Open**: the dropped station press in teaching, cause not found; a log line now says which way it goes next time (EVALUATION.md, 2026-11-11d to f)
+**Last updated:** 2026-11-13 · phase 1 of the advisor's direction, `feat/catalogue-any-site`: the tests it touches pass (backend 139, overlay 442 + 47 after one fix, the new 21 in `frontend/test_sites.py` among them); the full suite not run for it. **Deadline 19 November** (DECISIONS.md, *The advisor's direction of 12 November*). **Open**: the dropped station press in teaching, as on 2026-11-11
 
 ---
 
@@ -83,6 +83,35 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-13: any website, phase 1 — the list of websites, any address, Add a website — `feat/catalogue-any-site`
+
+- **The advisor's direction of 12 November** (Ma'am Samia), approved by Raham on 13 November:
+  SIMBA works on any website, deadline 19 November. Recorded in DECISIONS.md with the plan, its
+  order and what is cut first. CLAUDE.md's *Current phase* says so; **for Nahail and Aly**.
+- **The websites are data** (`data/catalogue.json`, 13 sites in 8 genres: travel, bills,
+  education, government, health, shopping, look things up, practice sites). The person's own go
+  to `data/catalogue.local.json`, never committed, and go with "Forget me". A taught routine is
+  listed on the website it was taught on (`backend/orchestrator/catalogue.py`, 33 tests).
+- **The home screen lists them on the left**, by genre, scrolling inside itself, with "Add a
+  website" at its foot. Choosing one puts what SIMBA can do there in the middle, each with how
+  ("I know this one", "I'll work it out", "A helper showed me") and "Show me a task here" for a
+  helper. A box beside the box to ask in takes any website's address. The three built-in tasks
+  stay, as "Ready to go", until a website is chosen. Fits at 100%, 125% and 150%
+  (`frontend/test_sites.py`, 21 tests).
+- **A goal on a website with no plan is answered "not yet"** until phase 2, with "Ask a helper to
+  show me once" opening Show me once on that address. A built-in plan runs only on its own site;
+  an address written in the goal counts (`backend/orchestrator/test_any_site.py`, 14 tests).
+- **Contract**: `history.offered.sites` and `.genres`, `task.start.site`, `goal.answered` `not_yet`
+  and `.site`, `site.add`, error `SITE_NOT_ADDED`; additive, pending Nahail and Aly. The mock plays
+  them all.
+- **Measured** (EVALUATION.md, 2026-11-12): 20 live sites screened read-only, all HTTP 200, 2.2s to
+  11.9s; Daraz's robots.txt disallows its cart and checkout. The AI providers' free tiers, dated.
+- **Found and fixed on the way**: `data/tiles.json` was not in `.gitignore`; the reply to "book a
+  flight" scrolled at 100% and 150% with a new sentence, now a lead-in of the same height; the
+  Add a website screen scrolled at 125% and 150% stacked, now one row of three boxes.
+- **Flagged**: the added list is not encrypted; the three built-in tiles kept; no way to take an
+  added website off in the app yet. See DECISIONS.md, *Any website, phase 1*.
 
 ### Changed on 2026-11-11 (evening): the dropped station press, looked for — `fix/teach-list-choice`
 

@@ -755,12 +755,10 @@ function Reply() {
         </div>
       ) : reply.kind === "unsupported" ? (
         <>
-        {sites.length > 0 && (
-          <p className="text-lead text-ink short:text-body" data-testid="try-where">
-            {REPLY.tryWhere}
-          </p>
-        )}
-        <Section lead={REPLY.canDo}>
+        {/* With the list of websites, the lead-in says a website can be named
+            (2026-11-13). In place of a sentence of its own, which put "Start"
+            off the bottom at 100% and 150%. */}
+        <Section lead={sites.length > 0 ? REPLY.canDoOrWhere : REPLY.canDo}>
           {reply.flows.map((flow) => (
             <ChoiceCard key={flow} icon={<FlowIcon flow={flow} />}
                         onClick={() => startTask(FLOWS[flow], flow)}>
