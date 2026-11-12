@@ -160,6 +160,8 @@ export const SITES = {
   notThis: "Choose another website",
   /** For a helper, on the chosen website. */
   showHere: "Show me a task here",
+  /** The group at the top of the list: the websites the person chose. */
+  yours: "Your websites",
   /** Above the three tiles when the list is there too. A lead-in. */
   ready: "Ready to go",
 } as const;
@@ -298,6 +300,35 @@ export const WELCOME = {
   forgetDetail: "Your name, your settings and your own tiles go from this computer. Then I start again, as if you had just opened me.",
   forgetYes: "Yes, forget it all",
   forgetNo: "No, keep it",
+  /** The AI helper (2026-11-13): which provider, and its key. */
+  aiAsk: "Which AI helper should I use?",
+  aiDetail: "It works out websites I don't know yet. Your key stays on this computer, locked, and I never show it.",
+  aiGemini: "Gemini, free to start",
+  aiGroq: "Groq",
+  aiOther: "Another one",
+  aiKey: "The key it gave you",
+  aiModel: "Its model",
+  aiSave: "Save and check",
+  aiChecking: "Checking the key now.",
+  /** How the check went, by the backend's word. */
+  aiCheck: {
+    ok: "It works. This key is saved.",
+    key: "That key didn't work. Check it was copied whole.",
+    limit: "The key works, but today's free allowance is used up.",
+    network: "I couldn't reach it. Check the internet connection.",
+    other: "Something went wrong at their end. The key is saved; try again later.",
+    provider: "Choose one of the three first.",
+    address: "That address doesn't look right. It should start with https.",
+    model: "Give the name of its model too.",
+    vault: "This computer can't lock the key away, so I didn't save it.",
+  } as Record<string, string>,
+  /** When one is set up already. */
+  aiSaved: (provider: string, ending?: string) =>
+    ending ? `${provider} is set up, with a key ending ${ending}.` : `${provider} is set up.`,
+  /** The websites to start with (2026-11-13). */
+  sitesAsk: "Which websites do you use most?",
+  sitesDetail: "They go at the top of the list on the home screen. You can choose others any time.",
+  sitesDone: "Use these",
   /** The example shown three ways: a question every journey asks. */
   sample: {
     instruction: "What day are you travelling?",
@@ -770,6 +801,21 @@ export const SITUATIONS: Record<string, string> = {
   "welcome.askDetail": WELCOME.askDetail,
   "welcome.forgetAsk": WELCOME.forgetAsk,
   "welcome.forgetDetail": WELCOME.forgetDetail,
+  "welcome.aiAsk": WELCOME.aiAsk,
+  "welcome.aiDetail": WELCOME.aiDetail,
+  "welcome.aiChecking": WELCOME.aiChecking,
+  "welcome.aiSaved": WELCOME.aiSaved("Gemini", "9f3c"),
+  "welcome.sitesAsk": WELCOME.sitesAsk,
+  "welcome.sitesDetail": WELCOME.sitesDetail,
+  "welcome.aiCheck.ok": WELCOME.aiCheck.ok,
+  "welcome.aiCheck.key": WELCOME.aiCheck.key,
+  "welcome.aiCheck.limit": WELCOME.aiCheck.limit,
+  "welcome.aiCheck.network": WELCOME.aiCheck.network,
+  "welcome.aiCheck.other": WELCOME.aiCheck.other,
+  "welcome.aiCheck.provider": WELCOME.aiCheck.provider,
+  "welcome.aiCheck.address": WELCOME.aiCheck.address,
+  "welcome.aiCheck.model": WELCOME.aiCheck.model,
+  "welcome.aiCheck.vault": WELCOME.aiCheck.vault,
   "tiles.keepAsk": TILES.keepAsk("My bill"),
   "tiles.kept": TILES.kept("My bill"),
   "tiles.editDetail": TILES.editDetail,
@@ -818,6 +864,9 @@ export const LEADS: Record<string, string> = {
   "sites.where": SITES.where,
   "sites.hereICan": SITES.hereICan,
   "sites.ready": SITES.ready,
+  "sites.yours": SITES.yours,
+  "welcome.aiKey": WELCOME.aiKey,
+  "welcome.aiModel": WELCOME.aiModel,
 };
 
 /** Everything that goes on a button. Never punctuated, never two for one place. */
@@ -867,6 +916,11 @@ export const LABELS: Record<string, string> = {
   "welcome.forget": WELCOME.forget,
   "welcome.forgetYes": WELCOME.forgetYes,
   "welcome.forgetNo": WELCOME.forgetNo,
+  "welcome.aiGemini": WELCOME.aiGemini,
+  "welcome.aiGroq": WELCOME.aiGroq,
+  "welcome.aiOther": WELCOME.aiOther,
+  "welcome.aiSave": WELCOME.aiSave,
+  "welcome.sitesDone": WELCOME.sitesDone,
   "tiles.change": TILES.change,
   "tiles.keep": TILES.keep,
   "tiles.notNow": TILES.notNow,

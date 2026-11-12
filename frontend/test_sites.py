@@ -121,6 +121,12 @@ class Backend:
                                 "address": "https://clinic.example.pk/",
                                 "genre": payload["genre"], "tasks": [], "added": True})
                             await send("history.offered", offer)
+                        elif message["type"] == "ai.setup":
+                            key = payload.get("key", "")
+                            await send("ai.status", {
+                                "configured": True, "provider": "Gemini",
+                                "ends_with": key[-4:],
+                                "check": getattr(self, "verdict", "ok")})
                         elif message["type"] == "handover.done":
                             if payload.get("action") == "done":
                                 await send("task.completed", {

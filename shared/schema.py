@@ -62,6 +62,9 @@ MessageType = Literal[
     # pay, or to pass a check for a person — and their word that they are done.
     "handover",
     "handover.done",
+    # Pending agreement (2026-11-13): the AI provider set up in the app.
+    "ai.setup",
+    "ai.status",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -145,6 +148,38 @@ class CatalogueSite(BaseModel):
     added: bool = False
 
 
+AiCheck = Literal["ok", "key", "limit", "network", "other", "provider", "address", "model",
+                  "vault", "not_checked"]
+
+
+class AiStatus(BaseModel):
+    """Whether an AI provider is set up (2026-11-13, pending agreement), and
+    how the last check went. Never the key: only its last four characters,
+    when it was set up in the app."""
+
+    configured: bool
+    provider: Optional[str] = None
+    ends_with: Optional[str] = None
+    check: AiCheck = "not_checked"
+
+
+class AiSetup(BaseModel):
+    """The AI provider entered in the first-time setup (2026-11-13, pending
+    agreement): `gemini`, `groq` or `openai` (any OpenAI-compatible, with its
+    own `base_url` and `model`), and the key. Kept encrypted on this computer;
+    answered with `ai.status`."""
+
+    provider: str
+    key: str
+    base_url: Optional[str] = None
+    model: Optional[str] = None
+
+    def __repr__(self) -> str:  # never the key
+        return f"AiSetup(provider={self.provider!r}, key=...)"
+
+    __str__ = __repr__
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -165,6 +200,9 @@ class HistoryOffered(BaseModel):
     # `site.add`. Absent: no list, and the home screen is as it was.
     sites: Optional[List[CatalogueSite]] = None
     genres: Optional[List[str]] = None
+    # Additive and optional (2026-11-13). Whether an AI provider is set up,
+    # for the first-time setup and settings. Absent: the setup does not ask.
+    ai: Optional[AiStatus] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]

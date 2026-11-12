@@ -8,6 +8,8 @@
 import { create } from "zustand";
 
 import type {
+  AiSetup,
+  AiStatus,
   CatalogueSite,
   HandOver,
   SiteAdd,
@@ -241,6 +243,12 @@ interface Store {
    */
   handover: HandOver | null;
   answerHandover: (action: "done" | "cancel") => void;
+  /** Whether an AI provider is set up (2026-11-13), as the backend last said,
+   *  and whether a setup is being checked. Null: the backend did not say,
+   *  and the setup does not ask. */
+  ai: AiStatus | null;
+  aiChecking: boolean;
+  setUpAi: (setup: AiSetup) => void;
   /** A file that could not be read in, said once on the screen it came from. */
   fileNote: string | null;
   setTeachOpen: (open: boolean, address?: string) => void;
@@ -484,6 +492,8 @@ export const useStore = create<Store>((set, get) => {
     teachAddress: null,
     teaching: null,
     handover: null,
+    ai: null,
+    aiChecking: false,
     fileNote: null,
     sites: [],
     genres: [],
@@ -574,6 +584,12 @@ export const useStore = create<Store>((set, get) => {
       ...(open ? { welcomeOpen: false, reply: null, addSiteOpen: false } : {}) }),
 
     chooseSite: (id) => set({ chosenSite: id }),
+
+    setUpAi: (setup) => {
+      set({ aiChecking: true });
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.setUpAi(setup);
+    },
 
     answerHandover: (action) => {
       connection.handoverDone({ action });
@@ -913,12 +929,16 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         // A chosen website that is no longer listed is let go.
         const chosen = answered.chosenSite ?? current.chosenSite;
         return { history: offered.goals, tiles: offered.tiles ?? [],
-                 routines: offered.routines ?? [],
+                 routines: offered.routines ?? [], ai: offered.ai ?? current.ai,
                  sites, genres: offered.genres ?? [], ...answered,
                  chosenSite: sites.some((site) => site.id === chosen) ? chosen : null };
       });
       return;
     }
+    case "ai.status":
+      // How the AI setup's check went (2026-11-13).
+      set({ ai: message.payload as AiStatus, aiChecking: false });
+      return;
     case "handover":
       // The page is the person's (2026-11-13): the bar, the website below it.
       hostBar(true);

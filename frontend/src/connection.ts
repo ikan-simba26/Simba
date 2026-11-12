@@ -17,6 +17,7 @@ import type {
   MessageType,
   RoutineExport,
   RoutineImport,
+  AiSetup,
   HandoverDone,
   SiteAdd,
   StepResponse,
@@ -119,6 +120,11 @@ export class BackendConnection {
     // The website to do it on, listed or typed (2026-11-13).
     if (site) payload.site = site;
     this.send("task.start", payload);
+  }
+
+  /** The AI provider and key from the first-time setup (2026-11-13). */
+  setUpAi(setup: AiSetup): void {
+    this.send("ai.setup", setup);
   }
 
   /** The person's word on the handover bar (2026-11-13). */

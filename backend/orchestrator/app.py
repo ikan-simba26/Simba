@@ -65,7 +65,10 @@ from backend.orchestrator.catalogue import (
 )
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
-from backend.orchestrator.llm import LLMError, provider_from_env
+from backend.orchestrator.llm import LLMError, label_for, provider_from_env
+from backend.orchestrator.ai_settings import (
+    AiStore, SettingsError, check as check_ai, provider_for, settings_from,
+)
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalPlanner
 from backend.orchestrator import robots
 from backend.estimator import page_model
@@ -94,6 +97,8 @@ from backend.orchestrator.routines import (
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import (
+    AiSetup,
+    AiStatus,
     CatalogueSite,
     CatalogueTask,
     ErrorPayload,
@@ -271,7 +276,43 @@ def past_goals(tiles: TileStore | None = None,
              for site in offered(listed, kept)]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
                                  for goal, site in goals],
-                          tiles=own, routines=taught, sites=sites, genres=listed.genres)
+                          tiles=own, routines=taught, sites=sites, genres=listed.genres,
+                          ai=ai_status())
+
+
+def ai_status(check: str = "not_checked") -> AiStatus:
+    """Whether an AI provider is set up, from the app's setup or `.env`
+    (2026-11-13). Its name and, set up in the app, the key's last four."""
+    saved = AiStore().load()
+    if saved is not None:
+        return AiStatus(configured=True, provider=label_for(saved.base_url),
+                        ends_with=saved.ends_with or None, check=check)
+    provider = open_goal_provider()
+    if provider is None:
+        return AiStatus(configured=False, check=check)
+    return AiStatus(configured=True, provider=getattr(provider, "label", None), check=check)
+
+
+async def set_up_ai(connection: Connection, message: dict) -> bool:
+    """`ai.setup` from the first-time setup (2026-11-13). Whether it was one.
+    Kept, encrypted, then checked with one small question; answered with
+    `ai.status`. The key is never logged or sent back."""
+    if message.get("type") != "ai.setup":
+        return False
+    try:
+        wanted = AiSetup.model_validate(message.get("payload") or {})
+        settings = settings_from(wanted.provider, wanted.key, wanted.base_url, wanted.model)
+        AiStore().save(settings)
+    except SettingsError as error:
+        await connection.send("ai.status", ai_status(error.reason))
+        return True
+    except ValueError:
+        await connection.send("ai.status", ai_status("key"))
+        return True
+    verdict = await check_ai(provider_for(settings))
+    log.info("ai: setup checked: %s", verdict)
+    await connection.send("ai.status", ai_status(verdict))
+    return True
 
 
 #: The `error` code for a website that could not be added (2026-11-13).
@@ -485,6 +526,9 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             return
         # A website added to the list (2026-11-13).
         if await add_site(connection, message, tiles, routines, catalogue):
+            return
+        # The AI provider, set up in the first-time setup (2026-11-13).
+        if await set_up_ai(connection, message):
             return
         # A routine saved to a file, or read from one (2026-11-04).
         if await share_routine(connection, message, tiles, routines):
