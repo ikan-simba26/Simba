@@ -123,6 +123,10 @@ class CatalogueTask(BaseModel):
     how: How
     flow: Optional["FlowName"] = None
     routine: Optional[str] = None
+    # Additive and optional (2026-11-13). A routine taught on another website
+    # of the same genre: that website's name. Pressed here, the routine runs on
+    # this website (`task.start.routine` with `site`).
+    taught_on: Optional[str] = None
 
 
 class CatalogueSite(BaseModel):

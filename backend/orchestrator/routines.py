@@ -376,3 +376,27 @@ def file_name(label: str) -> str:
     stem = re.sub(r"[^A-Za-z0-9]+", "-", label).strip("-").lower()[:LABEL_MAX] or "routine"
     return f"{stem}.simba-routine.json"
 
+
+def moved_to(routine: Routine, address: str) -> Routine:
+    """The same routine, run on another website (2026-11-13, the advisor's
+    direction: "one taught routine may move from one website to another").
+
+    For a sister site laid out the same way — one electricity company's bill
+    page and another's. Every move is still found by its role and label on
+    the page as it is then, and checked; a site laid out differently stops
+    honestly, as a changed site does. What moves is where it starts, and each
+    move's expected address: a path under the old start path is put under the
+    new one (`/iescobill/general` on one site is `/lescobill/general` on the
+    other); any other path is kept as it was."""
+    old = urlsplit(routine.start).path.rstrip("/")
+    new = urlsplit(address).path.rstrip("/")
+
+    def move(path: str | None) -> str | None:
+        if path is None or not old or old == new:
+            return path
+        if path == old or path.startswith(old + "/"):
+            return new + path[len(old):]
+        return path
+
+    steps = tuple(replace(step, expect_url=move(step.expect_url)) for step in routine.steps)
+    return replace(routine, start=address, steps=steps)

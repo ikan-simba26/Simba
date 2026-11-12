@@ -65,6 +65,9 @@ class Task:
     how: str
     flow: str | None = None
     routine: str | None = None
+    #: A routine taught on another website (2026-11-13): that website's name.
+    #: Run here, it is moved to this website (`routines.moved_to`).
+    taught_on: str | None = None
 
 
 @dataclass(frozen=True)
@@ -286,14 +289,31 @@ class CatalogueStore:
 def offered(catalogue: Catalogue, routines: list | None = None) -> list[Site]:
     """The sites as the home screen lists them: each routine a helper taught is
     added to the site it was taught on, by host, as a task done "taught". A
-    routine on a site that is not listed stays a tile only."""
-    taught: dict[str, list[Task]] = {}
-    for routine in routines or []:
-        host = host_of(getattr(routine, "start", ""))
-        taught.setdefault(host, []).append(
-            Task(label=routine.label, goal=routine.label, how="taught", routine=routine.id))
-    if not taught:
+    routine on a site that is not listed stays a tile only.
+
+    And to every other listed site of the same genre, marked with where it was
+    taught (2026-11-13, "one taught routine may move from one website to
+    another"): a bill taught on one electricity company's page is offered on
+    another's. Run there, every move is still found by role and label and
+    checked; a site laid out differently stops honestly."""
+    if not routines:
         return list(catalogue.sites)
+    by_host = {site.host: site for site in catalogue.sites}
+    here: dict[str, list[Task]] = {}
+    elsewhere: dict[str, list[Task]] = {}
+    for routine in routines:
+        host = host_of(getattr(routine, "start", ""))
+        here.setdefault(host, []).append(
+            Task(label=routine.label, goal=routine.label, how="taught", routine=routine.id))
+        origin = by_host.get(host)
+        if origin is None:
+            continue
+        for site in catalogue.sites:
+            if site.host != host and site.genre == origin.genre:
+                elsewhere.setdefault(site.host, []).append(
+                    Task(label=routine.label, goal=routine.label, how="taught",
+                         routine=routine.id, taught_on=origin.name))
     return [Site(id=site.id, name=site.name, address=site.address, genre=site.genre,
-                 tasks=site.tasks + tuple(taught.get(site.host, ())), added=site.added)
+                 tasks=site.tasks + tuple(here.get(site.host, ()))
+                 + tuple(elsewhere.get(site.host, ())), added=site.added)
             for site in catalogue.sites]

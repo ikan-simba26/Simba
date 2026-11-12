@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · phase 2 of the advisor's direction, `feat/orchestrator-ai-live-sites`: backend/orchestrator 873 passed, 5 skipped, 0 failed (after the blocked-page fix; 992 with perception before it); the overlay tests it touches run before merging; full suite not run. **Deadline 19 November.** **Open**: the dropped station press in teaching
+**Last updated:** 2026-11-13 · phase 3 of the advisor's direction, `feat/orchestrator-teach-any-site`: the routine, teaching, site and mock tests, 195 passed, and the overlay's site tests, 28; full suite not run. **Deadline 19 November.** **Open**: the dropped station press in teaching (passed this time)
 
 ---
 
@@ -83,6 +83,20 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-13 (later still): teach on any website, phase 3 — `feat/orchestrator-teach-any-site`
+
+- **A taught routine runs on a sister website** (`routines.moved_to`): the bill taught on one
+  billing copy ran on a second copy at another address, 0 model calls, the amount read there
+  (`test_routine_moved.py`, 6 tests). Its start and the addresses it expects move; every move is
+  still found and checked; robots.txt is asked first.
+- **The list offers it on the other websites of its genre**, "A helper showed me on …", and the
+  website's panel runs it there (`task.start.routine` with `site`; `CatalogueTask.taught_on`).
+- **"Show me a task here"** opens Show me once on the chosen website's address; the stuck
+  screen's offer (phase 2) does the same. Teaching itself was already any-address.
+- **Found and fixed**: with a taught tile above, the website's panel scrolled the home screen at
+  150%; "Show me a task here" now shares the website's row.
+- **Flagged**: offered by genre, which is broad. See DECISIONS.md, *Teach on any website, phase 3*.
 
 ### Changed on 2026-11-13 (later): AI on any website, phase 2 — `feat/orchestrator-ai-live-sites`
 

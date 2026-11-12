@@ -425,3 +425,25 @@ def test_a_move_the_ai_chose_says_who_worked_it_out(
     assert line.is_visible()
     assert line.inner_text().strip() == "Worked out with Groq."
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+
+
+# --- phase 3: a task taught on a sister website (2026-11-13) --------------------------
+
+
+def test_a_task_taught_on_a_sister_site_runs_on_the_one_chosen(
+        browser, overlay, offer, pages):  # noqa: F811
+    taught = json.loads(json.dumps(offer))
+    taught["routines"] = [{"id": "r1", "label": "My bill", "site": "bill.pitc.com.pk"}]
+    gas = next(site for site in taught["sites"] if site["id"] == "ssgc")
+    gas["tasks"].append({"label": "My bill", "goal": "My bill", "how": "taught",
+                         "routine": "r1", "taught_on": "IESCO electricity bill"})
+    backend = Backend(taught)
+    page = home(browser, overlay, backend, "150%", pages)
+    page.get_by_test_id("site").filter(has_text="Sui Southern Gas").click()
+    task = page.get_by_test_id("site-task").filter(has_text="My bill")
+    assert "A helper showed me on IESCO electricity bill" in task.inner_text()
+    assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+    task.click()
+    page.wait_for_timeout(500)
+    start = backend.sent("task.start")[-1]
+    assert (start["routine"], start["site"]) == ("r1", "https://www.ssgc.com.pk/")

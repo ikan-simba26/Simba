@@ -88,7 +88,9 @@ from backend.orchestrator.router import (
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
 from backend.orchestrator.teach import teach
 from backend.orchestrator.routine_plan import RoutineBrief, routine_sentence
-from backend.orchestrator.routines import NotARoutine, RoutineStore, export, file_name, parse
+from backend.orchestrator.routines import (
+    NotARoutine, RoutineStore, export, file_name, moved_to, parse,
+)
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import (
@@ -263,7 +265,8 @@ def past_goals(tiles: TileStore | None = None,
     sites = [CatalogueSite(id=site.id, name=site.name, address=site.address, genre=site.genre,
                            added=site.added,
                            tasks=[CatalogueTask(label=t.label, goal=t.goal, how=t.how,
-                                                flow=t.flow, routine=t.routine)
+                                                flow=t.flow, routine=t.routine,
+                                                taught_on=t.taught_on)
                                   for t in site.tasks])
              for site in offered(listed, kept)]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
@@ -324,6 +327,12 @@ def open_goal_provider():
 #: How many moves a goal with no plan is told to expect. A guess the person
 #: never sees as a count: the stages are not named for an open goal.
 OPEN_GOAL_STEPS = 6
+
+
+def _place(address: str) -> tuple[str, str]:
+    """Where an address is, for telling two websites apart: host and path. Two
+    electricity companies' bill pages share a host (2026-11-13)."""
+    return host_of(address), urlsplit(address).path.rstrip("/")
 
 
 def is_flows_site(flow: str, site: str, catalogue: CatalogueStore) -> bool:
@@ -521,6 +530,17 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         routine = routines.get(payload.get("routine")) if payload.get("routine") else None
         if routine is not None:
             goal = routine.label
+            # On another website (2026-11-13): moved there, if the site lets
+            # programs use it. Every move is still found and checked there.
+            elsewhere = site_for(payload, "")
+            if elsewhere is not None and _place(elsewhere) != _place(routine.start):
+                if not await robots.allowed(elsewhere):
+                    await connection.send("goal.answered", GoalAnswered(
+                        kind="not_allowed", goal=goal, flows=[], site=elsewhere))
+                    continue
+                log.info("routine moved from %s to %s", host_of(routine.start),
+                         host_of(elsewhere))
+                routine = moved_to(routine, elsewhere)
             break
 
         # One of the person's own tiles (2026-10-18): its flow and its kept

@@ -6482,3 +6482,25 @@ Each of these was decided while building, not asked for. **Flagged for review** 
   *Flagged*: a heading such as "Security check" on a bank's ordinary page would stop a run
   wrongly; a stop costs the person one more thing to do, and a missed check would be SIMBA
   trying to get past one. Phase 4 turns this stop into a handover with the page shown.
+
+
+## Teach on any website, phase 3: what was settled along the way — `feat/orchestrator-teach-any-site`, 2026-11-13
+
+- **"Across websites" is a routine run on a sister website** (as approved): the same moves,
+  found by role and label on the other website, each checked. What moves is the start address
+  and every expected address under the start's path (`/iescobill/general` becomes
+  `/lescobill/general`); other paths stay. Two pages on one host with different paths are two
+  websites (IESCO's and LESCO's bills are both on `bill.pitc.com.pk`).
+- **A routine is offered on the other listed websites of its own genre**, marked "A helper
+  showed me on …". *Flagged*: by genre is broad — a bill taught on an electricity page is offered
+  on the gas company's, where it will most likely stop honestly at its first move. Options: by
+  genre (done); only websites a helper marks as alike (needs a field in the catalogue and a way
+  to set it); offer nowhere and let the person type the address. Recommended: by genre for the
+  19th, since a wrong offer ends in an honest stop, not a wrong answer.
+- **Teaching itself needed nothing new**: "Show me once" already watched any address; the
+  website's panel and the stuck screen now open it with the address filled in. The dropped
+  station press (`test_routine_lists.py`) is in `teach.py`, which this phase does not touch, so it
+  stays open as on 2026-11-11.
+- **The website panel is one row shorter**: "Show me a task here" sits in the website's own row,
+  and "What I can do here" is not shown in a short window. With a taught tile above, the panel
+  scrolled the home screen at 150% (found by the new test).

@@ -110,17 +110,26 @@ export function SitePanel({ site }: { site: CatalogueSite }) {
   return (
     <section className="flex flex-col gap-3 short:gap-2" aria-label={site.name}
              data-testid="site-panel">
+      {/* One row for the website and both ways out of it: with the person's
+          own tiles above, a row each put the box to ask in off the bottom at
+          150% (measured 2026-11-13). */}
       <div className="flex items-baseline justify-between gap-4">
-        <p className="min-w-0 text-small font-medium text-soft">
+        <p className="min-w-0 truncate text-small font-medium text-soft">
           <span className="font-semibold text-ink">{site.name}</span>
           <span className="ml-2">{hostOf(site.address)}</span>
         </p>
-        <Button variant="quiet" size="md" wide={false} onClick={() => chooseSite(null)}
-                data-testid="site-not-this">
-          {SITES.notThis}
-        </Button>
+        <div className="flex shrink-0 items-baseline gap-4">
+          <Button variant="quiet" size="md" wide={false}
+                  onClick={() => setTeachOpen(true, site.address)} data-testid="site-show-here">
+            {SITES.showHere}
+          </Button>
+          <Button variant="quiet" size="md" wide={false} onClick={() => chooseSite(null)}
+                  data-testid="site-not-this">
+            {SITES.notThis}
+          </Button>
+        </div>
       </div>
-      <p className="text-small font-medium text-soft">{SITES.hereICan}</p>
+      <p className="text-small font-medium text-soft short:hidden">{SITES.hereICan}</p>
       <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="site-tasks">
         {site.tasks.map((task) => (
           <li key={`${task.how}-${task.routine ?? task.label}`}>
@@ -129,7 +138,10 @@ export function SitePanel({ site }: { site: CatalogueSite }) {
                     onClick={() => {
                       const routine = task.routine
                         ? routines.find((r) => r.id === task.routine) : undefined;
-                      if (routine) startRoutine(routine);
+                      // Taught on a sister website (2026-11-13): run here.
+                      if (routine && task.taught_on) {
+                        startTask(routine.label, undefined, undefined, routine.id, site.address);
+                      } else if (routine) startRoutine(routine);
                       else startTask(task.goal, task.flow, undefined, undefined,
                                      task.flow ? undefined : site.address);
                     }}
@@ -143,18 +155,14 @@ export function SitePanel({ site }: { site: CatalogueSite }) {
                 <span className="line-clamp-2 text-body font-semibold leading-snug text-ink">
                   {task.label}
                 </span>
-                <span className="text-small text-soft">{SITES.how[task.how]}</span>
+                <span className="line-clamp-1 text-small text-soft">
+                  {task.taught_on ? SITES.taughtOn(task.taught_on) : SITES.how[task.how]}
+                </span>
               </span>
             </button>
           </li>
         ))}
       </ul>
-      <div className="flex items-center gap-4">
-        <Button variant="quiet" size="md" wide={false}
-                onClick={() => setTeachOpen(true, site.address)} data-testid="site-show-here">
-          {SITES.showHere}
-        </Button>
-      </div>
     </section>
   );
 }
