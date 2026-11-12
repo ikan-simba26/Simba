@@ -164,6 +164,18 @@ export const SITES = {
   ready: "Ready to go",
 } as const;
 
+/**
+ * The bar while the real page is the person's (2026-11-13): to pay, or to pass
+ * a check that a person is there. The sentence on it is the backend's
+ * (`voice.HANDOVER_*`).
+ */
+export const HANDOVER = {
+  /** Under the sentence: which website it is. */
+  on: (site: string) => `On ${site}`,
+  done: "I've finished",
+  stop: "Stop, change nothing",
+} as const;
+
 /** Under a move the AI planner chose (2026-11-13, the advisor's direction):
  *  which provider worked it out, small. */
 export const WORKED_OUT_BY = (provider: string) => `Worked out with ${provider}.`;
@@ -874,5 +886,7 @@ export const LABELS: Record<string, string> = {
   "sites.how.ai": SITES.how.ai,
   "sites.how.taught": SITES.how.taught,
   "sites.taughtOn": SITES.taughtOn("IESCO electricity bill"),
+  "handover.done": HANDOVER.done,
+  "handover.stop": HANDOVER.stop,
   "reply.showMeOnce": REPLY.showMeOnce,
 };

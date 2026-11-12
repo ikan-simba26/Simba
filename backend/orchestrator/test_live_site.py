@@ -67,10 +67,17 @@ def fill(label: str) -> PlanStep:
     ("<label>IBAN <input></label>", "IBAN"),
 ], ids=["card", "cvv", "autocomplete", "iban"])
 def test_card_and_bank_details_are_never_typed(box: str, label: str) -> None:
-    done, _ = drive(page(box), [fill(label)])
+    """Never typed, on any site. Since 2026-11-13 the page is handed to the
+    person to type them there (`test_handover.py`) rather than the run ending;
+    here the script's person does nothing, so the page cannot say it was paid."""
+    from backend.orchestrator.test_handover import drive as drive_handing
 
-    assert done.of("help.requested")[0]["reason"] == voice.NO_PAYMENT_DETAILS
+    done, _ = drive_handing(page(box), [fill(label)])
+
+    assert done.of("handover")[0]["reason"] == "payment"
     assert done.of("step.presented") == []  # not even asked
+    assert "4111111111111111" not in repr(done.sent)
+    assert done.of("help.requested")[0]["reason"] == voice.PAYMENT_NOT_SEEN
 
 
 def test_an_ordinary_box_is_still_typed_into() -> None:

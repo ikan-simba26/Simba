@@ -744,6 +744,35 @@ AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
 #: one-time code or a refusal (2026-11-13). SIMBA never gets past one.
 BLOCKED = ("The website wants to check that a person is using it. That part is "
            "yours to do, so I've stopped here.")
+# --- handing the page to the person (2026-11-13) ------------------------------
+#
+# Paying, a one-time code, a CAPTCHA: the person's to do, on the real page.
+# SIMBA never types, reads, logs or keeps what they enter there.
+
+#: On the handover bar, to pay.
+HANDOVER_PAYMENT = ("Your turn: pay on the page below. Type your card details or code there "
+                    "yourself. I don't see or keep them. Press I've finished when it's done.")
+#: On the handover bar, for a check that a person is there.
+HANDOVER_CHECK = ("The website wants to check that a person is using it. Please do that on "
+                  "the page below, then press I've finished.")
+#: The closing screen's heading when the page says the payment went through.
+PAID = "The website says it went through."
+#: Under it, always: what SIMBA did not do while the page was theirs.
+PAID_CAVEAT = "You paid on the website yourself. I didn't see or keep your card details or code."
+#: `help.requested.reason` when, after paying, the page says nothing either way.
+PAYMENT_NOT_SEEN = ("I can't tell from the page whether the payment went through. "
+                    "Please check your bank or the website before you try again.")
+#: `task.failed.reason` when the person stopped while the page was theirs.
+HANDED_BACK_STOPPED = "I've stopped, as you asked. I didn't change anything."
+#: A final screen's detail read from the page's own words: its amounts.
+ON_THE_PAGE = "On the page"
+
+
+def site_says(text: str) -> str:
+    """The page's own words, quoted: 'The website says: “Payment successful”.'"""
+    return f"The website says: “{text}”."
+
+
 #: `goal.answered`'s `not_allowed`, said by the overlay; here for the log.
 NOT_ALLOWED = "This website asks programs like me not to use that page."
 
@@ -872,6 +901,11 @@ TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
 PAY_STAGE = "Pay"
 #: The quiet second button on a bill's closing screen, on a replica only.
 PAY_THIS_BILL = "Pay this bill"
+#: The final screen when the bill is paid by card through the test gateway
+#: (2026-11-13): SIMBA opens the card page; the person pays there.
+FINAL_PAY_CARD = ("I'll open the card payment page for this bill. You'll type your card "
+                  "details there yourself.")
+PAY_BY_CARD = "Go to card payment"
 PAY_ID = "pay"
 DOING_PAYMENT_PAGE = "Opening the payment page"
 OPEN_PAYMENT = "Open the page"

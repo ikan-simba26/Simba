@@ -8624,3 +8624,33 @@ pressed past a link. The screening of 12 November loaded timeanddate's page whol
 run met the check — a site can decide differently per visit, and a headless browser is more
 likely to be checked than SIMBA's own window. **Not measured yet**: a goal that needs a search
 or a form, the Groq fallback live, and any run through the Electron window.
+
+
+## 2026-11-13b — payment handover and live changes: what the tests show (`feat/orchestrator-payment-handover`)
+
+No live site was paid or ordered on; nothing here touched another computer. Every number is a
+test count, through the real loop in real Chromium, on `data:` pages (which count as live
+sites) and on the billing copy with its new test card gateway.
+
+| What | Tests | Result |
+|---|---|---|
+| An order on a live site: final screen, "do it", SIMBA presses; "don't", nothing pressed | 2 | pass |
+| The live final screen shows the page's own amount ("Total: Rs 450") | 1 | pass |
+| A press that pays on a live site: final screen, then handed over; SIMBA's clicks on Pay: **0** | 1 | pass |
+| After paying, the page's words quoted; nothing said: "I can't tell…", unconfirmed | 2 | pass |
+| A card box: handed over before any move; the number typed by the person never in anything sent | 3 | pass |
+| A CAPTCHA or bot check: handed over, the task goes on; still there after two, stops | 2 + 2 | pass |
+| The test gateway: the test card and code go through, any other card declined and never echoed, a wrong code asked again, "TEST GATEWAY" on every page | 4 | pass |
+| **A bill paid by card end to end**: final screen with the bill's own details, SIMBA presses "Pay by card", the gateway page handed over, the person types card and code, "Payment Received" quoted | 1 | pass |
+| Stop on the card page: nothing changed, the page left as it was | 1 | pass |
+| The two old tests of the old rule, rewritten to the new one | 5 | pass |
+
+**The backend half** (`pytest backend tools test_basetemp.py`), at the phase's first commit, on
+mains: **1540 passed, 2 failed, 9 skipped, 1920s**. The two were phase 2's bot-check tests, which
+expected the run to end at once; under the new rule the check is handed to the person first.
+Rewritten to expect two handovers and then the stop, with no model asked: 8 of 8.
+
+**Failed on the way, and not a defect**: the end-to-end test first said the card number had
+been sent. It had not: the assertion chained three checks, and the one that failed was the
+one-time code, 123456, which is inside the reference number 04141234567890. Looked for as a
+whole value it is absent too; the card number never was present.

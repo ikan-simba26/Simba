@@ -58,6 +58,10 @@ MessageType = Literal[
     # Pending agreement (2026-11-13, the advisor's direction): a website added
     # to the list on the home screen.
     "site.add",
+    # Pending agreement (2026-11-13): the real page handed to the person — to
+    # pay, or to pass a check for a person — and their word that they are done.
+    "handover",
+    "handover.done",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -350,6 +354,21 @@ class HelpRequested(BaseModel):
     teach_site: Optional[str] = None
 
 
+class HandOver(BaseModel):
+    """The real page, handed to the person (2026-11-13, pending agreement).
+
+    `reason` is `payment` — card or bank details, a one-time code, or the
+    press that pays — or `check`: a CAPTCHA or a check that a person is there.
+    SIMBA never does either. The overlay steps aside to a bar with `sentence`
+    and shows the website below it, as for "Show me once", until the person
+    says they have finished (`handover.done`) or stops. Nothing they type is
+    read, logged or kept. `site` is the page's host, for the bar."""
+
+    reason: Literal["payment", "check"]
+    sentence: str
+    site: str
+
+
 class TaskOffer(BaseModel):
     """What can follow an answer, on our replicas (2026-10-16): a quiet
     second button on the closing screen. Pressed, the overlay sends a
@@ -540,6 +559,13 @@ class RoutineImport(BaseModel):
     kept, and an `error` with code `ROUTINE_NOT_READ` saying why when not."""
 
     file: str
+
+
+class HandoverDone(BaseModel):
+    """The person's answer on the handover bar (2026-11-13, pending
+    agreement): `done` — read the page now — or `cancel`, which stops."""
+
+    action: Literal["done", "cancel"]
 
 
 class SiteAdd(BaseModel):

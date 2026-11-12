@@ -198,11 +198,17 @@ def test_a_check_for_a_person_stops_before_the_model_is_asked(tmp_path, html):
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path))
     server = socketserver.TCPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    from backend.orchestrator.test_handover import Handing
+
     try:
         provider = Scripted([answer("Just a moment…")])
-        connection = run(f"http://127.0.0.1:{server.server_address[1]}/index.html", provider)
+        # Since phase 4 the check is handed to the person first; here the
+        # person does nothing, so it is still there after two, and SIMBA stops.
+        connection = run(f"http://127.0.0.1:{server.server_address[1]}/index.html", provider,
+                         Handing())
     finally:
         server.shutdown()
-    assert connection.payload_of("help.requested")["reason"] == voice.BLOCKED
+    assert [h["reason"] for h in connection.of("handover")] == ["check", "check"]
+    assert connection.of("help.requested")[0]["reason"] == voice.BLOCKED
     assert provider.pages == []
     assert "task.completed" not in connection.types()

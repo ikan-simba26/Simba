@@ -27,6 +27,11 @@
   <button type="submit">Confirm Payment</button>
 </form>
 
+<form method="get" action="{{ url_for('gateway_checkout') }}" class="enquiry">
+  <input type="hidden" name="reference" value="{{ reference }}">
+  <button type="submit">Pay by card (test gateway)</button>
+</form>
+
 <p class="tiny">
   Payments made after 16:00 are posted on the next working day. A payment
   posted after the due date attracts the late payment surcharge shown on the

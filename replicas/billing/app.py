@@ -124,5 +124,61 @@ def pay():
                            paid_on=paid_on)
 
 
+# --- a test card gateway (2026-11-13, the advisor's direction, H) -------------
+#
+# The round trip a real payment makes — the bill's site hands over to a card
+# gateway, the bank asks for a one-time code, the gateway hands back with a
+# receipt — so SIMBA's handover can be shown end to end with no real money.
+# A stand-in, labelled as one on every page: Safepay's sandbox is the real
+# gateway proposed, and needs an account (DECISIONS.md, 2026-11-13). Only the
+# test card is accepted; nothing typed is stored, logged or sent anywhere, and
+# card details travel only in POST bodies, which Flask does not log.
+
+TEST_CARD = "4242424242424242"
+TEST_CODE = "123456"
+
+
+def _gateway(stage: str, reference: str, title: str, error: str | None = None, **extra):
+    return render_template("gateway.html", stage=stage, reference=reference, title=title,
+                           amount=BILL["payable_within"], error=error, **extra)
+
+
+@app.route("/gateway/checkout")
+def gateway_checkout():
+    reference = (request.args.get("reference") or "").strip()
+    if not reference:
+        return redirect(url_for("lookup", error="Enter a reference number to continue."))
+    return _gateway("card", reference, "Card payment")
+
+
+@app.route("/gateway/card", methods=["POST"])
+def gateway_card():
+    reference = (request.form.get("reference") or "").strip()
+    number = "".join(ch for ch in request.form.get("cc-number", "") if ch.isdigit())
+    if number != TEST_CARD:
+        return _gateway("card", reference, "Card payment",
+                        error="Card declined. This test gateway takes only the test card.")
+    return _gateway("otp", reference, "Verify your payment", attempt=1)
+
+
+@app.route("/gateway/otp", methods=["POST"])
+def gateway_otp():
+    reference = (request.form.get("reference") or "").strip()
+    if (request.form.get("otp") or "").strip() != TEST_CODE:
+        return _gateway("otp", reference, "Verify your payment", attempt=2,
+                        error="That code is not right. Try again.")
+    transaction = f"TXN-{zlib.crc32(('card' + reference).encode()) % 1_000_000:06d}"
+    return redirect(url_for("paid_by_card", reference=reference, transaction=transaction))
+
+
+@app.route("/bill/paid")
+def paid_by_card():
+    reference = (request.args.get("reference") or "").strip()
+    transaction = (request.args.get("transaction") or "").strip()
+    paid_on = datetime.date.today().strftime("%d-%m-%Y")
+    return render_template("receipt.html", bill=BILL, reference=reference,
+                           receipt=transaction, paid_on=paid_on, by_card=True)
+
+
 if __name__ == "__main__":
     app.run(port=int(os.environ.get("PORT", "5100")))

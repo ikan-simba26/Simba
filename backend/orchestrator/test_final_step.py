@@ -178,15 +178,18 @@ PAGE = ("data:text/html," + quote(
     "<button onclick='window.__clicked=(window.__clicked||0)+1'>Pay now</button>"))
 
 
-def test_on_a_site_that_is_not_ours_a_change_is_never_made() -> None:
+def test_on_a_site_that_is_not_ours_paying_is_never_pressed_by_simba() -> None:
+    """Until 2026-11-13 no change was made on a live site at all. By the
+    advisor's direction (G, F) a change there waits for its final screen, and
+    a press that pays is then handed to the person: SIMBA never presses Pay.
+    `test_handover.py` has the rest of the new rule."""
     step = PlanStep(instruction="Pay.", detail="", actions=voice.actions("Pay"),
                     operations=[Operation("click", Target("button", "Pay now"))],
                     expect=Expectation(), changes=True)
 
-    done, page = drive(PAGE, [step])
+    done, page = drive(PAGE, [step], [("confirm", {})])
 
-    assert done.of("help.requested")[0]["reason"] == voice.NOT_ON_A_REAL_SITE
-    assert done.of("step.presented") == []  # not even asked
+    assert done.of("step.presented")[-1]["final"] is not None  # asked first
     assert page.clicked == 0
 
 

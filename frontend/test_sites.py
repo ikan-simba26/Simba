@@ -68,8 +68,17 @@ def _a_step(payload):
                 "requires_confirmation": True, "worked_out_by": "Groq"})]
 
 
+def _pay(payload):
+    return [("task.started", {"goal": payload["goal"], "estimated_steps": 3}),
+            ("handover", {"reason": "payment", "site": "shop.example.pk",
+                          "sentence": "Your turn: pay on the page below. Type your card details "
+                                      "or code there yourself. I don't see or keep them. Press "
+                                      "I've finished when it's done."})]
+
+
 #: Goals the scripted backend answers with a whole scene.
-SCRIPTS = {"stuck please": _stuck, "not allowed please": _not_allowed, "a step please": _a_step}
+SCRIPTS = {"stuck please": _stuck, "not allowed please": _not_allowed, "a step please": _a_step,
+           "pay please": _pay}
 
 
 class Backend:
@@ -112,6 +121,19 @@ class Backend:
                                 "address": "https://clinic.example.pk/",
                                 "genre": payload["genre"], "tasks": [], "added": True})
                             await send("history.offered", offer)
+                        elif message["type"] == "handover.done":
+                            if payload.get("action") == "done":
+                                await send("task.completed", {
+                                    "summary": "paid", "duration_ms": 1, "steps_taken": 1,
+                                    "llm_calls": 0, "replayed": False, "findings": [],
+                                    "heading": "The website says it went through.",
+                                    "caveat": "You paid on the website yourself. I didn't see "
+                                              "or keep your card details or code.",
+                                    "confirmation": "The website says: “Thank you”."})
+                            else:
+                                await send("task.failed", {
+                                    "reason": "I've stopped, as you asked. I didn't change "
+                                              "anything.", "recoverable": True})
                         elif message["type"] == "task.start" and payload.get("goal") in SCRIPTS:
                             for kind, body in SCRIPTS[payload["goal"]](payload):
                                 await send(kind, body)
@@ -447,3 +469,35 @@ def test_a_task_taught_on_a_sister_site_runs_on_the_one_chosen(
     page.wait_for_timeout(500)
     start = backend.sent("task.start")[-1]
     assert (start["routine"], start["site"]) == ("r1", "https://www.ssgc.com.pk/")
+
+
+# --- phase 4: the page handed to the person to pay (2026-11-13) ------------------------
+
+
+@pytest.mark.parametrize("size", ["100%", "150%"])
+def test_paying_hands_the_page_over_and_comes_back(size, browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, size, pages)
+    lines: list[str] = []
+    page.on("console", lambda message: lines.append(message.text))
+    ask_on(page, "pay please", "shop.example.pk")
+    bar = page.get_by_test_id("handover-bar")
+    bar.wait_for(timeout=10000)
+    # The bar, and the host told to show the website below it.
+    assert "[simba] host bar 160" in lines
+    assert "Type your card details" in page.get_by_test_id("handover-sentence").inner_text()
+    assert bar.bounding_box()["height"] == 160
+    page.get_by_test_id("handover-done").click()
+    page.get_by_text("The website says it went through.").wait_for(timeout=10000)
+    assert backend.sent("handover.done")[-1] == {"action": "done"}
+    assert "[simba] host full" in lines
+
+
+def test_stop_on_the_handover_bar_says_nothing_was_changed(
+        browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "100%", pages)
+    ask_on(page, "pay please", "shop.example.pk")
+    page.get_by_test_id("handover-bar").wait_for(timeout=10000)
+    page.get_by_test_id("handover-stop").click()
+    page.wait_for_timeout(800)
+    assert backend.sent("handover.done")[-1] == {"action": "cancel"}
+    assert page.get_by_test_id("handover-bar").count() == 0

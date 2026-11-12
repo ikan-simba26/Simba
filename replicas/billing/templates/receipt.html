@@ -9,6 +9,7 @@
 {% with crumb = 'Receipt' %}{% include '_chrome.html' %}{% endwith %}
 
 <h1>Payment Received</h1>
+{% if by_card %}<p class="lede">Payment successful through the test gateway.</p>{% endif %}
 
 <table class="particulars">
   <tr><th>Receipt number</th><td>{{ receipt }}</td></tr>
@@ -19,7 +20,7 @@
 </table>
 
 <p class="tiny">
-  This is a practice site. No money was taken. Keep your receipt number until
+  This is a practice site{% if by_card %}, and the card gateway was a test one{% endif %}. No money was taken. Keep your receipt number until
   the payment appears on your next bill.
 </p>
 
