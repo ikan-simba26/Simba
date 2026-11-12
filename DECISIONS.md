@@ -6334,3 +6334,63 @@ kept. **Flagged**: the cause is open. Options: wait for it with the line in plac
 test's helper slower and say so; or change the recorder to keep a press on a list option by
 its box when the point finds nothing. Recommended: wait with the line in place — the other two
 change what is tested or kept without knowing why. Branch not merged: a log line, not a fix.
+
+## The advisor's direction of 12 November: SIMBA works on any website — Ma'am Samia, approved by Raham, 2026-11-13
+
+**Date:** 2026-11-12 (the review), 2026-11-13 (the plan approved by Raham).
+
+**Decision.** The advisor, Ma'am Samia, reviewed SIMBA on 12 November 2026 and set requirements
+that override the feature freeze of 1 November. The deadline moved from December to **19
+November 2026** (taken as 00:00 on the 19th, so 18 November is the last working day).
+**The top priority is flexibility**: SIMBA must not look or behave like it can do only three
+fixed tasks. Asked "what about website XYZ?", the answer is: pick it or type it; if the AI cannot
+do it, a helper shows SIMBA once, and from then on it is a tile.
+
+What she asked for: many real live websites across genres (trains, a cheap real purchase, a
+university form); tasks carried out on live sites, not only read, and an answer to "what happens
+at the payment gateway"; a home screen that lists, on the left and grouped by genre, the
+websites SIMBA can work with, and says where a new one is added; free AI providers first, paid
+after; an installer and a first-time setup; a live use of Teach a task beyond one website; the
+two processes working together reliably and visibly.
+
+**The plan Raham approved on 2026-11-13**, in this order, one branch each:
+1. a site catalogue (data, not code), the left list, "Add a website", any address and any goal;
+2. the AI planner on live sites, Gemini with a Groq fallback, "AI first, then teach";
+3. Teach a task on any website, and a routine moved to a sister site;
+4. payment handover, the live final-step change, a sandbox gateway (Safepay proposed);
+5. a handful of real live runs with Raham present;
+6. visible connection and status (folded into 1 and 2);
+7. the installer and first-time setup;
+8. DEMO.md and the clips.
+Cut first if short: routines moved between sites, then the sandbox gateway, then the setup's
+polish, then the installer (a portable build instead). Never cut: the catalogue and any-site
+path, AI-then-teach, the tests on `carry_out`.
+
+**Recommendations approved with the plan** (the step 0 report, 2026-11-12):
+- **Daraz is not a target for ordering.** Its robots.txt disallows `/cart/`, `/checkout/` and
+  `/customer/`, and its terms of use restrict access to personal shopping and list robots
+  among prohibited tools. The cash-on-delivery order goes to a shop that gives written
+  permission.
+- **Gemini's free tier for development only, on pages with no personal data.** Its terms say
+  free-tier input may be used to improve Google's products and read by human reviewers, and
+  "Do not submit sensitive, confidential, or personal information". A paid key for anything run
+  on Raham's real accounts or with a real person.
+- **Groq is the automatic fallback, not the main provider**: its free tier is 8,000 tokens a
+  minute on `openai/gpt-oss-120b`, one or two SIMBA steps a minute.
+- **An open goal ends by pointing at its answer**: a new `finish(element_id)`, read again by
+  SIMBA and confirmed by the person; about 15 steps, then "I don't know this one yet" and Teach.
+- **On a live site, unknown submits are changes** (default-deny): a form submit or a press on a
+  button named like order, confirm, submit, pay, book, register or apply goes to the final
+  screen; a page with payment fields goes to handover. Enforced in `loop.carry_out`.
+- **Railways booking and FCCU stop at the final screen**, signed in by Raham himself; nothing is
+  bought or submitted unless he means it.
+- **The installer is electron-builder with an embedded Python**, no PyInstaller; the packaged
+  app picks a random debugging port per launch.
+- **"Across websites" means a routine taught on one site runs on a sister site** (one electricity
+  company's bill page to another's), not one routine spanning two sites.
+
+**Rule changes, for Nahail and Aly** (each is listed under "flagged for review" in the report of
+the phase that makes it, and CLAUDE.md is changed only there, never silently): the feature
+freeze is lifted; "Do not add new sites or flows" is lifted; the deadline is 19 November; the
+final-step rule changes from "replicas only" to "on a live site, only after the final screen and
+an explicit do it; payment always through handover"; the LLM never sees a payment detail (new).
