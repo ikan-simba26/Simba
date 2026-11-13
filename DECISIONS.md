@@ -6648,3 +6648,30 @@ a person's tiles, routines and saved sign-ins survive a reinstall.
 menu shortcut and the running window are one taskbar button.
 
 **Unsigned.** SmartScreen warns on first run (`docs/why-desktop.md`). Not bought, as asked.
+
+---
+
+## The installed backend ends with its host; one SIMBA at a time; a key in the profile — 2026-11-14
+
+Three of the five things flagged with the installer on 2026-11-13, done as recommended there,
+on Raham's "continue the work".
+
+**The backend ends when its host does, however it ends.** The host passes its PID as
+`SIMBA_HOST_PID`; `host_watch.py` opens that process once and waits on the handle, then
+`os._exit(0)`. A handle, not a PID looked up again, so a new process given the same number
+cannot keep the backend alive. *Alternative:* a Windows job object that ends children with the
+parent — needs native code in the host. Measured: 0.22 s from the host's death to the backend's.
+
+**One SIMBA at a time, installed only.** `requestSingleInstanceLock` per profile; a second launch
+ends and brings the open window forward. The CDP switch is now added after the lock, so a second
+launch never writes its port over the first's. Development is not locked: tests open several
+hosts at once. *Alternative:* allow two, each with its own profile — two backends, and a
+person who pressed twice would see two windows.
+
+**`SIMBA_ENV_FILE`: a model key can live in `%APPDATA%\SIMBA\.env`.** First-time setup's saved
+helper (`data/ai.json`) still wins over it, as over the repository's `.env`. The install folder's
+own `.env` would be replaced by every update.
+
+**Two more paths moved to the profile, from `main`:** `SIMBA_AI_SETTINGS` (`data/ai.json`) and
+`SIMBA_CATALOGUE_LOCAL` (`data/catalogue.local.json`). The shipped `data/catalogue.json` is only
+read and stays in the install folder.

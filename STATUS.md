@@ -2144,14 +2144,14 @@ On `feat/railways-ask`, **not merged**.
   is the report's page on why SIMBA is a desktop app.
 
 **Open**
-- **The installed app has no model key**, so it routes by keywords and cannot plan
-  with the LLM; `.env` is looked for inside the install folder. Flagged 2026-11-13.
+- **The installed app has no model key** until first-time setup saves one, or one is
+  put in `%APPDATA%\SIMBA\.env` (`SIMBA_ENV_FILE`, 2026-11-14).
 - **The installed app starts no replica**, so registration and billing, which run on our replicas,
   cannot run from it. Flagged 2026-11-13.
-- **If the installed host crashes, its backend is not stopped** (reasoned, not tried):
-  it is stopped on a normal quit only. Flagged 2026-11-13.
-- **Two copies of the installed app can be open at once**, sharing one profile.
-  Flagged 2026-11-13.
+- ~~If the installed host crashes, its backend is not stopped~~ **Done 2026-11-14**:
+  the backend waits on its host and ends 0.22 s after it (EVALUATION.md, 2026-11-14).
+- ~~Two copies of the installed app can be open at once~~ **Done 2026-11-14**: a
+  second launch ends in under a second and brings the open window forward.
 - No CI. The Electron tests skip silently without a host.
 - Nothing supervises the Electron host.
 - `test_levels.py` measures `dist/`, which can be stale.

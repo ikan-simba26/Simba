@@ -8761,3 +8761,49 @@ host, at 100%, 125% and 150%: the window still fits and the site view is still 1
 `frontend/test_brand.py`, `backend/test_data_paths.py` (new, 3 tests),
 `backend/estimator/test_pairing.py`, `backend/orchestrator/test_llm.py`: **88 passed** in
 131 s. `npm run build`: clean (tsc strict, then vite).
+
+## 2026-11-14 — the installer again, after merging `main`: a crash, a second launch (`feat/infra-installer`)
+
+`main` brought first-time setup and the website catalogue while this branch waited, so the
+branch took `main` in, moved setup's `data/ai.json` and the person's `data/catalogue.local.json`
+to the profile, shipped `data/catalogue.json`, and was rebuilt and run again with
+`tools/evaluation/installed_app_run.py --runs 2 --reuse`.
+
+**Conditions.** 2026-11-13T17:43+05:00 and after · `feat/infra-installer` at `8b01456` plus the
+run script's two fixes below · same machine and versions as 2026-11-13 · no `SIMBA_*` switch, no
+key in the profile.
+
+| What | Result |
+|---|---|
+| Installer | **199.6 MB** (199,648,252 bytes), 40 code and data files, longest path 156 |
+| Build | 787 s |
+| Install, silent | **381.5 s** (261 s the day before, same machine; it was busier) |
+| Cold start, launches 1-4 (not first ever) | 6.52, 7.47, 6.70, 10.58 s |
+| "hello" to the greeting | 0.11-0.17 s, 4 of 4 |
+| **Second launch while open** | ended in **0.92 s**, exit code 0; still **1** backend |
+| **Host killed by its PID** (`taskkill /PID <host> /F`, not `/T`) | the backend gone **0.22 s** later; **0** processes left |
+| After closing the window | 0 processes left, 4 of 4 |
+| Uninstall | 23.5 s; 0 processes left; install folder removed |
+
+The crash case is the one the first round could not have passed: the host's quit handler never
+runs when the host is killed. The backend now waits on the host's process handle
+(`backend/orchestrator/host_watch.py`) and ends itself.
+
+**Failures found on the way:**
+
+1. **The run script read the previous launch's CDP port.** The first launch after a 381 s
+   install took 20 s to start, and the script read `DevToolsActivePort` before the new host had
+   replaced it: `connect ECONNREFUSED 127.0.0.1:49197`, a port from the evening before. The app
+   was fine — its log shows its backend up on the new port. The script now takes only a file
+   written after the launch.
+2. **That failed run left SIMBA open.** The script's "close" went before the window existed
+   (the host shows it once the backend answers), so it reached nothing. Found by listing what
+   ran from the install folder; closed with WM_CLOSE to its own window, and its backend went
+   with it. `close_window` now retries until the window is there.
+
+Backend tests on the merged branch: `test_data_paths.py`, `test_host_watch.py` (new, 3),
+`test_llm.py`, `test_provider_chain.py`, `test_ai_settings.py`, `test_app_routing.py`,
+`test_pairing.py`, `test_vault.py`: **108 passed** in 106 s.
+
+Host tests (`SIMBA_HOST_TESTS=1`): `frontend/test_window_fit.py` and `frontend/test_brand.py`,
+**50 passed** in 738 s, so development's window is unchanged by the lock and the switch order.

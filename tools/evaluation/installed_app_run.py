@@ -69,11 +69,24 @@ def alive(pid: int) -> bool:
     return f'"{pid}"' in out
 
 
-def close_window(pid: int) -> None:
-    """WM_CLOSE to the main window of exactly this PID, as pressing X does."""
-    subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                    f"[void](Get-Process -Id {pid}).CloseMainWindow()"],
-                   capture_output=True, timeout=30, check=False)
+def close_window(pid: int, limit_s: float = 60) -> bool:
+    """WM_CLOSE to the main window of exactly this PID, as pressing X does.
+
+    Retried until the window exists: the host shows it only once its backend
+    answers, and a close sent before that reaches nothing (found 2026-11-14,
+    when a first launch after installing took 20 s and the run left it open).
+    """
+    until = time.monotonic() + limit_s
+    while time.monotonic() < until:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             f"$p = Get-Process -Id {pid} -ErrorAction SilentlyContinue; "
+             "if (-not $p) { 'gone' } elseif ($p.CloseMainWindow()) { 'closed' } else { 'no window' }"],
+            capture_output=True, text=True, timeout=30, check=False).stdout.strip()
+        if out in ("gone", "closed"):
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def install(setup: Path) -> float:
@@ -96,27 +109,29 @@ def uninstall() -> float:
     return time.monotonic() - started
 
 
-def one_launch(first: bool) -> dict:
+def one_launch(first: bool, extra: str = "") -> dict:
     port_file = PROFILE / "DevToolsActivePort"
     log = (REPO / ".scratch" / "installed-host.log").open("ab")
+    launched_at = time.time()
     started = time.monotonic()
     host = subprocess.Popen([str(INSTALL_DIR / "SIMBA.exe")], stdout=log, stderr=log)
     result: dict = {"first_launch": first, "host_pid": host.pid}
     try:
-        # The previous launch's file is removed by the host before it is ready.
-        time.sleep(0.5)
+        # Only a file written by this launch: the host removes the last one,
+        # but a slow first start can be read before it has (2026-11-14).
         port = None
-        while time.monotonic() - started < 60:
+        while time.monotonic() - started < 90:
             try:
-                text = port_file.read_text().split()
-                if text and int(text[0]) > 0:
-                    port = int(text[0])
-                    break
+                if port_file.stat().st_mtime >= launched_at - 1:
+                    text = port_file.read_text().split()
+                    if text and int(text[0]) > 0:
+                        port = int(text[0])
+                        break
             except (OSError, ValueError):
                 pass
             time.sleep(0.05)
         if port is None:
-            raise RuntimeError("no DevToolsActivePort within 60s")
+            raise RuntimeError("no DevToolsActivePort from this launch within 90s")
         result["cdp_port"] = port
         with sync_playwright() as playwright:
             browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
@@ -154,6 +169,19 @@ def one_launch(first: bool) -> dict:
             overlay.get_by_text("Here's what I can help with").wait_for(timeout=30_000)
             result["greeting_s"] = round(time.monotonic() - asked, 2)
             result["greeting"] = overlay.get_by_text("Here's what I can help with").first.inner_text()
+            if extra == "second":
+                # A second launch while this one is open: it should end at
+                # once and leave one backend, not start a second.
+                again = time.monotonic()
+                second = subprocess.Popen([str(INSTALL_DIR / "SIMBA.exe")], stdout=log, stderr=log)
+                try:
+                    second.wait(timeout=30)
+                    result["second_launch_exit_s"] = round(time.monotonic() - again, 2)
+                    result["second_launch_code"] = second.returncode
+                except subprocess.TimeoutExpired:
+                    result["second_launch_exit_s"] = None
+                result["backends_after_second_launch"] = len(
+                    [p for p in running_from(INSTALL_DIR) if p["Name"] == "python.exe"])
             browser.close()
         backend_lines = [line for line in (PROFILE / "logs" / "backend-console.log")
                          .read_text(encoding="utf-8", errors="replace").splitlines()]
@@ -162,11 +190,24 @@ def one_launch(first: bool) -> dict:
         under = running_from(INSTALL_DIR)
         result["running_before_close"] = len(under)
         result["backend_pids"] = [p["ProcessId"] for p in under if p["Name"] == "python.exe"]
-        close_window(host.pid)
-        try:
+        if extra == "crash":
+            # As a crash would: the host's own process ends with no quit, so
+            # it stops nothing. Exactly the PID this started; not /T, which
+            # would take the backend with it and prove nothing.
+            subprocess.run(["taskkill", "/PID", str(host.pid), "/F"],
+                           capture_output=True, timeout=30, check=False)
             host.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            result["host_did_not_exit"] = True
+            crashed = time.monotonic()
+            while (any(alive(pid) for pid in result["backend_pids"])
+                   and time.monotonic() - crashed < 20):
+                time.sleep(0.2)
+            result["backend_gone_after_crash_s"] = round(time.monotonic() - crashed, 2)
+        else:
+            result["closed_by_window"] = close_window(host.pid)
+            try:
+                host.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                result["host_did_not_exit"] = True
         time.sleep(1.0)
         result["running_after_close"] = running_from(INSTALL_DIR)
         result["backend_alive_after_close"] = [pid for pid in result["backend_pids"] if alive(pid)]
@@ -178,6 +219,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--keep", action="store_true", help="leave SIMBA installed")
+    parser.add_argument("--reuse", action="store_true",
+                        help="SIMBA is already installed from this installer: skip installing")
     options = parser.parse_args()
     print(banner())
 
@@ -185,18 +228,24 @@ def main() -> None:
     if not setups:
         raise SystemExit("no installer; run tools/build_installer.py first")
     setup = setups[-1]
-    if INSTALL_DIR.exists():
-        raise SystemExit(f"{INSTALL_DIR} already exists; uninstall first")
+    if INSTALL_DIR.exists() and not options.reuse:
+        raise SystemExit(f"{INSTALL_DIR} already exists; uninstall first, or --reuse")
     profile_existed = PROFILE.exists()
     results: dict = {"installer": setup.name, "installer_bytes": setup.stat().st_size,
                      "profile_existed_before": profile_existed}
-    results["install_s"] = round(install(setup), 2)
+    results["install_s"] = None if options.reuse else round(install(setup), 2)
     results["installed_bytes"] = sum(f.stat().st_size for f in INSTALL_DIR.rglob("*")
                                      if f.is_file())
     print(json.dumps({k: results[k] for k in ("install_s", "installed_bytes")}))
     results["launches"] = []
     for run in range(options.runs):
         launch = one_launch(first=(run == 0 and not profile_existed))
+        print(json.dumps(launch))
+        results["launches"].append(launch)
+    # The two cases added on 2026-11-14: a second launch, and a crashed host.
+    for extra in ("second", "crash"):
+        launch = one_launch(first=False, extra=extra)
+        launch["case"] = extra
         print(json.dumps(launch))
         results["launches"].append(launch)
     if not options.keep:
