@@ -685,4 +685,7 @@ def _load_dotenv() -> None:
         from dotenv import load_dotenv
     except ImportError:
         return
-    load_dotenv(REPO_ROOT / ".env")
+    # `SIMBA_ENV_FILE`: the installed app's host points it at `.env` in the
+    # person's profile folder, since the install folder is the program and is
+    # replaced on every update (2026-11-13). Unset: the repository's, as before.
+    load_dotenv(os.environ.get("SIMBA_ENV_FILE") or REPO_ROOT / ".env")

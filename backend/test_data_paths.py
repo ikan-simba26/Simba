@@ -61,5 +61,21 @@ def test_unset_they_stay_in_the_repository() -> None:
 def test_the_host_sets_exactly_these() -> None:
     host = (REPO / "frontend" / "electron" / "backend.ts").read_text(encoding="utf-8")
     for name in ("SIMBA_TILES", "SIMBA_VAULT", "SIMBA_ROUTINES", "SIMBA_TRACE_DB",
-                 "SIMBA_STEPS", "SIMBA_LOG_FILE", "SIMBA_LLM_LOG_DIR"):
+                 "SIMBA_STEPS", "SIMBA_LOG_FILE", "SIMBA_LLM_LOG_DIR", "SIMBA_ENV_FILE",
+                 "SIMBA_HOST_PID"):
         assert f"{name}:" in host, name
+
+
+def test_a_key_is_read_from_the_file_the_host_names(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("SIMBA_TEST_ONLY_KEY=from-the-profile\n", encoding="utf-8")
+    probe = ("import os\n"
+             "from backend.orchestrator import llm\n"
+             "llm._load_dotenv()\n"
+             "print(os.environ.get('SIMBA_TEST_ONLY_KEY'))")
+    result = subprocess.run(
+        [sys.executable, "-c", probe], cwd=REPO, capture_output=True, text=True,
+        env={**os.environ, "SIMBA_LOG_FILE": "", "SIMBA_ENV_FILE": str(env_file)},
+        timeout=120, check=True,
+    )
+    assert result.stdout.strip().splitlines()[-1] == "from-the-profile"

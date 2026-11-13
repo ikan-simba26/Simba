@@ -90,6 +90,10 @@ export async function devToolsPort(userData: string, limitMs = 15_000): Promise<
  *   SIMBA_STEPS        data/steps.jsonl     channel B's step rows
  *   SIMBA_LOG_FILE     logs/backend.log     the run log
  *   SIMBA_LLM_LOG_DIR  logs/                the model's prompt transcripts
+ *
+ * and one it reads: SIMBA_ENV_FILE, `.env` — a model key, if the person or
+ * whoever set SIMBA up put one there. The install folder's own would be
+ * replaced by every update.
  */
 export function dataEnvironment(userData: string): Record<string, string> {
   const data = path.join(userData, "data");
@@ -102,6 +106,7 @@ export function dataEnvironment(userData: string): Record<string, string> {
     SIMBA_STEPS: path.join(data, "steps.jsonl"),
     SIMBA_LOG_FILE: path.join(logs, "backend.log"),
     SIMBA_LLM_LOG_DIR: logs,
+    SIMBA_ENV_FILE: path.join(userData, ".env"),
   };
 }
 
@@ -144,6 +149,9 @@ export function startBundled(options: {
         SIMBA_BROWSER: "electron",
         SIMBA_CDP_URL: `http://127.0.0.1:${options.cdpPort}`,
         SIMBA_START_URL: options.startUrl,
+        // The backend ends itself when this process does, however it ends —
+        // a crash stops nothing here (`backend/orchestrator/host_watch.py`).
+        SIMBA_HOST_PID: String(process.pid),
         PYTHONUTF8: "1",
       },
     },

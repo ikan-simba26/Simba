@@ -62,6 +62,7 @@ from fastapi import FastAPI, WebSocket
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
+from backend.orchestrator import host_watch
 from backend.orchestrator.llm import provider_from_env
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
 from backend.estimator import page_model
@@ -147,6 +148,11 @@ def log_runs() -> None:
 
 
 log_runs()
+
+# The installed app's host passes its own PID; if the host goes — even by a
+# crash, which stops nothing — the backend goes with it (2026-11-13). Unset in
+# development and in tests: nothing is watched.
+host_watch.start_from_environment()
 
 
 def _flag(name: str) -> bool:

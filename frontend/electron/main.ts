@@ -63,9 +63,6 @@ const HIDE_SCROLLBARS =
   "* { scrollbar-width: none !important; } ::-webkit-scrollbar { display: none !important; }";
 const DEV_SERVER = process.env.SIMBA_DEV_SERVER;
 
-// Must be set before the app is ready.
-app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
-
 // Where this host keeps its storage — the person's profile among it — when a
 // test or a walk says (2026-10-18). Unset, Electron's own place for the
 // person's app data, as always. A test that needs a first open points it at
@@ -73,9 +70,23 @@ app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
 // person's profile, and never writes outside the checkout (CLAUDE.md).
 if (process.env.SIMBA_USER_DATA) app.setPath("userData", process.env.SIMBA_USER_DATA);
 
+// Installed, one SIMBA at a time (2026-11-13): a second launch — a double
+// click that seemed to do nothing, pressed again — brings the open window to
+// the front and ends, instead of opening a second window and a second backend
+// on the same profile. The lock is per profile folder, so it comes after the
+// line above. Development is not locked: tests open several hosts at once.
+const SECOND = PACKAGED && !app.requestSingleInstanceLock();
+if (SECOND) app.quit();
+
+// Must be set before the app is ready. Not in a second launch, which would
+// otherwise write its own port over the first one's in the profile.
+if (!SECOND) app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
+
 // A port chosen by Chromium is read back from a file in the profile; the last
 // launch's file is removed first, so the port read is always this launch's.
-if (CDP_PORT === "0") fs.rmSync(devToolsPortFile(app.getPath("userData")), { force: true });
+if (CDP_PORT === "0" && !SECOND) {
+  fs.rmSync(devToolsPortFile(app.getPath("userData")), { force: true });
+}
 
 /** The bundled backend, once started. Installed only; null in development. */
 let bundled: Bundled | null = null;
@@ -83,8 +94,8 @@ let bundled: Bundled | null = null;
 /**
  * Installed only: wait for Chromium's port, start the backend on a port of its
  * own, and wait until it answers. Resolves with the overlay's `?ws=` address,
- * or null if anything failed — the overlay then opens without a backend and
- * says so, rather than the window never opening.
+ * or null if anything failed — the overlay then opens without a backend,
+ * rather than the window never opening.
  */
 async function startBackend(): Promise<string | null> {
   const userData = app.getPath("userData");
@@ -148,6 +159,7 @@ function fitted(work: Rectangle, frame: { width: number; height: number }) {
 }
 
 app.whenReady().then(async () => {
+  if (SECOND) return;
   // Started first, so Python's import time overlaps the window being built.
   const backendReady = PACKAGED ? startBackend() : Promise.resolve(null);
   if (process.platform === "darwin") app.dock.setIcon(ICON_PNG);
@@ -308,6 +320,12 @@ app.whenReady().then(async () => {
     void overlay.webContents.loadFile(OVERLAY_FILE);
   }
   win.show();
+
+  // Installed, a second launch ends at once and this window comes forward.
+  app.on("second-instance", () => {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
 
   // The backend picks the site view out of the host's CDP targets. Say which
   // is which out loud so a mismatch is diagnosable from the host's own log.
