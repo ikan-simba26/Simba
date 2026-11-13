@@ -667,6 +667,22 @@ class OpenAICompatibleProvider:
 GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
+#: OpenRouter, the third (2026-11-14): one of its free models, after Groq. A
+#: model by NVIDIA rather than Google, so a Google outage or limit that stops
+#: Gemini does not stop this too — OpenRouter's free Gemma came back
+#: "rate-limited upstream" at Google AI Studio on the day it was chosen. It
+#: takes structured output, which every planner call asks for.
+#: `OPENROUTER_MODEL` picks another; free models come and go.
+OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3.5-super-vl:free"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+#: The fallbacks, in order: key, address and model variables, and defaults.
+FALLBACKS = (
+    ("GROQ_API_KEY", "GROQ_BASE_URL", "GROQ_MODEL", GROQ_BASE_URL, GROQ_DEFAULT_MODEL),
+    ("OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "OPENROUTER_MODEL", OPENROUTER_BASE_URL,
+     OPENROUTER_DEFAULT_MODEL),
+)
+
 
 def _cannot_answer_now(error: BaseException | None) -> bool:
     """Whether a provider's failure is one another provider might not share:
@@ -685,7 +701,7 @@ def _cannot_answer_now(error: BaseException | None) -> bool:
 
 class FallbackProvider:
     """Providers in order (2026-11-13, the advisor's direction): Gemini first,
-    and Groq when Gemini cannot answer now. Each call goes to the first that
+    Groq when Gemini cannot answer now, and OpenRouter after Groq (2026-11-14). Each call goes to the first that
     can; `answered_by` says which did, for the person to see."""
 
     name = "chain"
@@ -738,12 +754,42 @@ class FallbackProvider:
         return await self._first_that_can(lambda p: p.read_details(system_prompt, goal))
 
 
+def _fallbacks(transcript: Transcript | None, first_label: str) -> list:
+    """Groq, then OpenRouter, each only if its key is set and it is not the
+    provider already first. None with `SIMBA_LLM_FALLBACK=0`."""
+    if os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() == "0":
+        return []
+    found = []
+    for key_name, url_name, model_name, url, model in FALLBACKS:
+        key = os.environ.get(key_name)
+        base_url = os.environ.get(url_name) or url
+        if not key or label_for(base_url) == first_label:
+            continue
+        found.append(OpenAICompatibleProvider(
+            api_key=key, base_url=base_url, model=os.environ.get(model_name) or model,
+            transcript=transcript, wait_out_rate_limits=False))
+    return found
+
+
+def _chained(first, transcript: Transcript | None):
+    """`first`, then whichever fallbacks have keys. Every provider but the
+    last moves on at once from a rate limit; the last waits it out, since
+    nothing comes after it."""
+    rest = _fallbacks(transcript, getattr(first, "label", ""))
+    chain = [first, *rest]
+    for provider in chain:
+        provider.wait_out_rate_limits = provider is chain[-1]
+    return FallbackProvider(chain) if rest else first
+
+
 def provider_from_env(transcript: Transcript | None = None) -> Provider:
     """Build the configured provider. Keys come from the environment or .env.
 
-    With `SIMBA_LLM_PROVIDER=openai` and a `GROQ_API_KEY` too, the provider is
-    the chain (2026-11-13): the configured one first, without waiting out its
-    rate limits, then Groq (`GROQ_MODEL`, `GROQ_BASE_URL`), which does wait.
+    With `SIMBA_LLM_PROVIDER=openai` and a `GROQ_API_KEY` or an
+    `OPENROUTER_API_KEY` too, the provider is the chain (2026-11-13; OpenRouter
+    third since 2026-11-14): the configured one first, then Groq (`GROQ_MODEL`,
+    `GROQ_BASE_URL`), then OpenRouter (`OPENROUTER_MODEL`,
+    `OPENROUTER_BASE_URL`); only the last waits out a rate limit.
     `SIMBA_LLM_FALLBACK=0` keeps the configured one alone."""
     _load_dotenv()
     # Set up in the app's first-time setup (2026-11-13), it wins over `.env`.
@@ -751,16 +797,7 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
 
     saved = AiStore().load()
     if saved is not None:
-        groq_key = os.environ.get("GROQ_API_KEY")
-        chained = (bool(groq_key) and saved.provider != "groq"
-                   and os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() != "0")
-        first = provider_for(saved, transcript)
-        first.wait_out_rate_limits = not chained
-        if not chained:
-            return first
-        return FallbackProvider([first, OpenAICompatibleProvider(
-            api_key=groq_key or "", base_url=os.environ.get("GROQ_BASE_URL") or GROQ_BASE_URL,
-            model=os.environ.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL, transcript=transcript)])
+        return _chained(provider_for(saved, transcript), transcript)
     choice = os.environ.get("SIMBA_LLM_PROVIDER", "anthropic").strip().lower()
 
     if choice == "anthropic":
@@ -772,24 +809,13 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
         )
 
     if choice == "openai":
-        groq_key = os.environ.get("GROQ_API_KEY")
-        chained = bool(groq_key) and os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() != "0"
         first = OpenAICompatibleProvider(
             api_key=_require_key("OPENAI_API_KEY"),
             base_url=os.environ.get("OPENAI_BASE_URL") or None,
             model=os.environ.get("OPENAI_MODEL", OPENAI_DEFAULT_MODEL),
             transcript=transcript,
-            wait_out_rate_limits=not chained,
         )
-        if not chained:
-            return first
-        groq = OpenAICompatibleProvider(
-            api_key=groq_key or "",
-            base_url=os.environ.get("GROQ_BASE_URL") or GROQ_BASE_URL,
-            model=os.environ.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL,
-            transcript=transcript,
-        )
-        return FallbackProvider([first, groq])
+        return _chained(first, transcript)
 
     raise LLMError(f"unknown SIMBA_LLM_PROVIDER {choice!r}; expected 'anthropic' or 'openai'")
 
