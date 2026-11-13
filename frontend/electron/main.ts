@@ -33,16 +33,29 @@
  *                      tells the site view apart from the overlay.
  *   SIMBA_DEV_SERVER   load the overlay from a Vite dev server instead of the
  *                      built files, for HMR while working on the UI.
+ *
+ * **Installed** (`app.isPackaged`, 2026-11-13), the host also starts the
+ * bundled backend and stops it on quit, and both ports are chosen fresh on
+ * every launch instead of 9222 and 8000 — see `backend.ts`. In development
+ * none of that happens: `run.ps1` starts the backend, as before.
  */
 
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import path from "node:path";
 
 import {
   BaseWindow, WebContentsView, app, powerMonitor, screen, type Display, type Rectangle,
 } from "electron";
 
-const CDP_PORT = process.env.SIMBA_CDP_PORT ?? "9222";
+import {
+  devToolsPort, devToolsPortFile, freePort, startBundled, stopBundled, waitUntilUp,
+  type Bundled,
+} from "./backend.js";
+
+const PACKAGED = app.isPackaged;
+// Installed: "0", and Chromium picks a free port itself (`backend.ts`).
+const CDP_PORT = process.env.SIMBA_CDP_PORT ?? (PACKAGED ? "0" : "9222");
 const START_URL = process.env.SIMBA_START_URL ?? "about:blank";
 
 /** Every scrollbar in the site view, gone and taking no room. See below. */
@@ -50,15 +63,68 @@ const HIDE_SCROLLBARS =
   "* { scrollbar-width: none !important; } ::-webkit-scrollbar { display: none !important; }";
 const DEV_SERVER = process.env.SIMBA_DEV_SERVER;
 
-// Must be set before the app is ready.
-app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
-
 // Where this host keeps its storage — the person's profile among it — when a
 // test or a walk says (2026-10-18). Unset, Electron's own place for the
 // person's app data, as always. A test that needs a first open points it at
 // an empty folder inside the repository, so it never clears the real
 // person's profile, and never writes outside the checkout (CLAUDE.md).
 if (process.env.SIMBA_USER_DATA) app.setPath("userData", process.env.SIMBA_USER_DATA);
+
+// Installed, one SIMBA at a time (2026-11-13): a second launch — a double
+// click that seemed to do nothing, pressed again — brings the open window to
+// the front and ends, instead of opening a second window and a second backend
+// on the same profile. The lock is per profile folder, so it comes after the
+// line above. Development is not locked: tests open several hosts at once.
+const SECOND = PACKAGED && !app.requestSingleInstanceLock();
+if (SECOND) app.quit();
+
+// Must be set before the app is ready. Not in a second launch, which would
+// otherwise write its own port over the first one's in the profile.
+if (!SECOND) app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
+
+// A port chosen by Chromium is read back from a file in the profile; the last
+// launch's file is removed first, so the port read is always this launch's.
+if (CDP_PORT === "0" && !SECOND) {
+  fs.rmSync(devToolsPortFile(app.getPath("userData")), { force: true });
+}
+
+/** The bundled backend, once started. Installed only; null in development. */
+let bundled: Bundled | null = null;
+
+/**
+ * Installed only: wait for Chromium's port, start the backend on a port of its
+ * own, and wait until it answers. Resolves with the overlay's `?ws=` address,
+ * or null if anything failed — the overlay then opens without a backend,
+ * rather than the window never opening.
+ */
+async function startBackend(): Promise<string | null> {
+  const userData = app.getPath("userData");
+  try {
+    const cdpPort = CDP_PORT === "0" ? await devToolsPort(userData) : Number(CDP_PORT);
+    bundled = startBundled({
+      resourcesPath: process.resourcesPath,
+      userData,
+      cdpPort,
+      port: await freePort(),
+      startUrl: START_URL,
+    });
+    const started = Date.now();
+    const up = await waitUntilUp(bundled);
+    console.log(`SIMBA backend ${JSON.stringify({
+      pid: bundled.pid, port: bundled.port, cdp: cdpPort, up, ms: Date.now() - started,
+    })}`);
+    return bundled.ws;
+  } catch (error) {
+    console.log(`SIMBA backend failed to start: ${String(error)}`);
+    return bundled?.ws ?? null;
+  }
+}
+
+// Exactly the backend this host started, by its PID, whichever way the app
+// ends. `will-quit` comes after every window is gone.
+app.on("will-quit", () => {
+  if (bundled) stopBundled(bundled);
+});
 
 // 1280x800 is frozen — the estimator measures text density per visible area,
 // so the site view's viewport has to stay constant across runs. It is also
@@ -92,7 +158,10 @@ function fitted(work: Rectangle, frame: { width: number; height: number }) {
   };
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (SECOND) return;
+  // Started first, so Python's import time overlaps the window being built.
+  const backendReady = PACKAGED ? startBackend() : Promise.resolve(null);
   if (process.platform === "darwin") app.dock.setIcon(ICON_PNG);
   const win = new BaseWindow({
     width: VIEWPORT.width,
@@ -240,17 +309,28 @@ app.whenReady().then(() => {
   win.on("show", tellOverlay);
   overlay.webContents.on("did-finish-load", tellOverlay);
 
+  // Installed, the overlay is opened once its backend answers, and told where
+  // that is (`?ws=`, read by `src/connection.ts`). In development: as before.
+  const ws = PACKAGED ? await backendReady : null;
   if (DEV_SERVER) {
     void overlay.webContents.loadURL(DEV_SERVER);
+  } else if (ws) {
+    void overlay.webContents.loadFile(OVERLAY_FILE, { query: { ws } });
   } else {
     void overlay.webContents.loadFile(OVERLAY_FILE);
   }
   win.show();
 
+  // Installed, a second launch ends at once and this window comes forward.
+  app.on("second-instance", () => {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
+
   // The backend picks the site view out of the host's CDP targets. Say which
   // is which out loud so a mismatch is diagnosable from the host's own log.
   console.log(
-    `SIMBA host ready — CDP ${CDP_PORT}; site view ${START_URL}; ` +
+    `SIMBA host ready — CDP ${bundled?.cdpPort ?? CDP_PORT}; site view ${START_URL}; ` +
       `overlay ${DEV_SERVER ?? OVERLAY_FILE}`,
   );
 

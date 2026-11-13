@@ -65,6 +65,7 @@ from backend.orchestrator.catalogue import (
 )
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
+from backend.orchestrator import host_watch
 from backend.orchestrator.llm import LLMError, label_for, provider_from_env
 from backend.orchestrator.ai_settings import (
     AiStore, SettingsError, check as check_ai, provider_for, settings_from,
@@ -162,6 +163,11 @@ def log_runs() -> None:
 
 
 log_runs()
+
+# The installed app's host passes its own PID; if the host goes — even by a
+# crash, which stops nothing — the backend goes with it (2026-11-13). Unset in
+# development and in tests: nothing is watched.
+host_watch.start_from_environment()
 
 
 def _flag(name: str) -> bool:

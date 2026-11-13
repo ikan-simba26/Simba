@@ -8687,3 +8687,123 @@ browsers), not proved; recorded as an intermittent to watch.
 size. The headless tests had measured its place, not its size; only the real-window test
 checks the floor. Fixed: the line in the 20px size, the site list's foot raised to leave it room
 (`fix/interface-status-size`). **Then: 3 passed**, 589s.
+
+## 2026-11-13 — the Windows installer, built, installed and run on this machine (`feat/infra-installer`)
+
+`tools/build_installer.py` then `tools/evaluation/installed_app_run.py --runs 3`: one silent
+per-user install of the built `SIMBA-Setup-0.0.1.exe`, three launches of the installed app
+(the first on a profile that did not exist), "hello" typed into each, the window closed with
+WM_CLOSE as pressing X does, then a silent uninstall. No replica was running, so the only thing
+that could greet was the bundled backend.
+
+**Conditions.** Taken 2026-11-13T00:56+05:00 · `feat/infra-installer` at `233e737` plus the
+uncommitted change this entry describes (committed afterwards without code changes) · build and
+driver Python 3.12.3 (`D:\simba\backend\venv`), bundled Python **3.12.10** embeddable · Electron
+32.3.3, electron-builder 26.18.0, Playwright 1.62.0 · Windows 11 10.0.26200, 8 CPUs, CPU load 56%
+at the start, **1,227 MB memory free**, on mains · no `SIMBA_*` switch set, no API key in the
+environment · Windows Defender real-time scanning on (not changed). The machine was busy
+throughout (the installer build itself ran at 64% load beforehand), so the times below are
+upper-end, not typical.
+
+| What | Result |
+|---|---|
+| Installer (`SIMBA-Setup-0.0.1.exe`) | **199.6 MB** (199,583,460 bytes) |
+| Installed folder | **695.2 MB**; about 13,900 files in the backend bundle alone |
+| Backend bundle before packing (`stage/backend`) | 416.6 MB |
+| Longest path inside the install, from the install folder | 156 characters (budget 170) |
+| Build, from nothing (download cached) | 802 s (an earlier build, with the download: 542 s) |
+| Bundled backend's own smoke test, start to `/` answering | 4.7 s |
+| **Install time**, silent, per user | **260.7 s** |
+| **Cold start**, first launch ever (new profile, new executables) | **16.95 s** |
+| Cold start, second and third launch | **7.06 s, 6.12 s** |
+| "hello" to the greeting on screen | 0.14 s, 0.08 s, 0.08 s |
+| Greeting | "Hello. Here's what I can help with." 3 of 3 |
+| Processes running from the install folder while open | 6 (SIMBA.exe and its helpers, python.exe, Playwright's node.exe) |
+| ... after the window closed | **0**, 3 of 3; the backend's PID gone 3 of 3 |
+| Uninstall, silent | 32.7 s; **0** processes left; install folder removed |
+| Profile folder `%APPDATA%\SIMBA` after uninstall | kept (by design; see DECISIONS.md) |
+
+Cold start is measured from starting `SIMBA.exe` until the overlay's first screen (the
+first-time welcome, or the home screen) is visible, read over CDP. It includes the host waiting
+for the backend to answer before it opens the overlay, which is where most of it goes. The
+first launch's extra ten seconds are not explained by anything measured; Defender scanning
+newly written executables on first run is the likely cause and was not checked.
+
+Every launch used a different pair of ports, both on 127.0.0.1: CDP 62422 / 49158 / 49197,
+backend 52873 / 49161 / 49198 — the overlay's `?ws=` named the backend's each time.
+
+The backend logged, each launch, "routing by keywords: ANTHROPIC_API_KEY is not set": the
+installed app has no model key, so anything but a greeting or a keyword-routed goal falls back
+(flagged in the report).
+
+**Failures found on the way**, each fixed before the numbers above:
+
+1. **electron-builder wrote into the system temp folder** (`elevate.exe`, staged in `%TEMP%`),
+   against CLAUDE.md. It removed it itself on exit; the build now sets `TEMP`/`TMP` to
+   `.scratch/installer-build/tmp`, and the second build's log names no path outside the repo.
+2. **A path over Windows' 260 characters.** Deleting the first build's output failed on
+   `anthropic\types\beta\__pycache__\beta_managed_agents_self_hosted_resources_unsupported_deployment_paused_reason_error.cpython-312.pyc`.
+   Inside an install that path is 176 characters from the install folder, which would have
+   left 83 for the folder itself, and NSIS and Python's imports both stop at 260. The packages
+   now live in a short `resources\backend\site\` (156, leaving 103), the build stops if
+   anything passes 170, and its own clean-up uses `\\?\` paths.
+3. **Backslashes in a bash heredoc** turned `resources\backend` into a backspace character
+   in the build script's comment, and `\\?\` into `\?\` in its code. Found by reading the file
+   back; fixed with an edit.
+4. **`test_window_fit.py` failed 3 of 3 in a fresh worktree**, before opening a window:
+   `tools/evaluation/display_fit_run.py` writes its host log into `.scratch/screenshots/fit/`
+   without creating it, and a new checkout has no such folder. Not this change; with the
+   folder made by hand the same tests passed. Left as it is (flagged).
+
+**Tests run** (not the full suite, as asked), on `feat/infra-installer` with
+`SIMBA_HOST_TESTS=1`: `frontend/test_window_fit.py` **3 passed** in 635 s (the development
+host, at 100%, 125% and 150%: the window still fits and the site view is still 1280x800);
+`frontend/test_brand.py`, `backend/test_data_paths.py` (new, 3 tests),
+`backend/estimator/test_pairing.py`, `backend/orchestrator/test_llm.py`: **88 passed** in
+131 s. `npm run build`: clean (tsc strict, then vite).
+
+## 2026-11-14 — the installer again, after merging `main`: a crash, a second launch (`feat/infra-installer`)
+
+`main` brought first-time setup and the website catalogue while this branch waited, so the
+branch took `main` in, moved setup's `data/ai.json` and the person's `data/catalogue.local.json`
+to the profile, shipped `data/catalogue.json`, and was rebuilt and run again with
+`tools/evaluation/installed_app_run.py --runs 2 --reuse`.
+
+**Conditions.** 2026-11-13T17:43+05:00 and after · `feat/infra-installer` at `8b01456` plus the
+run script's two fixes below · same machine and versions as 2026-11-13 · no `SIMBA_*` switch, no
+key in the profile.
+
+| What | Result |
+|---|---|
+| Installer | **199.6 MB** (199,648,252 bytes), 40 code and data files, longest path 156 |
+| Build | 787 s |
+| Install, silent | **381.5 s** (261 s the day before, same machine; it was busier) |
+| Cold start, launches 1-4 (not first ever) | 6.52, 7.47, 6.70, 10.58 s |
+| "hello" to the greeting | 0.11-0.17 s, 4 of 4 |
+| **Second launch while open** | ended in **0.92 s**, exit code 0; still **1** backend |
+| **Host killed by its PID** (`taskkill /PID <host> /F`, not `/T`) | the backend gone **0.22 s** later; **0** processes left |
+| After closing the window | 0 processes left, 4 of 4 |
+| Uninstall | 23.5 s; 0 processes left; install folder removed |
+
+The crash case is the one the first round could not have passed: the host's quit handler never
+runs when the host is killed. The backend now waits on the host's process handle
+(`backend/orchestrator/host_watch.py`) and ends itself.
+
+**Failures found on the way:**
+
+1. **The run script read the previous launch's CDP port.** The first launch after a 381 s
+   install took 20 s to start, and the script read `DevToolsActivePort` before the new host had
+   replaced it: `connect ECONNREFUSED 127.0.0.1:49197`, a port from the evening before. The app
+   was fine — its log shows its backend up on the new port. The script now takes only a file
+   written after the launch.
+2. **That failed run left SIMBA open.** The script's "close" went before the window existed
+   (the host shows it once the backend answers), so it reached nothing. Found by listing what
+   ran from the install folder; closed with WM_CLOSE to its own window, and its backend went
+   with it. `close_window` now retries until the window is there.
+
+Backend tests on the merged branch: `test_data_paths.py`, `test_host_watch.py` (new, 3),
+`test_llm.py`, `test_provider_chain.py`, `test_ai_settings.py`, `test_app_routing.py`,
+`test_pairing.py`, `test_vault.py`: **108 passed** in 106 s.
+
+Host tests (`SIMBA_HOST_TESTS=1`): `frontend/test_window_fit.py` and `frontend/test_brand.py`,
+**50 passed** in 738 s, so development's window is unchanged by the lock and the switch order.

@@ -24,8 +24,67 @@
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "4.7.0",
     "electron": "32.3.3",
+    "electron-builder": "26.18.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vite": "5.4.21"
+  },
+  "build": {
+    "appId": "simba",
+    "productName": "SIMBA",
+    "extraMetadata": {
+      "productName": "SIMBA"
+    },
+    "directories": {
+      "output": "../.scratch/installer-build/dist",
+      "buildResources": "installer"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "npmRebuild": false,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../.scratch/installer-build/stage/backend",
+        "to": "backend"
+      },
+      {
+        "from": "../assets/brand",
+        "to": "assets/brand",
+        "filter": [
+          "simba-app-icon.ico",
+          "png/simba-app-icon-512.png"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../assets/brand/simba-app-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SIMBA",
+      "uninstallDisplayName": "SIMBA",
+      "installerIcon": "../assets/brand/simba-app-icon.ico",
+      "uninstallerIcon": "../assets/brand/simba-app-icon.ico",
+      "artifactName": "SIMBA-Setup-${version}.exe",
+      "deleteAppDataOnUninstall": false,
+      "include": "installer/installer.nsh"
+    }
   }
 }

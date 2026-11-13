@@ -57,7 +57,9 @@ from backend.estimator.page_features import PageFeatures
 from backend.estimator.rules import Decision
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PATH = REPO_ROOT / "data" / "steps.jsonl"
+#: `SIMBA_STEPS` moves it: the installed app keeps it in the person's profile
+#: folder, not in the install folder (`frontend/electron/backend.ts`, 2026-11-13).
+DEFAULT_PATH = Path(os.environ.get("SIMBA_STEPS") or REPO_ROOT / "data" / "steps.jsonl")
 
 #: Set to "0" to run without writing anything. The app turns recording on;
 #: tests pass their own recorder or none at all.

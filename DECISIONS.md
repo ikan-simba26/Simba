@@ -6578,3 +6578,100 @@ person's "do it"; a press that pays is never SIMBA's. Settled while building:
 - **The logo's "try again only while it is up" rule is replaced** (`test_brand.py`): keeping
   trying on the home screen is the advisor's L; the old rule's reason — never replacing the
   connection a press opened — is kept by not trying while anything is connecting or asked.
+
+---
+
+## The Windows installer — `feat/infra-installer`, 2026-11-13
+
+Asked for by the advisor on 2026-11-12; the plan (electron-builder, an embedded Python and no
+PyInstaller, a random CDP port per launch when installed) approved by Raham on 2026-11-13.
+What follows is what the task did not specify.
+
+**Python 3.12.10, not the 3.12.3 the suite runs on.** 3.12.10 is the last 3.12 release with
+Windows binaries (3.12.11 onwards are source-only security releases). It carries a year of
+security fixes over 3.12.3, and every pinned wheel is for the cp312 ABI that all 3.12.x
+share. The zip's SHA-256 is pinned in `tools/build_installer.py`, checked on first download
+against the MD5 python.org lists for it (`fe8ef205…`, matched). *Alternative:* 3.12.3, to match
+the tested interpreter exactly. *Cost of this choice:* the full suite has not been run on
+3.12.10; the bundled backend's smoke test and the installed app's "hello" have.
+
+**Packages installed with the build machine's pip, `--target`, wheels only.** The embeddable
+Python has no pip. `--only-binary=:all: --platform win_amd64 --python-version 3.12` keeps the
+build from compiling anything, and `backend/requirements.txt` pins the full set, so the bundle
+is exactly the tested versions.
+
+**Packages in `resources\backend\site\`, not `python\Lib\site-packages\`**, and a path budget of
+170 characters from the install folder that stops the build. Measured: the longest file would
+otherwise have been 176, leaving 83 characters for the install folder before Windows' 260-char
+limit (EVALUATION.md, 2026-11-13).
+
+**CDP port 0 when installed.** Chromium picks a free port itself and names it in
+`DevToolsActivePort` in the profile folder; the host deletes the old file before the app is
+ready and reads the new one. *Alternative:* the host picks a port with a throwaway listener
+first — that leaves a window in which something else can take it, and needs the port before
+the app is ready, which an async check cannot give. The backend's port *is* chosen that way
+(after ready, so it can be), and handed to the overlay with `?ws=`, which `connection.ts`
+already reads. No `CONTRACT.md` change.
+
+**Development is untouched.** `SIMBA_CDP_PORT` still overrides; unset, development keeps 9222,
+and the host starts no backend unless `app.isPackaged`.
+
+**The host waits for the backend before opening the overlay.** The overlay connects only when
+asked, and a home screen whose first press finds no backend would fail. So the window shows
+once the backend answers (6-7 s on a warm launch, 17 s on the first; EVALUATION.md). If the
+backend exits or never answers, the overlay opens anyway (at once, or after 60 s) with no
+backend behind it; what it then shows was not tried.
+
+**Stopping the backend: `taskkill /PID <pid> /T /F` on `will-quit`.** The PID is the one the
+host got from `spawn`; `/T` reaches Playwright's driver (`node.exe`), which the backend
+started. The same form `run.ps1` uses; no name, no filter.
+
+**The installer never kills anything.** electron-builder's NSIS installer, finding SIMBA open
+during an install or uninstall, stops every process running from the install folder
+(`taskkill /IM` or a matched `Stop-Process`). `frontend/installer/installer.nsh` replaces that
+check with one that only looks, and asks the person to close SIMBA and press Retry.
+
+**Every writable path moved to `%APPDATA%\SIMBA`**, by environment variables the host sets:
+`SIMBA_TILES`, `SIMBA_VAULT`, `SIMBA_ROUTINES`, `SIMBA_TRACE_DB`, `SIMBA_LOG_FILE` (already
+honoured) and two new ones, `SIMBA_STEPS` (`data/steps.jsonl`) and `SIMBA_LLM_LOG_DIR` (the
+model's transcripts), both read at import, both defaulting to the old paths.
+
+**Per-user install by default, with the choice of folder.** `oneClick: false`,
+`perMachine: false`: the wizard asks "only for me / anyone", and only-for-me needs no
+administrator. An all-users install under Program Files also works: nothing is written there
+and every module is byte-compiled at build time.
+
+**The profile folder is kept on uninstall** (`deleteAppDataOnUninstall: false`, the default):
+a person's tiles, routines and saved sign-ins survive a reinstall.
+
+**`appId: "simba"`**, the same id `main.ts` gives Windows for taskbar grouping, so the Start
+menu shortcut and the running window are one taskbar button.
+
+**Unsigned.** SmartScreen warns on first run (`docs/why-desktop.md`). Not bought, as asked.
+
+---
+
+## The installed backend ends with its host; one SIMBA at a time; a key in the profile — 2026-11-14
+
+Three of the five things flagged with the installer on 2026-11-13, done as recommended there,
+on Raham's "continue the work".
+
+**The backend ends when its host does, however it ends.** The host passes its PID as
+`SIMBA_HOST_PID`; `host_watch.py` opens that process once and waits on the handle, then
+`os._exit(0)`. A handle, not a PID looked up again, so a new process given the same number
+cannot keep the backend alive. *Alternative:* a Windows job object that ends children with the
+parent — needs native code in the host. Measured: 0.22 s from the host's death to the backend's.
+
+**One SIMBA at a time, installed only.** `requestSingleInstanceLock` per profile; a second launch
+ends and brings the open window forward. The CDP switch is now added after the lock, so a second
+launch never writes its port over the first's. Development is not locked: tests open several
+hosts at once. *Alternative:* allow two, each with its own profile — two backends, and a
+person who pressed twice would see two windows.
+
+**`SIMBA_ENV_FILE`: a model key can live in `%APPDATA%\SIMBA\.env`.** First-time setup's saved
+helper (`data/ai.json`) still wins over it, as over the repository's `.env`. The install folder's
+own `.env` would be replaced by every update.
+
+**Two more paths moved to the profile, from `main`:** `SIMBA_AI_SETTINGS` (`data/ai.json`) and
+`SIMBA_CATALOGUE_LOCAL` (`data/catalogue.local.json`). The shipped `data/catalogue.json` is only
+read and stays in the install folder.
