@@ -38,6 +38,22 @@ TASK = Task(
 DEAD_LINK = ("link", "Home")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def every_element_listed():
+    """The model's prompt no longer lists links that go nowhere (2026-11-13,
+    `render_page`), and this test needs its fake model to choose one: the
+    failure it injects is exactly such a link. So the fake is shown every
+    element, one per line, as the prompt listed them before. What is tested —
+    that both planners present, verify, retry and give up the same way — does
+    not depend on the prompt's wording."""
+    from backend.orchestrator import llm_loop
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(llm_loop, "render_page", lambda elements: "\n".join(
+            f"{e.id}. {e.role} {e.label!r}" for e in elements))
+        yield
+
+
 class OneNoteProvider:
     """A model that always answers with the same element."""
 
@@ -89,7 +105,7 @@ def drive(planner, start_url: str) -> FakeConnection:
 
 
 @pytest.fixture(scope="module")
-def both(replica: str):  # noqa: F811
+def both(replica: str, every_element_listed):  # noqa: F811
     """Run the identical dead-link failure through each planner."""
     role, label = DEAD_LINK
     return {

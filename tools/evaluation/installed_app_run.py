@@ -73,7 +73,7 @@ def close_window(pid: int, limit_s: float = 60) -> bool:
     """WM_CLOSE to the main window of exactly this PID, as pressing X does.
 
     Retried until the window exists: the host shows it only once its backend
-    answers, and a close sent before that reaches nothing (found 2026-11-14,
+    answers, and a close sent before that reaches nothing (found 2026-11-13,
     when a first launch after installing took 20 s and the run left it open).
     """
     until = time.monotonic() + limit_s
@@ -118,7 +118,7 @@ def one_launch(first: bool, extra: str = "") -> dict:
     result: dict = {"first_launch": first, "host_pid": host.pid}
     try:
         # Only a file written by this launch: the host removes the last one,
-        # but a slow first start can be read before it has (2026-11-14).
+        # but a slow first start can be read before it has (2026-11-13).
         port = None
         while time.monotonic() - started < 90:
             try:
@@ -242,7 +242,7 @@ def main() -> None:
         launch = one_launch(first=(run == 0 and not profile_existed))
         print(json.dumps(launch))
         results["launches"].append(launch)
-    # The two cases added on 2026-11-14: a second launch, and a crashed host.
+    # The two cases added on 2026-11-13: a second launch, and a crashed host.
     for extra in ("second", "crash"):
         launch = one_launch(first=False, extra=extra)
         launch["case"] = extra

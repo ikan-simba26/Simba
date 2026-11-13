@@ -160,7 +160,7 @@ def test_the_environment_builds_gemini_then_groq(monkeypatch):
     assert provider.providers[1].wait_out_rate_limits is True
 
 
-# --- OpenRouter, the third (2026-11-14) --------------------------------------
+# --- OpenRouter, the third (2026-11-13) --------------------------------------
 
 
 def _gemini(monkeypatch):

@@ -667,7 +667,7 @@ class OpenAICompatibleProvider:
 GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
-#: OpenRouter, the third (2026-11-14): one of its free models, after Groq. A
+#: OpenRouter, the third (2026-11-13): one of its free models, after Groq. A
 #: model by NVIDIA rather than Google, so a Google outage or limit that stops
 #: Gemini does not stop this too — OpenRouter's free Gemma came back
 #: "rate-limited upstream" at Google AI Studio on the day it was chosen. It
@@ -701,7 +701,7 @@ def _cannot_answer_now(error: BaseException | None) -> bool:
 
 class FallbackProvider:
     """Providers in order (2026-11-13, the advisor's direction): Gemini first,
-    Groq when Gemini cannot answer now, and OpenRouter after Groq (2026-11-14). Each call goes to the first that
+    Groq when Gemini cannot answer now, and OpenRouter after Groq (2026-11-13). Each call goes to the first that
     can; `answered_by` says which did, for the person to see."""
 
     name = "chain"
@@ -787,7 +787,7 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
 
     With `SIMBA_LLM_PROVIDER=openai` and a `GROQ_API_KEY` or an
     `OPENROUTER_API_KEY` too, the provider is the chain (2026-11-13; OpenRouter
-    third since 2026-11-14): the configured one first, then Groq (`GROQ_MODEL`,
+    third since 2026-11-13): the configured one first, then Groq (`GROQ_MODEL`,
     `GROQ_BASE_URL`), then OpenRouter (`OPENROUTER_MODEL`,
     `OPENROUTER_BASE_URL`); only the last waits out a rate limit.
     `SIMBA_LLM_FALLBACK=0` keeps the configured one alone."""

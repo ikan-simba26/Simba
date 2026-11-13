@@ -8762,7 +8762,7 @@ host, at 100%, 125% and 150%: the window still fits and the site view is still 1
 `backend/estimator/test_pairing.py`, `backend/orchestrator/test_llm.py`: **88 passed** in
 131 s. `npm run build`: clean (tsc strict, then vite).
 
-## 2026-11-14 — the installer again, after merging `main`: a crash, a second launch (`feat/infra-installer`)
+## 2026-11-13e — the installer again, after merging `main`: a crash, a second launch (`feat/infra-installer`)
 
 `main` brought first-time setup and the website catalogue while this branch waited, so the
 branch took `main` in, moved setup's `data/ai.json` and the person's `data/catalogue.local.json`
@@ -8807,3 +8807,71 @@ Backend tests on the merged branch: `test_data_paths.py`, `test_host_watch.py` (
 
 Host tests (`SIMBA_HOST_TESTS=1`): `frontend/test_window_fit.py` and `frontend/test_brand.py`,
 **50 passed** in 738 s, so development's window is unchanged by the lock and the switch order.
+
+## 2026-11-13f — a smaller element list for the model: tokens per step, before and after (`feat/perception-trim-prompt`)
+
+`tools/evaluation/prompt_size_probe.py`: seven pages read once and kept — three replicas
+(registration with its modal up, billing with its cookie banner, the train search with the date
+picker open) and four public catalogue pages (gov.uk bank holidays, Wikipedia's main page,
+timeanddate's Lahore weather, FCCU's home page; each robots.txt checked, each loaded once,
+nothing pressed). Each page's prompt was built exactly as the planner builds it (for the public
+pages with "What the page says", as the open-goal planner sends it) and sent once to Gemini,
+whose own `prompt_tokens` is the count. Same seven samples both times; only the renderer differs.
+
+**Conditions.** before 2026-11-13T18:14:02+05:00, after 18:16:44 · `feat/perception-trim-prompt`
+off `main` at `6a55423`, uncommitted (the renderer is the only difference) · Gemini `gemini-3.1-flash-lite` alone, free tier, through its
+OpenAI-compatible endpoint · Python 3.12.3, Playwright 1.62.0 · on mains, CPU load 3% and 4%.
+
+| Page | Elements | Prompt tokens before | after | Chose before | after |
+|---|---|---|---|---|---|
+| registration, modal up | 66 | 2,123 | **335** | Close | Close |
+| billing, cookie banner | 37 | 878 | **365** | Accept all cookies | Accept all cookies |
+| train search, date picker open | 55 | 1,620 | **1,098** | 20 | 20 |
+| gov.uk bank holidays | 56 | 1,854 | 1,791 | answer "25 December Christmas Day" | the same |
+| Wikipedia main page | 299 | 4,169 | 4,073 | answer (the featured article) | the same |
+| timeanddate, Lahore weather | 73 | 2,572 | 2,492 | answer "23 °C" | the same |
+| FCCU home | 81 | 2,066 | 1,898 | Admissions | Admissions |
+| **Mean per step** | | **2,183** | **1,722 (−21%)** | | **7 of 7 the same** |
+
+Where it comes from: on the replica pages more than half the list's characters were the
+per-line notes ("<- OCCLUDED, cannot be clicked", "<- INFERRED (role worked out from layout,
+not declared)"), and with the modal up 65 of 66 elements were behind it. The public pages save
+3-8%: what they say is already capped at 2,400 characters, and their links are real.
+
+**Not worse, measured two ways.** The seven single steps above chose the same element, or gave
+the same answer word for word, 7 of 7. And the whole registration task with the model
+(`tools/evaluation/llm_registration_benchmark.py 3`, the replica, Gemini through `.env`):
+**3 of 3 completed in 5 steps**, the fewest it can take — sign in, close the notice, register —
+in 18.0, 24.4 and 69.0 s. Not a ten-run benchmark: three runs show it still finishes, not that
+its rate is unchanged.
+
+**Failure found on the way.** `backend/orchestrator/test_shared_recovery.py` failed, 6 errors and
+1 failure: its fake model injects a failure by clicking a link that goes nowhere, and the trimmed
+list no longer shows such links. The test now gives its fake the full list (a module fixture,
+with the reason); what it tests — that both planners recover the same way — does not depend on
+the prompt's wording. 7 of 7 pass.
+
+**The suite, with the shorter list.** `pytest backend tools`, `test_live_site.py` left out (it opens a live site): **1,564 passed, 10 skipped, 0 failed** in 2,037 s, on `feat/perception-trim-prompt`.
+
+## 2026-11-13g — Gemini → Groq → OpenRouter, live, once each way (`tools/evaluation/fallback_live_run.py`)
+
+One planner step on the gov.uk bank holidays page (public, captured above), through the chain
+`provider_from_env` builds from `.env`, three times. Every call a real request. A rate limit
+cannot be had on cue, so the earlier providers were made to fail with a model name that does not
+exist: Google and Groq each answered **404** for real, and a 404 moves the chain on by the same
+path as a 429 (`llm._cannot_answer_now`).
+
+| Case | Chain | Answered by (as the app shows it) | Answer | Seconds |
+|---|---|---|---|---|
+| A. as configured | Gemini, Groq, OpenRouter | **Gemini** | "25 December Christmas Day" | 15.66 |
+| B. Gemini gets a 404 | the same | **Groq** (`openai/gpt-oss-120b`) | "The next bank holiday in England and Wales is 25 December Christmas Day" | 2.27 |
+| C. Gemini and Groq get 404s | the same | **OpenRouter** (`nvidia/nemotron-3.5-super-vl:free`) | the same sentence as Groq's | 5.75 |
+
+**Conditions.** 2026-11-13T18:21:55+05:00 · `feat/perception-trim-prompt` at `6a55423`,
+uncommitted · CPU load 23% · keys from `D:\simba\.env`,
+never printed · the three providers' free tiers · no personal data in any prompt.
+
+**What it shows beyond "it falls back".** Groq and OpenRouter both wrote a sentence where Gemini
+copied the words. The open-goal planner accepts an answer only if the page says it word for
+word, so in the app that answer is refused once and asked again with the reason — one more call
+on the fallbacks, not a wrong answer shown. Measured on one page; not a rate.
