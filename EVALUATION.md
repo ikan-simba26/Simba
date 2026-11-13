@@ -8956,3 +8956,51 @@ second's `asyncio.run` cannot start under — which is how they were before; the
 them in an order that does not meet it.
 
 Full suite with the fix: `pytest backend tools`, `test_live_site.py` left out: **1,569 passed, 10 skipped, 0 failed** in 2,303 s.
+
+## 2026-11-13j — phase 5, runs C, D and E on free models only, with Raham away (`eval/phase5-cde`)
+
+Raham: the Gemini key is not paid, the work has to be done with free APIs, run what can be run
+while he is away. So every run below sent nothing personal to any model (Gemini, Groq and
+OpenRouter are all free tiers), and none could place an order, a booking or a submission: those
+are the person's own press on the final screen, and he was not there. Each run by
+`tools/evaluation/open_goal_live_run.py`, headless Chromium at 1280x800, keys from `.env`.
+
+**First, a safety fault in that script, found before any run and fixed.** It played the person
+by answering "yes" to every step. Until today that was safe: on a live site nothing could be
+changed. Since the final-step rule changed (live changes after the final screen), "yes" to a
+final screen would have pressed "Do it" — on run D, submitted the form. It now answers a final
+screen "Don't do it" and cancels any handover (`tools/evaluation/test_open_goal_live_run.py`).
+
+**And a fault in that fix, found by run C.** The first version took any step offering "decline"
+for a final screen; "Is this what you wanted?" offers "No, keep looking" under the same id, so it
+turned down the right answer nine times (38DN, 2DN, 10DN, three times each) and the model wandered
+until a covered Search button stopped it (20 steps, 169.7 s, 20 calls). That run does not count.
+A final screen is now the step that lists its details; a test holds an answer accepted.
+
+| Run | Site and goal | Outcome | Steps | Calls | Seconds | Worked out by |
+|---|---|---|---|---|---|---|
+| **C** | pakrailways.gov.pk/train — "Find a train from Lahore to Karachi on 20 November 2026 and book one seat on it" | **completed: "38DN"** — stations, date from the calendar, search, the answer | 8 | 8 | 89.5 | Gemini |
+| **D** | fccollege.edu.pk — the online admission form for a made-up applicant ("Test Applicant", test@example.com), not submitted | **stopped at once**: the site's check that a person is there was handed over, and with nobody there the script cancelled it. Nothing typed, the model never called | 0 | 0 | 3.6 | — |
+| **E** | readings.com.pk — "Put the book Atomic Habits by James Clear in the cart … go to checkout. Do not enter any personal details and do not place the order." | **stuck**: typed "Atomic Habits" in the search box seven times, and twice pressed a button labelled only by an icon-font glyph (shown as "Click .") | 12 | 12 | 193.9 | Gemini |
+
+Conditions: 2026-11-13T20:54:40+05:00 (C, first), 20:58:21 (C), 21:00:14 (D), 21:00:42 (E) ·
+`eval/phase5-cde` off `main` at `19f217b`, the script's fixes uncommitted · CPU load 7-15% · no
+`SIMBA_*` switch.
+
+**What these show.**
+- **C** does the search part of a booking on the live site end to end, and stops where its rules
+  stop it: the open-goal planner's rules say never to press a button that books, and to leave it
+  to the person. So the booking's final screen and the payment handover were not reached — they
+  need the AI planner allowed to press "Book" (behind the final screen), the person's sign-in and
+  the passenger's details, which on a free model cannot be sent.
+- **D** needs a person at the keyboard to pass the site's own check; the handover did what it
+  should with nobody there.
+- **E** shows two things: an icon-only button gives the model nothing to read (perception labels
+  it with the icon font's private-use character), and the open-goal planner ends a task only with
+  an answer, so a goal that is all doing ("put it in the cart") cannot complete with it.
+
+Also seen: a step whose element has no readable name is shown to the person as "Click element 13."
+or "Click ." — words that tell a person nothing.
+
+Not run: the real cash-on-delivery order (needs Raham's own press and his name, address and phone,
+which may not go to a free model), and the booking up to payment.

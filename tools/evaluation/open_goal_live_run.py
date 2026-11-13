@@ -23,18 +23,16 @@ the answer.
 
 import argparse
 import asyncio
-import io
 import json
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from playwright.async_api import async_playwright  # noqa: E402
 
-from backend.orchestrator import robots  # noqa: E402
+from backend.orchestrator import robots, voice  # noqa: E402
 from backend.orchestrator.llm import Transcript, provider_from_env  # noqa: E402
 from backend.orchestrator.llm_loop import OpenGoalPlanner  # noqa: E402
 from backend.orchestrator.loop import Connection, Task, _Run, carry_out  # noqa: E402
@@ -45,26 +43,55 @@ OUT = Path(__file__).resolve().parents[2] / ".scratch" / "open-goal-live"
 
 
 class Recording(Connection):
-    """Says yes to everything the run asks, and keeps what it said."""
+    """Says yes to every step, and keeps what it said — **but never "Do it"**.
+
+    Since 2026-11-13 a live site may be changed after the final screen
+    (CLAUDE.md, the final-step rule), so "yes to everything" would press "Do it"
+    on a real booking, order or form. This script plays the person only up to
+    there: a final screen is always answered "Don't do it", and a handover (a
+    payment, a bot check, a one-time code) is always cancelled. A real change
+    is the person's own press, never a script's.
+    """
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, dict]] = []
+        #: Final screens declined and handovers cancelled, for the record.
+        self.declined: list[str] = []
 
     async def send(self, message_type: str, payload) -> None:
         self.sent.append((message_type, payload.model_dump()))
 
+    def _last_step(self) -> dict:
+        return next((p for kind, p in reversed(self.sent) if kind == "step.presented"), {})
+
     async def receive(self, message_type, step_index=None, on_other=None) -> dict:
+        wanted = message_type if isinstance(message_type, tuple) else (message_type,)
+        if "step.response" not in wanted:
+            # A handover waits for the person's "done" or a cancel: cancel.
+            self.declined.append(f"handover: {wanted}")
+            return {"type": "task.cancel", "payload": {}}
+        step = self._last_step()
+        ids = {action.get("id") for action in step.get("actions") or []}
+        # A final screen is the step with its details listed (`final`). Not
+        # "any step that offers decline": "Is this what you wanted?" offers
+        # "No, keep looking" under that same id, and answering it so turned
+        # down the right trains nine times in a row (EVALUATION.md, 2026-11-13j).
+        if step.get("final"):
+            self.declined.append(f"final screen: {step.get('instruction', '')[:120]}")
+            answer = voice.DECLINE_ID if voice.DECLINE_ID in ids else voice.CANCEL_ID
+        else:
+            answer = voice.CONFIRM_ID
         return {"type": "step.response",
-                "payload": {"step_index": step_index, "action_id": "confirm",
+                "payload": {"step_index": step_index, "action_id": answer,
                             "input_values": {}}}
 
 
-async def one_run(site: str, goal: str) -> dict:
+async def one_run(site: str, goal: str, steps: int = 6) -> dict:
     if not await robots.allowed(site):
         return {"outcome": "not allowed by robots.txt"}
     transcript = Transcript()
     provider = provider_from_env(transcript)
-    task = Task(goal=goal, estimated_steps=6, success=None, about=About())
+    task = Task(goal=goal, estimated_steps=steps, success=None, about=About())
     planner = OpenGoalPlanner(provider, task)
     connection = Recording()
     started = time.monotonic()
@@ -97,6 +124,7 @@ async def one_run(site: str, goal: str) -> dict:
         "seconds": round(seconds, 1),
         "transcript": str(getattr(transcript, "path", "")),
         "messages": types.count("step.presented"),
+        "declined": connection.declined,
     }
     return result
 
@@ -105,9 +133,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("site")
     parser.add_argument("goal")
+    parser.add_argument("--steps", type=int, default=6)
     args = parser.parse_args()
+    # Here, not at import: a test imports `Recording` (2026-11-13).
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print(banner())
-    result = asyncio.run(one_run(args.site, args.goal))
+    result = asyncio.run(one_run(args.site, args.goal, args.steps))
     print(json.dumps(result, indent=2, ensure_ascii=False))
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")

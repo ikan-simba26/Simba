@@ -6766,3 +6766,27 @@ Settles the open question above, as recommended there, on Raham's "yes, fix it".
   the snapshot) and one line each in `llm_loop.py` and `loop.py`. Nahail to review.
 - *Cost:* the visible text of every page read is kept in memory with its content — up to tens of
   thousands of characters on a long page; it is never put in a prompt.
+
+---
+
+## Phase 5 on free models, with Raham away — 2026-11-13
+
+Raham: the Gemini key is not paid; the work is to be done with free APIs; run what can be run.
+Settled in running it, each flagged in the report:
+
+- **No personal details to any model.** Raham's own rule of the morning, not lifted by "free
+  APIs": a run that needs a person's name, address, CNIC or phone on the page was not run.
+- **No change on a live site without the person.** The run script answers every final screen
+  "Don't do it" and cancels every handover (it used to answer "yes" to everything, which since
+  today's rule change would have pressed "Do it").
+- **Run scopes, as proposed to him before he left:** C up to where the planner stops (it reached
+  the answer, not the booking); D with made-up details (stopped by the site's bot check); E up to
+  checkout with nothing entered (stuck before the cart).
+
+**Flagged, not changed:** the open-goal planner's rules (`OPEN_GOAL_RULES`) still say never to
+press a button that books, orders or submits, from before the final-step rule allowed live changes
+behind the final screen. So the AI planner cannot reach a live final screen at all. *Options:* let
+it press such a button and rely on the loop's final screen (`loop.carry_out` already stops every
+such press there); or keep it to finding and leave every change to the person. *Recommended:* the
+first, since the loop's final screen is the guard either way; *cost:* the rule text and its tests,
+and the advisor's "live tasks" become possible with the AI planner.
