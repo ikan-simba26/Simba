@@ -6730,3 +6730,19 @@ or the shape it has learned to read; the request was not to make it worse.
 (`test_shared_recovery.py`). Measured: 21% fewer prompt tokens per step on seven pages, 84% on a
 page under a modal; the same choices 7 of 7; registration with the model 3 of 3 in 5 steps
 (EVALUATION.md, 2026-11-13f).
+
+---
+
+## Open: an answer is checked against too little of the page — flagged 2026-11-13
+
+Found by phase 5's runs A and B (EVALUATION.md, 2026-11-13h): the open-goal planner gave the
+right price twice, and SIMBA refused it twice, because the word-for-word check reads only what
+perception extracted from the page, and the price was not among it. **Not settled; not changed.**
+
+- *Options.* (1) Check the answer against the page's whole visible text, still word for word:
+  the rule stays "only what the page says", it only looks at all of it. (2) Teach perception's
+  content extraction to keep prices and other short values. (3) Leave it.
+- *Recommended:* (1), in the orchestrator, with tests first, since it is in the verification
+  path. *Cost:* about 20 lines and a test page; the answer ring in the picture of the page still
+  needs the text's place, which (1) finds the same way the check does. (2) as well, later, for
+  what the model is shown — that is Nahail's area.

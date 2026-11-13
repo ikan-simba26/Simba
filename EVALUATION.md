@@ -8875,3 +8875,44 @@ never printed · the three providers' free tiers · no personal data in any prom
 copied the words. The open-goal planner accepts an answer only if the page says it word for
 word, so in the app that answer is refused once and asked again with the reason — one more call
 on the fallbacks, not a wrong answer shown. Measured on one page; not a rate.
+
+## 2026-11-13h — phase 5, runs A and B: an AI goal with a search on a live shop (Readings)
+
+Raham's OK for runs A and B of the phase 5 plan. The site is readings.com.pk (a Lahore
+bookshop): its robots.txt is `Allow: /`, its terms give "permission to access and make personal
+use of this site", and nothing in them mentions automated access (read 2026-11-13). The goal
+carries no personal data, so Gemini's free tier was used. Each run once; nothing was bought,
+added to a cart or signed in to.
+
+**Run A** — `tools/evaluation/open_goal_live_run.py https://www.readings.com.pk/ "Find the price
+of the book Atomic Habits on Readings"`: the real loop and `OpenGoalPlanner`, headless Chromium at
+1280x800, every step answered "go ahead" by the script. 2026-11-13T19:33:51+05:00, `main` at
+`978396c`, CPU load 13%.
+
+**Run B** — the same goal, typed into **the real SIMBA window** (`run.ps1`, the AI planner on:
+`SIMBA_USE_HARDCODED_PLAN=0`), as "Find the price of the book Atomic Habits on readings.com.pk".
+The window's own buttons were pressed over CDP as a person would press them, and "Atomic Habits"
+was typed into SIMBA's own field when it asked. 2026-11-13T19:35+05:00, the same commit.
+
+| | Run A (headless) | Run B (SIMBA window) |
+|---|---|---|
+| Step 1 | type "Atomic Habits" in the search box | the same; SIMBA asked the person for the words |
+| Step 2 | open "Atomic Habits : an Easy & Proven Way … James Clear Rs. 3896 - In Stock." | the same |
+| Model's answer | **"Rs. 3896"**, twice | **"Rs. 3896"**, twice |
+| SIMBA's check | refused twice: not on the page word for word | the same |
+| End | `help.requested`: "I couldn't work out how to do this on this website." | "I'm stuck, so I've stopped.", 134 s after the goal |
+| Worked out with | Gemini, 4 calls, no fallback | Gemini, 4 calls, no fallback |
+| Time | 55.1 s | 134 s (two person's presses included) |
+
+**Result: 0 of 2 answered, and both stopped safely.** The model did the task: it searched, opened
+the book's page and gave the price the search results showed. SIMBA refused the answer because
+its check (`OpenGoalPlanner._choose`, `content.says`) compares against perception's extracted
+"What the page says" — headings, label/value pairs, prominent values, tables — and on the book's
+page that held the page's headings and links but **no price at all**. So a right answer, which
+the page shows, could not be accepted, and the run stopped with a message that blames the website.
+
+**Also seen in run B:** the step's words were cut after "James Clear Rs.", so the window showed
+the book without its price; and the stuck message, "I couldn't work out how to do this on this
+website", is not what happened.
+
+Afterwards: `run.ps1 -Seconds 420` stopped everything itself; ports 9222, 8000, 5000 and 5100 free.
