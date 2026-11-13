@@ -151,12 +151,100 @@ def test_the_environment_builds_gemini_then_groq(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "groq-key")
     monkeypatch.delenv("GROQ_MODEL", raising=False)
     monkeypatch.delenv("SIMBA_LLM_FALLBACK", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     provider = provider_from_env()
     assert isinstance(provider, FallbackProvider)
     assert [p.label for p in provider.providers] == ["Gemini", "Groq"]
     assert provider.providers[1].model == "openai/gpt-oss-120b"
     assert provider.providers[0].wait_out_rate_limits is False
     assert provider.providers[1].wait_out_rate_limits is True
+
+
+# --- OpenRouter, the third (2026-11-14) --------------------------------------
+
+
+def _gemini(monkeypatch):
+    monkeypatch.setattr(llm, "_load_dotenv", lambda: None)
+    monkeypatch.setenv("SIMBA_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "gemini-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+    monkeypatch.setenv("OPENAI_MODEL", "gemini-3.1-flash-lite")
+    for name in ("GROQ_MODEL", "GROQ_BASE_URL", "OPENROUTER_MODEL", "OPENROUTER_BASE_URL",
+                 "SIMBA_LLM_FALLBACK"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_the_environment_builds_gemini_then_groq_then_openrouter(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    provider = provider_from_env()
+    assert isinstance(provider, FallbackProvider)
+    assert [p.label for p in provider.providers] == ["Gemini", "Groq", "OpenRouter"]
+    assert provider.providers[2].model == "nvidia/nemotron-3.5-super-vl:free"
+    # Only the last waits out a rate limit: the others move on at once.
+    assert [p.wait_out_rate_limits for p in provider.providers] == [False, False, True]
+
+
+def test_openrouter_follows_gemini_when_there_is_no_groq_key(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    provider = provider_from_env()
+    assert [p.label for p in provider.providers] == ["Gemini", "OpenRouter"]
+
+
+def test_openrouter_is_where_and_what_env_says(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    monkeypatch.setenv("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+    provider = provider_from_env()
+    assert provider.providers[2].label == "OpenRouter"
+    assert provider.providers[2].model == "google/gemma-4-31b-it:free"
+
+
+def test_switched_off_there_is_no_openrouter_either(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    monkeypatch.setenv("SIMBA_LLM_FALLBACK", "0")
+    assert isinstance(provider_from_env(), OpenAICompatibleProvider)
+
+
+def test_when_gemini_and_groq_cannot_openrouter_answers_and_is_named():
+    first = Fake("Gemini", api_error(openai.RateLimitError, 429))
+    second = Fake("Groq", api_error(openai.RateLimitError, 429))
+    third = Fake("OpenRouter")
+    chain = FallbackProvider([first, second, third])
+    assert run(chain.decide("s", "p", "g")) == ACTION
+    assert (first.calls, second.calls, third.calls) == (1, 1, 1)
+    assert chain.answered_by == "OpenRouter"
+    assert chain.label == "OpenRouter"
+
+
+def test_a_saved_setup_is_followed_by_groq_then_openrouter(monkeypatch, tmp_path):
+    from backend.orchestrator import ai_settings
+
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    saved = ai_settings.AiSettings(provider="gemini", key="saved-key",
+                                   base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                                   model="gemini-3.1-flash-lite")
+    monkeypatch.setattr(ai_settings.AiStore, "load", lambda self: saved)
+    provider = provider_from_env()
+    assert [p.label for p in provider.providers] == ["Gemini", "Groq", "OpenRouter"]
+
+
+def test_the_openrouter_key_is_never_in_an_error(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-secret-value")
+    with pytest.raises(LLMError) as raised:
+        provider_from_env()
+    assert "openrouter-secret-value" not in str(raised.value)
 
 
 def test_no_groq_key_is_gemini_alone(monkeypatch):

@@ -6675,3 +6675,31 @@ own `.env` would be replaced by every update.
 **Two more paths moved to the profile, from `main`:** `SIMBA_AI_SETTINGS` (`data/ai.json`) and
 `SIMBA_CATALOGUE_LOCAL` (`data/catalogue.local.json`). The shipped `data/catalogue.json` is only
 read and stays in the install folder.
+
+---
+
+## OpenRouter third, on `nvidia/nemotron-3.5-super-vl:free` — `feat/orchestrator-openrouter`, 2026-11-14
+
+Asked for by Raham: OpenRouter's free models after Groq, from `OPENROUTER_API_KEY` and
+`OPENROUTER_BASE_URL`, and the app saying which provider answered, as for Groq.
+
+**The model.** Of the 14 free models OpenRouter listed on 2026-11-14, the ones that take
+structured output (every planner call asks for a JSON schema) were tried with one tiny request.
+`google/gemma-4-31b-it:free` came back 429 "rate-limited upstream" at Google AI Studio — and a
+Google model is also the wrong fallback for Gemini, since one Google limit or outage could stop
+both. `nvidia/nemotron-3.5-super-vl:free` answered, takes structured output, and is not Google's;
+`nvidia/nemotron-3-ultra-550b-a55b:free` also answered but does not list structured output.
+*Cost:* free models come and go on OpenRouter; `OPENROUTER_MODEL` picks another without a code
+change. How well it plans is measured in the live fallback test, not assumed.
+
+**Order and waiting.** Gemini, Groq, OpenRouter. Only the last provider in the chain waits out a
+rate limit; every earlier one moves on at once. A chain is built the same way from `.env` and
+from a key saved in first-time setup, and a fallback that is the same provider as the first
+(Groq saved in setup, say) is left out.
+
+**Shown as for Groq.** The provider's label comes from its address (`label_for`), and
+`openrouter.ai` was already "OpenRouter", so "worked out with OpenRouter" needed no interface
+change.
+
+**Free tiers and personal data.** OpenRouter's free models, like Gemini's free tier, may keep
+what is sent. `.env.example` says so; phase 5's plan says which runs need a paid key.
