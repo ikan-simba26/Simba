@@ -406,7 +406,7 @@ class OpenGoalPlanner(LLMPlanner):
                 continue
             if action.action == "answer":
                 said = (action.value or "").strip()
-                if said and self._content is not None and self._content.says(said):
+                if said and self._content is not None and self._content.shows(said):
                     return _Choice(action=action, element=None)  # type: ignore[arg-type]
                 feedback = (f'"{said}" is not on the page word for word. Copy the answer '
                             'exactly from "What the page says", or act to find it.')

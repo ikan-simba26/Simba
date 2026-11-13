@@ -8916,3 +8916,43 @@ the book without its price; and the stuck message, "I couldn't work out how to d
 website", is not what happened.
 
 Afterwards: `run.ps1 -Seconds 420` stopped everything itself; ports 9222, 8000, 5000 and 5100 free.
+
+## 2026-11-13i — the answer check, fixed: Readings again (`fix/orchestrator-answer-check`)
+
+Raham's "yes, fix it" to the open question of 2026-11-13h. Two causes, found one after the
+other, each with a test written first and failing:
+
+1. **The check read too little of the page.** `Content.says` looks at headings, label/value
+   pairs, large values and tables; Readings' price is plain text in none of them. Perception now
+   keeps the page's visible text too (`Content.text`: laid-out text nodes, in page order, nothing
+   under `display: none`, `visibility: hidden`, a script or a floating panel), and an answer is
+   checked by `Content.shows`: the content, or that text. `says` is unchanged, for success
+   conditions. *Re-run of A after this alone* (19:48:39, load 33%): refused twice again, 72.6 s.
+2. **One space.** A look at the book page, read-only (`.scratch/readings_price_probe.py`, once):
+   the page writes `Rs.3896`, in a `<span class="sale-price">`, and its page text now read
+   "Our Price: Rs.5195 Rs.3896". The model had answered "Rs. 3896" because SIMBA's own label for
+   the search suggestion read so — perception joins two pieces of text with a space. `shows` now
+   ignores a space beside punctuation, on both sides; letters and figures must still match
+   ("Rs 3896", "Rs.38 96", "Rs.3895" are refused, `test_content.py`).
+
+**Confirming run** (`open_goal_live_run.py`, the same goal, 2026-11-13T19:54:11+05:00, load 37%):
+
+| | |
+|---|---|
+| Outcome | **`task.completed`**, answer **"Rs. 3221"**, 3 steps, 70.9 s, 3 model calls |
+| Moves | type "Atomic Habits"; open "Atomic Habits : an Easy and Proven Way To Build Good Habits and Break Bad Ones James Clear Rs. 3221 - In Stock."; "The page says: Rs. 3221. Is this what you wanted?" |
+| Worked out by | Gemini, then **Groq** — Gemini answered **503 "This model is currently experiencing high demand"** mid-run, and the chain moved on by itself: a real fallback, not a forced one |
+
+Rs. 3221 is the price of the edition Groq opened, a different listing from the Rs. 3896 one
+Gemini opened in runs A and B; the goal did not say which edition. The person's "Is this what you
+wanted?" is where that is put right ("No, keep looking").
+
+On Readings today: three runs of A, run B in the window, and two looks at the book page for this
+diagnosis. No more.
+
+Tests: `test_content.py` 27 passed (2 new), `test_open_goal.py` 11 passed (3 new). The two
+files fail together in one process — the first's synchronous browser holds an event loop the
+second's `asyncio.run` cannot start under — which is how they were before; the full suite runs
+them in an order that does not meet it.
+
+Full suite with the fix: `pytest backend tools`, `test_live_site.py` left out: **1,569 passed, 10 skipped, 0 failed** in 2,303 s.

@@ -6746,3 +6746,23 @@ perception extracted from the page, and the price was not among it. **Not settle
   path. *Cost:* about 20 lines and a test page; the answer ring in the picture of the page still
   needs the text's place, which (1) finds the same way the check does. (2) as well, later, for
   what the model is shown — that is Nahail's area.
+
+---
+
+## An answer is checked against all the page shows — `fix/orchestrator-answer-check`, 2026-11-13
+
+Settles the open question above, as recommended there, on Raham's "yes, fix it".
+
+- **What is checked.** The open-goal planner's answer, before it is shown, and again before the
+  task closes, is accepted if the page shows it: in perception's readable content, as before, or
+  in the page's visible text (`Content.text`, new). Hidden text and scripts are not visible text.
+  `Content.says`, used by success conditions, is unchanged: a success condition met by any
+  stray text on a page would be weaker.
+- **Word for word, except spaces beside punctuation.** Perception joins pieces of text with a
+  space, so SIMBA's own words can have a space where the page has none ("Rs. 3896" for
+  `Rs.3896`), and the model copies SIMBA's words. *Alternative:* ignore all spaces — then
+  "38 96" would match "3896". Spaces between letters and figures still count.
+- *Touches* `backend/perception/content.py` (Nahail's area: one field, one method, one reader of
+  the snapshot) and one line each in `llm_loop.py` and `loop.py`. Nahail to review.
+- *Cost:* the visible text of every page read is kept in memory with its content — up to tens of
+  thousands of characters on a long page; it is never put in a prompt.
