@@ -107,6 +107,65 @@ def test_rendered_page_has_ids_roles_and_labels_but_no_values() -> None:
     assert "hunter2" not in rendered
 
 
+# --- the trimmed list (2026-11-13) ------------------------------------------
+
+
+def test_what_can_never_be_chosen_is_counted_not_listed() -> None:
+    rendered = render_page([
+        element(id=1, role="button", label="Close", overlay=True, dead_link=True),
+        element(id=2, role="link", label="CS-401", occluded=True),
+        element(id=3, role="link", label="Fees", occluded=True, dead_link=True),
+        element(id=4, role="link", label="Tickets", dead_link=True),
+        element(id=5, role="button", label="Search"),
+    ])
+    lines = rendered.splitlines()
+    assert lines[0].startswith("AN OVERLAY IS COVERING THE PAGE")
+    # The overlay's own close is kept even when its link goes nowhere:
+    # it is how the overlay is dismissed.
+    assert "1. button 'Close' [overlay]" in lines
+    assert "5. button 'Search'" in lines
+    for gone in ("CS-401", "Fees", "Tickets"):
+        assert gone not in rendered
+    assert "Not listed, since none can be used: 2 behind the overlay, 1 links that go nowhere." \
+        in lines
+
+
+def test_an_input_type_is_shown_only_where_the_role_does_not_say_it() -> None:
+    rendered = render_page([
+        element(id=1, role="textbox", label="Name", input_type="text"),
+        element(id=2, role="searchbox", label="Search", input_type="search"),
+        element(id=3, role="radio", label="Small", input_type="radio"),
+        element(id=4, role="textbox", label="Email", input_type="email"),
+        element(id=5, role="button", label="Main menu", input_type="checkbox"),
+    ]).splitlines()
+    assert "1. textbox 'Name'" in rendered
+    assert "2. searchbox 'Search'" in rendered
+    assert "3. radio 'Small'" in rendered
+    assert "4. textbox 'Email' [input type=email]" in rendered
+    assert "5. button 'Main menu' [input type=checkbox]" in rendered
+
+
+def test_a_label_is_one_line_and_cut_when_long() -> None:
+    long = "Apply for admission to the undergraduate programmes " * 3
+    rendered = render_page([
+        element(id=1, role="link", label="Full\xa0article\n  here"),
+        element(id=2, role="link", label=long),
+    ]).splitlines()
+    assert "1. link 'Full article here'" in rendered
+    second = next(line for line in rendered if line.startswith("2. "))
+    assert second.endswith("…'") and len(second) < 100
+
+
+def test_inferred_is_marked_short_and_explained_once() -> None:
+    rendered = render_page([
+        element(id=1, role="option", label=str(day), inferred=True, panel="2026 November")
+        for day in range(1, 4)
+    ])
+    assert rendered.count("[inferred] means") == 1
+    assert "1. option '1' [inferred]" in rendered.splitlines()
+    assert "INFERRED (role worked out" not in rendered
+
+
 # --- retry with the error fed back ------------------------------------------
 
 

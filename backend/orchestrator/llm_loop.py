@@ -38,12 +38,9 @@ an XPath, or element text as the id.
 dropdowns.
 - For a password or username field, set value to null. Those are filled from \
 the user's vault, not by you.
-- If any element is marked OVERLAY, something is covering the page. Dismiss \
-it first, using one of the OVERLAY elements, before anything else. Nothing \
-marked OCCLUDED can be clicked until you do.
-- Never choose an element marked OCCLUDED.
-- Never choose an element marked "dead link" — it goes nowhere and wastes a \
-step.
+- If any element is marked [overlay], something is covering the page. Dismiss \
+it first, using one of the [overlay] elements, before anything else. What it \
+covers is not listed until it is gone.
 - When the goal needs the user signed in, fill the sign-in fields on this page \
 rather than navigating. Prefer form fields and buttons over navigation links.
 - Keep reasoning to one short sentence, phrased for the person you are helping.
@@ -65,6 +62,20 @@ class _Choice:
     element: Element
 
 
+#: The longest label put in the prompt (2026-11-13). Past it, the rest is cut:
+#: a link that is a whole sentence is told apart by its first words.
+LABEL_CHARS = 80
+#: Input types that say nothing the role does not: shown only when they add
+#: something (password, email, number, date, a checkbox drawn as a button…).
+PLAIN_INPUTS = {"text", "search", "button", "submit", "reset", "image"}
+
+
+def _label(text: str) -> str:
+    """One line, no run of spaces, at most LABEL_CHARS."""
+    text = " ".join(text.split())
+    return text if len(text) <= LABEL_CHARS else text[:LABEL_CHARS - 1].rstrip() + "…"
+
+
 def render_page(elements: list[Element]) -> str:
     """The page as the model sees it: ids, roles, labels. Never values.
 
@@ -72,15 +83,28 @@ def render_page(elements: list[Element]) -> str:
     A model cannot infer from a list of sixty buttons that one of them belongs
     to a modal covering the rest — nor that six of them appeared a moment ago
     because someone started typing, and are the only way to commit a choice.
+
+    **Trimmed on 2026-11-13** to spend fewer tokens on what no move can use,
+    measured on seven pages to pick the same elements (EVALUATION.md):
+
+    - what can never be chosen is not listed, only counted — an element behind
+      the overlay, and a link that goes nowhere — unless it is part of the
+      overlay itself, which is how the overlay is closed;
+    - the marks are short (`[overlay]`, `[inferred]`), said once what they mean;
+    - an input type is shown only where the role does not already say it;
+    - a label is one line of at most LABEL_CHARS.
     """
     blocked = any(element.overlay for element in elements)
     choices = [e for e in elements if e.inferred and e.role == "option"]
+    behind = sum(1 for e in elements if e.occluded and not e.overlay)
+    nowhere = sum(1 for e in elements if e.dead_link and not e.occluded and not e.overlay)
+    listed = [e for e in elements if e.overlay or not (e.occluded or e.dead_link)]
 
     lines = []
     if blocked:
         lines += [
-            "AN OVERLAY IS COVERING THE PAGE. Everything marked OCCLUDED is "
-            "unreachable until it is dismissed, using an OVERLAY element.",
+            "AN OVERLAY IS COVERING THE PAGE. Dismiss it first, using an element "
+            "marked [overlay]; what it covers is not listed until it is gone.",
             "",
         ]
     if choices:
@@ -93,7 +117,7 @@ def render_page(elements: list[Element]) -> str:
         # The page disagrees, and says so only by silently emptying it.
         lines += [
             f"A LIST OF CHOICES IS OPEN, with {len(choices)} option(s) marked "
-            "INFERRED below. Nothing is chosen yet. Typing the text is not "
+            "[inferred] below. Nothing is chosen yet. Typing the text is not "
             "choosing: click the option you want NOW, before touching any "
             "other field, or what you typed will be discarded."
         ]
@@ -117,27 +141,36 @@ def render_page(elements: list[Element]) -> str:
             ]
         lines += [""]
 
-    for element in elements:
-        line = f"{element.id}. {element.role} {element.label!r}"
+    # Say that a role is a guess. The model is choosing partly on the strength
+    # of the role word, and "option" read from the page and "option" worked
+    # out from a mouse cursor are not the same claim. Said once here, and
+    # marked on each line, rather than spelled out on all forty-two day cells.
+    if any(e.inferred for e in listed):
+        lines += ["[inferred] means the role was worked out from the layout, "
+                  "not declared by the page."]
+    hidden = []
+    if behind:
+        hidden.append(f"{behind} behind the overlay")
+    if nowhere:
+        hidden.append(f"{nowhere} links that go nowhere")
+    if hidden:
+        lines += [f"Not listed, since none can be used: {', '.join(hidden)}."]
+    if lines and lines[-1] != "":
+        lines += [""]
+
+    for element in listed:
+        line = f"{element.id}. {element.role} {_label(element.label)!r}"
         if element.qualifier:
             # Without this a month grid offers two elements called '30' and
             # nothing to choose between them.
             line += f" ({element.qualifier})"
-        if element.input_type:
+        if (element.input_type and element.input_type not in PLAIN_INPUTS
+                and element.input_type != element.role):
             line += f" [input type={element.input_type}]"
         if element.overlay:
-            line += "  <- OVERLAY"
-        if element.occluded:
-            line += "  <- OCCLUDED, cannot be clicked"
-        if element.dead_link:
-            line += "  <- dead link, goes nowhere"
+            line += " [overlay]"
         if element.inferred:
-            # Say that the role is a guess. The model is choosing partly on
-            # the strength of the role word, and "option" read from the page
-            # and "option" worked out from a mouse cursor are not the same
-            # claim. Collapsing them would hide the uncertainty in exactly
-            # the place it matters.
-            line += "  <- INFERRED (role worked out from layout, not declared)"
+            line += " [inferred]"
         lines.append(line)
     return "\n".join(lines)
 

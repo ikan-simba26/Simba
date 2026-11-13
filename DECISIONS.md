@@ -6651,7 +6651,7 @@ menu shortcut and the running window are one taskbar button.
 
 ---
 
-## The installed backend ends with its host; one SIMBA at a time; a key in the profile — 2026-11-14
+## The installed backend ends with its host; one SIMBA at a time; a key in the profile — 2026-11-13
 
 Three of the five things flagged with the installer on 2026-11-13, done as recommended there,
 on Raham's "continue the work".
@@ -6678,12 +6678,12 @@ read and stays in the install folder.
 
 ---
 
-## OpenRouter third, on `nvidia/nemotron-3.5-super-vl:free` — `feat/orchestrator-openrouter`, 2026-11-14
+## OpenRouter third, on `nvidia/nemotron-3.5-super-vl:free` — `feat/orchestrator-openrouter`, 2026-11-13
 
 Asked for by Raham: OpenRouter's free models after Groq, from `OPENROUTER_API_KEY` and
 `OPENROUTER_BASE_URL`, and the app saying which provider answered, as for Groq.
 
-**The model.** Of the 14 free models OpenRouter listed on 2026-11-14, the ones that take
+**The model.** Of the 14 free models OpenRouter listed on 2026-11-13, the ones that take
 structured output (every planner call asks for a JSON schema) were tried with one tiny request.
 `google/gemma-4-31b-it:free` came back 429 "rate-limited upstream" at Google AI Studio — and a
 Google model is also the wrong fallback for Gemini, since one Google limit or outage could stop
@@ -6703,3 +6703,30 @@ change.
 
 **Free tiers and personal data.** OpenRouter's free models, like Gemini's free tier, may keep
 what is sent. `.env.example` says so; phase 5's plan says which runs need a paid key.
+
+---
+
+## A shorter element list for the model — `feat/perception-trim-prompt`, 2026-11-13
+
+Asked for by Raham: "trim the page element list sent to the model … without making the
+planner worse". `render_page` in `llm_loop.py`:
+
+- **What no move can use is counted, not listed**: an element behind the overlay, and a link
+  that goes nowhere — except an element of the overlay itself, which is how it is closed. The
+  system prompt already said never to choose either; now the model is not shown them.
+  *Alternative:* keep them with a short mark — 44 lines on the registration page for nothing
+  the model may choose.
+- **Short marks, explained once**: `[overlay]`, `[inferred]`, in place of a sentence on every
+  line. The banners stay where they were, above the list (perception's tests read them there).
+- **An input type only where the role does not say it**: password, email, number, a checkbox
+  drawn as a button; not text, search, button, submit.
+- **A label is one line of at most 80 characters.**
+
+*Considered and not done:* dropping duplicate (role, label) lines, and grouping links by role.
+Both would cut more on a page like Wikipedia's, and both change what the model can tell apart
+or the shape it has learned to read; the request was not to make it worse.
+
+*Cost:* a test's fake model that clicked a link going nowhere had to be shown the full list
+(`test_shared_recovery.py`). Measured: 21% fewer prompt tokens per step on seven pages, 84% on a
+page under a modal; the same choices 7 of 7; registration with the model 3 of 3 in 5 steps
+(EVALUATION.md, 2026-11-13f).

@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · phases 1, 2, 3, 4, 6, 7b and 8 of the advisor's direction merged into `main` and pushed; host fit test 3 of 3 in the real window after one fix (EVALUATION.md, 2026-11-13d); backend half 1540 + 8 passed at phase 4, overlay half 760 + 3 passed at phase 7b. **Deadline 19 November.** **Waiting on Raham**: phase 5's live runs, and whether to merge the installer (`feat/infra-installer`) **Installer** (`feat/infra-installer`): `SIMBA-Setup-0.0.1.exe`, 199.6 MB, installed, launched 3 times and greeted "hello" 3 of 3 from the bundled backend, nothing left running after closing or uninstalling (EVALUATION.md, 2026-11-13, installer).
+**Last updated:** 2026-11-13, evening · merged into `main` and pushed today: the Windows installer (`feat/infra-installer`), OpenRouter as the third provider (`feat/orchestrator-openrouter`) and a shorter element list for the model (`feat/perception-trim-prompt`: 2,183 → 1,722 prompt tokens a step on seven pages, the same choices 7 of 7; EVALUATION.md, 2026-11-13f). Gemini → Groq → OpenRouter tested live once each way (2026-11-13g). **Waiting on Raham**: phase 5's live runs, proposed and not started. Earlier today: phases 1, 2, 3, 4, 6, 7b and 8 of the advisor's direction merged.
 
 ---
 
@@ -1630,6 +1630,14 @@ On `feat/railways-ask`, **not merged**.
 
 ## Orchestrator — Raham · `backend/orchestrator/`
 
+**2026-11-13, evening.** Three providers: Gemini, then Groq, then OpenRouter's free
+`nvidia/nemotron-3.5-super-vl:free`; only the last waits out a rate limit; the app names
+whichever answered. The model's element list is shorter: what no move can use (behind an
+overlay, links that go nowhere) is counted, not listed; short marks; no redundant input types;
+labels cut at 80 characters. 21% fewer prompt tokens a step, 84% on a page under a modal.
+**Open**: Groq and OpenRouter paraphrase where the open-goal planner needs the page's words,
+costing one more call when they answer (EVALUATION.md, 2026-11-13g).
+
 **Done**
 - **Undo while teaching** (2026-11-10): `Teaching.undo` and `restart`, the recorder's
   `__simbaRestore`, `Draft.kept` and `voice.kept_line`; a page with a list choice, a day or a
@@ -2145,12 +2153,12 @@ On `feat/railways-ask`, **not merged**.
 
 **Open**
 - **The installed app has no model key** until first-time setup saves one, or one is
-  put in `%APPDATA%\SIMBA\.env` (`SIMBA_ENV_FILE`, 2026-11-14).
+  put in `%APPDATA%\SIMBA\.env` (`SIMBA_ENV_FILE`, 2026-11-13).
 - **The installed app starts no replica**, so registration and billing, which run on our replicas,
   cannot run from it. Flagged 2026-11-13.
-- ~~If the installed host crashes, its backend is not stopped~~ **Done 2026-11-14**:
-  the backend waits on its host and ends 0.22 s after it (EVALUATION.md, 2026-11-14).
-- ~~Two copies of the installed app can be open at once~~ **Done 2026-11-14**: a
+- ~~If the installed host crashes, its backend is not stopped~~ **Done 2026-11-13**:
+  the backend waits on its host and ends 0.22 s after it (EVALUATION.md, 2026-11-13e).
+- ~~Two copies of the installed app can be open at once~~ **Done 2026-11-13**: a
   second launch ends in under a second and brings the open window forward.
 - No CI. The Electron tests skip silently without a host.
 - Nothing supervises the Electron host.
