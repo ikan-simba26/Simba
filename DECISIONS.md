@@ -6335,6 +6335,250 @@ test's helper slower and say so; or change the recorder to keep a press on a lis
 its box when the point finds nothing. Recommended: wait with the line in place — the other two
 change what is tested or kept without knowing why. Branch not merged: a log line, not a fix.
 
+## The advisor's direction of 12 November: SIMBA works on any website — Ma'am Samia, approved by Raham, 2026-11-13
+
+**Date:** 2026-11-12 (the review), 2026-11-13 (the plan approved by Raham).
+
+**Decision.** The advisor, Ma'am Samia, reviewed SIMBA on 12 November 2026 and set requirements
+that override the feature freeze of 1 November. The deadline moved from December to **19
+November 2026** (taken as 00:00 on the 19th, so 18 November is the last working day).
+**The top priority is flexibility**: SIMBA must not look or behave like it can do only three
+fixed tasks. Asked "what about website XYZ?", the answer is: pick it or type it; if the AI cannot
+do it, a helper shows SIMBA once, and from then on it is a tile.
+
+What she asked for: many real live websites across genres (trains, a cheap real purchase, a
+university form); tasks carried out on live sites, not only read, and an answer to "what happens
+at the payment gateway"; a home screen that lists, on the left and grouped by genre, the
+websites SIMBA can work with, and says where a new one is added; free AI providers first, paid
+after; an installer and a first-time setup; a live use of Teach a task beyond one website; the
+two processes working together reliably and visibly.
+
+**The plan Raham approved on 2026-11-13**, in this order, one branch each:
+1. a site catalogue (data, not code), the left list, "Add a website", any address and any goal;
+2. the AI planner on live sites, Gemini with a Groq fallback, "AI first, then teach";
+3. Teach a task on any website, and a routine moved to a sister site;
+4. payment handover, the live final-step change, a sandbox gateway (Safepay proposed);
+5. a handful of real live runs with Raham present;
+6. visible connection and status (folded into 1 and 2);
+7. the installer and first-time setup;
+8. DEMO.md and the clips.
+Cut first if short: routines moved between sites, then the sandbox gateway, then the setup's
+polish, then the installer (a portable build instead). Never cut: the catalogue and any-site
+path, AI-then-teach, the tests on `carry_out`.
+
+**Recommendations approved with the plan** (the step 0 report, 2026-11-12):
+- **Daraz is not a target for ordering.** Its robots.txt disallows `/cart/`, `/checkout/` and
+  `/customer/`, and its terms of use restrict access to personal shopping and list robots
+  among prohibited tools. The cash-on-delivery order goes to a shop that gives written
+  permission.
+- **Gemini's free tier for development only, on pages with no personal data.** Its terms say
+  free-tier input may be used to improve Google's products and read by human reviewers, and
+  "Do not submit sensitive, confidential, or personal information". A paid key for anything run
+  on Raham's real accounts or with a real person.
+- **Groq is the automatic fallback, not the main provider**: its free tier is 8,000 tokens a
+  minute on `openai/gpt-oss-120b`, one or two SIMBA steps a minute.
+- **An open goal ends by pointing at its answer**: a new `finish(element_id)`, read again by
+  SIMBA and confirmed by the person; about 15 steps, then "I don't know this one yet" and Teach.
+- **On a live site, unknown submits are changes** (default-deny): a form submit or a press on a
+  button named like order, confirm, submit, pay, book, register or apply goes to the final
+  screen; a page with payment fields goes to handover. Enforced in `loop.carry_out`.
+- **Railways booking and FCCU stop at the final screen**, signed in by Raham himself; nothing is
+  bought or submitted unless he means it.
+- **The installer is electron-builder with an embedded Python**, no PyInstaller; the packaged
+  app picks a random debugging port per launch.
+- **"Across websites" means a routine taught on one site runs on a sister site** (one electricity
+  company's bill page to another's), not one routine spanning two sites.
+
+**Rule changes, for Nahail and Aly** (each is listed under "flagged for review" in the report of
+the phase that makes it, and CLAUDE.md is changed only there, never silently): the feature
+freeze is lifted; "Do not add new sites or flows" is lifted; the deadline is 19 November; the
+final-step rule changes from "replicas only" to "on a live site, only after the final screen and
+an explicit do it; payment always through handover"; the LLM never sees a payment detail (new).
+
+
+## Any website, phase 1: what was settled along the way — `feat/catalogue-any-site`, 2026-11-13
+
+Each of these was decided while building, not asked for. **Flagged for review** where marked.
+
+- **Two files, not one.** The shipped list is `data/catalogue.json` (committed); what a person
+  adds in the app goes to `data/catalogue.local.json` (ignored). The brief said "Add a website
+  writes to it": writing to the committed file would make every test and every demo leave the
+  repository changed. *Flagged*: the added file is plain JSON, not encrypted like the tiles. It
+  holds names and addresses only, and "Forget me and start again" deletes it; but a list of a
+  person's clinic and bank is personal. Options: leave it (cheap), or encrypt it with the
+  vault's key as the tiles are (an hour; no sites can be added on a machine without the
+  vault). Recommended: leave it for the 19th, encrypt after.
+- **The three built-in tasks stay on the home screen, as "Ready to go", until a website is
+  chosen.** With the list on the left and a box for any website beside the box to ask in, the
+  home screen no longer says those three are all; taking them off would have changed the
+  screen every demo and dozens of tests rely on, five days before the deadline. *Flagged for
+  Aly*: options are keep them (done), or show the list alone with nothing in the middle until a
+  website is chosen. Recommended: keep them.
+- **The list is on the home screen only**, fixed at the left, 272px, scrolling inside itself;
+  the column moves right on the home screen. On every other screen the column is where it was.
+  Measured to fit at 100%, 125% and 150% (`frontend/test_sites.py`).
+- **A built-in plan runs only on its own website.** "Check my electricity bill" with the IESCO
+  site chosen is not our billing copy, and a train goal typed with gov.uk is not a train search
+  on Pakistan Railways: both are a goal on that website (`app.is_flows_site`).
+- **An address written in the goal counts** ("bank holidays on gov.uk"), found by a pattern that
+  needs a dotted host ending in letters, so "Rs 14.382" and an email address are not addresses
+  (`catalogue.address_in`, 7 cases tested).
+- **Until the AI planner is wired in (phase 2), a goal on a website with no plan is answered
+  `not_yet`**, with "Ask a helper to show me once" opening "Show me once" on that address. Phase
+  2 puts the AI planner before it.
+- **No way to take an added website off in the app yet.** It needs a new message
+  (`site.remove`); `CatalogueStore.remove` exists and is tested. *Flagged*: add it in phase 2's
+  contract change, or leave it to "Forget me". Recommended: add it with phase 2.
+- **A genre not in the list becomes "Other"**, which is then listed.
+- **The mock backend never writes a file**: a website added against it lasts as long as the
+  connection.
+- **The added list has an end: 30.** A list the person scrolls, not a database.
+- **`data/tiles.json` was not in `.gitignore`.** It held the person's tiles, encrypted; it is now
+  ignored, with `data/catalogue.local.json`.
+
+
+## AI on any website, phase 2: what was settled along the way — `feat/orchestrator-ai-live-sites`, 2026-11-13
+
+- **The answer is quoted, not pointed at by element id.** The approved plan said
+  `finish(element_id)`; built, the model answers with `action: "answer"` and the answer copied
+  word for word from "What the page says", which the planner now also gets (headings, labelled
+  values, table rows, cut at 2,400 characters). Why: most answers are table cells and headings,
+  which are not interactive elements and have no id. What holds the same: nothing is shown until
+  SIMBA has found those exact words on the page (`Content.says`), the person says "Yes, that's
+  it" before it is the answer, and the page must still say it before closing. *Flagged*: the
+  model reads page text now, so a live page's personal details (a bill's name and address) reach
+  the provider; the paid-key rule of 13 November covers it.
+- **Every AI move is asked, never run as the checklist.** The model marks no move safe, so each
+  waits for "Yes, do that". Slower; a run the person did not see is the risk this avoids.
+  *Flagged for review*: options are keep (done), or let reading moves (open a page, search) run
+  by themselves as the written plans' do. Recommended: keep until the live runs are measured.
+- **The fallback moves on at once.** In the chain, Gemini does not wait out its rate limit (up
+  to a minute of "Give me a moment"); Groq, last, does. A rate limit, no connection, a timeout, a
+  server error, a key refused or a model not found all move to Groq; a response of the wrong
+  shape does not — that is the planner's to retry, and another provider would hide it.
+- **`SIMBA_USE_HARDCODED_PLAN` no longer means "no model at all".** The launchers set it, and
+  it keeps the three built-in tasks on their written plans; a goal on any other website uses the
+  AI planner whenever a provider is set up. With none, it is "not yet" and a helper is offered.
+- **robots.txt is asked before the AI opens a page, and an unclear answer is a no**: a site that
+  does not answer in 6s, or refuses to show its robots.txt (401, 403), is not used. A page where
+  the rules should be (Pakistan Railways answers with its home page) is no rules. Our copies are
+  never asked. *Flagged*: fail-closed will refuse some sites a person could open; recommended.
+- **More words mark a press as a change** (default deny): apply, send, sign up, create account,
+  order, proceed to, subscribe, donate, save changes, delete, transfer. On a live site such a
+  press still ends the run (phase 4 turns it into the final screen). Tested both ways: 16 that
+  change, 10 that only read (`test_robots.py`).
+- **Which provider worked a move out is shown at every level**, one small line ("Worked out with
+  Groq."), so the person can always tell when a model chose.
+- **When the AI cannot, the stuck screen offers "Ask a helper to show me once" on that address**
+  (`help.requested.teach_site`); a site whose robots.txt says no offers no helper, since a taught
+  task would use the page just the same.
+- **The answer is in the question's own sentence** ("The page says: 26 December. Is this what you
+  wanted?"): a step's detail line is not shown at the simplest level, and the answer is the one
+  thing that must be read.
+
+- **A bot check, a CAPTCHA, a one-time code or a refusal stops every run before its next move**
+  (`loop.blocked`, 2026-11-13, found live on timeanddate): read from the title, headings, large
+  text and the names of boxes, never the body, where "captcha" can be a word in an article.
+  *Flagged*: a heading such as "Security check" on a bank's ordinary page would stop a run
+  wrongly; a stop costs the person one more thing to do, and a missed check would be SIMBA
+  trying to get past one. Phase 4 turns this stop into a handover with the page shown.
+
+
+## Teach on any website, phase 3: what was settled along the way — `feat/orchestrator-teach-any-site`, 2026-11-13
+
+- **"Across websites" is a routine run on a sister website** (as approved): the same moves,
+  found by role and label on the other website, each checked. What moves is the start address
+  and every expected address under the start's path (`/iescobill/general` becomes
+  `/lescobill/general`); other paths stay. Two pages on one host with different paths are two
+  websites (IESCO's and LESCO's bills are both on `bill.pitc.com.pk`).
+- **A routine is offered on the other listed websites of its own genre**, marked "A helper
+  showed me on …". *Flagged*: by genre is broad — a bill taught on an electricity page is offered
+  on the gas company's, where it will most likely stop honestly at its first move. Options: by
+  genre (done); only websites a helper marks as alike (needs a field in the catalogue and a way
+  to set it); offer nowhere and let the person type the address. Recommended: by genre for the
+  19th, since a wrong offer ends in an honest stop, not a wrong answer.
+- **Teaching itself needed nothing new**: "Show me once" already watched any address; the
+  website's panel and the stuck screen now open it with the address filled in. The dropped
+  station press (`test_routine_lists.py`) is in `teach.py`, which this phase does not touch, so it
+  stays open as on 2026-11-11.
+- **The website panel is one row shorter**: "Show me a task here" sits in the website's own row,
+  and "What I can do here" is not shown in a short window. With a taught tile above, the panel
+  scrolled the home screen at 150% (found by the new test).
+
+
+## Payment handover and live changes, phase 4: what was settled — `feat/orchestrator-payment-handover`, 2026-11-13
+
+**The rule, as built** (CLAUDE.md's final-step rule rewritten, *pending Nahail and Aly*): on a
+live site an order, booking, registration or submission happens after its final screen and the
+person's "do it"; a press that pays is never SIMBA's. Settled while building:
+
+- **What counts as paying, on a live site**: a press whose words are pay, pay now, payment, make
+  payment, purchase, buy now or complete purchase (`loop.PAY_WORDS`). "Place order" with cash on
+  delivery is an order, which SIMBA presses after the final screen. On our replicas the pretend
+  payment with no card is pressed by SIMBA, as since 2026-10-16.
+- **A page that asks for card or bank details is handed over before any move**, whoever's plan
+  it is, on any site, ours included (`loop.page_asks_for_payment`: a box labelled or named for a
+  card, CVV, expiry, IBAN or bank account, or one the page says autocompletes `cc-…`).
+- **Nothing on the page is read while it is the person's.** The loop waits on `handover.done`
+  without perceiving; afterwards it reads only the title, headings and large text for the page's
+  own words that it went through (thank you, payment successful or received, order placed or
+  confirmed, booking confirmed, receipt, paid). Found: quoted, "The website says it went
+  through." Not found: "I can't tell from the page whether the payment went through. Please
+  check your bank or the website before you try again." — never a guess either way.
+- **A check for a person (CAPTCHA, bot check, one-time code) is handed over too**, and the task
+  goes on after; still there after two handovers, SIMBA stops.
+- **Twenty minutes** is how long a handed-over page waits: long enough to find a card and wait
+  for a bank's code. *Flagged*: chosen without anyone paying with it.
+- **On a live site with no written plan, the final screen shows the page's own amounts** (up to
+  three lines with Rs, PKR, $, £ or €, as the page writes them) beside "What I'll press". A
+  written plan's final screen is as it was.
+- **The sandbox gateway is a stand-in, not Safepay** (H). Safepay's sandbox needs an account
+  Raham has not made yet, and its API could not be tried without one; integrating it blind,
+  four days out, is a risk to the demo. Built instead: a test card gateway on the billing copy
+  (`/gateway/checkout`), labelled "TEST GATEWAY — test cards only. No real money" on every page,
+  taking only 4242 4242 4242 4242 and the code 123456, with a card page and a bank's one-time
+  code page, handing back to a receipt — the same round trip, which is what the handover needs
+  to show. On with `SIMBA_CARD_GATEWAY=1`; off, the bill is paid the pretend way as before.
+  *Flagged*: options are the stand-in (done); Safepay's sandbox once Raham has an account (a
+  day, untested); both. Recommended: show the stand-in on the 19th and say plainly what it is.
+- **Teaching stays read-only on a live site.** The advisor's C says keep every safety rule; a
+  routine that changes something on a live site would need the live final screen for routines
+  too. *Flagged*: options are keep (done), or let a live routine's change go through the final
+  screen as a planner's does (an afternoon, and tests). Recommended: keep for the 19th.
+- **The old tests of the old rule were rewritten, not deleted**: "on a site that is not ours a
+  change is never made" now checks the final screen comes first and Pay is never pressed;
+  "card details are never typed" now checks the handover and that the number is never sent.
+
+
+## Visible status and the first-time setup, phases 6 and 7b: what was settled — `feat/interface-status`, `feat/interface-setup`, 2026-11-13
+
+- **The status line is small, in the bottom left corner, on every screen**: "Connected · Your
+  turn". Connection in one word (Connected, Connecting, or "I can't reach SIMBA's helper. Trying
+  again."), and what SIMBA is doing in the presence mark's own names (Ready, Thinking, Working on
+  it, Your turn, Stopped, Finished). The screen's own sentence still says the rest. The site list
+  moved up 12px to make room; measured not to cover anything at 100%, 125% and 150%.
+- **The window reconnects by itself on the home screen**, after a second, and after a failed
+  attempt in 2, 4, … up to 10 seconds; never while a task, a closing screen's offer, teaching or
+  a handover is on, since an offer belongs to the connection it came on. The backend closing the
+  connection after a task, as it always has, reads as Connected.
+- **A connection that closes without ever having opened is an error**: the browser reports
+  "error" then "close", and the close used to hide the error.
+- **The setup's two new questions are asked only when the backend offers them** (`ai` and
+  `sites` in `history.offered`), after the four of 2026-10-18; a backend that offers neither
+  gets the welcome as it was, and its tests are unchanged.
+- **The key is kept by the backend, encrypted with this Windows account's own key**
+  (`data/ai.json`, `ai_settings.py`), like the vault; the window sends it once and empties the
+  box. A key set up in the app wins over `.env`. The check is one small question; its answer is
+  reduced to a word (ok, key, limit, network, other), never the provider's message, which can
+  echo part of a key. *Flagged*: "Forget me and start again" does not clear the AI key — it is
+  the computer's setup, not the person's. Options: keep (done), or clear it too. Recommended:
+  keep; a carer setting SIMBA up for several people should not re-enter it each time.
+- **The websites chosen in the setup are "Your websites"**, at the top of the list, kept in the
+  overlay's profile like the person's name. Practice copies are not offered there.
+- **The logo's "try again only while it is up" rule is replaced** (`test_brand.py`): keeping
+  trying on the home screen is the advisor's L; the old rule's reason — never replacing the
+  connection a press opened — is kept by not trying while anything is connecting or asked.
+
 ---
 
 ## The Windows installer — `feat/infra-installer`, 2026-11-13

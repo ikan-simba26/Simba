@@ -8,6 +8,11 @@
 import { create } from "zustand";
 
 import type {
+  AiSetup,
+  AiStatus,
+  CatalogueSite,
+  HandOver,
+  SiteAdd,
   AnyEnvelope,
   Level,
   ErrorPayload,
@@ -34,7 +39,7 @@ import type {
 } from "@shared/schema";
 
 import { BackendConnection, DEFAULT_WS_URL, type ConnectionStatus } from "./connection";
-import { FINAL, TEACH } from "./copy";
+import { FINAL, SITES, TEACH } from "./copy";
 import {
   type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
   markForgetting, saveProfile, welcomeEnabled,
@@ -226,10 +231,27 @@ interface Store {
    */
   routines: TaughtTile[];
   teachOpen: boolean;
+  /** Where "Show me once" opens, when it was offered on a website
+   *  (2026-11-13): the box for the address starts with it. */
+  teachAddress: string | null;
   teaching: TeachWatching | null;
+  /**
+   * The real page handed to the person (2026-11-13): to pay or to pass a
+   * check. While set, the overlay is the handover bar and nothing else, and
+   * the host shows the website below it. Cleared by their answer, and by
+   * whatever the backend sends next.
+   */
+  handover: HandOver | null;
+  answerHandover: (action: "done" | "cancel") => void;
+  /** Whether an AI provider is set up (2026-11-13), as the backend last said,
+   *  and whether a setup is being checked. Null: the backend did not say,
+   *  and the setup does not ask. */
+  ai: AiStatus | null;
+  aiChecking: boolean;
+  setUpAi: (setup: AiSetup) => void;
   /** A file that could not be read in, said once on the screen it came from. */
   fileNote: string | null;
-  setTeachOpen: (open: boolean) => void;
+  setTeachOpen: (open: boolean, address?: string) => void;
   startTeaching: (url: string) => void;
   teachAnswer: (action: TeachAnswer["action"], step?: number) => void;
   startRoutine: (routine: TaughtTile) => void;
@@ -241,6 +263,21 @@ interface Store {
    * this computer, and between sessions of a study.
    */
   forgetEverything: () => void;
+  /**
+   * The websites SIMBA can work with, by genre (2026-11-13,
+   * `history.offered.sites`), the one chosen in the list, and "Add a
+   * website": its screen, whether an addition is unanswered, and why the last
+   * one could not be added. With no `sites` offered, none of it is shown.
+   */
+  sites: CatalogueSite[];
+  genres: string[];
+  chosenSite: string | null;
+  addSiteOpen: boolean;
+  addingSite: boolean;
+  siteNote: string | null;
+  chooseSite: (id: string | null) => void;
+  setAddSiteOpen: (open: boolean) => void;
+  addSite: (site: SiteAdd) => void;
   /** The user picking a level, which also locks it. */
   chooseLevel: (level: Level) => void;
   /** Give the level back to the estimator. */
@@ -272,7 +309,8 @@ interface Store {
    * offered — a card, or an answer to "which did you mean" — so the backend
    * runs exactly that and does not guess again.
    */
-  startTask: (goal: string, flow?: FlowName, tile?: string, routine?: string) => void;
+  startTask: (goal: string, flow?: FlowName, tile?: string, routine?: string,
+              site?: string) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -374,9 +412,32 @@ export const useStore = create<Store>((set, get) => {
   const append = (entry: LogEntry) =>
     set((current) => ({ log: [...current.log, entry] }));
 
+  // On the home screen the window stays connected by itself (2026-11-13): the
+  // backend closes the connection when a task ends, and a backend started
+  // after the window is reached as soon as it is up. Never in the middle of
+  // anything — a closing screen's offer belongs to the connection it came on.
+  let retry: number | undefined;
+  let wait = 1000;
+  const keepConnected = () => {
+    window.clearTimeout(retry);
+    retry = window.setTimeout(() => {
+      const now = get();
+      const idle = !now.task && !now.asking && !now.step && !now.completed && !now.failed
+        && !now.help && !now.teaching && !now.handover && now.checklist.length === 0;
+      if (idle && !connection.isOpen && now.status !== "connecting") {
+        connection.connect(now.wsUrl);
+      }
+    }, wait);
+  };
+
   const connection = new BackendConnection({
     onStatus: (status, detail) => {
       set({ status, statusDetail: detail });
+      if (status === "open") wait = 1000;
+      if (status === "closed" || status === "error") {
+        keepConnected();
+        if (status === "error") wait = Math.min(wait * 2, 10_000);
+      }
       // A reset not yet answered, from this session or one before it: this
       // connection opens with an offer made as if it had not happened. That
       // one is not shown, and the reset is said again (2026-10-21).
@@ -428,8 +489,18 @@ export const useStore = create<Store>((set, get) => {
     tilesOpen: false,
     routines: [],
     teachOpen: false,
+    teachAddress: null,
     teaching: null,
+    handover: null,
+    ai: null,
+    aiChecking: false,
     fileNote: null,
+    sites: [],
+    genres: [],
+    chosenSite: null,
+    addSiteOpen: false,
+    addingSite: false,
+    siteNote: null,
     welcomeOpen: welcomeEnabled() && !STARTING_PROFILE.welcomed,
     ...EMPTY,
 
@@ -507,8 +578,34 @@ export const useStore = create<Store>((set, get) => {
 
     setTilesOpen: (open) => set({ tilesOpen: open, fileNote: null }),
 
-    setTeachOpen: (open) => set({ teachOpen: open, fileNote: null,
-                                  ...(open ? { welcomeOpen: false } : {}) }),
+    setTeachOpen: (open, address) => set({
+      teachOpen: open, fileNote: null, teachAddress: open ? address ?? null : null,
+      // Offered from a reply, the reply is done with.
+      ...(open ? { welcomeOpen: false, reply: null, addSiteOpen: false } : {}) }),
+
+    chooseSite: (id) => set({ chosenSite: id }),
+
+    setUpAi: (setup) => {
+      set({ aiChecking: true });
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.setUpAi(setup);
+    },
+
+    answerHandover: (action) => {
+      connection.handoverDone({ action });
+      hostBar(false);
+      set({ handover: null, state: "thinking",
+            ...(action === "cancel" ? { stoppedByPerson: true } : {}) });
+    },
+
+    setAddSiteOpen: (open) => set({ addSiteOpen: open, siteNote: null, addingSite: false,
+                                    ...(open ? { welcomeOpen: false } : {}) }),
+
+    addSite: (site) => {
+      set({ addingSite: true, siteNote: null });
+      if (!connection.isOpen) connection.connect(get().wsUrl);
+      connection.addSite(site);
+    },
 
     startTeaching: (url) => {
       window.__simbaStarted = true;
@@ -565,6 +662,9 @@ export const useStore = create<Store>((set, get) => {
         tilesOpen: false,
         routines: [],
         teachOpen: false,
+        // The website chosen in the list is the person's too (2026-11-13).
+        chosenSite: null,
+        addSiteOpen: false,
         level: 2,
         chosenLevel: 2,
         levelLocked: false,
@@ -640,7 +740,7 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal, flow, tile, routine) => {
+    startTask: (goal, flow, tile, routine, site) => {
       window.__simbaStarted = true;
       set({ ...EMPTY, asking: goal });
       // A dead socket is the usual state when the backend was started after
@@ -666,7 +766,7 @@ export const useStore = create<Store>((set, get) => {
       // backend's rules start from it and come back to it after calm steps.
       const start = get().profile.level;
       if (start && !levelLocked) set({ level: start, chosenLevel: start });
-      connection.startTask(goal, flow, get().askEachTime, start, tile, routine);
+      connection.startTask(goal, flow, get().askEachTime, start, tile, routine, site);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -728,7 +828,20 @@ function endTeaching(set: SetStore): void {
   });
 }
 
+/** What ends a handover from the backend's side (2026-11-13). */
+const HANDED_BACK = new Set(["step.presented", "help.requested", "task.completed", "task.failed"]);
+
 function apply(message: AnyEnvelope, set: SetStore): void {
+  // Whatever the backend says after a handover (2026-11-13) — a step, the
+  // ending, a stop — means the page is not the person's any more: the bar goes
+  // and the website is covered again.
+  if (HANDED_BACK.has(message.type)) {
+    set((current) => {
+      if (!current.handover) return {};
+      hostBar(false);
+      return { handover: null };
+    });
+  }
   switch (message.type) {
     case "task.started":
       set({
@@ -805,11 +918,32 @@ function apply(message: AnyEnvelope, set: SetStore): void {
           }
           doneForgetting();
         }
+        // The websites, by genre (2026-11-13). An addition that was waiting
+        // is answered by this offer: the screen closes on the new website,
+        // chosen in the list, so what was added is what is in front of them.
+        const sites = offered.sites ?? [];
+        const answered = current.addingSite
+          ? { addingSite: false, addSiteOpen: false,
+              chosenSite: sites.filter((site) => site.added).pop()?.id ?? current.chosenSite }
+          : {};
+        // A chosen website that is no longer listed is let go.
+        const chosen = answered.chosenSite ?? current.chosenSite;
         return { history: offered.goals, tiles: offered.tiles ?? [],
-                 routines: offered.routines ?? [] };
+                 routines: offered.routines ?? [], ai: offered.ai ?? current.ai,
+                 sites, genres: offered.genres ?? [], ...answered,
+                 chosenSite: sites.some((site) => site.id === chosen) ? chosen : null };
       });
       return;
     }
+    case "ai.status":
+      // How the AI setup's check went (2026-11-13).
+      set({ ai: message.payload as AiStatus, aiChecking: false });
+      return;
+    case "handover":
+      // The page is the person's (2026-11-13): the bar, the website below it.
+      hostBar(true);
+      set({ handover: message.payload as HandOver, step: null, state: "waiting" });
+      return;
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
       set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });
@@ -878,6 +1012,11 @@ function apply(message: AnyEnvelope, set: SetStore): void {
     case "error": {
       const error = message.payload as ErrorPayload;
       if (error.code === "ROUTINE_NOT_READ") set({ fileNote: TEACH.fileNotRead });
+      // A website that could not be added, said on the screen it came from.
+      if (error.code === "SITE_NOT_ADDED") {
+        set({ addingSite: false,
+              siteNote: SITES.notAdded[error.message] ?? SITES.notAdded.address });
+      }
       // A picture that was dropped matters only to someone waiting for it.
       const lost = error.code.startsWith("PREVIEW_");
       set((current) => ({

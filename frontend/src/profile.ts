@@ -22,6 +22,9 @@ export interface Profile {
   askEach: boolean;
   /** The welcome has been seen — finished or skipped — so it is not shown again. */
   welcomed: boolean;
+  /** The websites they use most, by catalogue id (2026-11-13): first in the
+   *  list. Absent: none chosen. */
+  favourites?: string[];
 }
 
 const KEY = "simba.profile";
@@ -65,6 +68,10 @@ export function loadProfile(): Profile {
     readAloud: saved.readAloud !== false,
     askEach: Boolean(askEach),
     welcomed: saved.welcomed === true,
+    // The websites chosen in the setup (2026-11-13); absent, none.
+    favourites: Array.isArray(saved.favourites)
+      ? saved.favourites.filter((id): id is string => typeof id === "string").slice(0, 30)
+      : undefined,
   };
 }
 

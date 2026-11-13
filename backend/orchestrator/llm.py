@@ -123,7 +123,10 @@ def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str) -> flo
 class Action(BaseModel):
     """What the model wants done next."""
 
-    action: Literal["click", "type", "select"]
+    # "answer" (2026-11-13): the page shows what the goal asked for. `value` is
+    # the answer copied exactly from the page; `element_id` is 0. The planner
+    # checks the page says it before anyone sees it (`llm_loop.OpenGoalPlanner`).
+    action: Literal["click", "type", "select", "answer"]
     element_id: int
     value: str | None = None
     reasoning: str
@@ -136,7 +139,7 @@ class LLMError(RuntimeError):
 ACTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "action": {"type": "string", "enum": ["click", "type", "select"]},
+        "action": {"type": "string", "enum": ["click", "type", "select", "answer"]},
         "element_id": {"type": "integer"},
         "value": {"type": ["string", "null"]},
         "reasoning": {"type": "string"},
@@ -431,6 +434,22 @@ class AnthropicProvider:
         )
 
 
+def label_for(base_url: str | None) -> str:
+    """A provider by the name people know it, from where it is served: what
+    the app shows as "worked out with …" (2026-11-13)."""
+    from urllib.parse import urlsplit
+
+    if not base_url:
+        return "OpenAI"
+    host = (urlsplit(base_url).hostname or "").lower()
+    for part, label in (("googleapis.com", "Gemini"), ("groq.com", "Groq"),
+                        ("openrouter.ai", "OpenRouter"), ("openai.com", "OpenAI"),
+                        ("anthropic.com", "Claude")):
+        if host == part or host.endswith("." + part):
+            return label
+    return host or "OpenAI"
+
+
 class OpenAICompatibleProvider:
     """Any OpenAI-compatible chat completions endpoint."""
 
@@ -442,11 +461,17 @@ class OpenAICompatibleProvider:
         base_url: str | None = None,
         model: str = OPENAI_DEFAULT_MODEL,
         transcript: Transcript | None = None,
+        wait_out_rate_limits: bool = True,
     ) -> None:
         from openai import AsyncOpenAI
 
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self._model = model
+        #: Who answered, for the person to see (2026-11-13): "Gemini", "Groq".
+        self.label = label_for(base_url)
+        #: First in a chain, a rate limit moves to the next provider at once
+        #: rather than waiting it out (`FallbackProvider`).
+        self.wait_out_rate_limits = wait_out_rate_limits
         self._transcript = transcript or Transcript()
         # Seconds spent waiting out rate limits, excluded from real latency.
         self.throttled_seconds = 0.0
@@ -530,7 +555,7 @@ class OpenAICompatibleProvider:
             try:
                 return await self._call(messages, response_format)
             except openai.RateLimitError as error:
-                if attempt == RATE_LIMIT_RETRIES:
+                if attempt == RATE_LIMIT_RETRIES or not self.wait_out_rate_limits:
                     raise
                 wait = _retry_after(error) or delay
                 self.throttled_seconds += wait
@@ -618,6 +643,10 @@ class OpenAICompatibleProvider:
             provider=self.name, purpose="details", response=choice.model_dump())
         return choice
 
+    @property
+    def model(self) -> str:
+        return self._model
+
     def _schema_format(self) -> dict:
         return {
             "type": "json_schema",
@@ -633,9 +662,105 @@ class OpenAICompatibleProvider:
         )
 
 
+#: Groq, the automatic fallback (2026-11-13): its free tier's model with the
+#: most room, and where it is served (EVALUATION.md, 2026-11-12).
+GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+
+def _cannot_answer_now(error: BaseException | None) -> bool:
+    """Whether a provider's failure is one another provider might not share:
+    a rate limit, no connection, a timeout, the provider's own fault, or a key
+    it will not take. Not a response of the wrong shape: that is the planner's
+    to retry with the error fed back, and another provider would hide it."""
+    try:
+        import openai
+    except ImportError:  # pragma: no cover - openai is a pinned dependency
+        return False
+    return isinstance(error, (openai.RateLimitError, openai.APIConnectionError,
+                              openai.APITimeoutError, openai.InternalServerError,
+                              openai.AuthenticationError, openai.PermissionDeniedError,
+                              openai.NotFoundError))
+
+
+class FallbackProvider:
+    """Providers in order (2026-11-13, the advisor's direction): Gemini first,
+    and Groq when Gemini cannot answer now. Each call goes to the first that
+    can; `answered_by` says which did, for the person to see."""
+
+    name = "chain"
+
+    def __init__(self, providers: list) -> None:
+        self.providers = providers
+        self.answered_by: str | None = None
+        #: How many calls the first provider could not answer.
+        self.fell_back = 0
+
+    @property
+    def label(self) -> str:
+        return self.answered_by or getattr(self.providers[0], "label", "the model")
+
+    @property
+    def usage(self):
+        return getattr(self.providers[0], "usage", None)
+
+    @property
+    def throttled_seconds(self) -> float:
+        return sum(getattr(p, "throttled_seconds", 0.0) for p in self.providers)
+
+    async def _first_that_can(self, call):
+        last: LLMError | None = None
+        for index, provider in enumerate(self.providers):
+            try:
+                result = await call(provider)
+            except LLMError as error:
+                if not _cannot_answer_now(error.__cause__):
+                    raise
+                last = error
+                continue
+            if index > 0:
+                self.fell_back += 1
+            self.answered_by = getattr(provider, "label", None)
+            return result
+        self.answered_by = None
+        assert last is not None
+        raise last
+
+    async def decide(self, system_prompt: str, page: str, goal: str,
+                     feedback: str | None = None, history: list[str] | None = None) -> Action:
+        return await self._first_that_can(
+            lambda p: p.decide(system_prompt, page, goal, feedback, history))
+
+    async def choose_route(self, system_prompt: str, goal: str):
+        return await self._first_that_can(lambda p: p.choose_route(system_prompt, goal))
+
+    async def read_details(self, system_prompt: str, goal: str):
+        return await self._first_that_can(lambda p: p.read_details(system_prompt, goal))
+
+
 def provider_from_env(transcript: Transcript | None = None) -> Provider:
-    """Build the configured provider. Keys come from the environment or .env."""
+    """Build the configured provider. Keys come from the environment or .env.
+
+    With `SIMBA_LLM_PROVIDER=openai` and a `GROQ_API_KEY` too, the provider is
+    the chain (2026-11-13): the configured one first, without waiting out its
+    rate limits, then Groq (`GROQ_MODEL`, `GROQ_BASE_URL`), which does wait.
+    `SIMBA_LLM_FALLBACK=0` keeps the configured one alone."""
     _load_dotenv()
+    # Set up in the app's first-time setup (2026-11-13), it wins over `.env`.
+    from backend.orchestrator.ai_settings import AiStore, provider_for
+
+    saved = AiStore().load()
+    if saved is not None:
+        groq_key = os.environ.get("GROQ_API_KEY")
+        chained = (bool(groq_key) and saved.provider != "groq"
+                   and os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() != "0")
+        first = provider_for(saved, transcript)
+        first.wait_out_rate_limits = not chained
+        if not chained:
+            return first
+        return FallbackProvider([first, OpenAICompatibleProvider(
+            api_key=groq_key or "", base_url=os.environ.get("GROQ_BASE_URL") or GROQ_BASE_URL,
+            model=os.environ.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL, transcript=transcript)])
     choice = os.environ.get("SIMBA_LLM_PROVIDER", "anthropic").strip().lower()
 
     if choice == "anthropic":
@@ -647,12 +772,24 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
         )
 
     if choice == "openai":
-        return OpenAICompatibleProvider(
+        groq_key = os.environ.get("GROQ_API_KEY")
+        chained = bool(groq_key) and os.environ.get("SIMBA_LLM_FALLBACK", "1").strip() != "0"
+        first = OpenAICompatibleProvider(
             api_key=_require_key("OPENAI_API_KEY"),
-            base_url=os.environ.get("OPENAI_BASE_URL"),
+            base_url=os.environ.get("OPENAI_BASE_URL") or None,
             model=os.environ.get("OPENAI_MODEL", OPENAI_DEFAULT_MODEL),
             transcript=transcript,
+            wait_out_rate_limits=not chained,
         )
+        if not chained:
+            return first
+        groq = OpenAICompatibleProvider(
+            api_key=groq_key or "",
+            base_url=os.environ.get("GROQ_BASE_URL") or GROQ_BASE_URL,
+            model=os.environ.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL,
+            transcript=transcript,
+        )
+        return FallbackProvider([first, groq])
 
     raise LLMError(f"unknown SIMBA_LLM_PROVIDER {choice!r}; expected 'anthropic' or 'openai'")
 

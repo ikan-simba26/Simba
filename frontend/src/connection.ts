@@ -17,6 +17,9 @@ import type {
   MessageType,
   RoutineExport,
   RoutineImport,
+  AiSetup,
+  HandoverDone,
+  SiteAdd,
   StepResponse,
   Telemetry,
   TaskStart,
@@ -71,13 +74,19 @@ export class BackendConnection {
     const socket = new WebSocket(url);
     this.socket = socket;
 
+    // A connection that closes without ever having opened could not be made
+    // (2026-11-13): said as an error, not as the ordinary close after a task,
+    // which the browser would otherwise report last.
+    let opened = false;
     socket.onopen = () => {
+      opened = true;
       this.handlers.onStatus("open");
       const queued = this.pending;
       this.pending = [];
       for (const send of queued) send();
     };
-    socket.onclose = () => this.handlers.onStatus("closed");
+    socket.onclose = () =>
+      this.handlers.onStatus(opened ? "closed" : "error", opened ? undefined : `could not reach ${url}`);
     socket.onerror = () => this.handlers.onStatus("error", `could not reach ${url}`);
     socket.onmessage = (event) => this.receive(event.data);
   }
@@ -97,7 +106,7 @@ export class BackendConnection {
   // --- sending -------------------------------------------------------------
 
   startTask(goal: string, flow?: FlowName, confirmEach = false, startLevel?: Level,
-            tile?: string, routine?: string): void {
+            tile?: string, routine?: string, site?: string): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
     // Only when the person asked to be asked every time (2026-10-14).
@@ -108,7 +117,24 @@ export class BackendConnection {
     if (tile) payload.tile = tile;
     // A routine a helper showed, by id (2026-11-04).
     if (routine) payload.routine = routine;
+    // The website to do it on, listed or typed (2026-11-13).
+    if (site) payload.site = site;
     this.send("task.start", payload);
+  }
+
+  /** The AI provider and key from the first-time setup (2026-11-13). */
+  setUpAi(setup: AiSetup): void {
+    this.send("ai.setup", setup);
+  }
+
+  /** The person's word on the handover bar (2026-11-13). */
+  handoverDone(answer: HandoverDone): void {
+    this.send("handover.done", answer);
+  }
+
+  /** A website added to the list (2026-11-13). */
+  addSite(site: SiteAdd): void {
+    this.send("site.add", site);
   }
 
   /** Start watching a helper on this website (2026-11-04). */

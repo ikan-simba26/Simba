@@ -8521,6 +8521,173 @@ read as numbers; anything else as -1) and a count of list options, and its messa
 `%d`, so no typed value, label or secret can reach it. Merged into `main` on Raham's decision;
 the cause stays open.
 
+
+## 2026-11-12 — live sites screened read-only, and the AI providers' free tiers (step 0 of the advisor's direction)
+
+Asked for by Raham for the advisor's direction of 12 November (DECISIONS.md): which live sites
+work with perception today, and what the AI providers allow for free. **Nothing was clicked,
+filled or submitted, and no account was made.**
+
+**Method.** `python -m tools.screen_site <origin> <path>` once per site, from git bash with
+`MSYS_NO_PATHCONV=1`: robots.txt for SIMBA's screener user agent, then one load of one page at
+1280x800 and perception's read of it. 3s pause between pages (the tool's own). On mains, 12
+November, about 23:00 PKT, from Lahore, on `main` at `233e737`. **No conditions block was
+written**: `screen_site` does not print one, and this was not re-run to add it, which would have
+been twenty more visits to other people's sites. Read the load times as one visit, one moment,
+±2x (EVALUATION.md, 2026-09-17h).
+
+**Failed, and done again.** The first run was worthless: git bash turned each path argument
+into a Windows path (`/train` became `/Program Files/Git/train`), so every page "loaded" as 0
+elements or an error. Found by reading the table, not by a test; stopped and run again with
+`MSYS_NO_PATHCONV=1`. The rows below are the second run.
+
+| Site | Page | robots | HTTP | Load | Elements | Unnamed | Inferred | Dead links | Overlay/occluded |
+|---|---|---|---|---|---|---|---|---|---|
+| Pakistan Railways | `/train` | no robots.txt | 200 | 6.0s | 18 | 4 | 0 | 3 | 0/0 |
+| Daraz | `/` | allowed (cart, checkout, customer disallowed) | 200 | 3.1s | 338 | 17 | 24 | 2 | 0/0 |
+| foodpanda | `/` | allowed (login disallowed) | 200 | 4.3s | 147 | 1 | 0 | 1 | 0/0 |
+| FCCU | `/` | allowed | 200 | 7.6s | 81 | 4 | 4 | 5 | 0/0 |
+| PITC IESCO bill | `/iescobill` | no robots.txt (404) | 200 | 2.2s | 9 | 1 | 0 | 1 | 0/0 |
+| SSGC | `/` | allowed | 200 | 7.6s | 182 | 36 | 1 | 9 | 0/0 |
+| Directorate of Passports | `/` | allowed | 200 | 3.6s | 108 | 5 | 1 | 3 | 1/20 |
+| Daewoo Express | `/` | allowed | 200 | 4.4s | 42 | 3 | 0 | 13 | 0/0 |
+| Rozee | `/` | allowed | 200 | 11.9s | 2322 | 39 | 2 | 8 | 0/0 |
+| Imtiaz | `/` | allowed | 200 | 5.3s | 81 | 9 | 14 | 3 | 0/22 |
+| Naheed | `/` | allowed | 200 | 2.9s | 394 | 38 | 83 | 51 | 0/0 |
+| Wikipedia | `/wiki/Main_Page` | allowed | 200 | 2.9s | 263 | 0 | 0 | 1 | 0/0 |
+| gov.uk | `/bank-holidays` | allowed | 200 | 3.1s | 56 | 0 | 0 | 0 | 0/0 |
+| Open Library | `/` | allowed | 200 | 4.2s | 163 | 0 | 7 | 18 | 0/0 |
+| Shaukat Khanum | `/` | allowed | 200 | 3.1s | 124 | 17 | 0 | 1 | 0/0 |
+| Chughtai Lab | `/` | allowed | 200 | 2.4s | 86 | 1 | 1 | 3 | 0/0 |
+| timeanddate | `/weather/pakistan/lahore` | allowed | 200 | 2.4s | 73 | 0 | 0 | 2 | 0/0 |
+| PIA | `/` | allowed | 200 | 3.0s | 132 | 0 | 33 | 5 | 0/0 |
+| PTA DIRBS | `/` | allowed | 200 | 2.9s | 31 | 1 | 0 | 1 | 0/0 |
+| OLX | `/` | allowed | 200 | 2.3s | 158 | 5 | 0 | 2 | 0/0 |
+
+All 20 loaded with HTTP 200; no robots.txt disallowed the page read. **What this does not
+show**: whether a form asks for a CAPTCHA when it is used, whether a task can be done, or
+anything past the first page. "Inferred" is controls only perception's layout inference finds:
+Naheed's 83 means a planner there leans on inference for a fifth of the page.
+
+**Daraz is out for ordering.** Its robots.txt disallows `/checkout/`, `/cart/` and
+`/customer/`; its terms of use (daraz.pk/terms-of-use, read 12 November through a search
+result's summary, not in full) limit access to personal shopping and list robots among
+prohibited tools.
+
+**The AI providers, as their own pages said on 12 November 2026** (fetched by an agent; the
+Gemini pages redirect from ai.google.dev to aistudio.google.com/docs):
+
+| Provider | Free tier | Paid, per 1M tokens in / out | OpenAI-compatible base URL |
+|---|---|---|---|
+| Gemini | Per project, not per key; the docs give no per-model numbers and point to the AI Studio console. Third-party reports, unconfirmed: 20 requests a day on Flash, 500 on Flash-Lite | 3.8 Flash and 3.6 Flash $0.75 / $3.75 to 31 Dec 2026, then $1.50 / $7.50; 3.5 Flash-Lite $0.30 / $2.50; 3.1 Flash-Lite $0.25 / $1.50 (from a summary of a cut-off page) | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| Groq | `openai/gpt-oss-120b` and `-20b`, `qwen/qwen3.8-27b`: 30 a minute, 1,000 a day, **8,000 tokens a minute**, 200,000 a day (the page may be showing the Developer plan's figures) | Not on groq.com/pricing | `https://api.groq.com/openai/v1` |
+| OpenRouter `:free` | 20 a minute; 50 a day, or 1,000 a day after buying 10 credits | Per model | `https://openrouter.ai/api/v1` (implied by its examples) |
+
+**Terms that matter for this audience** (Gemini API additional terms, effective 23 March 2026):
+on the free tier ("Unpaid Services") Google uses what is sent to improve its products, human
+reviewers may read it, and "Do not submit sensitive, confidential, or personal information to
+the Unpaid Services"; users must be 18 or over; it is "for developers ... not for consumer use".
+Groq signals a rate limit with HTTP 429 and `retry-after` in seconds. The 8,000 tokens a minute
+is the number that bites: a SIMBA prompt with a page's element list is a few thousand tokens.
+
+
+## 2026-11-13 — the AI planner on live websites: four runs, one defect found and fixed (`feat/orchestrator-ai-live-sites`)
+
+`python -m tools.evaluation.open_goal_live_run <site> <goal>`, once each, read-only. The real
+loop and `OpenGoalPlanner`, a headless Chromium at 1280x800, the provider in `.env`: Gemini,
+`gemini-3.1-flash-lite`, its OpenAI-compatible endpoint, **free tier** — so only pages with no
+personal data (DECISIONS.md, 2026-11-13). No Groq key was set, so the fallback was not used. The
+script answers every step "go ahead" and the first answer the page says word for word "Yes,
+that's it": **whether an answer is right was judged by reading it against the page afterwards**.
+On mains, 13 November about 01:30 PKT, on `feat/orchestrator-ai-live-sites` at `e1e9a5e`;
+conditions block in `.scratch/open-goal-live/` with each result. One run each: ±2x on every time.
+
+| Site | Goal | Outcome | Answer | Moves shown | Model calls | Time |
+|---|---|---|---|---|---|---|
+| gov.uk bank holidays | When is the next bank holiday in England and Wales? | answered | "25 December Christmas Day" — right (the next after 12 November) | 1 (the question) | 1 | 11.7s |
+| timeanddate, Lahore | What is the temperature in Lahore now? | answered | **"Just a moment…" — wrong**: the page was a bot check | 2 | 2 | 7.5s |
+| Wikipedia main page | What is today's featured article on Wikipedia about? | answered | "The Royal Gloucestershire Hussars" — the article's title, as the page gives it | 1 | 1 | 9.1s |
+| timeanddate, Lahore, after the fix | the same | **stopped**: "The website wants to check that a person is using it…" | none | 0 | 0 | 5.0s |
+
+**Failed, and fixed.** timeanddate answered the headless browser with a bot check (title "Just
+a moment…"). The model pressed the site's logo, then quoted the check's own words as the answer;
+they were on the page word for word, so the planner's check passed them. A person would have
+said "No, keep looking" — but the advisor's rule is that a CAPTCHA, a one-time code or a blocked
+site stops SIMBA and is handed to the person. `loop.blocked` now reads the page's title,
+headings and large text, and any box named for a captcha or a one-time code, before every move
+of every planner; such a page ends the run before a model is asked (`test_open_goal.py`, 2
+cases). The same goal, run again: stopped in 5.0s with 0 model calls.
+
+**What this shows and does not.** Three of three readable pages answered in one or two model
+calls, 7.5 to 11.7s, every answer a quotation of the page. Nothing here typed, searched or
+pressed past a link. The screening of 12 November loaded timeanddate's page whole; this
+run met the check — a site can decide differently per visit, and a headless browser is more
+likely to be checked than SIMBA's own window. **Not measured yet**: a goal that needs a search
+or a form, the Groq fallback live, and any run through the Electron window.
+
+
+## 2026-11-13b — payment handover and live changes: what the tests show (`feat/orchestrator-payment-handover`)
+
+No live site was paid or ordered on; nothing here touched another computer. Every number is a
+test count, through the real loop in real Chromium, on `data:` pages (which count as live
+sites) and on the billing copy with its new test card gateway.
+
+| What | Tests | Result |
+|---|---|---|
+| An order on a live site: final screen, "do it", SIMBA presses; "don't", nothing pressed | 2 | pass |
+| The live final screen shows the page's own amount ("Total: Rs 450") | 1 | pass |
+| A press that pays on a live site: final screen, then handed over; SIMBA's clicks on Pay: **0** | 1 | pass |
+| After paying, the page's words quoted; nothing said: "I can't tell…", unconfirmed | 2 | pass |
+| A card box: handed over before any move; the number typed by the person never in anything sent | 3 | pass |
+| A CAPTCHA or bot check: handed over, the task goes on; still there after two, stops | 2 + 2 | pass |
+| The test gateway: the test card and code go through, any other card declined and never echoed, a wrong code asked again, "TEST GATEWAY" on every page | 4 | pass |
+| **A bill paid by card end to end**: final screen with the bill's own details, SIMBA presses "Pay by card", the gateway page handed over, the person types card and code, "Payment Received" quoted | 1 | pass |
+| Stop on the card page: nothing changed, the page left as it was | 1 | pass |
+| The two old tests of the old rule, rewritten to the new one | 5 | pass |
+
+**The backend half** (`pytest backend tools test_basetemp.py`), at the phase's first commit, on
+mains: **1540 passed, 2 failed, 9 skipped, 1920s**. The two were phase 2's bot-check tests, which
+expected the run to end at once; under the new rule the check is handed to the person first.
+Rewritten to expect two handovers and then the stop, with no model asked: 8 of 8.
+
+**Failed on the way, and not a defect**: the end-to-end test first said the card number had
+been sent. It had not: the assertion chained three checks, and the one that failed was the
+one-time code, 123456, which is inside the reference number 04141234567890. Looked for as a
+whole value it is absent too; the card number never was present.
+
+
+## 2026-11-13c — the overlay half after visible status and the first-time setup (`feat/interface-setup`)
+
+`pytest frontend`, on mains, at the phase 7b commit: **760 passed, 2 failed, 1 error, 3 skipped,
+1782s**. All three came from the new behaviour meeting old tests, none from a defect, and each
+test was brought to the new rule rather than the behaviour bent to the test:
+
+- `test_brand.py`, "it tries again only while it is up": the window now keeps trying on the home
+  screen, by the advisor's direction (L). Rewritten to check it keeps trying, no more than about
+  once a second, and that a press's connection is the only one from then on — the reason the old
+  rule existed. 1 of 1.
+- `test_forget_run.py`, both tests: the reset's helper skipped exactly four welcome questions;
+  against the real backend there are now six. It skips until the welcome has gone. 2 of 2.
+
+An earlier run of the same half, on phase 6 alone, is **not counted**: 36 of its errors were
+`test_sites.py` importing a half-old backend, because the phase 7b backend was being written
+while it ran — a mistake in how the run was done, not a result.
+
+The backend tests 7b touches, beside that run: **142 passed, 2 failed** in
+`test_open_goal.py`, then **144 of 144** and **62 of 62** on two re-runs, in both orders.
+Read as timing under load (two real-browser tests, started as the overlay run started its
+browsers), not proved; recorded as an intermittent to watch.
+
+
+## 2026-11-13d — the host fit test, in the real window, after phases 1 to 8
+
+`SIMBA_HOST_TESTS=1 pytest frontend/test_window_fit.py`, after `npm run build`, on mains.
+**First: 3 failed** — at 100%, 125% and 150% alike, the smallest text on the home screen was
+18px against the project's floor of 20px. The new status line (phase 6) was set in the caption
+size. The headless tests had measured its place, not its size; only the real-window test
+checks the floor. Fixed: the line in the 20px size, the site list's foot raised to leave it room
+(`fix/interface-status-size`). **Then: 3 passed**, 589s.
+
 ## 2026-11-13 — the Windows installer, built, installed and run on this machine (`feat/infra-installer`)
 
 `tools/build_installer.py` then `tools/evaluation/installed_app_run.py --runs 3`: one silent

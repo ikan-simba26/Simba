@@ -21,13 +21,15 @@ REPO = Path(__file__).resolve().parents[1]
 PROBE = """
 import json
 from backend.estimator import pairing
-from backend.orchestrator import llm, tiles, vault, routines, app
+from backend.orchestrator import llm, tiles, vault, routines, app, ai_settings, catalogue
 print(json.dumps({
     "SIMBA_STEPS": str(pairing.DEFAULT_PATH),
     "SIMBA_LLM_LOG_DIR": str(llm.LOG_DIR),
     "SIMBA_TILES": str(tiles.TileStore().path),
     "SIMBA_VAULT": str(vault.Vault().path),
     "SIMBA_ROUTINES": str(routines.RoutineStore().path),
+    "SIMBA_AI_SETTINGS": str(ai_settings.AiStore().path),
+    "SIMBA_CATALOGUE_LOCAL": str(catalogue.CatalogueStore().local),
 }))
 """
 
@@ -47,6 +49,8 @@ def test_every_path_the_host_moves_is_moved(tmp_path: Path) -> None:
         "SIMBA_TILES": str(tmp_path / "data" / "tiles.json"),
         "SIMBA_VAULT": str(tmp_path / "data" / "vault.json"),
         "SIMBA_ROUTINES": str(tmp_path / "data" / "routines.json"),
+        "SIMBA_AI_SETTINGS": str(tmp_path / "data" / "ai.json"),
+        "SIMBA_CATALOGUE_LOCAL": str(tmp_path / "data" / "catalogue.local.json"),
     }
     assert _probe(wanted) == wanted
 
@@ -62,7 +66,7 @@ def test_the_host_sets_exactly_these() -> None:
     host = (REPO / "frontend" / "electron" / "backend.ts").read_text(encoding="utf-8")
     for name in ("SIMBA_TILES", "SIMBA_VAULT", "SIMBA_ROUTINES", "SIMBA_TRACE_DB",
                  "SIMBA_STEPS", "SIMBA_LOG_FILE", "SIMBA_LLM_LOG_DIR", "SIMBA_ENV_FILE",
-                 "SIMBA_HOST_PID"):
+                 "SIMBA_HOST_PID", "SIMBA_AI_SETTINGS", "SIMBA_CATALOGUE_LOCAL"):
         assert f"{name}:" in host, name
 
 

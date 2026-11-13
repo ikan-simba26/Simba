@@ -112,6 +112,76 @@ export function greetingAt(hour: number, name?: string): string {
   return `${hello}, ${name}. ${rest.join(". ")}`;
 }
 
+/* --------------------------------------------------------------- websites */
+
+/**
+ * The websites SIMBA can work with (2026-11-13, the advisor's direction): a
+ * list on the home screen's left, by genre, from the catalogue; "Add a
+ * website" under it; and a box beside the one to ask in, for any address.
+ */
+export const SITES = {
+  /** Above the list on the left. A lead-in. */
+  list: "Websites I can use",
+  /** At the foot of the list: where a new website is added. */
+  add: "Add a website",
+  /** The screen behind it. */
+  addAsk: "Add a website",
+  addDetail: "Give it a name you will know. Then it is in the list, and you can ask me to do things there.",
+  /** Above each box on that screen. Lead-ins. */
+  name: "What to call it",
+  address: "Its address",
+  genre: "What kind of website",
+  namePlaceholder: "My clinic",
+  addressPlaceholder: "clinic.example.pk",
+  addIt: "Add it",
+  /** Why a website could not be added, by the backend's reason. */
+  notAdded: {
+    name: "Give it a name first.",
+    address: "That doesn't look like a website's address.",
+    listed: "That website is in the list already.",
+    full: "The list is full. Take one off first.",
+  } as Record<string, string>,
+  /** Beside the box to ask in, for the website to do it on. */
+  where: "Which website",
+  wherePlaceholder: "Any website, like gov.uk",
+  /** Above the selected website's tasks. A lead-in. */
+  hereICan: "What I can do here",
+  /** How SIMBA does each one, under its name. */
+  how: {
+    "built-in": "I know this one",
+    ai: "I'll work it out",
+    taught: "A helper showed me",
+  } as Record<string, string>,
+  /** Under a task a helper taught on a sister website (2026-11-13). */
+  taughtOn: (name: string) => `A helper showed me on ${name}`,
+  /** Above the box when a website is chosen. */
+  askHere: (name: string) => `What would you like me to do on ${name}?`,
+  /** Lets go of the chosen website. */
+  notThis: "Choose another website",
+  /** For a helper, on the chosen website. */
+  showHere: "Show me a task here",
+  /** The group at the top of the list: the websites the person chose. */
+  yours: "Your websites",
+  /** Above the three tiles when the list is there too. A lead-in. */
+  ready: "Ready to go",
+} as const;
+
+/**
+ * The bar while the real page is the person's (2026-11-13): to pay, or to pass
+ * a check that a person is there. The sentence on it is the backend's
+ * (`voice.HANDOVER_*`).
+ */
+export const HANDOVER = {
+  /** Under the sentence: which website it is. */
+  on: (site: string) => `On ${site}`,
+  done: "I've finished",
+  stop: "Stop, change nothing",
+} as const;
+
+/** Under a move the AI planner chose (2026-11-13, the advisor's direction):
+ *  which provider worked it out, small. */
+export const WORKED_OUT_BY = (provider: string) => `Worked out with ${provider}.`;
+
 /* -------------------------------------------------------- your own tiles */
 
 /**
@@ -230,6 +300,35 @@ export const WELCOME = {
   forgetDetail: "Your name, your settings and your own tiles go from this computer. Then I start again, as if you had just opened me.",
   forgetYes: "Yes, forget it all",
   forgetNo: "No, keep it",
+  /** The AI helper (2026-11-13): which provider, and its key. */
+  aiAsk: "Which AI helper should I use?",
+  aiDetail: "It works out websites I don't know yet. Your key stays on this computer, locked, and I never show it.",
+  aiGemini: "Gemini, free to start",
+  aiGroq: "Groq",
+  aiOther: "Another one",
+  aiKey: "The key it gave you",
+  aiModel: "Its model",
+  aiSave: "Save and check",
+  aiChecking: "Checking the key now.",
+  /** How the check went, by the backend's word. */
+  aiCheck: {
+    ok: "It works. This key is saved.",
+    key: "That key didn't work. Check it was copied whole.",
+    limit: "The key works, but today's free allowance is used up.",
+    network: "I couldn't reach it. Check the internet connection.",
+    other: "Something went wrong at their end. The key is saved; try again later.",
+    provider: "Choose one of the three first.",
+    address: "That address doesn't look right. It should start with https.",
+    model: "Give the name of its model too.",
+    vault: "This computer can't lock the key away, so I didn't save it.",
+  } as Record<string, string>,
+  /** When one is set up already. */
+  aiSaved: (provider: string, ending?: string) =>
+    ending ? `${provider} is set up, with a key ending ${ending}.` : `${provider} is set up.`,
+  /** The websites to start with (2026-11-13). */
+  sitesAsk: "Which websites do you use most?",
+  sitesDetail: "They go at the top of the list on the home screen. You can choose others any time.",
+  sitesDone: "Use these",
   /** The example shown three ways: a question every journey asks. */
   sample: {
     instruction: "What day are you travelling?",
@@ -293,6 +392,17 @@ export const REPLY = {
   clarify: "Which of these did you mean?",
   /** Above the words the person typed, echoed back quietly. A lead-in. */
   youAsked: "You asked",
+  /** A goal on a website SIMBA has no way to do yet (2026-11-13). */
+  notYet: (where: string) => `I don't know how to do that on ${where} yet.`,
+  notYetDetail: "A helper can show me once. Then I can do it on my own.",
+  showMeOnce: "Ask a helper to show me once",
+  /** A website whose robots.txt asks programs not to use that page
+   *  (2026-11-13). */
+  notAllowed: (where: string) => `${where} asks programs like me not to use that page.`,
+  notAllowedDetail: "So I won't. You can still use the website yourself.",
+  /** Above the cards after a refusal, when the list of websites is there
+   *  (2026-11-13): the same height as "Here's what I can do". A lead-in. */
+  canDoOrWhere: "Tell me the website, or choose one of these",
 } as const;
 
 /* ---------------------------------------------------------------- status */
@@ -312,6 +422,17 @@ export const STATUS = {
   waiting: "Your turn",
   stuck: "Stopped",
   done: "Finished",
+} as const;
+
+/**
+ * The status line, always on screen (2026-11-13, the advisor's direction, L):
+ * whether SIMBA's backend can be reached. Beside it, what it is doing, from
+ * `STATUS`.
+ */
+export const CONNECTION = {
+  connected: "Connected",
+  connecting: "Connecting",
+  unreachable: "I can't reach SIMBA's helper. Trying again.",
 } as const;
 
 /* -------------------------------------------------------------- presence */
@@ -680,6 +801,21 @@ export const SITUATIONS: Record<string, string> = {
   "welcome.askDetail": WELCOME.askDetail,
   "welcome.forgetAsk": WELCOME.forgetAsk,
   "welcome.forgetDetail": WELCOME.forgetDetail,
+  "welcome.aiAsk": WELCOME.aiAsk,
+  "welcome.aiDetail": WELCOME.aiDetail,
+  "welcome.aiChecking": WELCOME.aiChecking,
+  "welcome.aiSaved": WELCOME.aiSaved("Gemini", "9f3c"),
+  "welcome.sitesAsk": WELCOME.sitesAsk,
+  "welcome.sitesDetail": WELCOME.sitesDetail,
+  "welcome.aiCheck.ok": WELCOME.aiCheck.ok,
+  "welcome.aiCheck.key": WELCOME.aiCheck.key,
+  "welcome.aiCheck.limit": WELCOME.aiCheck.limit,
+  "welcome.aiCheck.network": WELCOME.aiCheck.network,
+  "welcome.aiCheck.other": WELCOME.aiCheck.other,
+  "welcome.aiCheck.provider": WELCOME.aiCheck.provider,
+  "welcome.aiCheck.address": WELCOME.aiCheck.address,
+  "welcome.aiCheck.model": WELCOME.aiCheck.model,
+  "welcome.aiCheck.vault": WELCOME.aiCheck.vault,
   "tiles.keepAsk": TILES.keepAsk("My bill"),
   "tiles.kept": TILES.kept("My bill"),
   "tiles.editDetail": TILES.editDetail,
@@ -688,6 +824,18 @@ export const SITUATIONS: Record<string, string> = {
   "reply.greeting": REPLY.greeting,
   "reply.unsupported": REPLY.unsupported,
   "reply.clarify": REPLY.clarify,
+  "reply.notYet": REPLY.notYet("gov.uk"),
+  "reply.notYetDetail": REPLY.notYetDetail,
+  "reply.notAllowed": REPLY.notAllowed("gov.uk"),
+  "reply.notAllowedDetail": REPLY.notAllowedDetail,
+  "connection.unreachable": CONNECTION.unreachable,
+  "step.workedOutBy": WORKED_OUT_BY("Gemini"),
+  "sites.addDetail": SITES.addDetail,
+  "sites.notAdded.name": SITES.notAdded.name,
+  "sites.notAdded.address": SITES.notAdded.address,
+  "sites.notAdded.listed": SITES.notAdded.listed,
+  "sites.notAdded.full": SITES.notAdded.full,
+  "sites.askHere": SITES.askHere("Wikipedia"),
   "choose.more": CHOOSE.more(5),
   "choose.none": CHOOSE.none,
   "choose.hint": CHOOSE.hint,
@@ -708,6 +856,17 @@ export const LEADS: Record<string, string> = {
   "welcome.level3": WELCOME.levelName(3),
   "reply.canDo": REPLY.canDo,
   "reply.youAsked": REPLY.youAsked,
+  "reply.canDoOrWhere": REPLY.canDoOrWhere,
+  "sites.list": SITES.list,
+  "sites.name": SITES.name,
+  "sites.address": SITES.address,
+  "sites.genre": SITES.genre,
+  "sites.where": SITES.where,
+  "sites.hereICan": SITES.hereICan,
+  "sites.ready": SITES.ready,
+  "sites.yours": SITES.yours,
+  "welcome.aiKey": WELCOME.aiKey,
+  "welcome.aiModel": WELCOME.aiModel,
 };
 
 /** Everything that goes on a button. Never punctuated, never two for one place. */
@@ -757,6 +916,11 @@ export const LABELS: Record<string, string> = {
   "welcome.forget": WELCOME.forget,
   "welcome.forgetYes": WELCOME.forgetYes,
   "welcome.forgetNo": WELCOME.forgetNo,
+  "welcome.aiGemini": WELCOME.aiGemini,
+  "welcome.aiGroq": WELCOME.aiGroq,
+  "welcome.aiOther": WELCOME.aiOther,
+  "welcome.aiSave": WELCOME.aiSave,
+  "welcome.sitesDone": WELCOME.sitesDone,
   "tiles.change": TILES.change,
   "tiles.keep": TILES.keep,
   "tiles.notNow": TILES.notNow,
@@ -780,4 +944,17 @@ export const LABELS: Record<string, string> = {
   "status.done": STATUS.done,
   "stages.label": STAGES.label,
   "choose.matches": CHOOSE.matches,
+  "sites.add": SITES.add,
+  "sites.addIt": SITES.addIt,
+  "sites.notThis": SITES.notThis,
+  "sites.showHere": SITES.showHere,
+  "sites.how.builtIn": SITES.how["built-in"],
+  "sites.how.ai": SITES.how.ai,
+  "sites.how.taught": SITES.how.taught,
+  "sites.taughtOn": SITES.taughtOn("IESCO electricity bill"),
+  "handover.done": HANDOVER.done,
+  "connection.connected": CONNECTION.connected,
+  "connection.connecting": CONNECTION.connecting,
+  "handover.stop": HANDOVER.stop,
+  "reply.showMeOnce": REPLY.showMeOnce,
 };

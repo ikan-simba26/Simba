@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }} | SIMBA Test Gateway</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #eef2f6; margin: 0; }
+    .band { background: #b3261e; color: #fff; padding: 8px 16px; font-weight: 600; }
+    main { max-width: 520px; margin: 32px auto; background: #fff; padding: 28px 32px;
+           border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    label { display: block; margin: 14px 0 4px; font-size: 14px; color: #333; }
+    input { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; }
+    button { margin-top: 20px; padding: 12px 18px; font-size: 16px; background: #1a5fb4;
+             color: #fff; border: 0; border-radius: 6px; }
+    .amount { font-size: 22px; font-weight: 700; }
+    .error { color: #b3261e; }
+    .small { font-size: 13px; color: #555; }
+  </style>
+</head>
+<body>
+<div class="band">TEST GATEWAY — test cards only. No real money is taken.</div>
+<main>
+  <h1>{{ title }}</h1>
+  <p>Paying <b>LESCO Consumer Services Portal</b> for reference {{ reference }}</p>
+  <p>Amount: <span class="amount">Rs {{ amount }}</span></p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+  {% if stage == "card" %}
+  <form method="post" action="{{ url_for('gateway_card') }}">
+    <input type="hidden" name="reference" value="{{ reference }}">
+    <label for="cc-name">Name on card</label>
+    <input id="cc-name" name="cc-name" autocomplete="cc-name">
+    <label for="cc-number">Card number</label>
+    <input id="cc-number" name="cc-number" autocomplete="cc-number" inputmode="numeric">
+    <label for="cc-exp">Expiry (MM/YY)</label>
+    <input id="cc-exp" name="cc-exp" autocomplete="cc-exp">
+    <label for="cc-csc">CVV</label>
+    <input id="cc-csc" name="cc-csc" autocomplete="cc-csc" inputmode="numeric">
+    <button type="submit">Pay Rs {{ amount }}</button>
+  </form>
+  <p class="small">Test card: 4242 4242 4242 4242, any future expiry, any three digits.</p>
+  {% elif stage == "otp" %}
+  <form method="post" action="{{ url_for('gateway_otp') }}">
+    <input type="hidden" name="reference" value="{{ reference }}">
+    <input type="hidden" name="attempt" value="{{ attempt }}">
+    <p>Your bank sent a one-time code to your phone.</p>
+    <label for="otp">One-time code</label>
+    <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric">
+    <button type="submit">Confirm</button>
+  </form>
+  <p class="small">Test code: 123456.</p>
+  {% endif %}
+</main>
+</body>
+</html>

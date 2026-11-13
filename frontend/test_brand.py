@@ -340,9 +340,14 @@ def test_with_no_backend_at_all_the_home_screen_still_comes(
         page.context.close()
 
 
-def test_it_tries_again_only_while_it_is_up(browser: Browser, overlay: str) -> None:  # noqa: F811
-    """A late attempt on the home screen would replace the connection a press
-    had just opened: `connect` closes whatever there is."""
+def test_it_keeps_trying_at_home_but_never_over_a_press(browser: Browser, overlay: str) -> None:  # noqa: F811
+    """Until 2026-11-13 the window tried again only while the logo was up: a
+    late attempt on the home screen would replace the connection a press had
+    just opened, since `connect` closes whatever there is. By the advisor's
+    direction (L) it now keeps trying on the home screen, and says so; what
+    stops it replacing a press's connection is that it never tries while one
+    is connecting or a goal has been asked (`store.keepConnected`), which the
+    second half checks."""
     page = kept_page(browser)
     page.add_init_script(SPLASH_ON)
     attempts: list[float] = []
@@ -356,7 +361,16 @@ def test_it_tries_again_only_while_it_is_up(browser: Browser, overlay: str) -> N
         page.wait_for_timeout(6000)
 
         assert at_home >= 2, attempts
-        assert len(attempts) == at_home, attempts
+        assert len(attempts) > at_home, attempts  # it keeps trying
+        gaps = [later - earlier for earlier, later in zip(attempts, attempts[1:])]
+        assert min(gaps) > 0.9, gaps  # no more than about once a second
+
+        # A press: its connection is the only one from then on.
+        page.get_by_role("textbox", name=BOX).fill("hello")
+        before = len(attempts)
+        page.get_by_role("button", name="Start", exact=True).click()
+        page.wait_for_timeout(1500)
+        assert len(attempts) - before <= 1, attempts
     finally:
         page.context.close()
 

@@ -20,8 +20,9 @@ from backend.orchestrator.llm import Action, LLMError, Provider
 from backend.orchestrator.loop import Move, Task
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
+from backend.perception.content import Content
 from backend.perception.serializer import Element
-from shared.schema import StepField
+from shared.schema import Finding, StepField
 
 SYSTEM_PROMPT = """You operate a web page on behalf of someone who finds \
 cluttered interfaces overwhelming.
@@ -174,7 +175,10 @@ class LLMPlanner:
         choice = await self._choose(elements, history, setback)
         if choice is None:
             return None
+        return await self._shape(choice)
 
+    async def _shape(self, choice: "_Choice") -> Move:
+        """A chosen action as a Move: what is said, done and checked."""
         action, element = choice.action, choice.element
         operation = Operation(
             kind="fill" if action.action == "type" else action.action,
@@ -241,4 +245,143 @@ class LLMPlanner:
             return _Choice(action=action, element=valid[action.element_id])
 
         self.stuck_reason = f"I could not work out the next step: {feedback}"
+        return None
+
+
+
+# --- any goal, on any website (2026-11-13, the advisor's direction) ----------
+#
+# A goal nobody wrote a plan for, on a live website. The model chooses one
+# move at a time from the numbered elements, as `LLMPlanner` does, and also
+# reads what the page says — headings, labelled values, tables — so it can
+# tell when the answer is in front of it. Then it answers, copying the answer
+# from the page. Nothing it answers is shown until SIMBA has found those exact
+# words on the page itself, and nothing is the answer until the person says
+# it is what they wanted (DECISIONS.md, *An open goal ends by pointing at its
+# answer*). Everything else — what may be pressed, what is checked after each
+# move, what is never typed — is the loop's, as for every planner.
+
+OPEN_GOAL_RULES = """
+When the page shows what the goal asks for, answer instead of acting: \
+action "answer", element_id 0, value the answer copied exactly, word for word, \
+from "What the page says" below. Copy only words that are there; never \
+rephrase, add or calculate. If the goal needs a search first, search first.
+Never type card numbers, bank details, passwords or one-time codes, and never \
+press a button that pays, orders, books, registers or submits: say in your \
+reasoning that the person must do that themselves.
+"""
+
+#: How much of what the page says goes in the prompt. A free tier's tokens a
+#: minute are the limit that bites (8,000 on Groq; EVALUATION.md, 2026-11-12).
+CONTENT_CHARS = 2400
+#: The most rows of one table put in the prompt.
+TABLE_ROWS = 12
+
+
+def render_content(content: Content | None, limit: int = CONTENT_CHARS) -> str:
+    """What the page says, for the model: headings, labelled values and the
+    first rows of each table, cut at `limit` characters."""
+    if not content:
+        return "(the page says nothing readable)"
+    lines: list[str] = []
+    lines += [f"# {heading.text}" for heading in content.headings]
+    lines += [f"{pair.label}: {pair.value}" for pair in content.pairs]
+    lines += [value.text for value in content.values]
+    for table in content.tables:
+        if table.caption:
+            lines.append(f"Table: {table.caption}")
+        lines.append(" | ".join(table.headers))
+        for row in table.rows[:TABLE_ROWS]:
+            lines.append(" | ".join(row.values))
+        if len(table.rows) > TABLE_ROWS:
+            lines.append(f"(... {len(table.rows) - TABLE_ROWS} more rows)")
+    text = "\n".join(line for line in lines if line.strip())
+    return text if len(text) <= limit else text[:limit] + "\n(... the rest is cut)"
+
+
+class OpenGoalPlanner(LLMPlanner):
+    """The model on a goal with no plan: acts, or answers from the page.
+
+    `answer` is the finding once the person has said it is what they wanted;
+    the loop shows it, rings it in the picture of the page, and checks the
+    page still says it before closing (`loop.carry_out`)."""
+
+    #: The model does not mark its own changes: a press whose words say it
+    #: books, pays or submits is the loop's to stop (`loop.would_change`).
+    marks_changes = False
+    #: The run ends with the person's agreed answer, or not at all.
+    must_answer = True
+
+    def __init__(self, provider: Provider, task: Task) -> None:
+        super().__init__(provider, task)
+        self._content: Content | None = None
+        self._proposed: str | None = None
+        self._declined: str | None = None
+        self.answer: Finding | None = None
+        #: Which provider worked out the last move: shown to the person.
+        self.worked_out_by: str | None = None
+
+    def look(self, content: Content) -> None:
+        """What the page says now. The loop calls this before each move."""
+        self._content = content
+
+    def answered(self, action_id: str, values: dict) -> None:  # noqa: ARG002
+        """The person's answer to "Is this what you wanted?"."""
+        if self._proposed is None:
+            return
+        if action_id == voice.CONFIRM_ID:
+            self.answer = Finding(label=voice.WHAT_I_FOUND, value=self._proposed)
+        else:
+            self._declined = self._proposed
+        self._proposed = None
+
+    async def next_move(self, elements: list[Element], history: list[str],
+                        setback: str | None) -> Move | None:
+        if self.answer is not None:
+            return None  # done: the loop closes with the answer
+        if self._declined is not None:
+            setback = (f'The person said "{self._declined}" is not what they wanted. '
+                       "Keep looking, or do what the goal needs to find it.")
+            self._declined = None
+        choice = await self._choose(elements, history, setback)
+        self.worked_out_by = getattr(self._provider, "label", None)
+        if choice is None:
+            return None
+        if choice.action.action == "answer":
+            self._proposed = (choice.action.value or "").strip()
+            return Move(instruction=voice.found_this(self._proposed), detail="", operations=[],
+                        expect=Expectation(), fields=[], actions=voice.is_this_it(),
+                        question=True, kind="read")
+        move = await super()._shape(choice)
+        return move
+
+    async def _choose(self, elements: list[Element], history: list[str],
+                      setback: str | None) -> _Choice | None:
+        """One action, retried once with the error fed back; an answer only
+        if the page says it, word for word."""
+        feedback = setback
+        valid = {element.id: element for element in elements}
+        page = (render_page(elements) + "\n\nWhat the page says:\n"
+                + render_content(self._content))
+        for _ in range(2):
+            self.calls_made += 1
+            try:
+                action = await self._provider.decide(
+                    SYSTEM_PROMPT + OPEN_GOAL_RULES, page, self._task.goal, feedback, history)
+            except LLMError as error:
+                feedback = str(error)
+                continue
+            if action.action == "answer":
+                said = (action.value or "").strip()
+                if said and self._content is not None and self._content.says(said):
+                    return _Choice(action=action, element=None)  # type: ignore[arg-type]
+                feedback = (f'"{said}" is not on the page word for word. Copy the answer '
+                            'exactly from "What the page says", or act to find it.')
+                continue
+            if action.element_id not in valid:
+                feedback = (f"element_id {action.element_id} is not on the page. "
+                            f"Valid ids are 1 to {len(elements)}.")
+                continue
+            return _Choice(action=action, element=valid[action.element_id])
+        self.stuck_reason = voice.AI_COULD_NOT
         return None

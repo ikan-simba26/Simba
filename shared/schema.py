@@ -55,6 +55,16 @@ MessageType = Literal[
     "teach.answer",
     "routine.export",
     "routine.import",
+    # Pending agreement (2026-11-13, the advisor's direction): a website added
+    # to the list on the home screen.
+    "site.add",
+    # Pending agreement (2026-11-13): the real page handed to the person — to
+    # pay, or to pass a check for a person — and their word that they are done.
+    "handover",
+    "handover.done",
+    # Pending agreement (2026-11-13): the AI provider set up in the app.
+    "ai.setup",
+    "ai.status",
 ]
 
 # --- Backend to frontend -----------------------------------------------------
@@ -106,6 +116,70 @@ class TaughtTile(BaseModel):
     site: str
 
 
+How = Literal["built-in", "ai", "taught"]
+
+
+class CatalogueTask(BaseModel):
+    """Something SIMBA can do on a listed website (2026-11-13), and how:
+    `built-in` runs a written plan (`flow`), `ai` asks the AI planner to work
+    it out on the live page, `taught` runs a routine a helper showed
+    (`routine`, its id). Pressing it sends `goal` with `site`."""
+
+    label: str
+    goal: str
+    how: How
+    flow: Optional["FlowName"] = None
+    routine: Optional[str] = None
+    # Additive and optional (2026-11-13). A routine taught on another website
+    # of the same genre: that website's name. Pressed here, the routine runs on
+    # this website (`task.start.routine` with `site`).
+    taught_on: Optional[str] = None
+
+
+class CatalogueSite(BaseModel):
+    """A website SIMBA can work with, listed on the home screen's left by
+    genre (2026-11-13). `added`: added in the app, not shipped."""
+
+    id: str
+    name: str
+    address: str
+    genre: str
+    tasks: List[CatalogueTask]
+    added: bool = False
+
+
+AiCheck = Literal["ok", "key", "limit", "network", "other", "provider", "address", "model",
+                  "vault", "not_checked"]
+
+
+class AiStatus(BaseModel):
+    """Whether an AI provider is set up (2026-11-13, pending agreement), and
+    how the last check went. Never the key: only its last four characters,
+    when it was set up in the app."""
+
+    configured: bool
+    provider: Optional[str] = None
+    ends_with: Optional[str] = None
+    check: AiCheck = "not_checked"
+
+
+class AiSetup(BaseModel):
+    """The AI provider entered in the first-time setup (2026-11-13, pending
+    agreement): `gemini`, `groq` or `openai` (any OpenAI-compatible, with its
+    own `base_url` and `model`), and the key. Kept encrypted on this computer;
+    answered with `ai.status`."""
+
+    provider: str
+    key: str
+    base_url: Optional[str] = None
+    model: Optional[str] = None
+
+    def __repr__(self) -> str:  # never the key
+        return f"AiSetup(provider={self.provider!r}, key=...)"
+
+    __str__ = __repr__
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -121,10 +195,22 @@ class HistoryOffered(BaseModel):
     # as tiles, in the order they were kept. They share the home screen's row
     # of three with `tiles`. Absent: none.
     routines: Optional[List[TaughtTile]] = None
+    # Additive and optional (2026-11-13). The websites SIMBA can work with, in
+    # the list's order, and the genres in theirs. Also sent again after each
+    # `site.add`. Absent: no list, and the home screen is as it was.
+    sites: Optional[List[CatalogueSite]] = None
+    genres: Optional[List[str]] = None
+    # Additive and optional (2026-11-13). Whether an AI provider is set up,
+    # for the first-time setup and settings. Absent: the setup does not ask.
+    ai: Optional[AiStatus] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]
-AnswerKind = Literal["greeting", "unsupported", "clarify"]
+# "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to do
+# yet. The overlay offers a helper's "Show me once" on that website (`site`).
+# "not_allowed" (2026-11-13, additive): the website's robots.txt asks programs
+# not to use that page, so SIMBA does not.
+AnswerKind = Literal["greeting", "unsupported", "clarify", "not_yet", "not_allowed"]
 
 
 class GoalAnswered(BaseModel):
@@ -138,6 +224,9 @@ class GoalAnswered(BaseModel):
     kind: AnswerKind
     goal: str
     flows: List[FlowName]
+    # Additive and optional (2026-11-13). The website the goal was for, when
+    # there was one: where "Show me once" opens for `not_yet`.
+    site: Optional[str] = None
 
 
 class Finding(BaseModel):
@@ -237,6 +326,10 @@ class StepPresented(BaseModel):
     # "Type 04141234567890 in Reference No.", "Press Check Bill.". Absent: an
     # ordinary step.
     routine: Optional[List[str]] = None
+    # Additive and optional (2026-11-13). Which AI provider worked this move
+    # out, said small under the step: "Gemini", "Groq". Absent: a written
+    # plan, a routine a helper showed, or a replayed run.
+    worked_out_by: Optional[str] = None
 
 
 class StepFailed(BaseModel):
@@ -294,6 +387,24 @@ class HelpRequested(BaseModel):
     # something was tried and the site did not confirm it: not "stuck", and
     # the reason is the one thing the person must read.
     unconfirmed: bool = False
+    # Additive and optional (2026-11-13). The AI planner could not do a goal
+    # on this website: the overlay offers a helper's "Show me once" there.
+    teach_site: Optional[str] = None
+
+
+class HandOver(BaseModel):
+    """The real page, handed to the person (2026-11-13, pending agreement).
+
+    `reason` is `payment` — card or bank details, a one-time code, or the
+    press that pays — or `check`: a CAPTCHA or a check that a person is there.
+    SIMBA never does either. The overlay steps aside to a bar with `sentence`
+    and shows the website below it, as for "Show me once", until the person
+    says they have finished (`handover.done`) or stops. Nothing they type is
+    read, logged or kept. `site` is the page's host, for the bar."""
+
+    reason: Literal["payment", "check"]
+    sentence: str
+    site: str
 
 
 class TaskOffer(BaseModel):
@@ -448,6 +559,11 @@ class TaskStart(BaseModel):
     # its id (`history.offered.routines`): run as shown, asking only what the
     # helper said changes. The goal is its name and is not classified.
     routine: Optional[str] = None
+    # Additive and optional (2026-11-13). The website to work on: a listed
+    # site's address, or one the person typed. With no `flow`, the goal is done
+    # there — by a built-in plan if the goal is one and the site is its site,
+    # otherwise by the AI planner. Absent: the goal is routed as before.
+    site: Optional[str] = None
 
 
 class TeachStart(BaseModel):
@@ -481,6 +597,24 @@ class RoutineImport(BaseModel):
     kept, and an `error` with code `ROUTINE_NOT_READ` saying why when not."""
 
     file: str
+
+
+class HandoverDone(BaseModel):
+    """The person's answer on the handover bar (2026-11-13, pending
+    agreement): `done` — read the page now — or `cancel`, which stops."""
+
+    action: Literal["done", "cancel"]
+
+
+class SiteAdd(BaseModel):
+    """A website added to the home screen's list (2026-11-13, pending
+    agreement): what to call it, its address as typed, and its genre. Answered
+    with `history.offered` as it now stands, or `error` `SITE_NOT_ADDED` whose
+    message is one of `name`, `address`, `listed`, `full`."""
+
+    name: str
+    address: str
+    genre: str
 
 
 class TileChange(BaseModel):

@@ -90,6 +90,12 @@ export async function devToolsPort(userData: string, limitMs = 15_000): Promise<
  *   SIMBA_STEPS        data/steps.jsonl     channel B's step rows
  *   SIMBA_LOG_FILE     logs/backend.log     the run log
  *   SIMBA_LLM_LOG_DIR  logs/                the model's prompt transcripts
+ *   SIMBA_AI_SETTINGS  data/ai.json         the AI helper and its key, from
+ *                                           first-time setup, DPAPI-encrypted
+ *   SIMBA_CATALOGUE_LOCAL data/catalogue.local.json  websites the person added
+ *
+ * (The shipped catalogue, `data/catalogue.json`, is only read, and stays in
+ * the install folder.)
  *
  * and one it reads: SIMBA_ENV_FILE, `.env` — a model key, if the person or
  * whoever set SIMBA up put one there. The install folder's own would be
@@ -106,6 +112,8 @@ export function dataEnvironment(userData: string): Record<string, string> {
     SIMBA_STEPS: path.join(data, "steps.jsonl"),
     SIMBA_LOG_FILE: path.join(logs, "backend.log"),
     SIMBA_LLM_LOG_DIR: logs,
+    SIMBA_AI_SETTINGS: path.join(data, "ai.json"),
+    SIMBA_CATALOGUE_LOCAL: path.join(data, "catalogue.local.json"),
     SIMBA_ENV_FILE: path.join(userData, ".env"),
   };
 }

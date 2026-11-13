@@ -45,7 +45,17 @@ export type MessageType =
   | "teach.start"
   | "teach.answer"
   | "routine.export"
-  | "routine.import";
+  | "routine.import"
+  // Pending agreement (2026-11-13, the advisor's direction): a website added
+  // to the list on the home screen.
+  | "site.add"
+  // Pending agreement (2026-11-13): the real page handed to the person — to
+  // pay, or to pass a check for a person — and their word that they are done.
+  | "handover"
+  | "handover.done"
+  // Pending agreement (2026-11-13): the AI provider set up in the app.
+  | "ai.setup"
+  | "ai.status";
 
 // --- Backend to frontend -----------------------------------------------------
 
@@ -96,6 +106,56 @@ export interface TaughtTile {
   site: string;
 }
 
+/** How SIMBA does a task on a listed website (2026-11-13). */
+export type How = "built-in" | "ai" | "taught";
+
+/** Something SIMBA can do on a listed website (2026-11-13), and how:
+ *  `built-in` runs a written plan (`flow`), `ai` asks the AI planner to work it
+ *  out on the live page, `taught` runs a routine a helper showed (`routine`).
+ *  Pressing it sends `goal` with `site`. */
+export interface CatalogueTask {
+  label: string;
+  goal: string;
+  how: How;
+  flow?: FlowName;
+  routine?: string;
+  /** Additive and optional (2026-11-13): taught on another website of the
+   *  same genre, by that website's name; pressed here, it runs here. */
+  taught_on?: string;
+}
+
+/** A website SIMBA can work with, listed on the home screen's left by genre
+ *  (2026-11-13). `added`: added in the app, not shipped. */
+export interface CatalogueSite {
+  id: string;
+  name: string;
+  address: string;
+  genre: string;
+  tasks: CatalogueTask[];
+  added?: boolean;
+}
+
+/** How the last check of the AI provider went (2026-11-13). */
+export type AiCheck = "ok" | "key" | "limit" | "network" | "other" | "provider" | "address"
+  | "model" | "vault" | "not_checked";
+
+/** Whether an AI provider is set up (2026-11-13, pending agreement). Never
+ *  the key: only its last four characters, when set up in the app. */
+export interface AiStatus {
+  configured: boolean;
+  provider?: string;
+  ends_with?: string;
+  check?: AiCheck;
+}
+
+/** The AI provider entered in the first-time setup (2026-11-13). */
+export interface AiSetup {
+  provider: "gemini" | "groq" | "openai";
+  key: string;
+  base_url?: string;
+  model?: string;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
   /** Additive and optional (2026-10-18): the person's own tiles, in order. */
@@ -103,10 +163,19 @@ export interface HistoryOffered {
   /** Additive and optional (2026-11-04): the routines helpers have shown, as
    *  tiles. They share the home screen's row of three with `tiles`. */
   routines?: TaughtTile[];
+  /** Additive and optional (2026-11-13): the websites SIMBA can work with, in
+   *  the list's order, and the genres in theirs. Sent again after each
+   *  `site.add`. Absent: no list, and the home screen is as it was. */
+  sites?: CatalogueSite[];
+  genres?: string[];
+  /** Additive and optional (2026-11-13): whether an AI provider is set up. */
+  ai?: AiStatus;
 }
 
 export type FlowName = "registration" | "billing" | "railways";
-export type AnswerKind = "greeting" | "unsupported" | "clarify";
+/** "not_yet" (2026-11-13, additive): a goal on a website SIMBA has no way to
+ *  do yet; the overlay offers a helper's "Show me once" on it (`site`). */
+export type AnswerKind = "greeting" | "unsupported" | "clarify" | "not_yet" | "not_allowed";
 
 /**
  * A typed goal that did not start a task, and what to offer instead.
@@ -117,6 +186,8 @@ export interface GoalAnswered {
   kind: AnswerKind;
   goal: string;
   flows: FlowName[];
+  /** Additive and optional (2026-11-13): the website the goal was for. */
+  site?: string;
 }
 
 /**
@@ -207,6 +278,9 @@ export interface StepPresented {
    * Absent: an ordinary step.
    */
   routine?: string[];
+  /** Additive and optional (2026-11-13): which AI provider worked this move
+   *  out, said small under the step. Absent: a plan, a routine, replay. */
+  worked_out_by?: string;
 }
 
 /**
@@ -263,6 +337,9 @@ export interface HelpRequested {
    * not confirm it: not "stuck", and the reason is what must be read.
    */
   unconfirmed?: boolean;
+  /** Additive and optional (2026-11-13): the AI planner could not do a goal
+   *  on this website; the overlay offers a helper's "Show me once" there. */
+  teach_site?: string;
 }
 
 /** What can follow an answer, on our replicas (2026-10-16): a quiet second
@@ -399,6 +476,35 @@ export interface TaskStart {
    * id. Runs as shown, asking only what the helper said changes.
    */
   routine?: string;
+  /**
+   * Additive and optional (2026-11-13): the website to work on, listed or
+   * typed. With no `flow`, the goal is done there — by a built-in plan if it
+   * is one and this is its site, otherwise by the AI planner.
+   */
+  site?: string;
+}
+
+/** The real page, handed to the person to pay or to pass a check
+ *  (2026-11-13, pending agreement). The overlay steps aside to a bar with
+ *  `sentence`, the website below it, until `handover.done`. */
+export interface HandOver {
+  reason: "payment" | "check";
+  sentence: string;
+  site: string;
+}
+
+/** The person's answer on the handover bar (2026-11-13, pending agreement). */
+export interface HandoverDone {
+  action: "done" | "cancel";
+}
+
+/** A website added to the home screen's list (2026-11-13, pending agreement).
+ *  Answered with `history.offered`, or `error` `SITE_NOT_ADDED` whose message
+ *  is one of `name`, `address`, `listed`, `full`. */
+export interface SiteAdd {
+  name: string;
+  address: string;
+  genre: string;
 }
 
 /** Start watching a helper on this address (2026-11-04, pending agreement). */

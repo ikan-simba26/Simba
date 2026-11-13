@@ -12,7 +12,7 @@ system temp (CLAUDE.md):
         stage/backend/      what goes into the install as `resources/backend`
             python/         the Windows embeddable Python 3.12
             site/           the packages of backend/requirements.txt
-            app/            backend/, shared/ and data/estimator.json
+            app/            backend/, shared/, data/estimator.json and data/catalogue.json
         dist/               the installer, and electron-builder's unpacked app
         build.json          what this build measured
 
@@ -28,8 +28,8 @@ The steps, in order:
      Python's pip (`--target`, wheels only, for CPython 3.12 win_amd64). The
      embeddable Python has no pip of its own, and no PyInstaller is involved.
   5. Copy the backend's code: every .py under backend/ and shared/ except
-     tests and conftest, and data/estimator.json, the one data file the
-     backend reads at run time.
+     tests and conftest, and data/estimator.json and data/catalogue.json, the
+     data files the backend reads at run time.
   6. Byte-compile all of it with the bundled Python itself, so a first launch
      does not spend time on it and an install folder that is not writable
      (an all-users install under Program Files) costs nothing. Then check no
@@ -219,7 +219,7 @@ def copy_code() -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
             copied += 1
-    for data in ("estimator.json",):
+    for data in ("estimator.json", "catalogue.json"):
         target = APP_DIR / "data" / data
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / "data" / data, target)
@@ -282,6 +282,9 @@ def smoke_test() -> float:
         "SIMBA_STEPS": str(scratch / "steps.jsonl"),
         "SIMBA_LOG_FILE": str(scratch / "backend.log"),
         "SIMBA_LLM_LOG_DIR": str(scratch),
+        "SIMBA_AI_SETTINGS": str(scratch / "ai.json"),
+        "SIMBA_CATALOGUE_LOCAL": str(scratch / "catalogue.local.json"),
+        "SIMBA_ENV_FILE": str(scratch / ".env"),
     }
     started = time.monotonic()
     process = subprocess.Popen(

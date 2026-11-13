@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-13 · `feat/infra-installer` (not merged): **a Windows installer**, `SIMBA-Setup-0.0.1.exe`, 199.6 MB, built by `tools/build_installer.py`; installed, launched 3 times and greeted "hello" 3 of 3 from the bundled backend, nothing left running after closing or uninstalling (EVALUATION.md, 2026-11-13). Tests run: the host's window fit and brand checks and the touched backend modules only, not the full suite. The last full backend run is 2026-11-11: 1406 passed, 9 skipped, 0 failed, on `fix/teach-list-choice` at `551664c`
+**Last updated:** 2026-11-13 · phases 1, 2, 3, 4, 6, 7b and 8 of the advisor's direction merged into `main` and pushed; host fit test 3 of 3 in the real window after one fix (EVALUATION.md, 2026-11-13d); backend half 1540 + 8 passed at phase 4, overlay half 760 + 3 passed at phase 7b. **Deadline 19 November.** **Waiting on Raham**: phase 5's live runs, and whether to merge the installer (`feat/infra-installer`) **Installer** (`feat/infra-installer`): `SIMBA-Setup-0.0.1.exe`, 199.6 MB, installed, launched 3 times and greeted "hello" 3 of 3 from the bundled backend, nothing left running after closing or uninstalling (EVALUATION.md, 2026-11-13, installer).
 
 ---
 
@@ -83,6 +83,112 @@ be taken back, the website with it, or started again when it cannot.
 shows is not what the application believes, and every check reads the page. The
 model-behaviour figures predate current perception, the stronger-model ablation has
 not run, the LLM has no honest baseline, and the contract is an unratified draft.
+
+### Changed on 2026-11-13 (morning): visible status and the first-time setup, phases 6 and 7b — `feat/interface-status`, `feat/interface-setup`
+
+- **Always visible** (L): "Connected · Your turn" in the bottom left of every screen; "I can't
+  reach SIMBA's helper. Trying again." when it cannot, and it does try again by itself. On the
+  home screen the window reconnects after each task (`frontend/test_sites.py`, 6 tests).
+- **First-time setup** (K): after name, level, reading aloud and asking, two more skippable
+  questions — **which AI helper** (Gemini, Groq, or another OpenAI-compatible with its address and
+  model) **and its key**, kept encrypted on this computer, checked at once, said in plain words
+  ("It works. This key is saved.", "That key didn't work…", "…today's free allowance is used
+  up."), never shown again but its last four characters; and **the websites used most**, which go
+  first in the list as "Your websites" (`frontend/test_setup.py`, 11; `test_ai_settings.py`, 13).
+- **Contract**: `ai.setup`, `ai.status`, `history.offered.ai`; pending agreement.
+- **Flagged**: the AI key survives "Forget me". See DECISIONS.md.
+- **The installer** (7a) is on its own branch, `feat/infra-installer`, waiting for Raham.
+
+### Changed on 2026-11-13 (night): payment handover and live changes, phase 4 — `feat/orchestrator-payment-handover`
+
+- **CLAUDE.md's final-step rule is rewritten** by the advisor's direction (F, G), **pending
+  Nahail and Aly**: on a live site an order, booking, registration or submission happens after
+  its final screen and "do it"; paying is always the person's.
+- **Handover**: a press that pays on a live site, a page asking for card or bank details, a
+  one-time code, a CAPTCHA or a bot check — the overlay becomes a bar ("Your turn: pay on the
+  page below…"), the real page shows below it, and SIMBA reads nothing until "I've finished".
+  Then it quotes the page ("The website says it went through.") or says it cannot tell. "Stop,
+  change nothing" ends it. `handover` and `handover.done` in the contract, pending agreement.
+- **A test card gateway on the billing copy** (`/gateway/…`, `SIMBA_CARD_GATEWAY=1`): card page,
+  one-time code, receipt; test card and code only, labelled on every page. A whole card payment
+  through it passes end to end with SIMBA never touching the card. **Safepay's sandbox is not
+  done**: it needs Raham's account (DECISIONS.md).
+- **Tests**: 31 new or rewritten for the rule, all pass (EVALUATION.md, 2026-11-13b).
+- **Flagged**: what counts as paying; twenty minutes' wait; the stand-in gateway; teaching still
+  read-only on a live site. See DECISIONS.md, *Payment handover and live changes, phase 4*.
+
+### Changed on 2026-11-13 (later still): teach on any website, phase 3 — `feat/orchestrator-teach-any-site`
+
+- **A taught routine runs on a sister website** (`routines.moved_to`): the bill taught on one
+  billing copy ran on a second copy at another address, 0 model calls, the amount read there
+  (`test_routine_moved.py`, 6 tests). Its start and the addresses it expects move; every move is
+  still found and checked; robots.txt is asked first.
+- **The list offers it on the other websites of its genre**, "A helper showed me on …", and the
+  website's panel runs it there (`task.start.routine` with `site`; `CatalogueTask.taught_on`).
+- **"Show me a task here"** opens Show me once on the chosen website's address; the stuck
+  screen's offer (phase 2) does the same. Teaching itself was already any-address.
+- **Found and fixed**: with a taught tile above, the website's panel scrolled the home screen at
+  150%; "Show me a task here" now shares the website's row.
+- **Flagged**: offered by genre, which is broad. See DECISIONS.md, *Teach on any website, phase 3*.
+
+### Changed on 2026-11-13 (later): AI on any website, phase 2 — `feat/orchestrator-ai-live-sites`
+
+- **A goal on any website runs the AI planner** once a provider is set up (`llm_loop.OpenGoalPlanner`).
+  It reads the page's elements and what the page says, acts one asked move at a time, and
+  answers by quoting the page. **An answer is shown only if the page says it word for word**, and
+  is the answer only when the person presses "Yes, that's it"; "No, keep looking" goes back to
+  the model; the page must still say it before closing. 6 tests through the real loop.
+- **Gemini first, Groq at once** on a rate limit, no connection, a timeout, a server error or a
+  key refused (`llm.FallbackProvider`, `GROQ_API_KEY` in `.env`; 21 tests). The step says which
+  worked it out, at every level: "Worked out with Groq."
+- **AI first, then teach**: when the AI cannot, the stuck screen offers "Ask a helper to show me
+  once" on that address. A site whose robots.txt says no — or will not say — is not used
+  (`robots.py`, fail-closed; 9 tests).
+- **A bot check, a CAPTCHA, a one-time code or a refusal stops any run before its next move**
+  (`loop.blocked`), found live: timeanddate answered with "Just a moment…" and the model quoted it.
+- **More words mark a press as a change** (apply, send, order, sign up, …); on a live site such a
+  press still ends the run until phase 4.
+- **Live, once each, free Gemini, no personal data** (EVALUATION.md, 2026-11-13): gov.uk "25 December
+  Christmas Day" in 1 call, 11.7s; Wikipedia's featured article in 1 call, 9.1s; timeanddate wrong
+  before the fix, stopped in 5.0s with 0 calls after it. Not yet: a goal that needs a search, Groq
+  live, a run through the Electron window.
+- **Contract**: `goal.answered` `not_allowed`, `step.presented.worked_out_by`,
+  `help.requested.teach_site`; additive, pending Nahail and Aly.
+- **Flagged**: the answer is quoted, not pointed at by id (the plan said `finish(element_id)`);
+  every AI move is asked; the model now reads page text; fail-closed robots.txt; a "Security check"
+  heading stops a run. See DECISIONS.md, *AI on any website, phase 2*.
+- **The installer** (phase 7a) was built in its own session on `feat/infra-installer`: a 199.6 MB
+  `SIMBA-Setup.exe`, by that session's report installed and run 3 times; **not merged**, waiting
+  on Raham.
+
+### Changed on 2026-11-13: any website, phase 1 — the list of websites, any address, Add a website — `feat/catalogue-any-site`
+
+- **The advisor's direction of 12 November** (Ma'am Samia), approved by Raham on 13 November:
+  SIMBA works on any website, deadline 19 November. Recorded in DECISIONS.md with the plan, its
+  order and what is cut first. CLAUDE.md's *Current phase* says so; **for Nahail and Aly**.
+- **The websites are data** (`data/catalogue.json`, 13 sites in 8 genres: travel, bills,
+  education, government, health, shopping, look things up, practice sites). The person's own go
+  to `data/catalogue.local.json`, never committed, and go with "Forget me". A taught routine is
+  listed on the website it was taught on (`backend/orchestrator/catalogue.py`, 33 tests).
+- **The home screen lists them on the left**, by genre, scrolling inside itself, with "Add a
+  website" at its foot. Choosing one puts what SIMBA can do there in the middle, each with how
+  ("I know this one", "I'll work it out", "A helper showed me") and "Show me a task here" for a
+  helper. A box beside the box to ask in takes any website's address. The three built-in tasks
+  stay, as "Ready to go", until a website is chosen. Fits at 100%, 125% and 150%
+  (`frontend/test_sites.py`, 21 tests).
+- **A goal on a website with no plan is answered "not yet"** until phase 2, with "Ask a helper to
+  show me once" opening Show me once on that address. A built-in plan runs only on its own site;
+  an address written in the goal counts (`backend/orchestrator/test_any_site.py`, 14 tests).
+- **Contract**: `history.offered.sites` and `.genres`, `task.start.site`, `goal.answered` `not_yet`
+  and `.site`, `site.add`, error `SITE_NOT_ADDED`; additive, pending Nahail and Aly. The mock plays
+  them all.
+- **Measured** (EVALUATION.md, 2026-11-12): 20 live sites screened read-only, all HTTP 200, 2.2s to
+  11.9s; Daraz's robots.txt disallows its cart and checkout. The AI providers' free tiers, dated.
+- **Found and fixed on the way**: `data/tiles.json` was not in `.gitignore`; the reply to "book a
+  flight" scrolled at 100% and 150% with a new sentence, now a lead-in of the same height; the
+  Add a website screen scrolled at 125% and 150% stacked, now one row of three boxes.
+- **Flagged**: the added list is not encrypted; the three built-in tiles kept; no way to take an
+  added website off in the app yet. See DECISIONS.md, *Any website, phase 1*.
 
 ### Changed on 2026-11-11 (evening): the dropped station press, looked for — `fix/teach-list-choice`
 

@@ -735,6 +735,155 @@ that only opens a page) and `shows` (the page's labels for a final screen's
 details). Only the backend reads the file; the overlay passes it through.
 A SIMBA without them reads the file and stops honestly at the row press.
 
+## Any website (2026-11-13)
+
+Added 2026-11-13 on `feat/catalogue-any-site`, by the advisor's direction of
+12 November, approved by Raham (DECISIONS.md, *The advisor's direction of 12
+November*). **Pending agreement: Nahail and Aly.** Every change is additive. A
+side that ignores all of it works as it did on 2026-11-12: no list, no
+website box, and a goal is routed to the three flows or answered.
+
+**For Nahail and Aly, the whole list:**
+
+| Change | Kind | Direction |
+|---|---|---|
+| `history.offered.sites` and `.genres` | optional fields, new shapes `CatalogueSite`, `CatalogueTask` | backend -> frontend |
+| `task.start.site` | optional field | frontend -> backend |
+| `goal.answered.kind` `"not_yet"` | one more value of an existing field | backend -> frontend |
+| `goal.answered.site` | optional field | backend -> frontend |
+| `site.add` | new message type | frontend -> backend |
+| `error` code `SITE_NOT_ADDED` | new code | backend -> frontend |
+| `goal.answered.kind` `"not_allowed"` (phase 2) | one more value of an existing field | backend -> frontend |
+| `step.presented.worked_out_by` (phase 2) | optional field | backend -> frontend |
+| `help.requested.teach_site` (phase 2) | optional field | backend -> frontend |
+| `CatalogueTask.taught_on` (phase 3) | optional field | backend -> frontend |
+| `handover` (phase 4) | new message type, shape `HandOver` | backend -> frontend |
+| `handover.done` (phase 4) | new message type, shape `HandoverDone` | frontend -> backend |
+| `ai.setup` (phase 7b) | new message type, shape `AiSetup` | frontend -> backend |
+| `ai.status` (phase 7b) | new message type, shape `AiStatus` | backend -> frontend |
+| `history.offered.ai` (phase 7b) | optional field, shape `AiStatus` | backend -> frontend |
+| `task.start.routine` with `site` (phase 3) | no field changed: the routine runs on `site` | frontend -> backend |
+
+*To undo any one:* drop it on both sides. Nothing else reads it.
+
+### `history.offered.sites` and `.genres`
+The websites SIMBA can work with, for the list on the home screen's left, and
+the genres to group them under, in order. Read from `data/catalogue.json`
+(shipped) and `data/catalogue.local.json` (added in the app, never
+committed). A routine a helper taught appears as a `taught` task on the site
+it was taught on, by host and port.
+```json
+{ "goals": [], "genres": ["Travel", "Bills"],
+  "sites": [
+    { "id": "pakrailways", "name": "Pakistan Railways",
+      "address": "https://www.pakrailways.gov.pk/train", "genre": "Travel", "added": false,
+      "tasks": [ { "label": "Find train times", "goal": "Find train times",
+                   "how": "built-in", "flow": "railways" } ] },
+    { "id": "iesco-bill", "name": "IESCO electricity bill",
+      "address": "https://bill.pitc.com.pk/iescobill", "genre": "Bills", "added": false,
+      "tasks": [ { "label": "Look up my bill", "goal": "Look up my electricity bill",
+                   "how": "ai" } ] } ] }
+```
+`how` is `built-in` (a written plan: send `flow`), `ai` (the AI planner works it
+out on the live page) or `taught` (send `routine`, its id).
+
+### `task.start.site`
+The website to work on: a listed site's address, or one the person typed (the
+backend makes `gov.uk` into `https://gov.uk/` and refuses anything that is
+not `http` or `https`). With no `flow`, the backend routes the goal as usual;
+a built-in flow runs only when the site is that flow's own; anything else is
+done on `site` by the AI planner. A goal with no `site` that has an address
+written in it ("bank holidays on gov.uk") is treated as if `site` were that
+address.
+```json
+{ "goal": "When is the next bank holiday?", "input_mode": "text",
+  "site": "https://www.gov.uk/bank-holidays" }
+```
+
+### `goal.answered` `not_yet`
+A goal on a website SIMBA cannot do yet — until the AI planner is set up, every
+goal on a site with no built-in plan. `site` is where the overlay offers a
+helper's "Show me once". `flows` is empty. No task starts.
+```json
+{ "kind": "not_yet", "goal": "Track my passport application", "flows": [],
+  "site": "https://dgip.gov.pk/" }
+```
+
+### Phase 2: the AI planner on a website (2026-11-13)
+Once an AI provider is set up, a goal on a website with no plan is not
+answered `not_yet`: it runs, as an ordinary task, with the AI planner choosing
+each move. Three additions say what the person needs to know:
+
+- `goal.answered` `not_allowed`: the website's robots.txt asks programs not to
+  use that page (or would not say), so nothing is opened. `site` is the page.
+- `step.presented.worked_out_by`: which provider chose this move, `"Gemini"`
+  or `"Groq"`, shown small under the step at every level. Absent for a written
+  plan, a routine and replay.
+- `help.requested.teach_site`: the AI planner could not do it; the stuck
+  screen offers a helper's "Show me once" on this address.
+
+The answer to an open goal is a question first — "The page says: 26 December.
+Is this what you wanted?" — asked only after SIMBA has found those exact words
+on the page; "Yes, that's it" closes the task with it as the finding, "No,
+keep looking" goes back to the planner.
+
+### Phase 3: a taught routine on a sister website (2026-11-13)
+A routine a helper taught is listed, as a `taught` task, on the website it was
+taught on and on every other listed website of the same genre; on those it
+carries `taught_on`, the name of the website where it was taught. Pressed
+there, the overlay sends `task.start` with `routine` and that website's
+address as `site`, and the backend runs the routine there: its start, and each
+move's expected address under the start's path, moved to the new address
+(`routines.moved_to`). Every move is still found by role and label and checked;
+a site laid out differently stops as a changed site does. robots.txt is asked
+first, and `not_allowed` answers a no.
+
+### Phase 4: the real page handed to the person (2026-11-13)
+`handover` is sent when the page is the person's to act on: `reason` is
+`payment` (a press that pays on a live site, after its final screen; a page
+asking for card or bank details; a one-time code) or `check` (a CAPTCHA, a
+check that a person is there). `sentence` is what the bar says; `site` the
+page's host. The overlay steps aside to a bar, the host shows the website
+below it (`[simba] host bar 160`), and nothing on the page is read until the
+person answers `handover.done` with `done` or `cancel` (or `task.cancel`).
+After `done`, a payment ends in `task.completed` quoting the page's own words
+(`heading` "The website says it went through.", `caveat` that SIMBA did not
+see or keep the card details) or in `help.requested` with `unconfirmed` when
+the page says nothing either way; a check goes on with the task. `cancel`
+ends in `task.failed`: stopped, nothing changed.
+```json
+{ "reason": "payment", "site": "127.0.0.1:5100",
+  "sentence": "Your turn: pay on the page below. Type your card details or code there yourself. I don't see or keep them. Press I've finished when it's done." }
+```
+```json
+{ "action": "done" }
+```
+
+### Phase 7b: the AI provider, set up in the app (2026-11-13)
+`history.offered.ai` says whether an AI provider is set up (`configured`), its
+name, and — when it was set up in the app — the key's last four characters
+(`ends_with`); present, the first-time setup asks about it. `ai.setup` sends
+the provider (`gemini`, `groq`, or `openai` with `base_url` and `model`) and the
+key, once; the backend keeps it encrypted with this Windows account's key,
+checks it with one small question, and answers `ai.status` with `check`: `ok`,
+`key`, `limit`, `network`, `other`, or what was wrong with the setup itself
+(`provider`, `address`, `model`, `vault`). The key never comes back.
+```json
+{ "provider": "gemini", "key": "<the key>" }
+```
+```json
+{ "configured": true, "provider": "Gemini", "ends_with": "9f3c", "check": "ok" }
+```
+
+### `site.add`
+"Add a website" on the home screen. Answered with `history.offered` as it now
+stands, or `error` with code `SITE_NOT_ADDED` and, as its `message`, the reason
+the overlay says in words: `name` (none given), `address` (not a web
+address), `listed` (already in the list), `full` (30 added already).
+```json
+{ "name": "My clinic", "address": "clinic.example.pk", "genre": "Health" }
+```
+
 ## Notes
 
 - Timestamps are epoch milliseconds.

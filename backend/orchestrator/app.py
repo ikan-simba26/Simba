@@ -60,15 +60,23 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, WebSocket
 
 from backend.orchestrator.billing_plan import BILLING_PLAN, BILLING_TASK
+from backend.orchestrator.catalogue import (
+    CatalogueError, CatalogueStore, address_in, clean_address, host_of, offered,
+)
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
 from backend.orchestrator import host_watch
-from backend.orchestrator.llm import provider_from_env
-from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner
+from backend.orchestrator.llm import LLMError, label_for, provider_from_env
+from backend.orchestrator.ai_settings import (
+    AiStore, SettingsError, check as check_ai, provider_for, settings_from,
+)
+from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalPlanner
+from backend.orchestrator import robots
 from backend.estimator import page_model
 from backend.estimator.pairing import Recorder, recording_enabled
 from backend.estimator.rules import Decision, LevelRules
-from backend.orchestrator.loop import Connection, follow_override, run_brief, run_task
+from backend.orchestrator.loop import Connection, Task, follow_override, run_brief, run_task
+from backend.orchestrator.plan import About
 from backend.orchestrator.plan import REGISTRATION_PLAN, HardcodedPlanner
 from backend.orchestrator.railways_plan import RAILWAYS_PLAN, RAILWAYS_TASK, RAILWAYS_URL
 from backend.orchestrator.replay import TracePlanner
@@ -84,10 +92,16 @@ from backend.orchestrator.router import (
 from backend.orchestrator.stubborn_plan import STUBBORN_PLAN, STUBBORN_TASK, STUBBORN_URL
 from backend.orchestrator.teach import teach
 from backend.orchestrator.routine_plan import RoutineBrief, routine_sentence
-from backend.orchestrator.routines import NotARoutine, RoutineStore, export, file_name, parse
+from backend.orchestrator.routines import (
+    NotARoutine, RoutineStore, export, file_name, moved_to, parse,
+)
 from backend.orchestrator.tiles import TileStore
 from backend.orchestrator.traces import TraceStore, site_of
 from shared.schema import (
+    AiSetup,
+    AiStatus,
+    CatalogueSite,
+    CatalogueTask,
     ErrorPayload,
     GoalAnswered,
     HelpRequested,
@@ -97,6 +111,7 @@ from shared.schema import (
     RoutineExport,
     RoutineFile,
     RoutineImport,
+    SiteAdd,
     TaughtTile,
     TeachStart,
     TileChange,
@@ -228,7 +243,8 @@ async def health() -> dict[str, str]:
 
 
 def past_goals(tiles: TileStore | None = None,
-               routines: RoutineStore | None = None) -> HistoryOffered:
+               routines: RoutineStore | None = None,
+               catalogue: CatalogueStore | None = None) -> HistoryOffered:
     """What this person has asked for before, most recent first — since the
     last "Forget me and start again", never before it (2026-10-21).
 
@@ -251,11 +267,129 @@ def past_goals(tiles: TileStore | None = None,
            for tile in (tiles.all() if tiles is not None else [])]
     # And the routines helpers have shown (2026-11-04), by name and the
     # site's host only: their moves stay in the encrypted store.
+    kept = routines.all() if routines is not None else []
     taught = [TaughtTile(id=r.id, label=r.label, site=urlsplit(r.start).netloc)
-              for r in (routines.all() if routines is not None else [])]
+              for r in kept]
+    # And the websites SIMBA can work with, by genre (2026-11-13), with each
+    # taught routine on the site it was taught on.
+    listed = (catalogue or CatalogueStore()).load()
+    sites = [CatalogueSite(id=site.id, name=site.name, address=site.address, genre=site.genre,
+                           added=site.added,
+                           tasks=[CatalogueTask(label=t.label, goal=t.goal, how=t.how,
+                                                flow=t.flow, routine=t.routine,
+                                                taught_on=t.taught_on)
+                                  for t in site.tasks])
+             for site in offered(listed, kept)]
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
                                  for goal, site in goals],
-                          tiles=own, routines=taught)
+                          tiles=own, routines=taught, sites=sites, genres=listed.genres,
+                          ai=ai_status())
+
+
+def ai_status(check: str = "not_checked") -> AiStatus:
+    """Whether an AI provider is set up, from the app's setup or `.env`
+    (2026-11-13). Its name and, set up in the app, the key's last four."""
+    saved = AiStore().load()
+    if saved is not None:
+        return AiStatus(configured=True, provider=label_for(saved.base_url),
+                        ends_with=saved.ends_with or None, check=check)
+    provider = open_goal_provider()
+    if provider is None:
+        return AiStatus(configured=False, check=check)
+    return AiStatus(configured=True, provider=getattr(provider, "label", None), check=check)
+
+
+async def set_up_ai(connection: Connection, message: dict) -> bool:
+    """`ai.setup` from the first-time setup (2026-11-13). Whether it was one.
+    Kept, encrypted, then checked with one small question; answered with
+    `ai.status`. The key is never logged or sent back."""
+    if message.get("type") != "ai.setup":
+        return False
+    try:
+        wanted = AiSetup.model_validate(message.get("payload") or {})
+        settings = settings_from(wanted.provider, wanted.key, wanted.base_url, wanted.model)
+        AiStore().save(settings)
+    except SettingsError as error:
+        await connection.send("ai.status", ai_status(error.reason))
+        return True
+    except ValueError:
+        await connection.send("ai.status", ai_status("key"))
+        return True
+    verdict = await check_ai(provider_for(settings))
+    log.info("ai: setup checked: %s", verdict)
+    await connection.send("ai.status", ai_status(verdict))
+    return True
+
+
+#: The `error` code for a website that could not be added (2026-11-13).
+SITE_NOT_ADDED = "SITE_NOT_ADDED"
+
+
+async def add_site(connection: Connection, message: dict, tiles: TileStore,
+                   routines: RoutineStore, catalogue: CatalogueStore) -> bool:
+    """`site.add` from "Add a website" (2026-11-13). Whether it was one.
+    Answered with the home screen's offer as it now stands, or an `error`
+    whose message is the reason, for the overlay to say in words."""
+    if message.get("type") != "site.add":
+        return False
+    try:
+        wanted = SiteAdd.model_validate(message.get("payload") or {})
+        catalogue.add(wanted.name, wanted.address, wanted.genre)
+    except CatalogueError as error:
+        log.info("catalogue: a site not added: %s", error.reason)
+        await connection.send("error", ErrorPayload(code=SITE_NOT_ADDED, message=error.reason))
+        return True
+    except ValueError:
+        await connection.send("error", ErrorPayload(code=SITE_NOT_ADDED, message="name"))
+        return True
+    await connection.send("history.offered", past_goals(tiles, routines, catalogue))
+    return True
+
+
+def site_for(payload: dict, goal: str) -> str | None:
+    """The website a `task.start` is for (2026-11-13): `site` as sent, or an
+    address written in the goal. None when there is neither, or when what was
+    sent is not a web address — then the goal is routed as it always was."""
+    for candidate in (payload.get("site"), address_in(goal)):
+        if not candidate:
+            continue
+        try:
+            return clean_address(str(candidate))
+        except CatalogueError:
+            continue
+    return None
+
+
+def open_goal_provider():
+    """The AI provider for a goal with no plan (2026-11-13), or None when none
+    is set up: then SIMBA says it cannot do it yet and offers a helper. Asked
+    whatever `SIMBA_USE_HARDCODED_PLAN` says: that flag is about the three
+    built-in tasks, which keep their written plans."""
+    try:
+        return provider_from_env()
+    except LLMError:
+        return None
+
+
+#: How many moves a goal with no plan is told to expect. A guess the person
+#: never sees as a count: the stages are not named for an open goal.
+OPEN_GOAL_STEPS = 6
+
+
+def _place(address: str) -> tuple[str, str]:
+    """Where an address is, for telling two websites apart: host and path. Two
+    electricity companies' bill pages share a host (2026-11-13)."""
+    return host_of(address), urlsplit(address).path.rstrip("/")
+
+
+def is_flows_site(flow: str, site: str, catalogue: CatalogueStore) -> bool:
+    """Whether a built-in flow may run for a goal on `site`: the site is the one
+    the flow runs on now, or one the catalogue lists that flow on. A train goal
+    on gov.uk is not a train search on Pakistan Railways."""
+    if host_of(flow_setup(flow)[3]) == host_of(site):
+        return True
+    listed = catalogue.for_address(site)
+    return listed is not None and any(task.flow == flow for task in listed.tasks)
 
 
 def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None = None) -> bool:
@@ -278,6 +412,8 @@ def change_tile(tiles: TileStore, message: dict, routines: RoutineStore | None =
         tiles.clear()
         if routines is not None:
             routines.clear()
+        # And the websites the person added (2026-11-13).
+        CatalogueStore().clear()
         Vault().clear()
         try:
             TraceStore(os.environ.get("SIMBA_TRACE_DB", DEFAULT_DB)).forget_the_person()
@@ -371,10 +507,11 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     connection = Connection(websocket, task_id="t_skeleton")
     tiles = TileStore()
     routines = RoutineStore()
+    catalogue = CatalogueStore()
 
     # Offered before anything is asked for, so the home screen has something
     # to show the moment it connects.
-    await connection.send("history.offered", past_goals(tiles, routines))
+    await connection.send("history.offered", past_goals(tiles, routines, catalogue))
 
     # Channel B's other half: every step's page features, paired with whatever
     # telemetry the overlay sends about it, appended to `data/steps.jsonl`,
@@ -391,7 +528,13 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # The person's tiles changed on the home screen: answered with the
         # home screen's offer as it now stands (2026-10-18).
         if change_tile(tiles, message, routines):
-            await connection.send("history.offered", past_goals(tiles, routines))
+            await connection.send("history.offered", past_goals(tiles, routines, catalogue))
+            return
+        # A website added to the list (2026-11-13).
+        if await add_site(connection, message, tiles, routines, catalogue):
+            return
+        # The AI provider, set up in the first-time setup (2026-11-13).
+        if await set_up_ai(connection, message):
             return
         # A routine saved to a file, or read from one (2026-11-04).
         if await share_routine(connection, message, tiles, routines):
@@ -429,16 +572,32 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         if rules is not None:
             rules.start_from(payload.get("start_level"))
 
+        # The website the goal is for (2026-11-13), set below when there is one.
+        site = None
+        open_provider = None
         # A routine a helper showed (2026-11-04): run as shown, by its id.
         # Its name is the goal; nothing is read or classified.
         routine = routines.get(payload.get("routine")) if payload.get("routine") else None
         if routine is not None:
             goal = routine.label
+            # On another website (2026-11-13): moved there, if the site lets
+            # programs use it. Every move is still found and checked there.
+            elsewhere = site_for(payload, "")
+            if elsewhere is not None and _place(elsewhere) != _place(routine.start):
+                if not await robots.allowed(elsewhere):
+                    await connection.send("goal.answered", GoalAnswered(
+                        kind="not_allowed", goal=goal, flows=[], site=elsewhere))
+                    continue
+                log.info("routine moved from %s to %s", host_of(routine.start),
+                         host_of(elsewhere))
+                routine = moved_to(routine, elsewhere)
             break
 
         # One of the person's own tiles (2026-10-18): its flow and its kept
         # details, and its name as the goal. Nothing is read or classified.
         tile = tiles.get(payload.get("tile")) if payload.get("tile") else None
+        # The website the goal is for, if one was picked, typed or written in
+        # the goal (2026-11-13). Never for a tile or a flow the person pressed.
         if tile is not None:
             goal = tile.label
             decided = Route("flow", tile.flow, (tile.flow,), "tile")
@@ -447,14 +606,32 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             # again: they have already answered the question.
             decided = Route("flow", chosen, (chosen,), "chosen")
         else:
+            site = site_for(payload, goal)
             decided = await route(goal, model)
         # The flow only, never the words typed (2026-10-18): this line goes to
-        # logs/backend.log, and a goal can hold a reference number.
-        log.info("routed -> %s %s (%s)", decided.kind,
-                 decided.flow or list(decided.flows), decided.via)
+        # logs/backend.log, and a goal can hold a reference number. The site by
+        # its host only.
+        log.info("routed -> %s %s (%s)%s", decided.kind,
+                 decided.flow or list(decided.flows), decided.via,
+                 f" on {host_of(site)}" if site else "")
 
-        if decided.kind == "flow" and decided.flow is not None:
+        if decided.kind == "flow" and decided.flow is not None and (
+                site is None or is_flows_site(decided.flow, site, catalogue)):
             break
+        if site is not None and decided.kind != "greeting":
+            # A goal on a website with no written plan for it (2026-11-13):
+            # the AI planner, if one is set up and the site allows it; else
+            # SIMBA says it cannot do it yet and offers a helper there.
+            if not await robots.allowed(site):
+                await connection.send("goal.answered", GoalAnswered(
+                    kind="not_allowed", goal=goal, flows=[], site=site))
+                continue
+            open_provider = open_goal_provider()
+            if open_provider is not None:
+                break
+            await connection.send("goal.answered", GoalAnswered(
+                kind="not_yet", goal=goal, flows=[], site=site))
+            continue
         await connection.send(
             "goal.answered",
             GoalAnswered(kind=decided.kind, goal=goal, flows=list(decided.flows)),
@@ -464,6 +641,24 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     # (2026-10-18): a signal for the estimator of its own.
     if recorder is not None:
         recorder.note_start_level(payload.get("start_level"))
+
+    if open_provider is not None and site is not None:
+        # The AI planner on a goal nobody wrote a plan for (2026-11-13): every
+        # move asked, every move checked, the answer the person's to agree,
+        # and a helper offered if it cannot be done.
+        task = Task(goal=goal, estimated_steps=OPEN_GOAL_STEPS, success=None, about=About())
+        planner = OpenGoalPlanner(open_provider, task)
+        log.info("open goal on %s, with %s", host_of(site),
+                 getattr(open_provider, "label", "the model"))
+        async with open_page(site) as page:
+            await run_task(page, connection, planner, task, site, recorder, rules,
+                           vault=Vault(), window=window_watch(page), teach_site=site)
+        log.info("open goal: %d model calls", planner.calls_made)
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass
+        return
 
     if routine is not None:
         # Asks only what the helper said changes, then runs as the checklist,

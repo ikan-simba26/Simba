@@ -60,6 +60,7 @@ from shared.envelope import envelope
 from shared.schema import (
     BaseModel,
     Detail,
+    HandOver,
     HelpRequested,
     Highlight,
     PagePreview,
@@ -529,6 +530,9 @@ class Move:
     # replica, and only after its final screen (`final`, the details it shows
     # as the page states them; `final_answers`, its two answers' words).
     changes: bool = False
+    #: Which AI provider chose this move, for the person to see (2026-11-13):
+    #: "Gemini", "Groq". None for a written plan, a routine, replay.
+    worked_out_by: str | None = None
     final: tuple[FinalRead, ...] = ()
     final_answers: tuple[str, str] | None = None
     # Its words say it books, and the planner says it only opens a page to
@@ -553,7 +557,13 @@ REPLICA_HOSTS = ("127.0.0.1", "localhost")
 #: words, ignoring case.
 CHANGE_WORDS = re.compile(
     r"\b(register|enrol|enroll|book|reserve|pay|purchase|buy|checkout|check out|"
-    r"place order|submit|confirm)\b", re.IGNORECASE)
+    r"place order|submit|confirm|"
+    # 2026-11-13: the AI planner works on live sites now, so more of the words
+    # a form's last button uses are read as a change (DECISIONS.md, default
+    # deny). A press wrongly read as one costs one more question; one missed
+    # would be a change nobody agreed to.
+    r"apply|send|sign up|signup|create account|order|order now|proceed to|subscribe|"
+    r"donate|save changes|delete|remove account|transfer)\b", re.IGNORECASE)
 
 
 #: What a box for card or bank details is called, by its label or its name.
@@ -586,6 +596,102 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
                 filled = None
             if (filled or "").strip().lower().startswith("cc-"):
                 return True
+    return False
+
+
+#: What a page says when it is a check that a person is there, or a refusal,
+#: rather than the website (2026-11-13). Found live: timeanddate answered a
+#: headless run with Cloudflare's "Just a moment…", and the model quoted it
+#: as the answer. Matched on the title, the headings and the larger text,
+#: never on the body, where "captcha" can be a word in an article.
+BLOCKED_WORDS = re.compile(
+    r"(just a moment|checking your browser|verify(ing)? you are (a )?human|"
+    r"are you a robot|i'?m not a robot|captcha|attention required|access denied|"
+    r"request blocked|you have been blocked|unusual traffic|"
+    r"\b403 forbidden\b|security check|one[- ]time (password|code)|\botp\b|"
+    r"verification code)", re.IGNORECASE)
+
+
+#: A press that pays: on a live site always the person's, after its final
+#: screen (2026-11-13, the advisor's direction, F). An order paid in cash on
+#: delivery is not a payment here: SIMBA may place it after the final screen.
+PAY_WORDS = re.compile(r"\b(pay|pay now|payment|make payment|purchase|buy now|complete purchase)\b",
+                       re.IGNORECASE)
+
+#: What a page says once a payment or an order went through.
+DONE_WORDS = re.compile(
+    r"(thank you|payment (was )?(successful|received|complete)|order (is )?(placed|confirmed)|"
+    r"booking (is )?confirmed|transaction (successful|complete)|receipt|paid)",
+    re.IGNORECASE)
+
+#: How long a page is the person's before SIMBA stops waiting: long enough to
+#: find a card and wait for a bank's code.
+HANDOVER_WAIT_S = 20 * 60
+#: How many times one run hands over for a check before it stops.
+MOST_CHECKS = 2
+
+#: An amount as a page writes it.
+MONEY = re.compile(r"(rs\.?|pkr|usd|us\$|\$|£|€)\s?[\d,]+(\.\d+)?|[\d,]+(\.\d+)?\s?(rs|pkr)\b",
+                   re.IGNORECASE)
+
+
+async def page_asks_for_payment(page: Page, elements: "list[Element]") -> bool:
+    """Whether the page has a box for card or bank details, by its label or
+    name, or by what the page says it autocompletes (`cc-number`, …)."""
+    for element in elements:
+        if element.type == "fill" or element.role in ("textbox", "spinbutton", "combobox"):
+            words = " ".join(filter(None, [element.label, element.name]))
+            if PAYMENT_WORDS.search(words):
+                return True
+    try:
+        return bool(await page.evaluate(
+            "() => !!document.querySelector('input[autocomplete^=\"cc-\"]')"))
+    except PlaywrightError:
+        return False
+
+
+async def amounts_on_page(page: Page, most: int = 3) -> list[Detail]:
+    """The page's own amounts, as it states them, for a final screen no plan
+    wrote: "Total: Rs 450" is Total, Rs 450. Read from the page's text, never
+    from a box anyone typed in."""
+    try:
+        text = await page.evaluate("() => document.body ? document.body.innerText : ''")
+    except PlaywrightError:
+        return []
+    details: list[Detail] = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        found = MONEY.search(line)
+        if not found or len(line) > 80:
+            continue
+        label = line[:found.start()].strip(" :-") or voice.ON_THE_PAGE
+        details.append(Detail(label=label[:40], value=found.group(0).strip()))
+        if len(details) >= most:
+            break
+    return details
+
+
+def done_words(snapshot: "Snapshot") -> str | None:
+    """The page's own words saying a payment or an order went through, or None."""
+    for text in [snapshot.title] + [h.text for h in snapshot.content.headings] \
+            + [v.text for v in snapshot.content.values]:
+        if text and DONE_WORDS.search(text):
+            return text.strip()
+    return None
+
+
+def blocked(snapshot: "Snapshot", elements: "list[Element] | None" = None) -> bool:
+    """Whether the page is a bot check, a CAPTCHA, a one-time code or a
+    refusal: something only the person may do (CLAUDE.md; the advisor's hard
+    rules). SIMBA never tries to get past one."""
+    said = [snapshot.title] + [h.text for h in snapshot.content.headings] \
+        + [v.text for v in snapshot.content.values]
+    if any(BLOCKED_WORDS.search(text or "") for text in said):
+        return True
+    for element in elements or []:
+        words = " ".join(filter(None, [element.label, element.name]))
+        if re.search(r"captcha|one[- ]time|\botp\b|verification code", words, re.IGNORECASE):
+            return True
     return False
 
 
@@ -1024,6 +1130,10 @@ class _Run:
         #: headless browser, and every test that does not give one.
         self.window = window
         self._can_save: bool | None = None
+        #: A website where a helper could show SIMBA the task, offered on the
+        #: stuck screen when the AI planner could not do it (2026-11-13, "AI
+        #: first, then teach"). None: nothing is offered.
+        self.teach_site: str | None = None
         self.started = time.monotonic()
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
@@ -1111,6 +1221,7 @@ class _Run:
                 step_kind=kind_of(move),
                 stage=move.stage,
                 coming=coming or [],
+                worked_out_by=move.worked_out_by,
             ),
         )
         log.info("checklist line %d: %s", self.shown, kind_of(move))
@@ -1138,10 +1249,52 @@ class _Run:
             "help.requested",
             HelpRequested(
                 reason=reason,
-                suggestion=voice.HELP_SUGGESTION,
+                suggestion=voice.AI_THEN_TEACH if self.teach_site else voice.HELP_SUGGESTION,
                 unconfirmed=unconfirmed,
+                teach_site=self.teach_site,
             ),
         )
+
+    async def hand_over(self, reason: str) -> str:
+        """The real page, the person's (2026-11-13): the bar says why, and the
+        website shows below it. "done", "cancel", or "timeout". Nothing on the
+        page is read while it is theirs."""
+        sentence = voice.HANDOVER_PAYMENT if reason == "payment" else voice.HANDOVER_CHECK
+        log.info("handed over: %s, on %s", reason, urlsplit(self.page.url).netloc or "a page")
+        await self.set_state("waiting")
+        await self.connection.send("handover", HandOver(
+            reason=reason, sentence=sentence, site=urlsplit(self.page.url).netloc))
+        try:
+            message = await asyncio.wait_for(
+                self.connection.receive(("handover.done", "task.cancel")), HANDOVER_WAIT_S)
+        except asyncio.TimeoutError:
+            return "timeout"
+        if message.get("type") == "task.cancel":
+            return "cancel"
+        action = (message.get("payload") or {}).get("action")
+        if action != "done":
+            return "cancel"
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=10_000)
+        except PlaywrightError:
+            pass
+        log.info("handed back: %s", reason)
+        return "done"
+
+    async def after_payment(self) -> None:
+        """The person has paid, or says so: what the page now says, in its own
+        words — or that it does not say."""
+        _, after, _ = await perceive(self.page)
+        said = done_words(after)
+        if said is None:
+            await self.give_up(voice.PAYMENT_NOT_SEEN, unconfirmed=True)
+            return
+        await self.connection.send("task.completed", TaskCompleted(
+            summary=f"paid {self.page.url}",
+            duration_ms=int((time.monotonic() - self.started) * 1000),
+            steps_taken=self.shown, llm_calls=0, replayed=False, findings=[],
+            heading=voice.PAID, caveat=voice.PAID_CAVEAT,
+            confirmation=voice.site_says(said)))
 
     async def stopped(self) -> None:
         log.info("task stopped by the person after %.1fs", time.monotonic() - self.started)
@@ -1212,6 +1365,7 @@ class _Run:
                 stage=move.stage,
                 note=move.note,
                 final=final,
+                worked_out_by=move.worked_out_by,
             ),
         )
         log.info("step %d on screen: %s%s", index, kind_of(move), ", final" if final else "")
@@ -1300,8 +1454,12 @@ async def run_task(
     vault: Vault | None = None,
     window: Callable[[], Awaitable[str]] | None = None,
     auto: bool = False,
+    teach_site: str | None = None,
 ) -> None:
     """Perceive, decide, present, act, verify, recover. Planner-agnostic.
+
+    `teach_site` (2026-11-13): where the stuck screen offers a helper's "Show
+    me once" if this run cannot be done — a goal the AI planner was given.
 
     `recorder` pairs what the page was like with what the person did on it,
     for the estimator's training set. `app.py` supplies one; a caller that
@@ -1312,6 +1470,7 @@ async def run_task(
     none, the level is whatever the overlay shows and nothing here moves it.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    run.teach_site = teach_site
     await run.open(task.goal, task.estimated_steps, start_url)
     await carry_out(run, planner, task)
 
@@ -1517,6 +1676,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     # checklist that carried on past a failure would be SIMBA deciding what
     # the person would want (2026-10-14).
     ask_next = False
+    # Pages handed to the person for a check (2026-11-13).
+    checks = 0
 
     # A planner that asks, or that finishes a step quietly, takes more turns
     # than it shows steps. The second bound is what stops one that never
@@ -1563,6 +1724,32 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             await give_up(lapsed)
             return
 
+        # A bot check, a CAPTCHA, a one-time code or a refusal (2026-11-13):
+        # never got past, never read as the website. The person's to do, on
+        # the real page; twice still there, and SIMBA stops.
+        if blocked(before, elements):
+            checks += 1
+            if checks > MOST_CHECKS:
+                await give_up(voice.BLOCKED)
+                return
+            handed = await run.hand_over("check")
+            if handed != "done":
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+            continue
+
+        # A page that asks for card or bank details (2026-11-13): paying is
+        # the person's, on the real page. SIMBA never types into it.
+        if await page_asks_for_payment(page, elements):
+            handed = await run.hand_over("payment")
+            if handed != "done":
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+            await run.after_payment()
+            return
+
         # Only a task with a success expectation can finish early. `holds`
         # alone is not a finish line: a filled form nobody has searched with
         # holds every value the goal named. Nor a planner that must finish
@@ -1582,6 +1769,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         move = await planner.next_move(elements, history, setback)
         log.info("page read in %.1fs (%d elements); next move chosen in %.1fs", read_s,
                  len(elements), time.monotonic() - choosing)
+        by = getattr(planner, "worked_out_by", None)
+        if move is not None and by and move.worked_out_by is None:
+            move = replace(move, worked_out_by=by)
         setback = None
 
         if move is None:
@@ -1607,23 +1797,35 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         input_values: dict[str, str] = {}
         keep: Credentials | None = None
 
-        # Card or bank details are never typed, on any site (2026-10-16).
+        # Card or bank details are never typed, on any site (2026-10-16): the
+        # page is handed to the person instead (2026-11-13).
         if await asks_for_payment(page, elements, move):
-            await give_up(voice.NO_PAYMENT_DETAILS)
+            handed = await run.hand_over("payment")
+            if handed != "done":
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+            await run.after_payment()
             return
 
-        # The final step (2026-10-16): a move that books, pays, registers or
-        # changes a record is done only on a replica, and only after its
-        # final screen is answered "do it". Whichever planner asked.
+        # The final step (2026-10-16; changed 2026-11-13 by the advisor's
+        # direction, G): a move that books, orders, registers or changes a
+        # record is done only after its final screen is answered "do it" — on
+        # our replicas, and now on a live site too. A press that pays on a
+        # live site is then handed to the person: SIMBA never presses it.
+        # Whichever planner asked.
+        paying = False
         if would_change(move, planner) and not await only_opens(page, elements, move):
-            if not on_replica(page.url):
-                await give_up(voice.NOT_ON_A_REAL_SITE)
-                return
+            live = not on_replica(page.url)
+            paying = live and bool(PAY_WORDS.search(pressed(move)))
             screen = final_screen(move, before.content)
             if screen is None:
                 await give_up(voice.NO_FINAL_SCREEN)
                 return
             move, details = screen
+            if live and not move.final:
+                # Nobody wrote which details matter: the page's own amounts.
+                details = details + await amounts_on_page(page)
             steps_taken += 1
             payload = await run.present(move, goal=task.goal, findings=findings, view=view,
                                         final=details)
@@ -1635,6 +1837,15 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 return
             if action != voice.CONFIRM_ID:
                 await run.stopped()
+                return
+            if paying:
+                # "Do it" to paying: the page is theirs, and they press Pay.
+                handed = await run.hand_over("payment")
+                if handed != "done":
+                    await connection.send("task.failed", TaskFailed(
+                        reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                    return
+                await run.after_payment()
                 return
 
         # The checklist: a safe move, run without a press (2026-10-14). Pause
@@ -1787,6 +1998,18 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     read_before = {name: list(values) for name, values in found.items()}
     _, final, _ = await perceive(page)
     findings = findings_in(final, task, found, rows)
+    # A goal with no plan (2026-11-13) ends with the answer the person agreed
+    # was it, and only if the page still says it, word for word.
+    answer = getattr(planner, "answer", None)
+    if getattr(planner, "must_answer", False):
+        if answer is None:
+            await give_up(last_failure or getattr(planner, "stuck_reason", None)
+                          or voice.AI_COULD_NOT)
+            return
+        if not final.content.says(answer.value):
+            await give_up(voice.ANSWER_CHANGED, unconfirmed=True)
+            return
+        findings = [answer]
     # A task with named values is checked here even without a success
     # expectation, so a declared value can never go unchecked.
     unfinished = (
@@ -1855,7 +2078,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     try:
         proof, proof_note = await asyncio.wait_for(
             take_proof(page, proof_targets(task, findings, rows, confirmed, caveat_said,
-                                           found)),
+                                           found) if answer is None
+                       else [(answer.value, True)]),
             PROOF_DEADLINE_S)
     except asyncio.TimeoutError:
         proof, proof_note = None, voice.NO_PROOF_PICTURE

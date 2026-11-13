@@ -716,6 +716,76 @@ def describe(kind: str, label: str) -> str:
     return f"Click {label}."
 
 
+# --- any goal, on any website (2026-11-13) ----------------------------------
+#
+# The model's answer is never the answer until the page says it word for word
+# and the person says it is what they wanted (`llm_loop.OpenGoalPlanner`).
+
+#: The answer the model found, asked about before anything is closed. In
+#: the question's own sentence, which every level shows.
+IS_THIS_IT = "Is this what you wanted?"
+
+
+def found_this(answer: str) -> str:
+    """The question about an answer: 'The page says: 26 December. Is this
+    what you wanted?'"""
+    return f"The page says: {answer}. {IS_THIS_IT}"
+
+
+#: The finding's name on the closing screen.
+WHAT_I_FOUND = "What I found"
+THATS_IT = "Yes, that's it"
+KEEP_LOOKING = "No, keep looking"
+#: `help.requested.reason` when the model could not choose a move twice over.
+AI_COULD_NOT = "I couldn't work out how to do this on this website."
+#: `help.requested.suggestion` with it: what the overlay's button does.
+AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
+#: `help.requested.reason` when the page is a bot check, a CAPTCHA, a
+#: one-time code or a refusal (2026-11-13). SIMBA never gets past one.
+BLOCKED = ("The website wants to check that a person is using it. That part is "
+           "yours to do, so I've stopped here.")
+# --- handing the page to the person (2026-11-13) ------------------------------
+#
+# Paying, a one-time code, a CAPTCHA: the person's to do, on the real page.
+# SIMBA never types, reads, logs or keeps what they enter there.
+
+#: On the handover bar, to pay.
+HANDOVER_PAYMENT = ("Your turn: pay on the page below. Type your card details or code there "
+                    "yourself. I don't see or keep them. Press I've finished when it's done.")
+#: On the handover bar, for a check that a person is there.
+HANDOVER_CHECK = ("The website wants to check that a person is using it. Please do that on "
+                  "the page below, then press I've finished.")
+#: The closing screen's heading when the page says the payment went through.
+PAID = "The website says it went through."
+#: Under it, always: what SIMBA did not do while the page was theirs.
+PAID_CAVEAT = "You paid on the website yourself. I didn't see or keep your card details or code."
+#: `help.requested.reason` when, after paying, the page says nothing either way.
+PAYMENT_NOT_SEEN = ("I can't tell from the page whether the payment went through. "
+                    "Please check your bank or the website before you try again.")
+#: `task.failed.reason` when the person stopped while the page was theirs.
+HANDED_BACK_STOPPED = "I've stopped, as you asked. I didn't change anything."
+#: A final screen's detail read from the page's own words: its amounts.
+ON_THE_PAGE = "On the page"
+
+
+def site_says(text: str) -> str:
+    """The page's own words, quoted: 'The website says: “Payment successful”.'"""
+    return f"The website says: “{text}”."
+
+
+#: `goal.answered`'s `not_allowed`, said by the overlay; here for the log.
+NOT_ALLOWED = "This website asks programs like me not to use that page."
+
+
+def is_this_it() -> list[StepAction]:
+    """Yes, No, and the one way to stop."""
+    return [
+        StepAction(id=CONFIRM_ID, label=THATS_IT, kind="primary"),
+        StepAction(id=DECLINE_ID, label=KEEP_LOOKING, kind="primary"),
+        StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
+    ]
+
+
 # --- the final step (2026-10-16) ---------------------------------------------
 #
 # A move that books, pays, registers or changes a record happens only on a
@@ -831,6 +901,11 @@ TYPED_ANSWERS = (*TYPED_ANSWERS, USE_NAME, USE_TRAIN)
 PAY_STAGE = "Pay"
 #: The quiet second button on a bill's closing screen, on a replica only.
 PAY_THIS_BILL = "Pay this bill"
+#: The final screen when the bill is paid by card through the test gateway
+#: (2026-11-13): SIMBA opens the card page; the person pays there.
+FINAL_PAY_CARD = ("I'll open the card payment page for this bill. You'll type your card "
+                  "details there yourself.")
+PAY_BY_CARD = "Go to card payment"
 PAY_ID = "pay"
 DOING_PAYMENT_PAGE = "Opening the payment page"
 OPEN_PAYMENT = "Open the page"

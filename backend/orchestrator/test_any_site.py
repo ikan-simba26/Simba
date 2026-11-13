@@ -1,0 +1,251 @@
+"""Any website (2026-11-13), through the real `/ws` endpoint, in-process: the
+list of websites on the socket's first message, "Add a website", and a goal
+on a website with no written plan answered `not_yet` — never started on the
+wrong flow, and never on a site nobody named."""
+
+import json
+from contextlib import contextmanager
+
+import pytest
+from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
+
+from backend.orchestrator import app as app_module
+from backend.orchestrator.catalogue import CatalogueStore
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("SIMBA_ROUTER", "keywords")
+    monkeypatch.setenv("SIMBA_RECORD_STEPS", "0")
+    monkeypatch.setenv("SIMBA_CATALOGUE_LOCAL", str(tmp_path / "catalogue.local.json"))
+    monkeypatch.setenv("SIMBA_TILES", str(tmp_path / "tiles.json"))
+    monkeypatch.setenv("SIMBA_ROUTINES", str(tmp_path / "routines.json"))
+    monkeypatch.setenv("SIMBA_TRACE_DB", str(tmp_path / "traces.db"))
+
+    # Nothing here reaches another computer: robots.txt is answered "allowed"
+    # unless a test says otherwise, and no AI provider is set up — so a goal on
+    # a website is "not yet" and no page is opened (phase 2 opens one only
+    # with a provider; `test_open_goal.py` covers that run).
+    async def allowed(address):
+        return client_robots["allowed"]
+    client_robots = {"allowed": True}
+    monkeypatch.setattr(app_module.robots, "allowed", allowed)
+    monkeypatch.setattr(app_module, "open_goal_provider", lambda: None)
+    with TestClient(app_module.app) as test_client:
+        test_client.robots = client_robots
+        yield test_client
+
+
+@contextmanager
+def socket(client):
+    """The overlay's connection. Leaving it is the overlay closing the window:
+    the endpoint, waiting for the next goal, sees the disconnect, as it does
+    under uvicorn, and only that is let through. Any other server error fails
+    the test."""
+    try:
+        with client.websocket_connect("/ws") as ws:
+            yield ws
+    except WebSocketDisconnect:
+        pass
+
+
+def send(ws, kind: str, payload: dict, seq: int = 1) -> None:
+    ws.send_json({"v": 1, "type": kind, "task_id": "t", "seq": seq, "ts": 0,
+                  "payload": payload})
+
+
+def test_the_first_message_lists_the_websites_by_genre(client):
+    with socket(client) as ws:
+        first = ws.receive_json()
+    assert first["type"] == "history.offered"
+    sites = first["payload"]["sites"]
+    genres = first["payload"]["genres"]
+    assert {site["genre"] for site in sites} <= set(genres)
+    railways = next(site for site in sites if site["id"] == "pakrailways")
+    assert railways["tasks"][0] == {"label": "Find train times", "goal": "Find train times",
+                                    "how": "built-in", "flow": "railways", "routine": None,
+                                    "taught_on": None}
+
+
+def test_a_website_added_comes_back_in_the_list(client, tmp_path):
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "site.add", {"name": "My clinic", "address": "clinic.example.pk",
+                              "genre": "Health"})
+        answer = ws.receive_json()
+    assert answer["type"] == "history.offered"
+    added = answer["payload"]["sites"][-1]
+    assert (added["name"], added["address"], added["genre"], added["added"]) == (
+        "My clinic", "https://clinic.example.pk/", "Health", True)
+    # Kept in the person's own file, not the shipped one.
+    kept = json.loads((tmp_path / "catalogue.local.json").read_text(encoding="utf-8"))
+    assert kept["sites"][0]["name"] == "My clinic"
+
+
+@pytest.mark.parametrize("payload, reason", [
+    ({"name": "", "address": "example.com", "genre": "Health"}, "name"),
+    ({"name": "Mine", "address": "javascript:alert(1)", "genre": "Health"}, "address"),
+    ({"name": "Again", "address": "https://www.gov.uk/bank-holidays", "genre": "Health"},
+     "listed"),
+    ({"address": "example.com"}, "name"),
+])
+def test_a_website_that_cannot_be_added_is_answered_with_why(client, payload, reason):
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "site.add", payload)
+        answer = ws.receive_json()
+    assert answer["type"] == "error"
+    assert answer["payload"] == {"code": "SITE_NOT_ADDED", "message": reason}
+
+
+@pytest.mark.parametrize("goal, site, expected_site", [
+    # Picked from the list: its address.
+    ("When is the next bank holiday?", "https://www.gov.uk/bank-holidays",
+     "https://www.gov.uk/bank-holidays"),
+    # Typed as the person typed it.
+    ("Track my passport application", "dgip.gov.pk", "https://dgip.gov.pk/"),
+    # Written in the goal itself.
+    ("when is the next bank holiday on gov.uk", None, "https://gov.uk/"),
+    # A train goal on a site that is not Pakistan Railways is not a train
+    # search there.
+    ("trains to Karachi tomorrow", "https://www.gov.uk/", "https://www.gov.uk/"),
+    # A bill goal on a real electricity company's site is not our billing copy.
+    ("check my electricity bill", "https://bill.pitc.com.pk/iescobill",
+     "https://bill.pitc.com.pk/iescobill"),
+])
+def test_a_goal_on_a_website_with_no_plan_is_not_yet(client, goal, site, expected_site):
+    with socket(client) as ws:
+        ws.receive_json()
+        payload = {"goal": goal, "input_mode": "text"}
+        if site:
+            payload["site"] = site
+        send(ws, "task.start", payload)
+        answer = ws.receive_json()
+        # The socket stays open: the next goal arrives on it.
+        send(ws, "task.start", {"goal": "hello", "input_mode": "text"}, seq=2)
+        after = ws.receive_json()
+    assert answer["type"] == "goal.answered"
+    assert answer["payload"] == {"kind": "not_yet", "goal": goal, "flows": [],
+                                 "site": expected_site}
+    assert after["payload"]["kind"] == "greeting"
+
+
+def test_hello_on_a_website_is_still_a_greeting(client):
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "hello", "input_mode": "text",
+                                "site": "https://www.gov.uk/"})
+        answer = ws.receive_json()
+    assert answer["payload"]["kind"] == "greeting"
+
+
+def test_a_site_that_is_not_an_address_is_ignored(client):
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "book a flight to Dubai", "input_mode": "text",
+                                "site": "javascript:alert(1)"})
+        answer = ws.receive_json()
+    # Routed as it always was: a request SIMBA cannot do, with no site.
+    assert answer["payload"]["kind"] == "unsupported"
+    assert answer["payload"].get("site") is None
+
+
+def test_a_built_in_flow_runs_only_on_its_own_site(tmp_path):
+    catalogue = CatalogueStore(local=tmp_path / "local.json")
+    assert app_module.is_flows_site("billing", "http://127.0.0.1:5100/", catalogue)
+    assert app_module.is_flows_site("railways", "https://pakrailways.gov.pk/train", catalogue)
+    assert not app_module.is_flows_site("billing", "https://bill.pitc.com.pk/", catalogue)
+    assert not app_module.is_flows_site("registration", "http://127.0.0.1:5100/", catalogue)
+
+
+def test_a_website_that_asks_programs_not_to_is_not_used(client):
+    client.robots["allowed"] = False
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "Track my passport", "input_mode": "text",
+                                "site": "https://dgip.gov.pk/"})
+        answer = ws.receive_json()
+    assert answer["payload"] == {"kind": "not_allowed", "goal": "Track my passport",
+                                 "flows": [], "site": "https://dgip.gov.pk/"}
+
+
+def test_with_a_provider_a_goal_on_a_website_goes_to_the_ai_planner(client, monkeypatch):
+    """The routing only: the run itself is `test_open_goal.py`'s. Here the page
+    opening is the end of the test."""
+    class Opened(Exception):
+        pass
+
+    def open_page(address):
+        raise Opened(address)
+    monkeypatch.setattr(app_module, "open_goal_provider", lambda: object())
+    monkeypatch.setattr(app_module, "open_page", open_page)
+    with pytest.raises(Opened, match="https://www.gov.uk/bank-holidays"):
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+            send(ws, "task.start", {"goal": "When is the next bank holiday?",
+                                    "input_mode": "text",
+                                    "site": "https://www.gov.uk/bank-holidays"})
+            ws.receive_json()
+
+
+def test_a_routine_pressed_on_a_sister_site_runs_there(client, monkeypatch):
+    """Phase 3 (2026-11-13): a taught routine sent with another website is
+    moved there; the page that opens is the sister site's, not the one it was
+    taught on. The run itself is `test_routine_moved.py`'s."""
+    from backend.orchestrator.routines import Answer, Routine, Step
+
+    taught = Routine(id="r1", label="My bill", start="https://bill.pitc.com.pk/iescobill",
+                     steps=(Step("click", "button", "Search", expect_url="/iescobill/general"),),
+                     answer=Answer("Amount due", "Payable"))
+
+    class Store:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get(self, routine_id):
+            return taught if routine_id == "r1" else None
+
+        def all(self):
+            return [taught]
+
+    class Opened(Exception):
+        pass
+
+    def open_page(address):
+        raise Opened(address)
+
+    monkeypatch.setattr(app_module, "RoutineStore", Store)
+    monkeypatch.setattr(app_module, "open_page", open_page)
+    with pytest.raises(Opened, match="https://bill.pitc.com.pk/lescobill"):
+        with client.websocket_connect("/ws") as ws:
+            ws.receive_json()
+            send(ws, "task.start", {"goal": "My bill", "input_mode": "text", "routine": "r1",
+                                    "site": "https://bill.pitc.com.pk/lescobill"})
+            ws.receive_json()
+
+
+def test_a_sister_site_that_says_no_is_not_used(client, monkeypatch):
+    from backend.orchestrator.routines import Answer, Routine, Step
+
+    taught = Routine(id="r1", label="My bill", start="https://bill.pitc.com.pk/iescobill",
+                     steps=(Step("click", "button", "Search"),), answer=Answer("A", "B"))
+
+    class Store:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get(self, routine_id):
+            return taught
+
+        def all(self):
+            return [taught]
+
+    monkeypatch.setattr(app_module, "RoutineStore", Store)
+    client.robots["allowed"] = False
+    with socket(client) as ws:
+        ws.receive_json()
+        send(ws, "task.start", {"goal": "My bill", "input_mode": "text", "routine": "r1",
+                                "site": "https://www.ssgc.com.pk/"})
+        answer = ws.receive_json()
+    assert answer["payload"]["kind"] == "not_allowed"
