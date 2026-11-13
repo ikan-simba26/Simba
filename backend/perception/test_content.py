@@ -142,6 +142,45 @@ def test_says_answers_the_question_a_success_condition_asks(
     assert not content.says("99,999")
 
 
+def test_the_page_text_is_what_shows_and_nothing_hidden(page: Page) -> None:
+    """For checking an answer (2026-11-13): a price in plain text, split over
+    spans, is in `text`; hidden text, a script and a floating panel are not."""
+    page.set_content("""<h1>Atomic Habits</h1>
+        <div><span>Rs.</span> <span>3896</span>   - In Stock</div>
+        <div style="display:none">Rs. 1999</div>
+        <div style="visibility:hidden">Rs. 2999</div>
+        <script>var listPrice = "Rs. 4999";</script>
+        <div style="position:fixed; z-index:2000; top:0">Menu: Rs. 5999</div>""")
+    content = read(page).content
+
+    assert "Atomic Habits Rs. 3896 - In Stock" in content.text
+    for hidden in ("1999", "2999", "4999", "5999"):
+        assert hidden not in content.text, hidden
+    assert content.shows("Rs. 3896")
+    assert content.shows("Rs.  3896\n")      # spaces evened out, nothing else
+    assert not content.shows("Rs 3896")      # still word for word
+    assert not content.shows("")
+    assert not content.says("Rs. 3896")      # the narrower check is unchanged
+
+
+def test_a_space_beside_a_stop_does_not_change_the_words(page: Page) -> None:
+    """Readings writes `Rs.3896`; perception, joining text pieces, wrote the
+    same link as `Rs. 3896`, and the model copied that (EVALUATION.md,
+    2026-11-13i). A space beside punctuation is not a word; letters and
+    figures still have to be exactly the page's."""
+    page.set_content('<p>Our Price: <del>Rs.5195</del><span> Rs.3896</span></p>'
+                     '<p>Temperature: 23 °C</p>')
+    content = read(page).content
+
+    assert content.shows("Rs. 3896")
+    assert content.shows("Rs.3896")
+    assert content.shows("Our Price:Rs.5195")
+    assert content.shows("23°C")
+    assert not content.shows("Rs 3896")      # the stop is part of the words
+    assert not content.shows("Rs.38 96")     # and so is every figure
+    assert not content.shows("Rs.3895")
+
+
 # --- shape handling, without a browser --------------------------------------
 
 

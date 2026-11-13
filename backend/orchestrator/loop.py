@@ -2006,7 +2006,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             await give_up(last_failure or getattr(planner, "stuck_reason", None)
                           or voice.AI_COULD_NOT)
             return
-        if not final.content.says(answer.value):
+        if not final.content.shows(answer.value):
             await give_up(voice.ANSWER_CHANGED, unconfirmed=True)
             return
         findings = [answer]

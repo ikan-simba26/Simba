@@ -34,11 +34,12 @@ separate channel precisely so a planner cannot confuse "the page says 14,382"
 with "there is a button called 14,382".
 """
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import median
 
-from backend.perception.snapshot import Document, visible
+from backend.perception.snapshot import TEXT_NODE, Document, visible
 
 HEADING_TAGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
 CELL_TAGS = {"td", "th"}
@@ -116,6 +117,12 @@ class Content:
     tables: list[Table] = field(default_factory=list)
     pairs: list[Pair] = field(default_factory=list)
     values: list[Value] = field(default_factory=list)
+    #: Everything the page shows as text, in the order of the page, runs of
+    #: spaces as one (2026-11-13). Not shown to a planner — the parts above
+    #: are — but what an answer is checked against (`shows`): on Readings'
+    #: book page the price was in plain text, in none of the parts above, and
+    #: the right answer was refused twice (EVALUATION.md, 2026-11-13h).
+    text: str = ""
 
     def __bool__(self) -> bool:
         return bool(self.headings or self.tables or self.pairs or self.values)
@@ -190,6 +197,67 @@ class Content:
                 haystacks += list(row.values)
         return any(text in h for h in haystacks)
 
+    def shows(self, text: str) -> bool:
+        """Whether the page shows this text, word for word, anywhere a person
+        can read it: in the readable content, or in the page's visible text.
+
+        For an answer the model gives (`OpenGoalPlanner`, `loop.carry_out`).
+        Only spaces are evened out — a run of them is one, and one beside
+        punctuation is none, since perception itself puts a space between two
+        pieces of text the page shows joined (`Rs.` `3896`, read as
+        "Rs. 3896"; EVALUATION.md, 2026-11-13i). Every letter, figure and stop
+        must be as the page has it. Text the page hides — `display: none`, a
+        script — is not in `text`, so it is never an answer. `says` stays the
+        narrower check, for success conditions.
+        """
+        wanted = " ".join((text or "").split())
+        if not wanted:
+            return False
+        return self.says(wanted) or _tight(wanted) in _tight(self.text)
+
+
+#: A space beside a character that is neither a letter, a figure nor a space.
+_BESIDE_PUNCTUATION = re.compile(r"\s*([^\w\s])\s*")
+
+
+def _tight(text: str) -> str:
+    """`text` with runs of spaces as one, and none beside punctuation."""
+    return _BESIDE_PUNCTUATION.sub(r"\1", " ".join(text.split()))
+
+
+#: Elements whose text is never on the screen, whatever their style says.
+NOT_SHOWN = {"script", "style", "noscript", "template", "head", "title", "meta"}
+
+
+def _page_text(document: Document, transient: set[int]) -> str:
+    """The page's visible text, in document order, whitespace-collapsed.
+
+    A text node counts if the browser laid it out (it has a box), and nothing
+    above it is hidden or never shown. A floating panel's text is left out,
+    as it is from the rest of the content (`_transient`)."""
+    pieces: list[str] = []
+    hidden: dict[int, bool] = {}
+
+    def shown(node: int) -> bool:
+        if node in hidden:
+            return not hidden[node]
+        style = document.styles.get(node)
+        parent = document.parents[node] if node < len(document.parents) else -1
+        out = ((style is not None and not visible(style))
+               or (document.is_element(node) and document.tag(node) in NOT_SHOWN)
+               or node in transient
+               or (parent >= 0 and not shown(parent)))
+        hidden[node] = out
+        return not out
+
+    for node in range(len(document)):
+        if document.node_types[node] != TEXT_NODE or node not in document.bounds:
+            continue
+        value = document.node_values[node]
+        if value.strip() and shown(node):
+            pieces.append(value)
+    return " ".join(" ".join(pieces).split())
+
 
 def extract(document: Document | None) -> Content:
     """Read a page's readable content out of a parsed DOMSnapshot. Pure."""
@@ -204,6 +272,7 @@ def extract(document: Document | None) -> Content:
     )
     content.pairs = _pairs(document, content.tables, transient)
     content.values = _prominent(document, transient)
+    content.text = _page_text(document, transient)
     return content
 
 

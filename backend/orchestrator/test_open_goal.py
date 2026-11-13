@@ -38,10 +38,25 @@ PAGE = """<!doctype html><html><head><title>Bank holidays</title></head><body>
 </body></html>"""
 
 
+#: A shop's book page as Readings' was (2026-11-13h): the price in plain text,
+#: split over two spans, in no heading, no label/value pair and no large type
+#: — so perception's extracted content does not hold it, though the page shows
+#: it. A hidden price and a script's are on the page too, and are not shown.
+BOOK = """<!doctype html><html><head><title>Atomic Habits</title></head><body>
+<h1>Atomic Habits</h1>
+<p>by James Clear</p>
+<div class="buy"><span>Rs.</span> <span>3896</span> - In Stock</div>
+<div style="display:none">Rs. 1999</div>
+<script>var listPrice = "Rs. 4999";</script>
+<button>Add to Cart</button>
+</body></html>"""
+
+
 @pytest.fixture(scope="module")
 def site(tmp_path_factory) -> str:
     folder: Path = tmp_path_factory.mktemp("holidays")
     (folder / "index.html").write_text(PAGE, encoding="utf-8")
+    (folder / "book.html").write_text(BOOK, encoding="utf-8")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(folder))
     server = socketserver.TCPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -126,6 +141,35 @@ def test_an_answer_the_page_does_not_say_is_never_shown(site):
     shown = " ".join(p["instruction"] for p in connection.of("step.presented"))
     assert "27 December" not in shown
     assert connection.payload_of("task.completed")["findings"][0]["value"] == "26 December"
+
+
+def test_an_answer_the_page_shows_only_in_its_text_is_accepted(site):
+    """Readings, 2026-11-13h: the right price, refused twice, because the check
+    read only perception's extracted content. It reads the page's text too."""
+    book = site.replace("index.html", "book.html")
+    provider = Scripted([answer("Rs. 3896")])
+    connection = run(book, provider)
+    assert "help.requested" not in connection.types()
+    assert provider.feedback == [None]
+    question = connection.of("step.presented")[0]
+    assert question["instruction"] == "The page says: Rs. 3896. Is this what you wanted?"
+    assert connection.payload_of("task.completed")["findings"][0]["value"] == "Rs. 3896"
+
+
+def test_text_the_page_hides_is_still_not_an_answer(site):
+    book = site.replace("index.html", "book.html")
+    for hidden in ("Rs. 1999", "Rs. 4999"):
+        provider = Scripted([answer(hidden), answer(hidden)])
+        connection = run(book, provider)
+        assert "task.completed" not in connection.types(), hidden
+        assert "is not on the page word for word" in (provider.feedback[1] or ""), hidden
+
+
+def test_an_answer_is_still_word_for_word(site):
+    book = site.replace("index.html", "book.html")
+    provider = Scripted([answer("Rs 3896"), answer("3,896 rupees")])
+    connection = run(book, provider)
+    assert "task.completed" not in connection.types()
 
 
 def test_twice_not_on_the_page_is_stuck_and_offers_a_helper(site):
