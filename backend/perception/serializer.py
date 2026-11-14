@@ -392,6 +392,12 @@ def _value(parsed: "Document | None", node_index: int, attributes: dict[str, str
     return parsed.input_values.get(node_index, "")
 
 
+#: Attributes by which an anchor with no address says it opens something on
+#: the page: a dialog, a menu, a panel (Bootstrap 4 and 5, ARIA, a handler).
+OPENS_SOMETHING = ("data-toggle", "data-bs-toggle", "data-target", "data-bs-target",
+                   "aria-controls", "aria-haspopup", "aria-expanded", "onclick")
+
+
 def is_dead_link(tag: str, attributes: dict[str, str]) -> bool:
     """Whether an anchor goes nowhere.
 
@@ -404,7 +410,15 @@ def is_dead_link(tag: str, attributes: dict[str, str]) -> bool:
 
     href = (attributes.get("href") or "").strip()
     if not href or href == "#":
-        return True
+        # Unless the page says the anchor is a button that opens something
+        # (2026-11-14): `<a href="#" role="button" data-toggle="modal"
+        # data-target="#register">Register</a>` is how Readings, and any
+        # Bootstrap site, opens its sign-in and sign-up dialogs. Read as dead,
+        # "Login" and "Register" were never shown to the planner, which knew
+        # from the page's text they were there and guessed at their numbers
+        # (EVALUATION.md, 2026-11-14c).
+        return not any(attributes.get(name) for name in OPENS_SOMETHING) \
+            and (attributes.get("role") or "").lower() != "button"
 
     lowered = href.lower().replace(" ", "")
     if lowered.startswith("javascript:"):

@@ -253,6 +253,8 @@ def test_no_groq_key_is_gemini_alone(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "gemini-key")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    # Nor OpenRouter's, which a test that ran earlier may have read from `.env`.
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     provider = provider_from_env()
     assert isinstance(provider, OpenAICompatibleProvider)
     assert provider.label == "Gemini" and provider.wait_out_rate_limits is True

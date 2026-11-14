@@ -14,11 +14,13 @@ Its schema has no "done" verb, by design, so completion is decided by the
 task's success condition rather than by the model claiming to be finished.
 """
 
+import asyncio
 import re
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, replace
 
 from backend.orchestrator.llm import Action, LLMError, Provider
-from backend.orchestrator.loop import Move, Task
+from backend.orchestrator.loop import CHANGE_WORDS, Move, Task
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
@@ -103,8 +105,32 @@ def _is_search(element: Element) -> bool:
         element.role in ("combobox", "textbox") and bool(SEARCH_LABEL.search(element.label)))
 
 
+def usable(elements: list[Element],
+           failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset()
+           ) -> list[Element]:
+    """The elements a planner is shown, and so may choose (2026-11-14): what
+    `render_page` lists. Part of an overlay, or neither behind one, nor a link
+    that goes nowhere, nor off the side, nor something that just failed."""
+    return [e for e in elements if e.overlay
+            or (not (e.occluded or e.dead_link) and not _off_the_side(e)
+                and (e.role, e.label) not in failed)]
+
+
+#: Said above the list, for a goal with no plan, when something is on top of
+#: the page (2026-11-14). The written plans' banner says "dismiss it first",
+#: which is right for a cookie notice and wrong for the sign-in dialog a goal
+#: needs: on Readings the model was shown `link 'Register.' [overlay]` under
+#: that banner and pressed Close instead, five times (EVALUATION.md, 2026-11-14c).
+ON_TOP_BANNER = (
+    "SOMETHING IS ON TOP OF THE PAGE. Only the elements marked [overlay] can be "
+    "used now; what it covers is not listed until it is gone. If it is what the "
+    "goal needs (a sign-in or sign-up form, a search), use it. If it is in the "
+    "way (cookies, an advert, a notice), close it.")
+
+
 def render_page(elements: list[Element],
-                failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset()) -> str:
+                failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset(),
+                on_top: str | None = None) -> str:
     """The page as the model sees it: ids, roles, labels. Never values.
 
     Perception's structural flags are spelled out rather than left implicit.
@@ -138,7 +164,9 @@ def render_page(elements: list[Element],
               or (not (e.occluded or e.dead_link) and id(e) not in gone)]
 
     lines = []
-    if blocked:
+    if blocked and on_top:
+        lines += [on_top, ""]
+    elif blocked:
         lines += [
             "AN OVERLAY IS COVERING THE PAGE. Dismiss it first, using an element "
             "marked [overlay]; what it covers is not listed until it is gone.",
@@ -393,10 +421,49 @@ class LLMPlanner:
 # reads what the page says — headings, labelled values, tables — so it can
 # tell when the answer is in front of it. Then it answers, copying the answer
 # from the page. Nothing it answers is shown until SIMBA has found those exact
-# words on the page itself, and nothing is the answer until the person says
-# it is what they wanted (DECISIONS.md, *An open goal ends by pointing at its
-# answer*). Everything else — what may be pressed, what is checked after each
-# move, what is never typed — is the loop's, as for every planner.
+# words on the page itself. Everything else — what may be pressed, what is
+# checked after each move, what is never typed — is the loop's, as for every
+# planner.
+#
+# **Changed 2026-11-14 (Raham, after trying it in the real window)**: it works
+# like the built-in tasks. What it is about to do is read back once and agreed
+# once (`OpenGoalBrief`); then the moves that only look — searching, opening,
+# reading, filling a box with something the goal said — run by themselves as
+# lines of the checklist, with one Pause (`Move.safe`). It stops for the person
+# only for a real choice, something only they can type, the final screen, the
+# payment handover and a check that a person is there. It says what each move
+# will do in plain words (`voice.plain_move`). And it stops, rather than
+# wander, when it is not getting anywhere (`STALL_LIMIT`). Until then every
+# move was asked: ten questions on Readings in one run (DECISIONS.md, *The AI
+# planner asks once*).
+
+#: The planner's own instructions for a goal with no plan (2026-11-14). Not
+#: `SYSTEM_PROMPT`, which the measured registration benchmark uses unchanged.
+OPEN_GOAL_SYSTEM = """You operate a web page for someone who finds cluttered \
+websites overwhelming. They have agreed to the goal once; you do the looking \
+and the clicking for them.
+
+You are given the goal, what has been done so far, a numbered list of the \
+page's elements, and what the page says. Choose the single next action that \
+makes progress toward the goal.
+
+Rules:
+- Answer with an element_id taken from the list. Only ids in the list can be \
+used. Never write a CSS selector, an XPath, or element text as the id.
+- One action at a time. Use "type" for text boxes, "click" for buttons and \
+links, "select" for dropdowns.
+- Take the shortest way. If the goal names something to find and the page has \
+a search box, search for it first. Open a result only when the answer is not \
+already on the page.
+- Never repeat an action from "Already done" that did not help. If you are \
+back on a page you have already seen, choose something different.
+- Elements marked [overlay] are on top of the page: a dialog, a pop-up, a \
+cookie notice. If it is what the goal needs (a sign-in or sign-up form), use \
+it. If it is in the way, close it, preferring "Reject", "No thanks" or \
+"Close" to accepting.
+- Never open a help chat, an advert, a social media link or an app download.
+- Keep reasoning to one short sentence, phrased for the person you are helping.
+"""
 
 #: Changed 2026-11-14 (Raham; the advisor's "tasks carried out on live sites,
 #: not only read"): the model may now press the button that orders, books,
@@ -408,8 +475,12 @@ class LLMPlanner:
 OPEN_GOAL_RULES = """
 When the page shows what the goal asks for, answer instead of acting: \
 action "answer", element_id 0, value the answer copied exactly, word for word, \
-from "What the page says" below. Copy only words that are there; never \
-rephrase, add or calculate. If the goal needs a search first, search first.
+from "What the page says" below — the answer itself and nothing round it (a \
+price, a date, a time, a name, a confirmation). Copy only words that are \
+there; never rephrase, add or calculate. In reasoning, write one short \
+sentence that tells the person the answer and contains the value exactly as \
+you copied it, like: Atomic Habits costs Rs. 3,221 on Readings. If the goal \
+needs a search first, search first.
 When the goal asks you to do something — order, book, register, apply, \
 submit, pay — do it: fill in what is needed and press the button that does it. \
 SIMBA shows the person what that button will do and presses it only if they \
@@ -461,27 +532,148 @@ def render_content(content: Content | None, limit: int = CONTENT_CHARS) -> str:
     return text if len(text) <= limit else text[:limit] + "\n(... the rest is cut)"
 
 
+# --- what runs by itself, and what stops (2026-11-14) --------------------------
+
+#: A box for something about the person: theirs to type, never the model's to
+#: make up, and asked for even when the goal gave it.
+PERSONAL = re.compile(
+    r"\b(name|e-?mail|phone|mobile|cell|contact|address|city|town|post ?code|postal|zip|"
+    r"cnic|nic|passport|birth|dob|age|gender|user ?name|login|password|pin|card|cvv|iban|"
+    r"account)\b", re.IGNORECASE)
+#: A press that says yes for the person: cookies, notifications, a newsletter.
+#: Theirs to choose, so asked (`voice.ASK_COOKIES` is the written plans' way).
+CONSENT_WORDS = re.compile(
+    r"\b(accept|allow|agree|consent|i understand|opt in|notify me|subscribe)\b", re.IGNORECASE)
+#: A floating button for a help chat (2026-11-14). Perception marks one as an
+#: overlay when it is all that is on top of a page still loading, and under
+#: "dismiss the overlay first" the model's first move on Readings, in the real
+#: window, was "Click Open help chat" (EVALUATION.md, 2026-11-14c). It is not
+#: in the way of anything, and is never offered.
+WIDGET_WORDS = re.compile(
+    r"\b(chat|help ?desk|live help|whatsapp|messenger|feedback|support)\b", re.IGNORECASE)
+
+#: Moves in a row that got nowhere before the run stops (Raham, 2026-11-14:
+#: "no page change for 3 moves: stop and offer a helper").
+STALL_LIMIT = 3
+#: The same press, chosen again after it has twice been made: the third is not
+#: made, unless each of the first two led somewhere new (a calendar's "Next").
+REPEAT_LIMIT = 2
+#: The longest one choice may take, every provider and retry included.
+DECIDE_BUDGET_S = 45.0
+#: The longest the read-back's sentence is waited for.
+READ_BACK_BUDGET_S = 10.0
+
+
+def without_widgets(elements: list[Element]) -> list[Element]:
+    """`elements` without help-chat buttons; and, when one of those was all
+    that was "covering" the page, with nothing behind an overlay any more."""
+    widgets = {id(e) for e in elements if e.overlay and WIDGET_WORDS.search(e.label or "")}
+    if not widgets:
+        return elements
+    rest = [e for e in elements if id(e) not in widgets]
+    if any(e.overlay for e in rest):
+        return rest
+    return [replace(e, occluded=False) if e.occluded else e for e in rest]
+
+
+def page_signature(elements: list[Element]) -> frozenset:
+    """What tells one state of a page from another, for noticing a move that
+    led nowhere: every element's role, words and place in the page's layers.
+    Not positions, which a sliding banner changes by itself, nor values."""
+    return frozenset((e.role, e.label, e.qualifier, e.panel, e.overlay) for e in elements)
+
+
+def _said_in(value: str, text: str) -> bool:
+    plain = lambda words: " ".join(str(words).lower().split())  # noqa: E731
+    return bool(plain(value)) and plain(value) in plain(text)
+
+
+def answer_sentence(value: str, sentence: str | None, goal: str) -> str | None:
+    """The model's one sentence giving the answer, if it can be trusted with
+    it: it holds the value exactly as the page says it, is one short sentence,
+    and has no number in it that is neither in the value nor in the goal — so
+    a figure the page does not show cannot ride in on it. None otherwise, and
+    the answer is then shown by itself."""
+    words = " ".join((sentence or "").split())
+    if not words or value not in words or len(words) > 160 or "http" in words.lower():
+        return None
+    allowed = value + " " + goal
+    rest = words.replace(value, " ")
+    # One sentence: no full stop but the last, the value's own aside.
+    if any(mark in rest.rstrip(".!? ") for mark in (". ", "! ", "? ")):
+        return None
+    if any(number not in allowed for number in re.findall(r"\d[\d,.]*\d|\d", rest)):
+        return None
+    return words if words[-1] in ".!?" else words + "."
+
+
+READ_BACK_PROMPT = """A person typed a goal for a website. Say back, in ONE \
+short plain sentence, what you will do for them there. Start with "I'll" and \
+name the website by the name you are given. At most 20 words. No web address, \
+no list of steps. If the goal orders, books, pays, registers or sends \
+something, say so plainly.
+Answer with action "answer", element_id 0, value that sentence, reasoning ""."""
+
+
+async def restate(provider: Provider, goal: str, site: str) -> str | None:
+    """The goal said back in one sentence — "I'll search Readings for Atomic
+    Habits and tell you the price" — or None when no model gave a usable one
+    in time: then the person's own words are read back (`voice.plain_read_back`)."""
+    try:
+        action = await asyncio.wait_for(provider.decide(
+            READ_BACK_PROMPT, f"(No page is open yet. The website is called {site}.)", goal),
+            READ_BACK_BUDGET_S)
+    except (LLMError, asyncio.TimeoutError):
+        return None
+    words = " ".join((action.value or "").split())
+    lowered = words.lower()
+    if (action.action != "answer" or not words.startswith("I'll ") or len(words) > 170
+            or "http" in lowered or "www." in lowered):
+        return None
+    return words
+
+
 class OpenGoalPlanner(LLMPlanner):
     """The model on a goal with no plan: acts, or answers from the page.
 
-    `answer` is the finding once the person has said it is what they wanted;
-    the loop shows it, rings it in the picture of the page, and checks the
-    page still says it before closing (`loop.carry_out`)."""
+    `answer` is the finding the run ends with; the loop shows it, rings it in
+    the picture of the page, and checks the page still says it before closing
+    (`loop.carry_out`). With `ask_answer` — the person asked to confirm every
+    move — it is the answer only once they say it is what they wanted."""
 
     #: The model does not mark its own changes: a press whose words say it
     #: books, pays or submits is the loop's to stop (`loop.would_change`).
     marks_changes = False
-    #: The run ends with the person's agreed answer, or not at all.
+    #: The run ends with an answer the page says, or not at all.
     must_answer = True
+    #: A live page is read only once it has stopped arriving (`loop.settled`).
+    waits_for_page = True
+    #: What the loop says when two moves running did not work (2026-11-14), in
+    #: place of the move's own words and the browser's: it stops and offers a
+    #: helper, as when the planner notices it is going nowhere.
+    no_progress = voice.AI_NO_PROGRESS
 
-    def __init__(self, provider: Provider, task: Task) -> None:
+    def __init__(self, provider: Provider, task: Task, ask_answer: bool = True) -> None:
         super().__init__(provider, task)
+        self._ask_answer = ask_answer
         self._content: Content | None = None
         self._proposed: str | None = None
+        self._proposed_sentence: str | None = None
         self._declined: str | None = None
         self.answer: Finding | None = None
+        #: The answer in one sentence, when the model gave one that holds
+        #: (`answer_sentence`): the closing screen's explanation.
+        self.answer_sentence: str | None = None
         #: Which provider worked out the last move: shown to the person.
         self.worked_out_by: str | None = None
+        # Noticing a run that is going nowhere (2026-11-14).
+        self._seen: set[frozenset] = set()
+        self._before: frozenset | None = None
+        self._made: tuple[str, str, str] | None = None
+        self._typed: set[tuple[frozenset, tuple[str, str, str]]] = set()
+        self._led: dict[tuple[str, str, str], list[bool]] = {}
+        self._stalled = 0
+        self._chosen: Counter = Counter()
 
     def look(self, content: Content) -> None:
         """What the page says now. The loop calls this before each move."""
@@ -493,46 +685,156 @@ class OpenGoalPlanner(LLMPlanner):
             return
         if action_id == voice.CONFIRM_ID:
             self.answer = Finding(label=voice.WHAT_I_FOUND, value=self._proposed)
+            self.answer_sentence = self._proposed_sentence
         else:
             self._declined = self._proposed
         self._proposed = None
+
+    # --- going nowhere -------------------------------------------------------
+
+    def _weigh(self, now: frozenset, setback: str | None) -> None:
+        """Whether the last move got anywhere, from the page as it is now."""
+        made, before = self._made, self._before
+        self._made = None
+        if made is not None:
+            if setback:
+                got_on = False
+            elif made[0] in ("type", "select"):
+                # A box filled is progress once: the same box, on the same
+                # page, with the page no different, is not.
+                got_on = (before, made) not in self._typed or now not in self._seen
+                self._typed.add((before, made))
+            else:
+                got_on = now not in self._seen
+            self._led.setdefault(made, []).append(got_on)
+            self._stalled = 0 if got_on else self._stalled + 1
+        self._seen.add(now)
+        self._before = now
+
+    def _repeats(self, key: tuple[str, str, str]) -> bool:
+        led = self._led.get(key, [])
+        return len(led) >= REPEAT_LIMIT and not all(led)
 
     async def next_move(self, elements: list[Element], history: list[str],
                         setback: str | None) -> Move | None:
         if self.answer is not None:
             return None  # done: the loop closes with the answer
+        elements = without_widgets(elements)
         self._note(setback)
+        self._weigh(page_signature(elements), setback)
+        if self._stalled >= STALL_LIMIT:
+            self.stuck_reason = voice.AI_NO_PROGRESS
+            return None
         if self._declined is not None:
             setback = (f'The person said "{self._declined}" is not what they wanted. '
                        "Keep looking, or do what the goal needs to find it.")
             self._declined = None
+        elif self._stalled and not setback:
+            setback = ("Your last action changed nothing, or brought you back to a page "
+                       "you had already seen. Choose something different.")
         choice = await self._choose(elements, history, setback)
         self._chose(choice)
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
         if choice.action.action == "answer":
-            self._proposed = (choice.action.value or "").strip()
-            return Move(instruction=voice.found_this(self._proposed), detail="", operations=[],
+            said = (choice.action.value or "").strip()
+            sentence = answer_sentence(said, choice.action.reasoning, self._task.goal)
+            if not self._ask_answer:
+                # The page says it, word for word (`_choose`): the run ends
+                # with it, as a built-in task ends with what it read.
+                self.answer = Finding(label=voice.WHAT_I_FOUND, value=said)
+                self.answer_sentence = sentence
+                return None
+            self._proposed, self._proposed_sentence = said, sentence
+            return Move(instruction=voice.found_this(said), detail="", operations=[],
                         expect=Expectation(), fields=[], actions=voice.is_this_it(),
                         question=True, kind="read")
-        move = await super()._shape(choice)
-        return move
+        key = (choice.action.action, choice.element.role, choice.element.label)
+        if self._repeats(key):
+            self.stuck_reason = voice.AI_NO_PROGRESS
+            return None
+        self._made = key
+        return await self._shape(choice)
+
+    # --- a move, in plain words, and whether it runs by itself --------------------
+
+    async def _shape(self, choice: "_Choice") -> Move:
+        action, element = choice.action, choice.element
+        kind = "fill" if action.action == "type" else action.action
+        label = _without_icons(element.label)
+        personal = bool(PERSONAL.search(" ".join(filter(None, [label, element.name]))))
+        value = action.value if kind in ("fill", "select") else None
+        # The person's own details are theirs to give: a value the model made
+        # up for one is dropped, and one the goal gave is shown in the box for
+        # them to agree. A password is never the model's.
+        given = bool(value) and _said_in(value, self._task.goal)
+        if kind == "fill" and (element.is_password or (personal and not given)):
+            value = None
+        search = kind == "fill" and not personal and _is_search(element)
+        asks = kind == "fill" and (value is None or personal)
+        field_id = element.name or str(element.id)
+        operation = Operation(kind=kind, target=Target(role=element.role, label=element.label),
+                              element_id=element.id, value=value,
+                              value_key=field_id if kind == "fill" else None)
+        operations = [operation]
+        if search:
+            # Typing into a search box sends the search too (2026-11-14).
+            operations.append(Operation(kind="press", target=operation.target,
+                                        element_id=element.id, value="Enter"))
+        fields = [StepField(
+            id=field_id, label=voice.short_name(label) or element.label,
+            type="password" if element.is_password else (element.input_type or "text"),
+            value="" if element.is_password else (value or ""))] if asks else []
+        instruction, doing = voice.plain_move(
+            kind, element.role, label, None if asks else value, search=search,
+            overlay=element.overlay, password=element.is_password)
+        if kind == "click":
+            safe = not (CHANGE_WORDS.search(label) or CONSENT_WORDS.search(label))
+        else:
+            safe = bool(value) and not asks and not personal
+        return Move(
+            instruction=instruction,
+            detail=action.reasoning,
+            operations=operations,
+            # The model declares no expectation, so the bar is the general one:
+            # the page must actually have changed. A typed value is checked by
+            # reading the field back, in loop.attempt_move.
+            expect=Expectation(),
+            fields=fields,
+            actions=voice.actions(voice.GO_AHEAD),
+            safe=safe,
+            doing=doing,
+        )
+
+    # --- asking the model ------------------------------------------------------
+
+    async def _decide(self, system: str, page: str, feedback: str | None,
+                      history: list[str] | None) -> Action:
+        """One choice, in bounded time: a service that is slow tonight is an
+        error to move on from, not a wait (`DECIDE_BUDGET_S`)."""
+        try:
+            return await asyncio.wait_for(super()._decide(system, page, feedback, history),
+                                          DECIDE_BUDGET_S)
+        except asyncio.TimeoutError as error:
+            raise LLMError("no AI service answered in time") from error
 
     async def _choose(self, elements: list[Element], history: list[str],
                       setback: str | None) -> _Choice | None:
         """One action, retried once with the error fed back; an answer only
-        if the page says it, word for word."""
+        if the page says it, word for word; an element only if it was listed."""
         feedback = setback
-        valid = {element.id: element for element in elements}
-        page = (render_page(elements, self._failed) + "\n\nWhat the page says:\n"
-                + render_content(self._content))
+        valid = {element.id: element for element in usable(elements, self._failed)}
+        page = (render_page(elements, self._failed, on_top=ON_TOP_BANNER)
+                + "\n\nWhat the page says:\n" + render_content(self._content))
+        unanswered = 0
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._decide(SYSTEM_PROMPT + OPEN_GOAL_RULES, page,
+                action = await self._decide(OPEN_GOAL_SYSTEM + OPEN_GOAL_RULES, page,
                                             feedback, history)
             except LLMError as error:
+                unanswered += 1
                 feedback = str(error)
                 continue
             if action.action == "answer":
@@ -543,9 +845,57 @@ class OpenGoalPlanner(LLMPlanner):
                             'exactly from "What the page says", or act to find it.')
                 continue
             if action.element_id not in valid:
-                feedback = (f"element_id {action.element_id} is not on the page. "
-                            f"Valid ids are 1 to {len(elements)}.")
+                feedback = (f"element_id {action.element_id} is not in the list. Choose an "
+                            "id from the list of elements, exactly as it is numbered there.")
                 continue
             return _Choice(action=action, element=valid[action.element_id])
-        self.stuck_reason = voice.AI_COULD_NOT
+        self.stuck_reason = voice.AI_TOO_SLOW if unanswered == 2 else voice.AI_COULD_NOT
         return None
+
+
+class OpenGoalBrief:
+    """What a goal with no plan asks before anything is touched (2026-11-14):
+    one read-back, one yes. `loop.run_brief` asks it with the site already
+    open, and then runs the planner this settles on.
+
+    `reader` says the goal back in one sentence (`restate`); a quick model is
+    enough for it. With none, or no usable sentence in time, the person's own
+    words are read back."""
+
+    gave_up: str | None = None
+
+    def __init__(self, provider: Provider, goal: str, site_name: str, *,
+                 steps: int, auto: bool = True, reader: Provider | None = None) -> None:
+        self.goal = goal
+        self.estimated_steps = steps
+        self._provider = provider
+        self._reader = reader
+        self._site = site_name
+        self._auto = auto
+        self._sentence: str | None = None
+        self._agreed = False
+        self.planner: OpenGoalPlanner | None = None
+
+    async def prepare(self, page) -> None:  # noqa: ARG002 - nothing on the page is read
+        if self._reader is not None:
+            self._sentence = await restate(self._reader, self.goal, self._site)
+
+    def question(self) -> Move | None:
+        if self._agreed:
+            return None
+        words = (voice.open_read_back(self._sentence) if self._sentence
+                 else voice.plain_read_back(self.goal, self._site))
+        return Move(instruction=words, detail=voice.READ_BACK_DETAIL, operations=[],
+                    expect=Expectation(), fields=[], actions=voice.read_back_actions(),
+                    question=True, kind="confirm")
+
+    def answered(self, action_id: str, input_values: dict[str, str]) -> None:  # noqa: ARG002
+        self._agreed = action_id == voice.CONFIRM_ID
+
+    def settle(self) -> tuple[OpenGoalPlanner, Task]:
+        task = Task(goal=self.goal, estimated_steps=self.estimated_steps, success=None,
+                    about=About())
+        # Asked to confirm every move: the answer is asked about too, as it
+        # was until 2026-11-14.
+        self.planner = OpenGoalPlanner(self._provider, task, ask_answer=not self._auto)
+        return self.planner, task

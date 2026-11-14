@@ -55,13 +55,15 @@ SHOP = """<!doctype html><html><head><title>Book shop</title></head><body>
 
 PAY = """<!doctype html><html><head><title>Pay</title></head><body>
 <h1>Mobile top-up</h1>
-<!-- "Pay now" opens the card page, which a moment later shows the receipt:
-     that moment is the person paying, during the handover. -->
+<!-- "Pay now" opens the card page, which a while later shows the receipt:
+     that while is the person paying, during the handover. Long enough for the
+     page to be read once it has stopped arriving (`loop.settled`, 2026-11-14):
+     at 300ms the card page had gone before it was read. -->
 <p>Amount: Rs. 200</p>
 <button onclick="document.body.innerHTML =
   '<h2>Payment</h2><label for=card>Card number</label> <input id=card name=card>';
   setTimeout(() => { document.body.innerHTML =
-    '<h2>Payment successful</h2><p>Receipt number: R-55</p>'; }, 300);">Pay now</button>
+    '<h2>Payment successful</h2><p>Receipt number: R-55</p>'; }, 3000);">Pay now</button>
 </body></html>"""
 
 
@@ -197,7 +199,7 @@ def test_a_payment_is_handed_to_the_person(site):
     class Handing(Person):
         async def receive(self, message_type, step_index=None, on_other=None):
             if isinstance(message_type, tuple):   # the handover: the person pays,
-                await asyncio.sleep(1.0)            # then presses "I've finished"
+                await asyncio.sleep(3.5)            # then presses "I've finished"
                 return {"type": "handover.done", "payload": {"action": "done"}}
             return await super().receive(message_type, step_index, on_other)
 

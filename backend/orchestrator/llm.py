@@ -19,8 +19,10 @@ reasoning can be read back afterwards.
 
 import asyncio
 import json
+import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +48,25 @@ HISTORY_LIMIT = 10  # actions kept in the prompt; see build_user_prompt
 SETBACK_ABOVE = "above"
 SETBACK_AFTER = "after"
 RATE_LIMIT_RETRIES = 4  # a free tier meters per minute; wait it out
+#: The longest one wait for a rate limit, whatever the server asks (2026-11-14).
+MAX_WAIT_S = 20.0
+#: How long one call may take before it is given up (2026-11-14). The SDK's own
+#: default is ten minutes, with two silent retries on top: on 2026-11-14 single
+#: planner calls took 95 to 113 seconds in the real window, with nothing in the
+#: transcript between the question and the answer, and a probe that night had
+#: Gemini's Flash models time out or answer 503 while Flash-Lite and Groq
+#: answered in one or two seconds (EVALUATION.md, 2026-11-14c). A call that has
+#: not answered by now is treated as one that cannot answer now: the chain
+#: moves on. `SIMBA_LLM_TIMEOUT_S` changes it.
+CALL_TIMEOUT_S = float(os.environ.get("SIMBA_LLM_TIMEOUT_S") or 10.0)
+#: A provider in a chain that could not answer this many calls running is
+#: rested for `REST_S`, and the calls go straight to the next (2026-11-14).
+REST_AFTER = 2
+REST_S = 180.0
+
+#: Which provider answered, and how long it took, in `logs/backend.log`. Never
+#: a prompt, a response or a provider's own error text.
+log = logging.getLogger("simba.llm")
 
 # US dollars per million tokens, (prompt, completion). Rates move and vary by
 # region, so this is a lookup to keep current rather than a source of truth —
@@ -465,7 +486,12 @@ class OpenAICompatibleProvider:
     ) -> None:
         from openai import AsyncOpenAI
 
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        # No retries of the SDK's own, and a timeout (2026-11-14): its
+        # defaults wait out a slow or overloaded service silently, which is
+        # the pause the fallbacks exist to avoid (`CALL_TIMEOUT_S`).
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0,
+                                   timeout=CALL_TIMEOUT_S)
+        self._base_url = base_url
         self._model = model
         #: Who answered, for the person to see (2026-11-13): "Gemini", "Groq".
         self.label = label_for(base_url)
@@ -477,7 +503,33 @@ class OpenAICompatibleProvider:
         self.throttled_seconds = 0.0
         self.usage = Usage()
 
+    def with_model(self, model: str) -> "OpenAICompatibleProvider":
+        """The same provider and key, another of its models (2026-11-14): the
+        planner's, which is not the one that routes a goal."""
+        return OpenAICompatibleProvider(
+            api_key=self._client.api_key, base_url=self._base_url, model=model,
+            transcript=self._transcript, wait_out_rate_limits=self.wait_out_rate_limits)
+
     async def decide(
+        self,
+        system_prompt: str,
+        page: str,
+        goal: str,
+        feedback: str | None = None,
+        history: list[str] | None = None,
+    ) -> Action:
+        asked = time.monotonic()
+        try:
+            action = await self._decide(system_prompt, page, goal, feedback, history)
+        except LLMError as error:
+            log.info("%s (%s) did not answer after %.1fs: %s", self.label, self._model,
+                     time.monotonic() - asked, type(error.__cause__ or error).__name__)
+            raise
+        log.info("%s (%s) answered in %.1fs", self.label, self._model,
+                 time.monotonic() - asked)
+        return action
+
+    async def _decide(
         self,
         system_prompt: str,
         page: str,
@@ -557,7 +609,7 @@ class OpenAICompatibleProvider:
             except openai.RateLimitError as error:
                 if attempt == RATE_LIMIT_RETRIES or not self.wait_out_rate_limits:
                     raise
-                wait = _retry_after(error) or delay
+                wait = min(_retry_after(error) or delay, MAX_WAIT_S)
                 self.throttled_seconds += wait
                 self._transcript.record(
                     provider=self.name, rate_limited=True, waited_seconds=round(wait, 1)
@@ -711,6 +763,11 @@ class FallbackProvider:
         self.answered_by: str | None = None
         #: How many calls the first provider could not answer.
         self.fell_back = 0
+        #: Per provider: calls it could not answer running, and until when it
+        #: is rested (2026-11-14). A provider that is slow tonight is not
+        #: waited for on every move.
+        self._missed = [0] * len(providers)
+        self._rested_until = [0.0] * len(providers)
 
     @property
     def label(self) -> str:
@@ -726,14 +783,27 @@ class FallbackProvider:
 
     async def _first_that_can(self, call):
         last: LLMError | None = None
+        now = time.monotonic()
+        # Rested providers are skipped, unless every one is, and then all are
+        # asked: a chain never refuses to try.
+        awake = [i for i in range(len(self.providers)) if self._rested_until[i] <= now]
         for index, provider in enumerate(self.providers):
+            if awake and index not in awake:
+                continue
             try:
                 result = await call(provider)
             except LLMError as error:
                 if not _cannot_answer_now(error.__cause__):
                     raise
                 last = error
+                self._missed[index] += 1
+                if self._missed[index] >= REST_AFTER and index < len(self.providers) - 1:
+                    self._rested_until[index] = time.monotonic() + REST_S
+                    self._missed[index] = 0
+                    log.info("%s is rested for %.0fs: it could not answer %d calls running",
+                             getattr(provider, "label", "a provider"), REST_S, REST_AFTER)
                 continue
+            self._missed[index] = 0
             if index > 0:
                 self.fell_back += 1
             self.answered_by = getattr(provider, "label", None)
@@ -780,6 +850,42 @@ def _chained(first, transcript: Transcript | None):
     for provider in chain:
         provider.wait_out_rate_limits = provider is chain[-1]
     return FallbackProvider(chain) if rest else first
+
+
+#: The open-goal planner's model on Gemini (2026-11-14). Raham asked for Flash
+#: rather than Flash-Lite, and then, the same evening, to keep Flash-Lite
+#: until billing is set up: on the free key that night `gemini-3.8-flash`
+#: timed out or answered 503 and `gemini-3.6-flash` took 7 to 9 seconds a
+#: move, against 1 to 2 for Flash-Lite and Groq (EVALUATION.md, 2026-11-14c).
+#: So nothing is swapped unless `SIMBA_PLANNER_MODEL` names the models to ask,
+#: in order, with commas between them: `gemini-3.8-flash,gemini-3.6-flash`.
+#: Each is then tried before Groq and OpenRouter. Flash-Lite still routes a
+#: goal and reads its details either way.
+GEMINI_PLANNER_MODELS: tuple[str, ...] = ()
+
+
+def planner_models() -> tuple[str, ...]:
+    named = [m.strip() for m in os.environ.get("SIMBA_PLANNER_MODEL", "").split(",") if m.strip()]
+    return tuple(named) or GEMINI_PLANNER_MODELS
+
+
+def planner_provider_from_env(transcript: Transcript | None = None) -> Provider:
+    """The provider for a goal with no plan (2026-11-14): the configured chain,
+    as it is — or, when `SIMBA_PLANNER_MODEL` names models and Gemini is
+    first, with Gemini asked on those models instead of the configured one.
+    Any other first provider is left as it is configured."""
+    provider = provider_from_env(transcript)
+    chain = list(provider.providers) if isinstance(provider, FallbackProvider) else [provider]
+    first = chain[0]
+    models = planner_models()
+    if (not models or getattr(first, "label", None) != "Gemini"
+            or not hasattr(first, "with_model")):
+        return provider
+    flash = [first.with_model(model) for model in models]
+    chain = [*flash, *chain[1:]]
+    for member in chain:
+        member.wait_out_rate_limits = member is chain[-1]
+    return FallbackProvider(chain) if len(chain) > 1 else chain[0]
 
 
 def provider_from_env(transcript: Transcript | None = None) -> Provider:

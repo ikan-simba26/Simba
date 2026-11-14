@@ -203,6 +203,50 @@ def features_of(view: PageView) -> PageFeatures | None:
     return page_features(view, view.document) if view.document is not None else None
 
 
+#: How long a live page is given to stop arriving before it is read anyway,
+#: and how often it is looked at meanwhile (2026-11-14).
+SETTLE_LIMIT_S = 6.0
+SETTLE_POLL_S = 0.3
+#: How many looks running must find it the same: about a second of quiet. Two
+#: was not enough for a page that fills itself in a moment after it loads.
+SETTLE_SAME = 3
+#: What is counted to tell: the things a person could use, and the text.
+SETTLE_JS = """() => [document.readyState,
+  document.querySelectorAll('a,button,input,select,textarea,[role=button]').length,
+  (document.body ? document.body.innerText.length : 0)]"""
+
+
+async def settled(page: Page, limit_s: float = SETTLE_LIMIT_S) -> float:
+    """Wait until a page has stopped arriving: loaded, and with as many things
+    to use and as much text as it had a moment ago, twice running. Returns the
+    seconds waited. Never longer than `limit_s`, and never an error: a page
+    that keeps moving is read as it is. It costs every move about a second.
+
+    For a planner that reads whatever is there (`waits_for_page`). On
+    2026-11-14, in the real window, Readings was read 0.8s after it opened:
+    41 elements of its 370, with its help-chat button the only thing "on top",
+    and the model's first move was to open the chat (EVALUATION.md,
+    2026-11-14c). The written plans wait for the one thing each step needs,
+    and do not come this way."""
+    started = time.monotonic()
+    last: object = None
+    same = 0
+    while time.monotonic() - started < limit_s:
+        try:
+            now = await page.evaluate(SETTLE_JS)
+        except PlaywrightError:
+            now = None  # between two pages: look again
+        if now is not None and now[0] == "complete" and now == last:
+            same += 1
+            if same >= SETTLE_SAME:
+                break
+        else:
+            same = 0
+        last = now
+        await asyncio.sleep(SETTLE_POLL_S)
+    return time.monotonic() - started
+
+
 async def perceive(page: Page) -> tuple[list[Element], Snapshot, PageView]:
     """Read the page once: the elements, the comparable snapshot, and the view.
 
@@ -1555,8 +1599,12 @@ async def run_brief(
     window: Callable[[], Awaitable[str]] | None = None,
     auto: bool = False,
     tiles: "TileStore | None" = None,
+    teach_site: str | None = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
+
+    `teach_site` (2026-11-14): as for `run_task`, where the stuck screen
+    offers a helper's "Show me once" — a goal the AI planner was given.
 
     The questions come first and one at a time, as ordinary steps, with the
     site already open behind them — so "What are you doing?" has a page to
@@ -1566,6 +1614,7 @@ async def run_brief(
     run the way being stuck does, and says why.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    run.teach_site = teach_site
     # On a replica a brief may offer to finish the task once its answer is in
     # (2026-10-16): book the train, pay the bill. Its stages say so.
     if hasattr(brief, "finishes"):
@@ -1757,6 +1806,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         if steps_taken >= MAX_STEPS:
             break
         await set_state("thinking")
+        if getattr(planner, "waits_for_page", False):
+            await settled(page)
         reading = time.monotonic()
         elements, before, view = await perceive(page)
         read_s = time.monotonic() - reading
@@ -1828,11 +1879,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             emailed.add(page.url)
             steps_taken += 1
             waiting = Move(instruction=voice.CHECK_EMAIL, detail=voice.CHECK_EMAIL_DETAIL,
-                           operations=[], expect=Expectation(), fields=[], actions=[
-                               StepAction(id=voice.CONFIRM_ID, label=voice.DONE_EMAIL,
-                                          kind="primary"),
-                               StepAction(id=voice.CANCEL_ID, label=voice.STOP,
-                                          kind="secondary")])
+                           operations=[], expect=Expectation(), fields=[],
+                           actions=voice.actions(voice.DONE_EMAIL))
             payload = await run.present(waiting, goal=task.goal, findings=findings, view=view)
             if payload.get("action_id") != voice.CONFIRM_ID:
                 await run.stopped()
@@ -2084,7 +2132,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             ask_next = True
             consecutive_setbacks += 1
             if consecutive_setbacks >= 2:
-                await give_up(f"{move.instruction} did not work: {failure}")
+                await give_up(getattr(planner, "no_progress", None)
+                              or f"{move.instruction} did not work: {failure}")
                 return
             # Say so. The planner is told and may choose differently, and the
             # *user* is told too — which for a long time it was not. A step
@@ -2233,6 +2282,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     if remember is not None:
         remember(completed)
 
+    completed_moves = completed
     completed = TaskCompleted(
             summary=f"{task.goal} {page.url}",
             duration_ms=int((time.monotonic() - run.started) * 1000),
@@ -2240,9 +2290,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
-            explanation=task.explain(found, seen, rows) if task.explain else None,
+            # A goal with no plan: the answer in one sentence, when the model
+            # gave one that holds (`llm_loop.answer_sentence`, 2026-11-14).
+            explanation=(task.explain(found, seen, rows) if task.explain
+                         else getattr(planner, "answer_sentence", None)),
             heading=heading,
-            scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
+            scope=(task.scope(found, seen, rows) if callable(task.scope) else task.scope)
+            or (voice.AI_ONLY_LOOKED if answer is not None
+                and not any(m.changes for m in completed_moves) else None),
             confirmation=confirmation,
             caveat=caveat,
             proof=proof,
