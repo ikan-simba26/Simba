@@ -22,7 +22,7 @@ from backend.orchestrator.loop import Move, Task
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
-from backend.perception.serializer import Element
+from backend.perception.serializer import VIEWPORT, Element
 from shared.schema import Finding, StepField
 
 SYSTEM_PROMPT = """You operate a web page on behalf of someone who finds \
@@ -89,12 +89,22 @@ def _label(text: str) -> str:
 SEARCH_LABEL = re.compile(r"\b(search|keyword|find)\b", re.IGNORECASE)
 
 
+def _off_the_side(element: Element) -> bool:
+    """Wholly left or right of the page's width: a sliding banner's hidden
+    slide. Below the fold is not out of sight — a click scrolls to it."""
+    if element.rect is None:
+        return False
+    x, _y, width, _height = element.rect
+    return x >= VIEWPORT[0] or x + width <= 0
+
+
 def _is_search(element: Element) -> bool:
     return element.role == "searchbox" or (
         element.role in ("combobox", "textbox") and bool(SEARCH_LABEL.search(element.label)))
 
 
-def render_page(elements: list[Element]) -> str:
+def render_page(elements: list[Element],
+                failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset()) -> str:
     """The page as the model sees it: ids, roles, labels. Never values.
 
     Perception's structural flags are spelled out rather than left implicit.
@@ -110,13 +120,22 @@ def render_page(elements: list[Element]) -> str:
       overlay itself, which is how the overlay is closed;
     - the marks are short (`[overlay]`, `[inferred]`), said once what they mean;
     - an input type is shown only where the role does not already say it;
-    - a label is one line of at most LABEL_CHARS.
+    - a label is one line of at most LABEL_CHARS;
+    - nor what is out of sight off the side of the page (a sliding banner's
+      hidden slides), nor what the model chose and did not work just now
+      (`failed`, by role and label) — both 2026-11-14.
     """
     blocked = any(element.overlay for element in elements)
     choices = [e for e in elements if e.inferred and e.role == "option"]
     behind = sum(1 for e in elements if e.occluded and not e.overlay)
     nowhere = sum(1 for e in elements if e.dead_link and not e.occluded and not e.overlay)
-    listed = [e for e in elements if e.overlay or not (e.occluded or e.dead_link)]
+    aside = [e for e in elements if not e.overlay and not (e.occluded or e.dead_link)
+             and _off_the_side(e)]
+    tried = [e for e in elements if not e.overlay and not (e.occluded or e.dead_link)
+             and not _off_the_side(e) and (e.role, e.label) in failed]
+    gone = {id(e) for e in aside + tried}
+    listed = [e for e in elements if e.overlay
+              or (not (e.occluded or e.dead_link) and id(e) not in gone)]
 
     lines = []
     if blocked:
@@ -171,6 +190,10 @@ def render_page(elements: list[Element]) -> str:
         hidden.append(f"{behind} behind the overlay")
     if nowhere:
         hidden.append(f"{nowhere} links that go nowhere")
+    if aside:
+        hidden.append(f"{len(aside)} out of sight to the side (a sliding banner)")
+    if tried:
+        hidden.append(f"{len(tried)} that did not work just now")
     if hidden:
         lines += [f"Not listed, since none can be used: {', '.join(hidden)}."]
     if lines and lines[-1] != "":
@@ -232,6 +255,11 @@ class LLMPlanner:
         #: ("Deliver to: …", "Hello, …"). Free providers may keep what they
         #: are sent (2026-11-14; DECISIONS.md, 2026-11-13).
         self._private: set[str] = set()
+        #: The element of the last choice, and those that did not work since
+        #: the last move that did — by role and label, as ids change with
+        #: every read (2026-11-14).
+        self._last: tuple[str, str] | None = None
+        self._failed: set[tuple[str, str]] = set()
 
     def keep_private(self, values) -> None:
         """Called by the loop with the values it is about to type."""
@@ -257,10 +285,24 @@ class LLMPlanner:
             system, self._redacted(page) or "", self._task.goal, self._redacted(feedback),
             [self._redacted(line) or "" for line in history] if history else history)
 
+    def _note(self, setback: str | None) -> None:
+        """A setback means the last choice did not work: not offered again
+        until something works. No setback: the last move worked."""
+        if setback and self._last is not None:
+            self._failed.add(self._last)
+        elif not setback:
+            self._failed.clear()
+
+    def _chose(self, choice: "_Choice | None") -> None:
+        element = choice.element if choice is not None else None
+        self._last = (element.role, element.label) if element is not None else None
+
     async def next_move(
         self, elements: list[Element], history: list[str], setback: str | None
     ) -> Move | None:
+        self._note(setback)
         choice = await self._choose(elements, history, setback)
+        self._chose(choice)
         if choice is None:
             return None
         return await self._shape(choice)
@@ -323,7 +365,8 @@ class LLMPlanner:
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._decide(SYSTEM_PROMPT, render_page(elements),
+                action = await self._decide(SYSTEM_PROMPT,
+                                            render_page(elements, self._failed),
                                             feedback, history)
             except LLMError as error:
                 feedback = str(error)
@@ -458,11 +501,13 @@ class OpenGoalPlanner(LLMPlanner):
                         setback: str | None) -> Move | None:
         if self.answer is not None:
             return None  # done: the loop closes with the answer
+        self._note(setback)
         if self._declined is not None:
             setback = (f'The person said "{self._declined}" is not what they wanted. '
                        "Keep looking, or do what the goal needs to find it.")
             self._declined = None
         choice = await self._choose(elements, history, setback)
+        self._chose(choice)
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
@@ -480,7 +525,7 @@ class OpenGoalPlanner(LLMPlanner):
         if the page says it, word for word."""
         feedback = setback
         valid = {element.id: element for element in elements}
-        page = (render_page(elements) + "\n\nWhat the page says:\n"
+        page = (render_page(elements, self._failed) + "\n\nWhat the page says:\n"
                 + render_content(self._content))
         for _ in range(2):
             self.calls_made += 1

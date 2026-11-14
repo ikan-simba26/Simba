@@ -9111,3 +9111,27 @@ Full suite on the branch: `pytest backend tools`, the live-site file left out: *
 | Uninstall | 15.7 s; 0 processes left; install folder removed |
 
 A copy for Raham: `D:\simba\.scratch\installer\SIMBA-Setup-0.0.1.exe` (replaced).
+
+## 2026-11-14d — Raham's own test: a hidden banner slide, chosen twice (`fix/orchestrator-failed-choice`)
+
+Raham, in the real SIMBA window (`run.ps1`, AI planner, `main` at `f17a6ef`), 2026-11-14 19:12:
+"Find the price of the book Atomic Habits on readings.com.pk". **Stuck after 274.5 s.** From
+`logs/backend.log` and the model's transcript: the page read 382 elements; Gemini's first move was
+to click element 359, "Atomic Habits: An Easy & Proven Way To Build Good Habits & Break", a link in
+a sliding banner of books near the foot of the home page (beside it, six buttons with no name: the
+banner's arrows and dots). The click changed nothing, was tried another way, failed; Gemini then
+took **97.7 s** to answer and chose the same link again; it failed again and the run stopped. The
+picture of the page also timed out twice (5 s each) while the step was on screen.
+
+Two fixes, each with a test first (`test_llm_loop.py`, 2 new):
+- **An element wholly off the side of the page is not offered** (a banner's hidden slides are
+  placed left or right of the 1,280 px viewport); below the fold still is — a click scrolls to it.
+- **What the model chose and did not work is not offered again** until a move works — by role and
+  label, since ids change with every read.
+
+Every test that uses the AI planners: **135 passed, 2 skipped** (10 files). `test_shared_recovery.py`'s
+fake renderer now takes (and ignores) what failed: it picks the same failing link on purpose.
+
+**Also reported by Raham:** "Press Back to start" (my advice) was not on his screen — he was on the
+step screen, where there is no way back but "Stop this"; he closed the window. Whether his window
+had not moved on to the stuck screen after 19:17 is not known; to check if it happens again.
