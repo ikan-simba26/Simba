@@ -9092,3 +9092,6 @@ answers "Do it"; 2026-11-14T17:45:49+05:00, CPU load 21%, Gemini free tier):
 | "Make me an account on this website" | 3 | **3** | email typed by the person → password made and kept → confirm box filled from the vault → terms asked once → final screen before "Create account" → the email step → answer "Check your email We have sent a verification link to your email." | 6 | **never** | 17.5, 14.9, 9.4 |
 | "Order this book for me, cash on delivery" (again) | 3 | **3** | final screen once, order number answered | 4 | never | 19.4, 10.8, 6.5 |
 | "Top up my phone with Rs. 200" (again) | 2 | **2** | final screen, handover, receipt read | 1 | never | 3.5, 3.3 |
+
+Full suite on the branch: `pytest backend tools`, the live-site file left out: **1,582 passed, 0 failed,
+10 skipped** in 1,888 s.
