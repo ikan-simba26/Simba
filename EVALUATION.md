@@ -9095,3 +9095,19 @@ answers "Do it"; 2026-11-14T17:45:49+05:00, CPU load 21%, Gemini free tier):
 
 Full suite on the branch: `pytest backend tools`, the live-site file left out: **1,582 passed, 0 failed,
 10 skipped** in 1,888 s.
+
+## 2026-11-14c — the installer rebuilt with orders, payments and sign-ups (`main` at `79b4a8b`)
+
+`tools/build_installer.py` (359 s) then `tools/evaluation/installed_app_run.py --runs 1`:
+
+| What | Result |
+|---|---|
+| Installer | 199.7 MB (199,663,162 bytes), 40 code and data files, longest path 156 |
+| Install, silent | 168.8 s |
+| Cold start | 11.34 s, then 5.55 and 5.83 s |
+| "hello" to the greeting | 0.06-0.09 s, 3 of 3 |
+| Second launch while open | ended in 0.49 s; still 1 backend |
+| Host killed by its PID | backend gone 0.16 s later; 0 processes left |
+| Uninstall | 15.7 s; 0 processes left; install folder removed |
+
+A copy for Raham: `D:\simba\.scratch\installer\SIMBA-Setup-0.0.1.exe` (replaced).
