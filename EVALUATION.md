@@ -9004,3 +9004,54 @@ or "Click ." — words that tell a person nothing.
 
 Not run: the real cash-on-delivery order (needs Raham's own press and his name, address and phone,
 which may not go to a free model), and the booking up to payment.
+
+## 2026-11-14a — the AI planner carries a task out: order and payment, real model, pages served here (`feat/orchestrator-live-doing`)
+
+Raham, 14 November: SIMBA has to *perform* a task like a payment, as the advisor asked ("tasks
+carried out on live sites, not only read"), even with a real payment of Rs 200-500. Before this,
+the AI planner was told never to press a button that orders, books or pays, could end only with an
+answer, was shown no plain paragraph text, and sent what the person typed to the model whenever a
+site showed it back. All four changed, each with a test first (`test_live_doing.py`, 5 tests):
+
+| Test, through the real loop and a real browser, model scripted | Result |
+|---|---|
+| An order: fill the name (the person types it), continue, "Place order" behind the final screen, finish with the order number | passes |
+| "Don't do it" on that final screen: nothing changed, the model never sees the confirmation | passes |
+| What the person typed never reaches a model, although the site shows it back ("Deliver to: …") | passes |
+| A payment: "Pay now" behind the final screen, the card page handed to the person, the receipt read after | passes |
+| The planner's rules no longer forbid pressing; still never type card details | passes |
+
+**With the real model** (`tools/evaluation/live_doing_replica_run.py --runs 3`, the same two pages
+served from this machine; the person played by the script, typing a made-up name and answering
+"Do it"; 2026-11-14T06:31:20+05:00, CPU load 58%, Gemini free tier):
+
+| Goal | Runs | Completed | Final screens per run | Model calls | Name sent to the model | Seconds |
+|---|---|---|---|---|---|---|
+| "Order this book for me, cash on delivery" | 3 | **3**, answer "Order placed Order number: 4711" | 1 | 4 | **never** | 10.3, 8.0, 19.0 |
+| "Top up my phone with Rs. 200" | 2 | **2**, "The website says: “Payment successful”." | 1 | 1 | **never** | 4.9, 6.1 |
+
+Every move worked out by Gemini; no fallback needed. An earlier run of the same script (06:2x) had
+the orders 3 of 3 and the top-ups ending "I've stopped" — the script's reply to the handover lacked
+the `"action": "done"` the loop reads, so it counted as a cancel; fixed, and the test now plays the
+person pressing "I've finished" a second after paying, as a person would, not before.
+
+**Also changed, from run E on Readings (2026-11-13j):** typing into a search box now presses Enter
+too (by role `searchbox`, or a field labelled search/keyword/find); icon-font characters are taken
+out of labels, so an icon-only button is "(no name)" to the model and "the button with no name" to
+the person, not "Click .". Tests in `test_llm_loop.py` (3 new).
+
+**Not measured:** the prompt's size since plain page text joined "What the page says". It shares the
+same 2,400-character cap as before, so a step can grow by at most about 600 tokens on a page whose
+headings and tables did not already fill it; Groq's free 8,000 tokens a minute then allows about
+three steps a minute.
+
+**Tests.** Full `pytest backend tools` (live-site file left out): **1,577 passed, 2 failed, 10 skipped**
+in 2,360 s. The 2 were yesterday's new `tools/evaluation/test_open_goal_live_run.py`, failing only in
+the whole suite: a synchronous Playwright session from an earlier test holds the thread's event loop,
+and `asyncio.run` will not start under it. They now run their browser on a thread of their own, and
+pass after `test_content.py` in one process (29 of 29); the full suite was not run again for that
+test-only change. Overlay with Readings added to the list: `test_sites.py`, `test_home.py`,
+`test_setup.py` **95 passed**. Readings is in `data/catalogue.json` (Shopping: "Find a book's price",
+"Buy a book"); `test_catalogue.py` 33 passed.
+
+For Raham's real payment run: `docs/live-payment-run.md`.

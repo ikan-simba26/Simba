@@ -14,6 +14,7 @@ Its schema has no "done" verb, by design, so completion is decided by the
 task's success condition rather than by the model claiming to be finished.
 """
 
+import re
 from dataclasses import dataclass
 
 from backend.orchestrator.llm import Action, LLMError, Provider
@@ -70,10 +71,27 @@ LABEL_CHARS = 80
 PLAIN_INPUTS = {"text", "search", "button", "submit", "reset", "image"}
 
 
+def _without_icons(text: str) -> str:
+    """`text` without icon-font characters (Unicode's private use area): a
+    search button drawn as `\\uf002` has no words, and the model and the person
+    were shown a glyph that means nothing ("Click .", 2026-11-13j)."""
+    return " ".join("".join(ch for ch in text if not "" <= ch <= "").split())
+
+
 def _label(text: str) -> str:
-    """One line, no run of spaces, at most LABEL_CHARS."""
-    text = " ".join(text.split())
+    """One line, no run of spaces, no icon glyphs, at most LABEL_CHARS."""
+    text = _without_icons(text)
     return text if len(text) <= LABEL_CHARS else text[:LABEL_CHARS - 1].rstrip() + "…"
+
+
+#: A field whose typing is a search: Enter sends it (2026-11-14). By role, or
+#: by the words a shop's search box uses.
+SEARCH_LABEL = re.compile(r"\b(search|keyword|find)\b", re.IGNORECASE)
+
+
+def _is_search(element: Element) -> bool:
+    return element.role == "searchbox" or (
+        element.role in ("combobox", "textbox") and bool(SEARCH_LABEL.search(element.label)))
 
 
 def render_page(elements: list[Element]) -> str:
@@ -159,7 +177,8 @@ def render_page(elements: list[Element]) -> str:
         lines += [""]
 
     for element in listed:
-        line = f"{element.id}. {element.role} {_label(element.label)!r}"
+        name = _label(element.label)
+        line = f"{element.id}. {element.role} {name!r}" if name else f"{element.id}. {element.role} (no name)"
         if element.qualifier:
             # Without this a month grid offers two elements called '30' and
             # nothing to choose between them.
@@ -190,7 +209,14 @@ def _headings_of(choices: list[Element]) -> str:
 
 def describe(action: Action, element: Element) -> str:
     """The action as a sentence for the person being helped. See `voice.describe`."""
-    return voice.describe(action.action, element.label or f"element {element.id}")
+    name = _without_icons(element.label)
+    if not name:
+        name = "the button with no name" if element.role == "button" else f"item {element.id}"
+    return voice.describe(action.action, name)
+
+
+#: What a private value is replaced with in anything sent to a model.
+PRIVATE_MARK = "[what you typed]"
 
 
 class LLMPlanner:
@@ -201,6 +227,35 @@ class LLMPlanner:
         self._task = task
         self.calls_made = 0
         self.stuck_reason: str | None = None
+        #: Everything the person typed in this run, and any saved sign-in
+        #: used: never sent to a model, even when the site shows it back
+        #: ("Deliver to: …", "Hello, …"). Free providers may keep what they
+        #: are sent (2026-11-14; DECISIONS.md, 2026-11-13).
+        self._private: set[str] = set()
+
+    def keep_private(self, values) -> None:
+        """Called by the loop with the values it is about to type."""
+        for value in values:
+            value = " ".join(str(value or "").split())
+            # Two characters or fewer would blank out ordinary words ("No").
+            if len(value) >= 3:
+                self._private.add(value)
+
+    def _redacted(self, text: str | None) -> str | None:
+        """`text` with every private value replaced, longest first."""
+        if not text or not self._private:
+            return text
+        for value in sorted(self._private, key=len, reverse=True):
+            text = re.sub(re.escape(value).replace(r"\ ", r"\s+"), PRIVATE_MARK, text,
+                          flags=re.IGNORECASE)
+        return text
+
+    async def _decide(self, system: str, page: str, feedback: str | None,
+                      history: list[str] | None) -> Action:
+        """The one way a planner asks the model: with nothing private in it."""
+        return await self._provider.decide(
+            system, self._redacted(page) or "", self._task.goal, self._redacted(feedback),
+            [self._redacted(line) or "" for line in history] if history else history)
 
     async def next_move(
         self, elements: list[Element], history: list[str], setback: str | None
@@ -219,6 +274,13 @@ class LLMPlanner:
             element_id=element.id,
             value=action.value,
         )
+        operations = [operation]
+        # Typing into a search box sends the search too (2026-11-14): a search
+        # button is often only an icon, and Readings' was typed into seven
+        # times and never sent (EVALUATION.md, 2026-11-13j).
+        if action.action == "type" and _is_search(element):
+            operations.append(Operation(kind="press", target=operation.target,
+                                        element_id=element.id, value="Enter"))
 
         # A field for whatever is being typed, so the person can say it. A
         # password field is offered too, as a protected one, always empty: the
@@ -242,7 +304,7 @@ class LLMPlanner:
         return Move(
             instruction=describe(action, element),
             detail=action.reasoning,
-            operations=[operation],
+            operations=operations,
             # The model declares no expectation, so the bar is the general one:
             # the page must actually have changed. A typed value is checked by
             # reading the field back, in loop.attempt_move.
@@ -261,9 +323,8 @@ class LLMPlanner:
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._provider.decide(
-                    SYSTEM_PROMPT, render_page(elements), self._task.goal, feedback, history
-                )
+                action = await self._decide(SYSTEM_PROMPT, render_page(elements),
+                                            feedback, history)
             except LLMError as error:
                 feedback = str(error)
                 continue
@@ -294,14 +355,29 @@ class LLMPlanner:
 # answer*). Everything else — what may be pressed, what is checked after each
 # move, what is never typed — is the loop's, as for every planner.
 
+#: Changed 2026-11-14 (Raham; the advisor's "tasks carried out on live sites,
+#: not only read"): the model may now press the button that orders, books,
+#: registers, applies or pays when the goal asks for it. It never presses it
+#: unseen — the loop puts every such press on the final screen first, and a
+#: payment page is then handed to the person (`loop.carry_out`). Until then
+#: the rule read "never press a button that pays, orders, books, registers or
+#: submits", and the AI planner could only find things.
 OPEN_GOAL_RULES = """
 When the page shows what the goal asks for, answer instead of acting: \
 action "answer", element_id 0, value the answer copied exactly, word for word, \
 from "What the page says" below. Copy only words that are there; never \
 rephrase, add or calculate. If the goal needs a search first, search first.
-Never type card numbers, bank details, passwords or one-time codes, and never \
-press a button that pays, orders, books, registers or submits: say in your \
-reasoning that the person must do that themselves.
+When the goal asks you to do something — order, book, register, apply, \
+submit, pay — do it: fill in what is needed and press the button that does it. \
+SIMBA shows the person what that button will do and presses it only if they \
+say so, so press it when the form is ready. Once the page confirms it was \
+done, answer with the confirmation copied word for word, with any order or \
+reference number the page gives.
+For the person's own details — name, address, phone, email, ID numbers — \
+choose "type" with value null: the person types them. Use a value from the \
+goal only if the goal gives it.
+Never type card numbers, bank details, passwords or one-time codes: a payment \
+page is handed to the person.
 """
 
 #: How much of what the page says goes in the prompt. A free tier's tokens a
@@ -314,7 +390,7 @@ TABLE_ROWS = 12
 def render_content(content: Content | None, limit: int = CONTENT_CHARS) -> str:
     """What the page says, for the model: headings, labelled values and the
     first rows of each table, cut at `limit` characters."""
-    if not content:
+    if not content and not (content is not None and content.text):
         return "(the page says nothing readable)"
     lines: list[str] = []
     lines += [f"# {heading.text}" for heading in content.headings]
@@ -328,7 +404,13 @@ def render_content(content: Content | None, limit: int = CONTENT_CHARS) -> str:
             lines.append(" | ".join(row.values))
         if len(table.rows) > TABLE_ROWS:
             lines.append(f"(... {len(table.rows) - TABLE_ROWS} more rows)")
+    # And the page's own text, in order, in whatever room is left (2026-11-14):
+    # a confirmation's order number or a shop's price is often a plain
+    # paragraph, in none of the parts above, and the model could not answer
+    # with what it was never shown (EVALUATION.md, 2026-11-13h and -14a).
     text = "\n".join(line for line in lines if line.strip())
+    if content.text:
+        text = (text + "\n\n" if text else "") + "All the text, in order:\n" + content.text
     return text if len(text) <= limit else text[:limit] + "\n(... the rest is cut)"
 
 
@@ -399,8 +481,8 @@ class OpenGoalPlanner(LLMPlanner):
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._provider.decide(
-                    SYSTEM_PROMPT + OPEN_GOAL_RULES, page, self._task.goal, feedback, history)
+                action = await self._decide(SYSTEM_PROMPT + OPEN_GOAL_RULES, page,
+                                            feedback, history)
             except LLMError as error:
                 feedback = str(error)
                 continue

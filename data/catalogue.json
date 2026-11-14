@@ -84,6 +84,16 @@
       ]
     },
     {
+      "id": "readings",
+      "name": "Readings bookshop",
+      "address": "https://www.readings.com.pk/",
+      "genre": "Shopping",
+      "tasks": [
+        {"label": "Find a book's price", "goal": "Find the price of the book Atomic Habits", "how": "ai"},
+        {"label": "Buy a book", "goal": "Buy a book for me", "how": "ai"}
+      ]
+    },
+    {
       "id": "govuk-holidays",
       "name": "UK bank holidays",
       "address": "https://www.gov.uk/bank-holidays",

@@ -7,6 +7,7 @@ machine, with only the model scripted.
 """
 
 import asyncio
+import concurrent.futures
 import functools
 import http.server
 import socketserver
@@ -39,6 +40,14 @@ def site(tmp_path_factory) -> str:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_address[1]}/index.html"
     server.shutdown()
+
+
+def in_own_thread(go) -> None:
+    """`asyncio.run(go())` on a thread of its own: in the whole suite a
+    synchronous Playwright session from an earlier test still holds this
+    thread's event loop, and `asyncio.run` refuses to start under it."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(lambda: asyncio.run(go())).result()
 
 
 class Presses:
@@ -85,7 +94,7 @@ def test_an_answer_is_still_accepted_not_taken_for_a_final_screen(site):
             finally:
                 await browser.close()
 
-    asyncio.run(go())
+    in_own_thread(go)
     kinds = [kind for kind, _ in connection.sent]
     assert connection.declined == []
     assert "task.completed" in kinds
@@ -109,7 +118,7 @@ def test_a_final_screen_is_answered_dont_and_nothing_is_pressed(site):
             finally:
                 await browser.close()
 
-    asyncio.run(go())
+    in_own_thread(go)
     kinds = [kind for kind, _ in connection.sent]
     assert connection.declined and connection.declined[0].startswith("final screen")
     failed = [p for kind, p in connection.sent if kind == "task.failed"]
