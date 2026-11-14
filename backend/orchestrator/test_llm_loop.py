@@ -107,6 +107,47 @@ def test_rendered_page_has_ids_roles_and_labels_but_no_values() -> None:
     assert "hunter2" not in rendered
 
 
+# --- what cannot work is not offered again (2026-11-14) ---------------------
+
+
+def test_a_link_out_of_sight_sideways_is_not_offered() -> None:
+    """Readings' home page, 2026-11-14 (EVALUATION.md, 2026-11-14d): the model
+    clicked a book in a sliding banner whose slide was off the side of the
+    page; the click landed on nothing, twice."""
+    rendered = render_page([
+        element(id=1, role="link", label="Atomic Habits", rect=(1500.0, 900.0, 180.0, 20.0)),
+        element(id=2, role="link", label="The Alchemist", rect=(-400.0, 900.0, 180.0, 20.0)),
+        element(id=3, role="link", label="Bestsellers", rect=(300.0, 900.0, 120.0, 20.0)),
+        element(id=4, role="link", label="Contact us", rect=(300.0, 2400.0, 120.0, 20.0)),
+    ]).splitlines()
+    assert "3. link 'Bestsellers'" in rendered
+    assert "4. link 'Contact us'" in rendered          # below the fold: scrolled to
+    assert not any("Atomic Habits" in line or "Alchemist" in line for line in rendered)
+    assert any("2 out of sight" in line for line in rendered)
+
+
+def test_what_just_failed_is_not_offered_again() -> None:
+    """The same morning the model, told its click had not worked, chose the
+    same link again, 98 s later, and the run stopped."""
+    elements = [element(id=1, role="link", label="Atomic Habits"),
+                element(id=2, role="combobox", label="Search")]
+    provider = ScriptedProvider([
+        Action(action="click", element_id=1, reasoning="Open the book."),
+        Action(action="type", element_id=2, value="Atomic Habits", reasoning="Search."),
+        Action(action="click", element_id=1, reasoning="Open the book."),
+    ])
+    planner = LLMPlanner(provider, REGISTRATION_TASK)
+    asyncio.run(planner.next_move(elements, [], None))
+    asyncio.run(planner.next_move(elements, ["Click Atomic Habits."],
+                                  "Your last choice — Click Atomic Habits. — did not work"))
+    second_page = provider.prompts[1][0]
+    assert "Atomic Habits'" not in second_page
+    assert "1 that did not work just now" in second_page
+    # Once a move has worked, it is offered again.
+    asyncio.run(planner.next_move(elements, ["Fill in Search."], None))
+    assert "1. link 'Atomic Habits'" in provider.prompts[2][0]
+
+
 # --- searching, and icons with no words (2026-11-14) ------------------------
 
 

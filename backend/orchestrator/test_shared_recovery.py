@@ -49,7 +49,9 @@ def every_element_listed():
     from backend.orchestrator import llm_loop
 
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(llm_loop, "render_page", lambda elements: "\n".join(
+        # Every element, even one that just failed (2026-11-14): this test's
+        # fake chooses the same failing link on purpose, to reach giving up.
+        patch.setattr(llm_loop, "render_page", lambda elements, failed=frozenset(): "\n".join(
             f"{e.id}. {e.role} {e.label!r}" for e in elements))
         yield
 
