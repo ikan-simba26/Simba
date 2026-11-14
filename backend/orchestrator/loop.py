@@ -1522,7 +1522,15 @@ class _Run:
                  time.monotonic() - shown_at)
         return payload
 
-    def picture(self, move: "Move") -> None:
+    def glimpse(self) -> None:
+        """A picture of the page as it is now, nobody having asked (2026-11-14):
+        the small live page beside the checklist, while SIMBA works by itself.
+        Taken while the next move is being chosen, dropped before it is made
+        (`drop_pictures`), and never said to be missing: it is a glimpse."""
+        if self.auto:
+            self.picture(None, quiet=True)
+
+    def picture(self, move: "Move | None", quiet: bool = False) -> None:
         """Take a picture of the page for the overlay, in a task of its own,
         and drop it if it is late (`PREVIEW_DEADLINE_S`) or fails: the
         picture is optional."""
@@ -1538,6 +1546,8 @@ class _Run:
             except Exception as error:  # noqa: BLE001 - late, failed or closed: dropped
                 log.info("picture of the page not sent after %.1fs: %s",
                          time.monotonic() - asked, type(error).__name__)
+                if quiet:
+                    return
                 # Said, so "What are you doing?" can say it too, rather than
                 # doing nothing (2026-10-16). Nothing more is tried.
                 try:
@@ -1641,6 +1651,7 @@ async def run_brief(
             return
         await run.set_state("thinking")
         brief.answered(payload["action_id"], payload.get("input_values") or {})
+        run.glimpse()  # the page as it opened, beside the checklist's first line
 
     if brief.gave_up is not None:
         await run.give_up(brief.gave_up)
@@ -2088,6 +2099,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 keep = answers_to_save(move, input_values)
 
         await set_state("acting")
+        # A glimpse still being taken is of the page before this move.
+        if by_itself:
+            run.drop_pictures()
 
         # The retry: same move, different strategy. Identical for every planner.
         #
@@ -2161,6 +2175,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         consecutive_setbacks = 0
         last_failure = None
         ask_next = False
+        if by_itself:
+            run.glimpse()  # the page after the move, while the next is chosen
         if keep is not None:
             # Only now: a password that did not sign anyone in is not kept.
             run.vault.put(page.url, keep)

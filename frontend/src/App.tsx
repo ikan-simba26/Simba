@@ -27,13 +27,11 @@ import { ProofPanel } from "./components/ProofPanel";
 import { TrustControl, TrustPanel } from "./components/TrustPanel";
 import { StuckNote, isWaiting } from "./components/StateSignal";
 import {
-  AgainIcon,
   Button,
   Card,
   CheckIcon,
   ChoiceCard,
   FlowIcon,
-  PictureChip,
   AlertIcon,
   PageIcon,
   PauseIcon,
@@ -41,18 +39,17 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SETTINGS, SITES, STOPPED,
+import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
          TEACH,
          TILES,
-         WHICH, greetingAt,
+         WHICH,
          presence } from "./copy";
-import { FlowIllustration } from "./components/Illustrations";
-import { pictureForFlow, pictureForName } from "./pictures";
-import { entrancePlayed, takeEntrance as homeEntrance } from "./entrance";
+import { entrancePlayed } from "./entrance";
 import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import { Welcome } from "./components/Welcome";
-import { AddSite, SITE_LIST_WIDTH, SiteList, SitePanel, hostOf } from "./components/Sites";
+import { AddSite, hostOf } from "./components/Sites";
+import { HOME_WIDTH, Home, SiteIcon } from "./components/Home";
 import { TilesEditor } from "./components/TilesEditor";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
@@ -96,10 +93,9 @@ export default function App() {
   // While SIMBA watches a helper (2026-11-04), the overlay is the bar at the
   // top and nothing else: the host shows the real website below it.
   const teaching = useStore((state) => state.teaching);
-  // The websites on the left (2026-11-13), on the home screen alone, when the
-  // backend offers a list. The column moves right by the list's width.
+  // The first screen is wider than a step's column (2026-11-14): its website
+  // cards are five to a row.
   const screen = useScreen();
-  const listed = useStore((state) => state.sites.length > 0) && screen === "idle";
 
   // The real page handed to the person, to pay or pass a check (2026-11-13).
   const handover = useStore((state) => state.handover);
@@ -112,18 +108,17 @@ export default function App() {
     // 32px, and 4px in a short window, since the step row and the real page's
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
-                    short:pt-3 short:pb-1"
-         style={listed ? { paddingLeft: SITE_LIST_WIDTH + 48 } : undefined}>
+                    short:pt-3 short:pb-1">
       {!opening && (
         <>
           <CornerLogo />
-          {listed && <SiteList />}
           <TeachEntry />
           <PresenceBar />
           {/* Most of the window, not a third of it: 880 of 1280. The first
               column was 680, which at this type size left the person reading
               a narrow strip down the middle of an empty screen. */}
-          <div className="relative z-[1] mt-6 w-full short:mt-3" style={{ maxWidth: COLUMN }}>
+          <div className="relative z-[1] mt-6 w-full short:mt-3"
+               style={{ maxWidth: screen === "idle" ? HOME_WIDTH : COLUMN }}>
             <NoticeTimers />
             <Column />
           </div>
@@ -222,7 +217,9 @@ function PresenceBar() {
       <motion.div initial={home && settle ? { opacity: 0, scale: 0.9 } : false}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.9, ease: EASE }}>
-        <Presence mode={mode} large={home} />
+        {/* Small on the first screen too since 2026-11-14: the websites
+            need the height, and the lion in the corner is the brand there. */}
+        <Presence mode={mode} />
       </motion.div>
     </motion.div>
   );
@@ -348,205 +345,8 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
 
 /* ----------------------------------------------------------------- home */
 
-/**
- * The first screen (redesigned 2026-10-14): a greeting for the time of day,
- * the three things SIMBA can do as three large tiles side by side, each with
- * a simple picture, and the box to ask in your own words, close under them:
- * one group, centred in the height of the window. From 2026-10-14 to
- * 2026-10-15 the box sat at the bottom of the window and the tiles at the
- * top, which left a large empty gap between the two things to choose from.
- * Goals asked for before, when there are any, are a short list under the
- * tiles; a tile is never repeated there.
- *
- * Once, when SIMBA opens, the tiles rise in gently after the shape has
- * settled (`entrance.ts`); never under reduced motion, and never again on the
- * way back from a task.
- */
-function Home() {
-  const { startTask, history, profile, openWelcome, tiles, startTile, setTilesOpen, routines,
-          startRoutine, sites, chosenSite } = useStore();
-  // A website chosen in the list (2026-11-13): what SIMBA can do there takes
-  // the row of three's place, and the box asks about it.
-  const chosen = sites.find((site) => site.id === chosenSite);
-  // The person's own tiles first, when they have any (2026-10-18); the three
-  // things SIMBA can do are then smaller, under them. A routine a helper
-  // showed is one of them (2026-11-04), after the rest, with its own mark.
-  const own = tiles.length + routines.length > 0;
-  const reduce = useReducedMotion() ?? false;
-  const [enter] = useState(() => homeEntrance(reduce));
-  const [hour] = useState(() => new Date().getHours());
-  const remembered = rememberedGoals(history);
-  // The goal in a few words when the backend could say it (2026-10-16): the
-  // start of a long sentence, cut off, said little.
-  const shown = remembered.map((past) => past.label ?? past.goal);
-  const apart = tellApart(shown, remembered.map((past) => past.goal));
-  // With tiles of their own, and names long enough to take two lines, the
-  // fullest home screen scrolled by 19px at 100% and 14px at 150% (measured
-  // 2026-11-10, on main): a little closer, and the tiles a little less tall.
-  const spacing = own ? "gap-4 short:gap-2.5"
-    : remembered.length > 0 ? "gap-6 short:gap-5" : "gap-8 short:gap-5";
-
-  return (
-    // Closer together the more there is (2026-10-18): the person's own tiles
-    // and "Things I can help with" are two more lines, and with three goals
-    // asked before the page scrolled by 16px at 100%.
-    <div className={`flex min-h-[calc(100dvh-176px)] flex-col justify-center
-                     short:min-h-[calc(100dvh-92px)] ${spacing}`}>
-      <div className={`flex flex-col ${spacing}`}>
-        {/* Balanced: with a name in it the greeting can take two lines, and
-            the second was "you?" alone (2026-10-18, the walk). */}
-        <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
-                       text-balance short:text-heading" data-testid="greeting">
-          {greetingAt(hour, profile.name)}
-        </h1>
-
-        {own && (
-          <section className="flex flex-col gap-3 short:gap-2" aria-label={TILES.yours}
-                   data-testid="own-tiles">
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-small font-medium text-soft">{TILES.yours}</p>
-              <Button variant="quiet" size="md" wide={false} onClick={() => setTilesOpen(true)}
-                      data-testid="change-tiles">
-                {TILES.change}
-              </Button>
-            </div>
-            <ul className="grid grid-cols-3 gap-4 short:gap-3">
-              {tiles.map((tile) => (
-                <li key={tile.id}>
-                  <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
-                          title={tile.label}
-                          className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-1.5 text-left
-                                     shadow-card transition-[box-shadow,border-color,transform]
-                                     duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-1">
-                    {/* Its picture by its name (`pictures.ts`), on its colour. */}
-                    <PictureChip kind={pictureForName(tile.label)} />
-                    <span className="line-clamp-2 text-body font-semibold leading-snug
-                                     text-ink">
-                      {tile.label}
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {routines.map((routine) => (
-                <li key={routine.id}>
-                  <button type="button" onClick={() => startRoutine(routine)}
-                          data-testid="own-routine" title={routine.label}
-                          className="flex h-full w-full items-center gap-4 rounded-xl border
-                                     border-accent/40 bg-surface px-5 py-1.5 text-left
-                                     shadow-card transition-[box-shadow,border-color,transform]
-                                     duration-200 hover:border-accent hover:shadow-lift
-                                     active:translate-y-px short:py-1">
-                    {/* By its name too, and with the mark of a tile a helper
-                        taught on its corner. */}
-                    <PictureChip kind={pictureForName(routine.label)} taught />
-                    <span className="line-clamp-2 text-body font-semibold leading-snug
-                                     text-ink">
-                      {routine.label}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {chosen ? <SitePanel site={chosen} /> : (
-        <section className="flex flex-col gap-3 short:gap-2" aria-label={HOME.canHelp}>
-          {/* With the list on the left, these three are what is ready to go,
-              not all SIMBA can do (2026-11-13). */}
-          <p className="text-small font-medium text-soft" data-testid="can-help">
-            {sites.length > 0 ? SITES.ready : HOME.canHelp}
-          </p>
-          <ul className="grid grid-cols-3 gap-4 short:gap-3" data-testid="tiles">
-            {/* Its own AnimatePresence: the screens' one above starts with
-                `initial={false}`, which would hold back the tiles' entrance
-                as well as the screen's own. */}
-            <AnimatePresence>
-            {ALL_FLOWS.map((flow, index) => (
-              <motion.li key={flow}
-                         initial={enter ? { opacity: 0, y: 18 } : false}
-                         animate={{ opacity: 1, y: 0 }}
-                         transition={{ duration: 0.7, ease: EASE, delay: 0.35 + index * 0.12 }}>
-                <button type="button" onClick={() => startTask(FLOWS[flow], flow)}
-                        data-testid="tile"
-                        className={`group flex h-full w-full rounded-xl border border-edge
-                                    bg-surface shadow-card
-                                    transition-[box-shadow,border-color,transform] duration-200
-                                    hover:border-accent/50 hover:shadow-lift active:translate-y-px
-                                    ${own
-                                      ? "items-center gap-4 px-5 py-1.5 text-left short:py-1"
-                                      : "flex-col items-center gap-4 px-5 pt-5 pb-5 text-center short:gap-3 short:pt-4 short:pb-4"}`}>
-                  {/* Under the person's own tiles, in their shape, a picture
-                      beside the words (2026-10-18): a large one each, above
-                      them, put the box to ask in off the bottom at 100% and
-                      150%. Each on its own colour since 2026-11-10. */}
-                  {own ? (
-                    <PictureChip kind={pictureForFlow(flow)} />
-                  ) : (
-                    <span className="h-20 w-28 rounded-2xl p-1.5 short:h-16 short:w-24"
-                          style={{ background: `var(--pic-${pictureForFlow(flow)}-tint)` }}
-                          data-picture={pictureForFlow(flow)} aria-hidden>
-                      <FlowIllustration flow={flow} />
-                    </span>
-                  )}
-                  <span className={`font-semibold leading-snug text-ink ${own
-                    ? "text-body" : "text-lead short:text-body"}`}>
-                    {FLOWS[flow]}
-                  </span>
-                </button>
-              </motion.li>
-            ))}
-            </AnimatePresence>
-          </ul>
-        </section>
-        )}
-
-        {/* One row, the lead-in beside the goals: stacked, two goals and
-            their lead-in took 166px and put the box under the bottom of the
-            window at 100% and 150% (2026-10-14). */}
-        {remembered.length > 0 && (
-          <section className="flex items-center gap-3" aria-label={HOME.again}>
-            <p className="shrink-0 text-small font-medium text-soft">{HOME.again}</p>
-            {remembered.map(({ goal }, index) => (
-              <button key={goal} type="button" onClick={() => startTask(goal)} title={goal}
-                      data-testid="remembered"
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border
-                                 border-edge bg-surface px-4 py-2 text-left text-body text-ink
-                                 shadow-press hover:border-accent/50">
-                <span className="shrink-0 text-accent" aria-hidden><AgainIcon /></span>
-                <span className="line-clamp-1 flex-1">{shown[index]}</span>
-                {/* What tells it from the other, never cut off (2026-10-15).
-                    Hidden from a screen reader: the goal is read whole. */}
-                {apart[index] && (
-                  <span className="shrink-0 font-semibold tabular-nums" aria-hidden
-                        data-testid="apart">
-                    {apart[index]}
-                  </span>
-                )}
-              </button>
-            ))}
-          </section>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {/* In a short window the box's lead-in goes: the greeting above has
-            just asked the same question. The box keeps it as its name. */}
-        <AskBox lead={chosen ? SITES.askHere(chosen.name) : HOME.askHeading}
-                leadWhenShort={false} />
-        <div className="flex items-center justify-between gap-4">
-          <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
-                  data-testid="change-settings">
-            {HOME.settings}
-          </Button>
-          <AskEachSetting />
-        </div>
-      </div>
-    </div>
-  );
-}
+// The first screen is `components/Home.tsx` since 2026-11-14: "Where do you
+// want to go?", then "What do you want to do there?".
 
 /** How many goals asked for before the home screen lists under the tiles. */
 const REMEMBERED = 2;
@@ -616,18 +416,6 @@ function commonStart(a: string, b: string): string {
     same.push(one[at]);
   }
   return same.join(" ");
-}
-
-/** The person's own setting: be asked before every move (2026-10-14). */
-function AskEachSetting() {
-  const { askEachTime, setAskEachTime } = useStore();
-  return (
-    <label className="flex cursor-pointer items-center gap-3 text-small text-soft">
-      <input type="checkbox" className="h-5 w-5 accent-[var(--accent)]" checked={askEachTime}
-             onChange={(event) => setAskEachTime(event.target.checked)} />
-      {SETTINGS.askEach}
-    </label>
-  );
 }
 
 /** A lead-in and what it introduces. */
@@ -947,7 +735,7 @@ function Step({ index }: { index: number }) {
  * being done and how many are still to come.
  */
 function Checklist() {
-  const { checklist, coming, pausing, pause, level } = useStore();
+  const { checklist, coming, pausing, pause, level, livePreview } = useStore();
   const reduce = useReducedMotion() ?? false;
   const simplest = level === 3;
   const at = checklist.length - 1;
@@ -966,7 +754,8 @@ function Checklist() {
         <h1 className="text-heading font-semibold tracking-[-0.015em] text-ink short:text-title">
           {CHECKLIST.heading}
         </h1>
-        <div className="flex flex-col gap-3 short:gap-2">
+        <div className="flex items-start gap-8">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 short:gap-2">
           <ol className="flex flex-col gap-3 short:gap-2" aria-live="polite"
               data-testid="checklist-lines" data-level={level}>
             {shown.map((row, index) => {
@@ -1031,6 +820,19 @@ function Checklist() {
             </p>
           )}
         </div>
+        {/* The real page, small, as SIMBA works (2026-11-14): the latest
+            picture the backend sent. Not at the simplest level, which shows
+            the one move being made and nothing else. */}
+        {!simplest && livePreview && (
+          <figure className="flex w-[300px] shrink-0 flex-col gap-2 short:w-[240px]"
+                  data-testid="live-page">
+            <img src={`data:image/png;base64,${livePreview}`} alt=""
+                 className="aspect-[16/10] w-full rounded-lg border border-edge object-cover
+                            object-top shadow-press" />
+            <figcaption className="text-caption text-soft">{SITES.livePage}</figcaption>
+          </figure>
+        )}
+        </div>
         <div>
           <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
             <span data-icon="pause"><PauseIcon size={24} /></span>
@@ -1062,6 +864,19 @@ function Checklist() {
  * then there were two here, "I'm done" and "Do something else", and both led
  * to the home screen.
  */
+/** Above an answer (2026-11-14): the website it came from, by its icon and
+ *  the name the person knows it by. Nothing when it cannot be told. */
+function AnswerSite() {
+  const site = useStore((state) => state.taskSite);
+  if (!site) return null;
+  return (
+    <p className="mb-4 flex items-center gap-3 short:mb-2" data-testid="answer-site">
+      <SiteIcon address={site.address} name={site.name} genre={site.genre} size={36} />
+      <span className="text-small font-medium text-soft">{SITES.from(site.name)}</span>
+    </p>
+  );
+}
+
 function Completed() {
   const { completed, task, startOver, takeOffer, status, keepAnswer, keepTile,
           declineKeep } = useStore();
@@ -1090,6 +905,7 @@ function Completed() {
         <ChangeDone />
       ) : findings.length > 0 ? (
         <Card className="px-12 py-12 short:py-8">
+          <AnswerSite />
           {/* The sentence, when there is one, in the lead-in's place: it
               says what the lead-in says and more, and both together were the
               line that kept nine results off a 606px window (2026-10-05). */}

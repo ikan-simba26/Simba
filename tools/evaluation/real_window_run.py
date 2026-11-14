@@ -112,6 +112,7 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
     lines_seen: list[str] = []   # checklist lines, moves SIMBA did by itself
     outcome = "timeout"
     stopped_at = None
+    saw_live: list[bool] = []
 
     def shot(label: str) -> None:
         file = OUT / f"{name}-{len(shots) + 1:02d}-{label}.png"
@@ -130,16 +131,31 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
             button.first.click()
             page.wait_for_timeout(600)
     shot("home")
+    # The first screen: "Where do you want to go?" (2026-11-14). The website's
+    # card when it is listed, "Another website" and its address when not.
+    if site:
+        from urllib.parse import urlsplit
+
+        host = (urlsplit(site).netloc or site).removeprefix("www.")
+        card = page.locator(f'[data-testid=site][title="{host}"]')
+        if card.count():
+            card.first.click()
+        else:
+            page.locator("[data-testid=another-site]").click()
+            page.locator("[data-testid=ask-where]").fill(site)
+        page.wait_for_timeout(800)
+        shot("there")
+    # The second: "What do you want to do there?" — a suggestion, or the box.
     if press_text:
         page.get_by_text(press_text, exact=False).first.click()
-    else:
-        where = page.locator("[data-testid=ask-where]")
-        if site and where.count():
-            where.first.fill(site)
-        box = page.get_by_role("textbox", name="What would you like me to do?")
-        if not box.count():
-            box = page.locator("[data-testid=ask-goal]")
-        box.first.fill(goal)
+        page.wait_for_timeout(400)
+    if goal:
+        box = page.locator("[data-testid=ask-there]" if site else "[data-testid=ask-goal]")
+        if press_text and "…" in box.first.input_value():
+            # A suggestion with a gap: the gap is selected; type over it.
+            page.keyboard.type(goal)
+        else:
+            box.first.fill(goal)
         page.keyboard.press("Enter")
 
     last_step = None
@@ -157,9 +173,17 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
             if label and label not in lines_seen:
                 lines_seen.append(label)
                 path_seen.append(f"did:{label}")
+        live = page.locator("[data-testid=live-page] img")
+        if live.count() and not saw_live:
+            saw_live.append(True)
+            shot("working")
         if any(ending in text for ending in ENDED):
-            outcome = ("completed" if "Back to start" in text and "stuck" not in text.lower()
-                       and "couldn't" not in text.lower() else "stuck")
+            outcome = ("stopped" if "stopped, as you asked" in text or "Nothing was changed" in text
+                       else "completed" if "Back to start" in text and "stuck" not in text.lower()
+                       and "couldn't" not in text.lower() and "stopped" not in text.lower()
+                       else "stuck")
+            if outcome == "stopped" and any(p.startswith("final:") for p in path_seen):
+                outcome = "final screen, declined"
             shot("ended")
             break
         if page.locator("[data-testid=handover-bar]").count():
@@ -190,11 +214,9 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
             outcome = "final screen"
             dont = shell.first.get_by_role("button", name="Don't")
             (dont.first if dont.count() else buttons.nth(1)).click()
-            if until_final:
-                page.wait_for_timeout(1500)
-                shot("declined")
-                break
-            continue
+            page.wait_for_timeout(1500)
+            shot("declined")
+            break
         # A box only the person can fill.
         boxes = shell.first.locator("input:visible")
         blocked = None
@@ -228,6 +250,7 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
         "stopped_at": stopped_at,
         "asked": asked,
         "did_by_itself": len(lines_seen),
+        "live_page_shown": bool(saw_live),
         "path": path_seen,
         "ending_text": screen_text(page)[:600],
         "seconds": round(time.time() - started, 1),
