@@ -23,6 +23,7 @@ import base64
 import json
 import logging
 import re
+import secrets
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -1039,6 +1040,71 @@ def sign_in_fields(move: "Move") -> tuple[StepField | None, StepField | None]:
     return (others[0] if len(others) == 1 else None), password
 
 
+# --- making an account (2026-11-14) -----------------------------------------
+
+#: A box to agree to a website's terms: by its words. Ticking it is the
+#: person's own choice (`voice.AGREE_TERMS`).
+AGREE_WORDS = re.compile(r"\b(agree|accept|consent|i have read)\b", re.IGNORECASE)
+TERMS_WORDS = re.compile(
+    r"\b(terms|conditions|privacy policy|user agreement|policy|eula)\b", re.IGNORECASE)
+
+
+def agrees_to_terms(move: "Move") -> bool:
+    """Whether a move ticks or presses agreement to the website's terms."""
+    for operation in move.operations:
+        if operation.kind not in ("click", "select"):
+            continue
+        label = operation.target.label or ""
+        if not TERMS_WORDS.search(label):
+            continue
+        if AGREE_WORDS.search(label) or operation.target.role == "checkbox":
+            return True
+    return False
+
+
+#: A password box for a *new* password, by its words.
+NEW_PASSWORD = re.compile(
+    r"\b(create|new|choose|set|confirm|repeat|re-?enter|retype|again|verify)\b", re.IGNORECASE)
+#: A box for the name an account is known by.
+IDENTITY_LABEL = re.compile(r"e-?mail|user ?name|login|log-in|mobile|phone", re.IGNORECASE)
+
+
+def asks_new_password(move: "Move", elements: list[Element]) -> bool:
+    """A step asking for a new password: its box says so, or the page asks
+    for the password twice (a sign-up form). A sign-in page has one box."""
+    password = sign_in_fields(move)[1]
+    if password is None:
+        return False
+    if NEW_PASSWORD.search(password.label or ""):
+        return True
+    return sum(1 for element in elements if element.is_password) >= 2
+
+
+#: What a made password is made of: no quotes, no spaces, nothing a site's
+#: rules commonly refuse, and no letters easily mistaken for each other.
+_LOWER = "abcdefghijkmnpqrstuvwxyz"
+_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+_DIGITS = "23456789"
+_SYMBOLS = "!@#$%*-_+=?"
+
+
+def make_password(length: int = 18) -> str:
+    """A strong password, with at least one of each kind of character most
+    sites ask for. From `secrets`, never logged."""
+    pool = _LOWER + _UPPER + _DIGITS + _SYMBOLS
+    chosen = [secrets.choice(group) for group in (_LOWER, _UPPER, _DIGITS, _SYMBOLS)]
+    chosen += [secrets.choice(pool) for _ in range(length - len(chosen))]
+    secrets.SystemRandom().shuffle(chosen)
+    return "".join(chosen)
+
+
+#: A page saying the website has sent an email with a link to press.
+EMAIL_SENT = re.compile(
+    r"\b(check|verify|confirm) your (e-?mail|inbox)\b|"
+    r"\b(sent|emailed) (you )?(an? )?(verification|confirmation|activation) (link|e-?mail)\b|"
+    r"\bverification link\b", re.IGNORECASE)
+
+
 def with_saved_details(move: "Move", saved: Credentials | None, can_save: bool) -> "Move":
     """The step as the person sees it, given what is saved for this site.
 
@@ -1125,6 +1191,9 @@ class _Run:
         self.rules = rules
         #: Saved sign-in details, or None to ask every time (`vault.py`).
         self.vault = vault
+        #: The name an account is known by, typed in this run (an email, a
+        #: user name): kept with a password SIMBA makes (2026-11-14).
+        self.identity: str | None = None
         #: Whether the SIMBA window is "shown", "minimised" or "hidden"
         #: (`browser.window_watch`), or None where there is no window — the
         #: headless browser, and every test that does not give one.
@@ -1678,6 +1747,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     ask_next = False
     # Pages handed to the person for a check (2026-11-13).
     checks = 0
+    # Pages whose "we've sent you an email" was explained (2026-11-14).
+    emailed: set[str] = set()
 
     # A planner that asks, or that finishes a step quietly, takes more turns
     # than it shows steps. The second bound is what stops one that never
@@ -1750,6 +1821,25 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             await run.after_payment()
             return
 
+        # The website sent an email with a link (2026-11-14): say what to do,
+        # in plain words, and wait — once per page. A box for a code from it is
+        # a one-time code, handed over above.
+        if EMAIL_SENT.search(before.content.text or "") and page.url not in emailed:
+            emailed.add(page.url)
+            steps_taken += 1
+            waiting = Move(instruction=voice.CHECK_EMAIL, detail=voice.CHECK_EMAIL_DETAIL,
+                           operations=[], expect=Expectation(), fields=[], actions=[
+                               StepAction(id=voice.CONFIRM_ID, label=voice.DONE_EMAIL,
+                                          kind="primary"),
+                               StepAction(id=voice.CANCEL_ID, label=voice.STOP,
+                                          kind="secondary")])
+            payload = await run.present(waiting, goal=task.goal, findings=findings, view=view)
+            if payload.get("action_id") != voice.CONFIRM_ID:
+                await run.stopped()
+                return
+            history.append("The person opened the website's email and pressed its link.")
+            continue
+
         # Only a task with a success expectation can finish early. `holds`
         # alone is not a finish line: a filled form nobody has searched with
         # holds every value the goal named. Nor a planner that must finish
@@ -1807,6 +1897,25 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 return
             await run.after_payment()
             return
+
+        # A box to agree to the website's terms (2026-11-14): the person's own
+        # choice, asked in plain words, whichever planner wants it ticked. "I
+        # don't agree" stops, and nothing is sent.
+        if agrees_to_terms(move):
+            steps_taken += 1
+            asked = replace(move, instruction=voice.AGREE_TERMS,
+                            detail=voice.AGREE_TERMS_DETAIL, fields=[], actions=[
+                                StepAction(id=voice.AGREE_ID, label=voice.I_AGREE,
+                                           kind="primary"),
+                                StepAction(id=voice.DISAGREE_ID, label=voice.I_DONT_AGREE,
+                                           kind="primary")])
+            payload = await run.present(asked, goal=task.goal, findings=findings, view=view)
+            if payload.get("action_id") != voice.AGREE_ID:
+                await connection.send("task.failed", TaskFailed(
+                    reason=voice.DID_NOT_AGREE, recoverable=True))
+                return
+            # Agreed: ticked without asking again.
+            move = replace(move, quiet=True)
 
         # The final step (2026-10-16; changed 2026-11-13 by the advisor's
         # direction, G): a move that books, orders, registers or changes a
@@ -1877,6 +1986,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             # backend, and the field for a new one is always empty.
             saved = run.saved() if sign_in_fields(move)[1] is not None else None
             shown = with_saved_details(move, saved, run.can_save)
+            # A box for a *new* password (2026-11-14): SIMBA can make a
+            # strong one, type it in, and keep it — the person never has to
+            # invent or remember it. Only where it can be kept.
+            if saved is None and run.can_save and asks_new_password(move, elements):
+                lead, *others = shown.actions
+                shown = replace(shown, detail=voice.NEW_PASSWORD_HELP, actions=[
+                    lead, StepAction(id=voice.MAKE_PASSWORD_ID, label=voice.MAKE_PASSWORD,
+                                     kind="primary"), *others])
             payload = await run.present(shown, goal=task.goal, findings=findings, view=view)
             if payload.get("action_id") == voice.FORGET_ID and saved is not None:
                 # Deleted, then the same step again, asking.
@@ -1893,12 +2010,27 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 # it is left undone, and the task goes on without it.
                 history.append(f"Not done, as asked: {move.instruction}")
                 continue
-            if action not in (voice.CONFIRM_ID, voice.REMEMBER_ID):
+            if action not in (voice.CONFIRM_ID, voice.REMEMBER_ID, voice.MAKE_PASSWORD_ID):
                 await run.stopped()
                 return
             input_values = payload.get("input_values", {})
             if saved is not None:
                 input_values = {**input_values, **saved_answers(move, saved)}
+            if action == voice.MAKE_PASSWORD_ID:
+                # Made here, typed by the backend, kept once the step works
+                # (below, with `keep`); every later box for it on this site is
+                # then filled from the vault. Never shown, never sent.
+                made = make_password()
+                password_field = sign_in_fields(move)[1]
+                if password_field is not None:
+                    input_values = {**input_values, password_field.id: made}
+                keep = Credentials(run.identity or "", made)
+                history.append(voice.MADE_PASSWORD)
+            # The name an account is known by — an email, a user name — for
+            # keeping with a password made later in the same run.
+            for field in move.fields:
+                if input_values.get(field.id) and IDENTITY_LABEL.search(field.label or ""):
+                    run.identity = input_values[field.id]
             # What the person typed, and a saved sign-in, never reach a model,
             # even when the site shows them back (2026-11-14, `llm_loop`).
             keep_private = getattr(planner, "keep_private", None)

@@ -6819,3 +6819,24 @@ Rs 200-500; redo whatever it takes. Settled as follows; the loop's guards are un
 *Unchanged, deliberately:* SIMBA never types card or bank details and never presses Pay itself on a
 live site: the payment page is the person's (CLAUDE.md). A real payment is Raham's own, with him at
 the keyboard. No account is created by SIMBA or by Claude: Readings needs one, and Raham makes it.
+
+---
+
+## Making an account with SIMBA — `feat/orchestrator-sign-up`, 2026-11-14
+
+Raham: "if someone wants to create an account via SIMBA it should". Settled:
+
+- **SIMBA helps a person make their own account.** (Claude, while testing, makes none in anyone's
+  name; that is a rule for the tester, not a limit of the product.)
+- **Terms are agreed only by the person**, asked in plain words before any box is ticked; "I don't
+  agree" stops the task. *Alternative:* tick it as part of the form — the person never knows they
+  agreed to anything.
+- **SIMBA offers to make the password and keeps it** in the vault (DPAPI, this Windows account).
+  The person never sees it. *Cost, flagged:* a person who later wants to sign in on another device,
+  without SIMBA, cannot read it. *Options:* a "show my password" in the vault's list (needs the
+  overlay, Aly's area); or leave it, since SIMBA signs in for them. *Recommended:* leave it for the
+  19th; a show-once button after.
+- **A password made but never used** (the person said "Don't" at the final screen after it was
+  kept) stays in the vault until forgotten. Flagged; small.
+- **A checkbox's value is ticked or not** (perception, Nahail's area): needed for any AI task with
+  a checkbox, found by this work.

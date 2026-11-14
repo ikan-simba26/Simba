@@ -613,6 +613,39 @@ def remember(label: str) -> str:
     return f"{label} and save my password"
 
 
+# --- making an account (2026-11-14) -----------------------------------------
+#
+# Making an account is one of the hardest things on the web for the people
+# SIMBA is for: long forms, password rules, a box to type the password again,
+# terms to agree to, an email to open. Each of those has its own plain step.
+
+#: A new password, made by SIMBA, typed in every box that asks, and kept.
+MAKE_PASSWORD_ID = "make_password"
+MAKE_PASSWORD = "Make a strong password for me"
+#: The detail line on a step that asks for a new password.
+NEW_PASSWORD_HELP = ("Type a new password, or I can make a strong one, type it in for you "
+                     "and keep it safe. Then you never need to remember it.")
+#: The history line once one was made: never the password itself.
+MADE_PASSWORD = "Made a strong password and kept it safe"
+
+#: A box to agree to the website's terms: the person's own choice, asked.
+AGREE_ID = CONFIRM_ID
+DISAGREE_ID = "disagree"
+AGREE_TERMS = "This website asks you to agree to its rules (its terms)."
+AGREE_TERMS_DETAIL = ("You can read them on the website first. I'll tick the box only if "
+                      "you agree.")
+I_AGREE = "I agree"
+I_DONT_AGREE = "I don't agree"
+#: `task.failed.reason` when the person did not agree.
+DID_NOT_AGREE = "You didn't agree to the website's rules, so I stopped. Nothing was sent."
+
+#: The website sent an email with a link to press.
+CHECK_EMAIL = "The website has sent you an email."
+CHECK_EMAIL_DETAIL = ("Open your email, find the message from this website, and press the "
+                      "link in it. Then come back here and press “I've done it”.")
+DONE_EMAIL = "I've done it"
+
+
 # --- when a run ends without finishing --------------------------------------
 
 #: `help.requested.suggestion`. `test_copy.py` requires this to be exactly
