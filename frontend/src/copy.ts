@@ -73,9 +73,23 @@ export const HOME = {
    * question (2026-10-14). Morning until noon, afternoon until five, evening
    * after; the small hours are still evening, which is what people say.
    */
-  morning: "Good morning. What can I do for you?",
-  afternoon: "Good afternoon. What can I do for you?",
-  evening: "Good evening. What can I do for you?",
+  morning: "Good morning. Where do you want to go?",
+  afternoon: "Good afternoon. Where do you want to go?",
+  evening: "Good evening. Where do you want to go?",
+  /** The first screen's one box (2026-11-14): it finds a website among the
+   *  cards as it is typed in, goes to an address, and takes anything else as
+   *  something to do, as the box always has. Its name is still `askHeading`:
+   *  what it has always been called, and what it still does. */
+  findPlaceholder: "Readings, gov.uk, or train times to Karachi",
+  /** On the box's button: go to the one website found, or to the address. */
+  go: "Go",
+  /** The card after the last website: one that is not in the list. */
+  another: "Another website",
+  /** When nothing in the list has the words typed. */
+  noMatch: "Press Start and I'll see what I can do.",
+  /** Above the person's own tasks, kept or shown by a helper: a row of its
+   *  own, and only when there are some. A lead-in. */
+  yourTasks: "Your tasks",
   /** Above the goals asked for before, under the tiles. A lead-in. */
   again: "You asked before",
   /** Beside a remembered bill, when two would otherwise look the same: the
@@ -164,6 +178,24 @@ export const SITES = {
   yours: "Your websites",
   /** Above the three tiles when the list is there too. A lead-in. */
   ready: "Ready to go",
+  /** The second screen (2026-11-14): a website is chosen. */
+  whatThere: "What do you want to do there?",
+  /** Above the box under the suggestions. A lead-in. */
+  ownWords: "Or tell me in your own words",
+  ownWordsOnly: "Tell me in your own words",
+  therePlaceholder: "What you want to do there",
+  /** On "Another website": the way to "Add a website", to keep it. */
+  keepIt: "Keep a website in my list",
+  /** "Another website": where it is. */
+  anotherAsk: "Which website?",
+  anotherAddress: "Its address",
+  anotherPlaceholder: "gov.uk",
+  /** A suggestion that was asked for before on this website. */
+  again: "Like last time",
+  /** Beside the journey, while SIMBA works: the real page, small. */
+  livePage: "The real page, as I work",
+  /** On an answer: where it came from. */
+  from: (name: string) => `From ${name}`,
 } as const;
 
 /**
@@ -790,6 +822,9 @@ export const SITUATIONS: Record<string, string> = {
   "home.evening": HOME.evening,
   "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
+  "home.noMatch": HOME.noMatch,
+  "sites.whatThere": SITES.whatThere,
+  "sites.anotherAsk": SITES.anotherAsk,
   "home.morningNamed": greetingAt(9, "Ayesha"),
   "welcome.nameAsk": WELCOME.nameAsk,
   "welcome.nameDetail": WELCOME.nameDetail,

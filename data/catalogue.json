@@ -26,7 +26,7 @@
       "address": "https://daewoo.com.pk/",
       "genre": "Travel",
       "tasks": [
-        {"label": "Find bus times", "goal": "Find bus times between two cities", "how": "ai"}
+        {"label": "Find bus times", "goal": "Find bus times from … to …", "how": "ai"}
       ]
     },
     {
@@ -71,7 +71,7 @@
       "address": "https://chughtailab.com/",
       "genre": "Health",
       "tasks": [
-        {"label": "Find a test's price", "goal": "Find the price of a blood test", "how": "ai"}
+        {"label": "Find a test's price", "goal": "Find the price of the test …", "how": "ai"}
       ]
     },
     {
@@ -80,7 +80,7 @@
       "address": "https://www.olx.com.pk/",
       "genre": "Shopping",
       "tasks": [
-        {"label": "Search for something", "goal": "Search for a used phone", "how": "ai"}
+        {"label": "Search for something", "goal": "Search for …", "how": "ai"}
       ]
     },
     {
@@ -89,8 +89,9 @@
       "address": "https://www.readings.com.pk/",
       "genre": "Shopping",
       "tasks": [
-        {"label": "Find a book's price", "goal": "Find the price of the book Atomic Habits", "how": "ai"},
-        {"label": "Buy a book", "goal": "Buy a book for me", "how": "ai"}
+        {"label": "Find a book's price", "goal": "Find the price of the book …", "how": "ai"},
+        {"label": "Buy a book", "goal": "Order the book … for me", "how": "ai"},
+        {"label": "Make an account", "goal": "Make me an account", "how": "ai"}
       ]
     },
     {
@@ -117,7 +118,7 @@
       "address": "https://en.wikipedia.org/wiki/Main_Page",
       "genre": "Look things up",
       "tasks": [
-        {"label": "Look something up", "goal": "Look something up on Wikipedia", "how": "ai"}
+        {"label": "Look something up", "goal": "Look up … on Wikipedia", "how": "ai"}
       ]
     },
     {

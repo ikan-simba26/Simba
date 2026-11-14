@@ -66,11 +66,12 @@ from backend.orchestrator.catalogue import (
 from backend.orchestrator.browser import browser_source, open_page, window_watch
 from backend.orchestrator.details import BRIEFS, brief_for, known_from_tile, understand
 from backend.orchestrator import host_watch
-from backend.orchestrator.llm import LLMError, label_for, provider_from_env
+from backend.orchestrator.llm import (LLMError, label_for, planner_provider_from_env,
+                                      provider_from_env)
 from backend.orchestrator.ai_settings import (
     AiStore, SettingsError, check as check_ai, provider_for, settings_from,
 )
-from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalPlanner
+from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalBrief
 from backend.orchestrator import robots
 from backend.estimator import page_model
 from backend.estimator.pairing import Recorder, recording_enabled
@@ -366,9 +367,29 @@ def open_goal_provider():
     whatever `SIMBA_USE_HARDCODED_PLAN` says: that flag is about the three
     built-in tasks, which keep their written plans."""
     try:
+        # Gemini's Flash for the planner, not Flash-Lite (2026-11-14).
+        return planner_provider_from_env()
+    except LLMError:
+        return None
+
+
+def quick_provider():
+    """The provider that routes goals, for saying a goal back in a sentence
+    (2026-11-14): quick, and enough for that. None when none is set up."""
+    try:
         return provider_from_env()
     except LLMError:
         return None
+
+
+def site_name(site: str, catalogue: CatalogueStore) -> str:
+    """A website by the name the person knows it: the catalogue's, or its
+    address without the `www.`."""
+    listed = catalogue.for_address(site)
+    if listed is not None and listed.name:
+        return listed.name
+    host = host_of(site)
+    return host[4:] if host.startswith("www.") else host
 
 
 #: How many moves a goal with no plan is told to expect. A guess the person
@@ -643,17 +664,22 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         recorder.note_start_level(payload.get("start_level"))
 
     if open_provider is not None and site is not None:
-        # The AI planner on a goal nobody wrote a plan for (2026-11-13): every
-        # move asked, every move checked, the answer the person's to agree,
-        # and a helper offered if it cannot be done.
-        task = Task(goal=goal, estimated_steps=OPEN_GOAL_STEPS, success=None, about=About())
-        planner = OpenGoalPlanner(open_provider, task)
-        log.info("open goal on %s, with %s", host_of(site),
-                 getattr(open_provider, "label", "the model"))
+        # The AI planner on a goal nobody wrote a plan for (2026-11-13). Since
+        # 2026-11-14 it works like the built-in tasks: read back once and
+        # agreed once, then the moves that only look run by themselves as the
+        # checklist; every move checked; a helper offered if it cannot be
+        # done. Asked to confirm every move, every move is asked, as before.
+        brief = OpenGoalBrief(open_provider, goal, site_name(site, catalogue),
+                              steps=OPEN_GOAL_STEPS, auto=auto, reader=quick_provider())
+        log.info("open goal on %s, with %s%s", host_of(site),
+                 getattr(open_provider, "label", "the model"),
+                 "" if auto else ", every move asked")
         async with open_page(site) as page:
-            await run_task(page, connection, planner, task, site, recorder, rules,
-                           vault=Vault(), window=window_watch(page), teach_site=site)
-        log.info("open goal: %d model calls", planner.calls_made)
+            await run_brief(page, connection, brief, site, recorder, rules,
+                            vault=Vault(), window=window_watch(page), auto=auto,
+                            teach_site=site)
+        log.info("open goal: %d model calls",
+                 brief.planner.calls_made if brief.planner else 0)
         try:
             await websocket.close()
         except RuntimeError:

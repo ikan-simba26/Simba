@@ -6840,3 +6840,98 @@ Raham: "if someone wants to create an account via SIMBA it should". Settled:
   kept) stays in the vault until forgotten. Flagged; small.
 - **A checkbox's value is ticked or not** (perception, Nahail's area): needed for any AI task with
   a checkbox, found by this work.
+
+---
+
+## The AI planner asks once — `feat/orchestrator-calm-planner`, 2026-11-14
+
+**This replaces "every AI move is asked"** (2026-11-13: "every move asked, every move checked, the
+answer the person's to agree"). Raham tried SIMBA in the real window on the evening of 14 November:
+on Readings the AI asked him to confirm about ten moves in one run. "That defeats the point of
+SIMBA." His direction:
+
+- **One read-back at the start, one yes**: "I'll search Readings for Atomic Habits and tell you the
+  price. Shall I?" *Yes, go ahead* / *No, stop*.
+- **Then the safe moves run on their own**, each a line of the journey with one Pause: searching,
+  opening, reading, filling a box with something the goal said.
+- **It stops for the person only for**: a real choice, something only they can type, the final
+  screen, the payment handover, a check that a person is there (and, as before, anything that went
+  wrong: CLAUDE.md, 2026-10-14, unchanged).
+- **The answer in one sentence.**
+- **No progress after three moves: stop and offer "Ask a helper to show me once". Never wander.**
+- **"A person can ask to confirm every move" stays as the option it is**: with it ticked, every AI
+  move is asked and the answer is asked about ("Is this what you wanted?"), as until today.
+- **Every step says in plain words what will happen** ("Search for Atomic Habits."), never "Click
+  element 13" and never the site's own run of labels.
+
+Settled along the way, none of it asked for — each is flagged in STATUS.md:
+
+- **What counts as safe is decided by SIMBA, not by the model** (`llm_loop.OpenGoalPlanner._shape`).
+  A press is safe unless its words say it changes something (`loop.CHANGE_WORDS`: then the final
+  screen, as before) or says yes for the person (accept, allow, agree, subscribe: then asked). Typing
+  is safe only when the value came from the model reading the goal and the box is not about the
+  person. *Alternative:* let the model mark its own moves safe — refused: a model that is wrong about
+  that is a change nobody agreed to.
+- **A box about the person is the person's**: name, email, phone, address, ID, user name. A value
+  the model made up for one is dropped and the person is asked; a value the goal itself gave is
+  shown in the box for them to agree. A password is never the model's.
+- **The answer is no longer asked about** ("Is this what you wanted?") unless every move is. It is
+  still shown only if the page says it word for word, still ringed on the page's picture, and the
+  page is still read again before closing. *Cost:* a right-looking wrong answer (the price of
+  another edition) is no longer caught by a question; it is caught only by the person reading the
+  closing screen and its picture. *Alternative:* keep the question — one more press on every task,
+  which is what Raham asked to remove.
+- **The answer's one sentence is the model's, held to the page** (`llm_loop.answer_sentence`): it is
+  used only if it contains the answer exactly as the page says it, is one sentence, and has no
+  number that is in neither the answer nor the goal. Otherwise the answer is shown by itself.
+  *Cost:* the words round the value are the model's ("Atomic Habits costs…") and are not checked.
+  *Alternative:* a fixed sentence ("The page says: Rs.3221.") — never wrong, and says less.
+  **For Raham, Nahail and Aly to confirm.**
+- **The read-back's sentence is the model's too** (the quick one, Flash-Lite, 10 s at most), used
+  only if it starts "I'll", is short, and holds no address; otherwise the person's own words are
+  read back in quotes. It is a question the person answers, so a poor one costs a "No".
+- **"Not getting anywhere" is measured, not judged** (`OpenGoalPlanner._weigh`): a move got
+  somewhere if the page afterwards is one this run has not seen (by its elements' roles and words),
+  or it filled a box not filled before. Three in a row that did not, or the same press chosen a
+  third time when the first two led nowhere new, and it stops: "I'm not getting anywhere on this
+  website, so I've stopped. I didn't change anything.", with the helper's button. Two moves running
+  that fail outright stop it the same way, in the same words (they used to say "Click Login. did
+  not work: Locator.click: Timeout…").
+- **A dialog on top of the page is not "dismissed first" for an open goal.** The model is told to
+  use it if the goal needs it and close it if it is in the way. The written plans' prompt and the
+  measured registration benchmark's are unchanged.
+- **A help-chat button is never offered to the model**, and is not treated as covering the page.
+- **Only what was listed can be chosen.** The model used to be able to name any element's number,
+  listed or not.
+- **A live page is read once it has stopped arriving** (`loop.settled`: about a second of quiet, six
+  at most), for the AI planner only. *Cost:* about a second on every AI move.
+- **An anchor with no address that says it opens something is not a dead link** (perception,
+  **Nahail's area**): `href="#"` with `role="button"`, `data-toggle`, `data-target`, their `data-bs-`
+  forms, `aria-controls`, `aria-haspopup`, `aria-expanded` or `onclick`. *Cost:* some placeholder
+  links that carry such attributes are listed again. **For Nahail to review.**
+- **No call to an AI service waits more than 10 seconds, and the SDK's own silent retries are off**
+  (`llm.CALL_TIMEOUT_S`); a provider that cannot answer twice running is rested for three minutes;
+  one choice takes 45 seconds at the very most, and then SIMBA stops and says the AI service is
+  slow. *Cost:* a slow but working answer after 10 s is thrown away and asked of the next provider.
+- **Gemini Flash-Lite stays the planner's model** (Raham, later the same evening: "Billing isn't set
+  up yet; keep Flash-Lite for now"). `SIMBA_PLANNER_MODEL=gemini-3.8-flash,gemini-3.6-flash` in
+  `.env` switches the planner to Flash, with Groq and OpenRouter still behind it; nothing else
+  changes. Measured that night on the free key: 3.8 Flash timed out or answered 503, 3.6 Flash took
+  7 to 9 s a move (EVALUATION.md, 2026-11-14c).
+
+**Open, and Raham's to decide — the final screen for a press that only opens a form.** "Register"
+at the top of Readings opens the sign-up dialog and sends nothing; its word is in `CHANGE_WORDS`, so
+it gets a final screen ("I'll press “Register” on the site. This makes a change there."), and the
+button that really makes the account gets a second. *Options:* (a) leave it: one more "Do it", and a
+sentence that is not quite true, but never a change nobody agreed to; (b) let a press through
+without a final screen when the page itself says it only opens a dialog (an anchor with no address
+and `data-toggle="modal"`, outside any form) — fewer presses, and it trusts the page's markup on a
+live site, which `loop.only_opens` deliberately does not. *Recommended:* (b), narrowly, after Raham
+says so; **(a) is what the code does today**, because this is the final-step rule and not mine to
+loosen.
+
+**Settled, 15 November — Raham: "Keep final screen".** A press whose words say it changes
+something gets its final screen even when it only opens a form: (a) above stands. Nothing in
+`loop.would_change` or `loop.only_opens` was changed for it. On Readings, making an account is
+therefore two final screens: one for "Register" at the top of the page, which opens the form, and
+one for the button that makes the account.

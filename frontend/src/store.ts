@@ -272,10 +272,22 @@ interface Store {
   sites: CatalogueSite[];
   genres: string[];
   chosenSite: string | null;
+  /** The address typed on the first screen, carried to "Another website". */
+  anotherAddress: string | null;
+  /**
+   * The website the task on screen is on (2026-11-14), for the answer's
+   * heading: its name, address and kind. From the website chosen, the address
+   * typed, or — for a built-in task or one of the person's own — the listed
+   * website it runs on. Null when it cannot be told.
+   */
+  taskSite: { name: string; address: string; genre: string } | null;
+  /** The real page, small, as SIMBA works by itself (2026-11-14): the latest
+   *  picture the backend sent, as a PNG in base64. Null between tasks. */
+  livePreview: string | null;
   addSiteOpen: boolean;
   addingSite: boolean;
   siteNote: string | null;
-  chooseSite: (id: string | null) => void;
+  chooseSite: (id: string | null, address?: string) => void;
   setAddSiteOpen: (open: boolean) => void;
   addSite: (site: SiteAdd) => void;
   /** The user picking a level, which also locks it. */
@@ -375,6 +387,7 @@ const EMPTY = {
   answered: false,
   load: null,
   preview: null,
+  livePreview: null,
   stageNow: null,
   checklist: [],
   coming: [],
@@ -390,6 +403,40 @@ const EMPTY = {
   reply: null,
   asking: null,
 };
+
+/** Which listed website a task is on: see `taskSite`. */
+function siteOfTask(
+  state: { sites: CatalogueSite[]; routines: TaughtTile[] },
+  flow: FlowName | undefined, routine: string | undefined, site: string | undefined,
+): { name: string; address: string; genre: string } | null {
+  const host = (address: string) => {
+    try {
+      return new URL(address).host.replace(/^www\./, "");
+    } catch {
+      return address;
+    }
+  };
+  const listed = (address: string) =>
+    state.sites.find((entry) => host(entry.address) === host(address));
+  if (site) {
+    const found = listed(site);
+    return found ? { name: found.name, address: found.address, genre: found.genre }
+      : { name: host(site), address: /^https?:/.test(site) ? site : `https://${site}`,
+          genre: "Other" };
+  }
+  if (flow) {
+    const found = state.sites.find((entry) => entry.tasks.some((task) => task.flow === flow));
+    return found ? { name: found.name, address: found.address, genre: found.genre } : null;
+  }
+  if (routine) {
+    const taught = state.routines.find((entry) => entry.id === routine);
+    const found = taught ? state.sites.find((entry) => host(entry.address) === taught.site
+      || entry.address.includes(taught.site)) : undefined;
+    return found ? { name: found.name, address: found.address, genre: found.genre }
+      : taught ? { name: taught.site, address: `https://${taught.site}`, genre: "Other" } : null;
+  }
+  return null;
+}
 
 declare global {
   interface Window {
@@ -498,6 +545,8 @@ export const useStore = create<Store>((set, get) => {
     sites: [],
     genres: [],
     chosenSite: null,
+    anotherAddress: null,
+    taskSite: null,
     addSiteOpen: false,
     addingSite: false,
     siteNote: null,
@@ -583,7 +632,7 @@ export const useStore = create<Store>((set, get) => {
       // Offered from a reply, the reply is done with.
       ...(open ? { welcomeOpen: false, reply: null, addSiteOpen: false } : {}) }),
 
-    chooseSite: (id) => set({ chosenSite: id }),
+    chooseSite: (id, address) => set({ chosenSite: id, anotherAddress: address ?? null }),
 
     setUpAi: (setup) => {
       set({ aiChecking: true });
@@ -719,7 +768,9 @@ export const useStore = create<Store>((set, get) => {
       const completed = get().completed;
       if (completed?.offer || completed?.keep) connection.close();
       if (get().teaching) hostBar(false);
-      set({ ...EMPTY, teaching: null });
+      // Back to the first screen, not to the website just used (2026-11-14).
+      set({ ...EMPTY, teaching: null, chosenSite: null, anotherAddress: null,
+            taskSite: null });
       // And a new one, so the home screen is offered the tiles as they now
       // stand — one just kept among them — as when SIMBA opened.
       if (!connection.isOpen) connection.connect(get().wsUrl);
@@ -742,7 +793,7 @@ export const useStore = create<Store>((set, get) => {
 
     startTask: (goal, flow, tile, routine, site) => {
       window.__simbaStarted = true;
-      set({ ...EMPTY, asking: goal });
+      set({ ...EMPTY, asking: goal, taskSite: siteOfTask(get(), flow, routine, site) });
       // A dead socket is the usual state when the backend was started after
       // the window, and after every completed task, since the backend closes
       // the socket when it is done. Reconnect and let the send queue behind it.
@@ -983,9 +1034,14 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       });
       return;
     }
-    case "page.preview":
-      set({ preview: message.payload as PagePreview, noPicture: false });
+    case "page.preview": {
+      const picture = message.payload as PagePreview;
+      // Asked for ("What are you doing?"), it is the close-up's; sent while
+      // SIMBA works by itself, it is the small live page beside the journey.
+      if (useStore.getState().trustOpen) set({ preview: picture, noPicture: false });
+      else set({ preview: picture, noPicture: false, livePreview: picture.screenshot });
       return;
+    }
     case "help.requested":
       // The run is over; there is no decision on screen to measure.
       tracker.stop();

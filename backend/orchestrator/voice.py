@@ -773,6 +773,115 @@ KEEP_LOOKING = "No, keep looking"
 AI_COULD_NOT = "I couldn't work out how to do this on this website."
 #: `help.requested.suggestion` with it: what the overlay's button does.
 AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
+#: `help.requested.reason` when the AI planner is going round in circles
+#: (2026-11-14): the same press again, or three moves that changed nothing.
+#: It stops rather than wander, and the stuck screen offers a helper.
+AI_NO_PROGRESS = ("I'm not getting anywhere on this website, so I've stopped. "
+                  "I didn't change anything.")
+#: `help.requested.reason` when no AI service answered in time (2026-11-14).
+AI_TOO_SLOW = "The AI service is taking too long to answer just now, so I've stopped."
+#: Under an open goal's answer when the run changed nothing (2026-11-14).
+AI_ONLY_LOOKED = "I only looked. I didn't order, pay or change anything."
+
+# --- an open goal, read back once (2026-11-14) --------------------------------
+#
+# The AI planner works like the built-in tasks (DECISIONS.md, *The AI planner
+# asks once*): what it is about to do is read back once and agreed once; then
+# the safe moves run by themselves as lines of the checklist.
+
+#: The read-back's two answers.
+READ_BACK_GO = "Yes, go ahead"
+READ_BACK_STOP = "No, stop"
+#: Under the read-back, at the fuller levels: what still asks.
+READ_BACK_DETAIL = ("I'll do the looking and the clicking. I'll ask you before anything is "
+                    "ordered, paid, sent or changed.")
+SHALL_I = "Shall I?"
+
+
+def open_read_back(sentence: str) -> str:
+    """`I'll search Readings for Atomic Habits and tell you the price. Shall I?`"""
+    return f"{sentence.rstrip('.!? ')}. {SHALL_I}"
+
+
+def plain_read_back(goal: str, site: str) -> str:
+    """The read-back when no model wrote one: the person's own words, quoted."""
+    return f"On {site}, I'll do this: “{goal.strip().rstrip('.!?')}”. {SHALL_I}"
+
+
+def read_back_actions() -> list[StepAction]:
+    return [
+        StepAction(id=CONFIRM_ID, label=READ_BACK_GO, kind="primary"),
+        StepAction(id=CANCEL_ID, label=READ_BACK_STOP, kind="secondary"),
+    ]
+
+
+# --- a move the AI planner chose, in plain words (2026-11-14) -----------------
+#
+# What is about to happen, said as a person would say it: "Search for Atomic
+# Habits.", "Open Atomic Habits.", "Press Add to Cart." Never "Click element
+# 13", never the site's own run of labels ("Fill in Keyword | Title | Author |
+# ISBN | Publisher."), and never a value the person typed. Each comes with its
+# checklist line, said as what is happening: "Searching for Atomic Habits".
+
+#: The most of a site's label said in a step.
+PLAIN_LABEL_CHARS = 60
+#: What a button that closes a pop-up is called.
+CLOSE_WORDS = re.compile(
+    r"^\W*(close|dismiss|no,? thanks?|not now|maybe later|skip|got it|x|×|✕|cancel)\W*$",
+    re.IGNORECASE)
+_FIELD_LEAD = re.compile(r"^(please\s+)?(enter|type|your|input|provide)\s+(your\s+)?", re.IGNORECASE)
+
+
+def short_name(label: str, limit: int = PLAIN_LABEL_CHARS) -> str:
+    """A site's label on one line, cut at a word when it is long."""
+    label = " ".join((label or "").split()).strip(" :*|-")
+    if len(label) <= limit:
+        return label
+    return label[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-|") + "…"
+
+
+def field_name(label: str) -> str:
+    """A box's label as the thing it asks for: "Enter Email *" is "email"."""
+    name = _FIELD_LEAD.sub("", short_name(label, 40)).strip(" :*")
+    if not name:
+        return "answer"
+    return name if name.isupper() else name[0].lower() + name[1:]
+
+
+def plain_move(kind: str, role: str, label: str, value: str | None = None, *,
+               search: bool = False, overlay: bool = False,
+               password: bool = False) -> tuple[str, str]:
+    """A move in plain words: the step's sentence, and its checklist line.
+
+    `value` is only ever something the planner took from the goal; a box the
+    person fills themself has none, and is asked for by what it wants."""
+    name = short_name(label)
+    if kind in ("fill", "type"):
+        if password:
+            return "Type your password.", "Typing your password"
+        if value and search:
+            return f"Search for {value}.", f"Searching for {value}"
+        if value:
+            box = f"the {field_name(label)} box" if name else "the box"
+            return f"Type {value} in {box}.", f"Typing {value} in {box}"
+        return f"Type your {field_name(label)}.", f"Typing your {field_name(label)}"
+    if kind == "select":
+        if value:
+            return f"Choose {value}.", f"Choosing {value}"
+        return f"Choose your {field_name(label)}.", f"Choosing your {field_name(label)}"
+    if overlay and CLOSE_WORDS.match(label or ""):
+        return "Close the pop-up.", "Closing a pop-up"
+    if not name:
+        return "Press a button that has no words on it.", "Pressing a button"
+    if role in ("option", "radio", "menuitemradio"):
+        return f"Choose {name}.", f"Choosing {name}"
+    if role in ("checkbox", "switch", "menuitemcheckbox"):
+        return f"Tick {name}.", f"Ticking {name}"
+    if role in ("link", "tab", "menuitem"):
+        return f"Open {name}.", f"Opening {name}"
+    return f"Press {name}.", f"Pressing {name}"
+
+
 #: `help.requested.reason` when the page is a bot check, a CAPTCHA, a
 #: one-time code or a refusal (2026-11-13). SIMBA never gets past one.
 BLOCKED = ("The website wants to check that a person is using it. That part is "

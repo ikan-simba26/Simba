@@ -2214,3 +2214,10 @@ costing one more call when they answer (EVALUATION.md, 2026-11-13g).
 
 **Blocked**
 - Nothing.
+
+## 2026-11-15 — `feat/orchestrator-calm-planner`
+
+- **Done:** AI planner asks once (read-back, then safe moves run by themselves), plain-words steps, stops after 3 moves of no progress and offers a helper, 10 s call timeout with resting fallbacks, new first screen ("Where do you want to go?" → "What do you want to do there?"), live page beside the journey, answers name their website. Final screen kept for "Register" (Raham). Typed values now go to the element chosen, not the number (it typed an email into "Last Name" on live Readings).
+- **Verified in the real window:** Readings price twice (Rs.3221). Readings sign-up reaches the form but was not run to the account's final screen: the window was minimised mid-run twice.
+- **Tests:** planner/loop tests 93 pass; home/sites/own-tiles/copy pass. Full suite not run. Gemini Flash-Lite kept (Raham, billing not set up).
+- **Next (step E, with Raham):** 5 demo tasks x3 in the real window; sign-up to final screen; 100/125% pictures; EVALUATION.md numbers; Aly reviews frontend, Nahail the dead-link change.

@@ -203,6 +203,50 @@ def features_of(view: PageView) -> PageFeatures | None:
     return page_features(view, view.document) if view.document is not None else None
 
 
+#: How long a live page is given to stop arriving before it is read anyway,
+#: and how often it is looked at meanwhile (2026-11-14).
+SETTLE_LIMIT_S = 6.0
+SETTLE_POLL_S = 0.3
+#: How many looks running must find it the same: about a second of quiet. Two
+#: was not enough for a page that fills itself in a moment after it loads.
+SETTLE_SAME = 3
+#: What is counted to tell: the things a person could use, and the text.
+SETTLE_JS = """() => [document.readyState,
+  document.querySelectorAll('a,button,input,select,textarea,[role=button]').length,
+  (document.body ? document.body.innerText.length : 0)]"""
+
+
+async def settled(page: Page, limit_s: float = SETTLE_LIMIT_S) -> float:
+    """Wait until a page has stopped arriving: loaded, and with as many things
+    to use and as much text as it had a moment ago, twice running. Returns the
+    seconds waited. Never longer than `limit_s`, and never an error: a page
+    that keeps moving is read as it is. It costs every move about a second.
+
+    For a planner that reads whatever is there (`waits_for_page`). On
+    2026-11-14, in the real window, Readings was read 0.8s after it opened:
+    41 elements of its 370, with its help-chat button the only thing "on top",
+    and the model's first move was to open the chat (EVALUATION.md,
+    2026-11-14c). The written plans wait for the one thing each step needs,
+    and do not come this way."""
+    started = time.monotonic()
+    last: object = None
+    same = 0
+    while time.monotonic() - started < limit_s:
+        try:
+            now = await page.evaluate(SETTLE_JS)
+        except PlaywrightError:
+            now = None  # between two pages: look again
+        if now is not None and now[0] == "complete" and now == last:
+            same += 1
+            if same >= SETTLE_SAME:
+                break
+        else:
+            same = 0
+        last = now
+        await asyncio.sleep(SETTLE_POLL_S)
+    return time.monotonic() - started
+
+
 async def perceive(page: Page) -> tuple[list[Element], Snapshot, PageView]:
     """Read the page once: the elements, the comparable snapshot, and the view.
 
@@ -233,6 +277,42 @@ def pick(elements: list[Element], target: Target) -> int | None:
             continue
         return element.id
     return None
+
+
+def fresh_id(elements: list[Element], operation: Operation) -> int | None:
+    """The element an operation means, in this reading of the page.
+
+    A planner that chose a number chose it from an earlier reading. A live
+    page does not stand still between two readings — a sliding banner adds
+    and drops elements — and every number after the change then names its
+    neighbour. On 2026-11-15, in the real window, Readings' sign-up form had
+    387 elements when the model chose "Email" and 386 when SIMBA typed: the
+    email went into "Last Name", was read back from "Last Name" and passed,
+    and only the check that typed values last stopped the run (EVALUATION.md,
+    2026-11-15a). So a number is believed only while it still names what was
+    chosen:
+
+      1. the same element, by the browser's own identity for it (`node`);
+      2. else the element at that number, if its role and words are still the
+         target's;
+      3. else the element with the target's role and words nearest that number;
+      4. else none: the move is not made.
+
+    A plan that names no number is matched by role and words, as always."""
+    if operation.element_id is None:
+        return pick(elements, operation.target)
+    target = operation.target
+    if operation.node is not None and operation.node >= 0:
+        for element in elements:
+            if element.backend_node_id == operation.node:
+                return element.id
+    same = [e for e in elements if e.role == target.role and e.label == target.label
+            and (target.qualifier is None or e.qualifier == target.qualifier)]
+    if any(e.id == operation.element_id for e in same):
+        return operation.element_id
+    if not same:
+        return None
+    return min(same, key=lambda e: abs(e.id - operation.element_id)).id
 
 
 def resolve(page: Page, elements: list[Element], element_id: int):
@@ -581,8 +661,7 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
     for operation in move.operations:
         if operation.kind != "fill":
             continue
-        element_id = (operation.element_id if operation.element_id is not None
-                      else pick(elements, operation.target))
+        element_id = fresh_id(elements, operation)
         element = next((e for e in elements if e.id == element_id), None)
         words = " ".join(filter(None, [operation.target.label,
                                        element.label if element else "",
@@ -731,8 +810,7 @@ async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
     for operation in move.operations:
         if operation.kind != "click":
             return False
-        element_id = (operation.element_id if operation.element_id is not None
-                      else pick(elements, operation.target))
+        element_id = fresh_id(elements, operation)
         if element_id is None:
             return False
         try:
@@ -983,11 +1061,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
         caption = caption_for(move)
         elements, _, _ = await perceive(page)
         operation = move.operations[0]
-        element_id = (
-            operation.element_id
-            if operation.element_id is not None
-            else pick(elements, operation.target)
-        )
+        element_id = fresh_id(elements, operation)
         if element_id is not None and any(e.id == element_id for e in elements):
             try:
                 box = await resolve(page, elements, element_id).bounding_box()
@@ -1478,7 +1552,15 @@ class _Run:
                  time.monotonic() - shown_at)
         return payload
 
-    def picture(self, move: "Move") -> None:
+    def glimpse(self) -> None:
+        """A picture of the page as it is now, nobody having asked (2026-11-14):
+        the small live page beside the checklist, while SIMBA works by itself.
+        Taken while the next move is being chosen, dropped before it is made
+        (`drop_pictures`), and never said to be missing: it is a glimpse."""
+        if self.auto:
+            self.picture(None, quiet=True)
+
+    def picture(self, move: "Move | None", quiet: bool = False) -> None:
         """Take a picture of the page for the overlay, in a task of its own,
         and drop it if it is late (`PREVIEW_DEADLINE_S`) or fails: the
         picture is optional."""
@@ -1494,6 +1576,8 @@ class _Run:
             except Exception as error:  # noqa: BLE001 - late, failed or closed: dropped
                 log.info("picture of the page not sent after %.1fs: %s",
                          time.monotonic() - asked, type(error).__name__)
+                if quiet:
+                    return
                 # Said, so "What are you doing?" can say it too, rather than
                 # doing nothing (2026-10-16). Nothing more is tried.
                 try:
@@ -1555,8 +1639,12 @@ async def run_brief(
     window: Callable[[], Awaitable[str]] | None = None,
     auto: bool = False,
     tiles: "TileStore | None" = None,
+    teach_site: str | None = None,
 ) -> None:
     """Ask for whatever the goal left out, then run the task it describes.
+
+    `teach_site` (2026-11-14): as for `run_task`, where the stuck screen
+    offers a helper's "Show me once" — a goal the AI planner was given.
 
     The questions come first and one at a time, as ordinary steps, with the
     site already open behind them — so "What are you doing?" has a page to
@@ -1566,6 +1654,7 @@ async def run_brief(
     run the way being stuck does, and says why.
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
+    run.teach_site = teach_site
     # On a replica a brief may offer to finish the task once its answer is in
     # (2026-10-16): book the train, pay the bill. Its stages say so.
     if hasattr(brief, "finishes"):
@@ -1592,6 +1681,7 @@ async def run_brief(
             return
         await run.set_state("thinking")
         brief.answered(payload["action_id"], payload.get("input_values") or {})
+        run.glimpse()  # the page as it opened, beside the checklist's first line
 
     if brief.gave_up is not None:
         await run.give_up(brief.gave_up)
@@ -1757,6 +1847,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         if steps_taken >= MAX_STEPS:
             break
         await set_state("thinking")
+        if getattr(planner, "waits_for_page", False):
+            await settled(page)
         reading = time.monotonic()
         elements, before, view = await perceive(page)
         read_s = time.monotonic() - reading
@@ -1828,11 +1920,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             emailed.add(page.url)
             steps_taken += 1
             waiting = Move(instruction=voice.CHECK_EMAIL, detail=voice.CHECK_EMAIL_DETAIL,
-                           operations=[], expect=Expectation(), fields=[], actions=[
-                               StepAction(id=voice.CONFIRM_ID, label=voice.DONE_EMAIL,
-                                          kind="primary"),
-                               StepAction(id=voice.CANCEL_ID, label=voice.STOP,
-                                          kind="secondary")])
+                           operations=[], expect=Expectation(), fields=[],
+                           actions=voice.actions(voice.DONE_EMAIL))
             payload = await run.present(waiting, goal=task.goal, findings=findings, view=view)
             if payload.get("action_id") != voice.CONFIRM_ID:
                 await run.stopped()
@@ -2040,6 +2129,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 keep = answers_to_save(move, input_values)
 
         await set_state("acting")
+        # A glimpse still being taken is of the page before this move.
+        if by_itself:
+            run.drop_pictures()
 
         # The retry: same move, different strategy. Identical for every planner.
         #
@@ -2084,7 +2176,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             ask_next = True
             consecutive_setbacks += 1
             if consecutive_setbacks >= 2:
-                await give_up(f"{move.instruction} did not work: {failure}")
+                await give_up(getattr(planner, "no_progress", None)
+                              or f"{move.instruction} did not work: {failure}")
                 return
             # Say so. The planner is told and may choose differently, and the
             # *user* is told too — which for a long time it was not. A step
@@ -2112,6 +2205,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         consecutive_setbacks = 0
         last_failure = None
         ask_next = False
+        if by_itself:
+            run.glimpse()  # the page after the move, while the next is chosen
         if keep is not None:
             # Only now: a password that did not sign anyone in is not kept.
             run.vault.put(page.url, keep)
@@ -2233,6 +2328,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     if remember is not None:
         remember(completed)
 
+    completed_moves = completed
     completed = TaskCompleted(
             summary=f"{task.goal} {page.url}",
             duration_ms=int((time.monotonic() - run.started) * 1000),
@@ -2240,9 +2336,14 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             llm_calls=getattr(planner, "calls_made", 0),
             replayed=getattr(planner, "replayed_steps", 0) > 0,
             findings=findings,
-            explanation=task.explain(found, seen, rows) if task.explain else None,
+            # A goal with no plan: the answer in one sentence, when the model
+            # gave one that holds (`llm_loop.answer_sentence`, 2026-11-14).
+            explanation=(task.explain(found, seen, rows) if task.explain
+                         else getattr(planner, "answer_sentence", None)),
             heading=heading,
-            scope=task.scope(found, seen, rows) if callable(task.scope) else task.scope,
+            scope=(task.scope(found, seen, rows) if callable(task.scope) else task.scope)
+            or (voice.AI_ONLY_LOOKED if answer is not None
+                and not any(m.changes for m in completed_moves) else None),
             confirmation=confirmation,
             caveat=caveat,
             proof=proof,
@@ -2374,11 +2475,9 @@ async def attempt_move(
         # Perceive fresh each time: the previous operation may have navigated.
         elements, _, _ = await perceive(page)
 
-        element_id = (
-            operation.element_id
-            if operation.element_id is not None
-            else pick(elements, operation.target)
-        )
+        # The element chosen, found again in this reading: never the number
+        # alone, which names something else once the page has moved.
+        element_id = fresh_id(elements, operation)
         if element_id is None or not any(e.id == element_id for e in elements):
             return f"could not find {operation.target.label!r} on the page"
 
