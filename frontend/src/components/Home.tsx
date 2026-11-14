@@ -25,10 +25,10 @@
 
 import { useRef, useState } from "react";
 
-import type { CatalogueSite, CatalogueTask, PastGoal } from "@shared/schema";
+import type { CatalogueSite, CatalogueTask, FlowName, PastGoal } from "@shared/schema";
 
-import { HOME, SETTINGS, SITES, TILES, greetingAt } from "../copy";
-import { pictureForName } from "../pictures";
+import { FLOWS, HOME, SETTINGS, SITES, TILES, greetingAt } from "../copy";
+import { pictureForFlow, pictureForName } from "../pictures";
 import { useStore } from "../store";
 import { hostOf, pictureForGenre } from "./Sites";
 import { AgainIcon, Button, PictureChip, SpeechIcon } from "./ui";
@@ -41,6 +41,11 @@ export const ANOTHER = "another-website";
 
 /** A suggestion to finish before it starts: its goal has a gap in it. */
 const GAP = "…";
+
+/** With no list of websites offered — an older backend, or a list that could
+ *  not be read — the first screen is not left empty: the three tasks SIMBA
+ *  knows by heart are cards in the websites' place. */
+const KNOWN: FlowName[] = ["registration", "billing", "railways"];
 
 /** Whether what was typed is a website's address rather than words. */
 export function looksLikeAddress(text: string): boolean {
@@ -119,15 +124,15 @@ function Where() {
       chooseSite(ANOTHER, typed.trim());
     } else if (found.length === 1) {
       chooseSite(found[0].id);
-    } else if (found.length === 0) {
-      // Not a website's name: something to do, routed as it always was.
+    } else {
+      // Not one website's name: something to do, routed as it always was.
       startTask(typed.trim());
     }
   };
 
   return (
     <div className="flex h-[calc(100dvh-162px)] flex-col gap-5 pt-3
-                    short:h-[calc(100dvh-110px)] short:gap-3 short:pt-2" data-testid="home-where">
+                    short:h-[calc(100dvh-110px)] short:gap-3 short:pt-4" data-testid="home-where">
       <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
                      text-balance short:text-heading" data-testid="greeting">
         {greetingAt(hour, profile.name)}
@@ -141,13 +146,13 @@ function Where() {
                             placeholder:text-soft focus-visible:outline-none short:py-2"
                  value={typed} onChange={(event) => setTyped(event.target.value)}
                  onKeyDown={(event) => event.key === "Enter" && go()}
-                 placeholder={HOME.findPlaceholder} aria-label={HOME.find}
+                 placeholder={HOME.findPlaceholder} aria-label={HOME.askHeading}
                  data-testid="ask-goal" />
-          {words && (address || found.length <= 1) && (
-            <Button size="md" wide={false} onClick={go} data-testid="home-go">
-              {address || found.length === 1 ? HOME.go : HOME.start}
-            </Button>
-          )}
+          {/* Always there, as the box's button always was: "Go" to the one
+              website found or to an address, "Start" for anything else. */}
+          <Button size="md" wide={false} onClick={go} disabled={!words} data-testid="home-go">
+            {words && (address || found.length === 1) ? HOME.go : HOME.start}
+          </Button>
         </div>
         {/* Beside the box, not after the last card: a row of cards fewer,
             which is what fits every listed website into a 150% window. */}
@@ -206,12 +211,14 @@ function Where() {
       {/* The cards scroll on their own when there are more than fit; the rest
           of the screen never does. */}
       <div className="-mx-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-6 gap-y-4
-                      overflow-y-auto px-2 pb-2 short:gap-y-2" data-testid="site-grid">
+                      overflow-y-auto px-2 pb-2 short:gap-y-1.5 short:pb-1"
+           data-testid="site-grid">
         {groups.map(({ genre, sites: inGenre }) => (
           <section key={genre} aria-label={genre} data-testid="site-genre"
-                   className="flex flex-col gap-1.5 short:gap-1">
-            <p className="text-small font-medium text-soft">{genre}</p>
-            <ul className="flex gap-3">
+                   className="flex max-w-full flex-col gap-1.5 short:gap-0.5">
+            <p className="text-small font-medium text-soft short:leading-tight">{genre}</p>
+            {/* Wrapping: a kind with more websites than a row holds. */}
+            <ul className="flex flex-wrap gap-3 short:gap-y-1.5">
               {inGenre.map((site) => (
                 <li key={`${genre}-${site.id}`}>
                   <button type="button" data-testid="site" title={hostOf(site.address)}
@@ -231,7 +238,29 @@ function Where() {
             </ul>
           </section>
         ))}
-        {words && found.length === 0 && !address && (
+        {sites.length === 0 && !words && (
+          <section className="flex flex-col gap-1.5 short:gap-1" aria-label={HOME.canHelp}
+                   data-testid="tiles">
+            <p className="text-small font-medium text-soft" data-testid="can-help">
+              {HOME.canHelp}
+            </p>
+            <ul className="flex gap-3">
+              {KNOWN.map((flow) => (
+                <li key={flow}>
+                  <button type="button" data-testid="tile" className={`${SITE_CARD} w-[280px]`}
+                          onClick={() => startTask(FLOWS[flow], flow)}>
+                    <PictureChip kind={pictureForFlow(flow)} />
+                    <span className="line-clamp-2 text-small font-semibold leading-tight
+                                     text-ink">
+                      {FLOWS[flow]}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {sites.length > 0 && words && found.length === 0 && !address && (
           <p className="w-full text-body text-soft" role="status" data-testid="no-match">
             {HOME.noMatch}
           </p>
@@ -252,7 +281,7 @@ function Where() {
 const SITE_CARD =
   "flex h-[76px] w-[200px] items-center gap-3 rounded-xl border border-edge bg-surface px-3 "
   + "text-left shadow-card transition-[box-shadow,border-color,transform] duration-200 "
-  + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[66px]";
+  + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[60px]";
 
 const OWN_TASK =
   "flex w-full min-w-0 items-center gap-3 rounded-xl border border-accent/40 bg-surface px-4 "
@@ -285,7 +314,7 @@ const MOST_SUGGESTIONS = 4;
 
 function There({ site }: { site: CatalogueSite | null }) {
   const { startTask, startRoutine, routines, chooseSite, setTeachOpen, history,
-          anotherAddress } = useStore();
+          anotherAddress, setAddSiteOpen } = useStore();
   const [goal, setGoal] = useState("");
   const [where, setWhere] = useState(anotherAddress ?? "");
   const box = useRef<HTMLInputElement>(null);
@@ -329,10 +358,16 @@ function There({ site }: { site: CatalogueSite | null }) {
                 data-testid="site-not-this">
           {SITES.notThis}
         </Button>
-        {site && (
+        {site ? (
           <Button variant="quiet" size="md" wide={false}
                   onClick={() => setTeachOpen(true, site.address)} data-testid="site-show-here">
             {SITES.showHere}
+          </Button>
+        ) : (
+          // To keep a website among the cards (2026-11-13's "Add a website").
+          <Button variant="quiet" size="md" wide={false}
+                  onClick={() => setAddSiteOpen(true)} data-testid="add-site">
+            {SITES.keepIt}
           </Button>
         )}
       </div>

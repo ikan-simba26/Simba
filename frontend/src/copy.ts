@@ -78,15 +78,15 @@ export const HOME = {
   evening: "Good evening. Where do you want to go?",
   /** The first screen's one box (2026-11-14): it finds a website among the
    *  cards as it is typed in, goes to an address, and takes anything else as
-   *  something to do, as the box always has. */
-  find: "Search for a website, or tell me what you want",
+   *  something to do, as the box always has. Its name is still `askHeading`:
+   *  what it has always been called, and what it still does. */
   findPlaceholder: "Readings, gov.uk, or train times to Karachi",
   /** On the box's button: go to the one website found, or to the address. */
   go: "Go",
   /** The card after the last website: one that is not in the list. */
   another: "Another website",
   /** When nothing in the list has the words typed. */
-  noMatch: "No website here has that name. Press Start and I'll see what I can do.",
+  noMatch: "Press Start and I'll see what I can do.",
   /** Above the person's own tasks, kept or shown by a helper: a row of its
    *  own, and only when there are some. A lead-in. */
   yourTasks: "Your tasks",
@@ -184,6 +184,8 @@ export const SITES = {
   ownWords: "Or tell me in your own words",
   ownWordsOnly: "Tell me in your own words",
   therePlaceholder: "What you want to do there",
+  /** On "Another website": the way to "Add a website", to keep it. */
+  keepIt: "Keep a website in my list",
   /** "Another website": where it is. */
   anotherAsk: "Which website?",
   anotherAddress: "Its address",

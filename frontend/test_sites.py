@@ -196,9 +196,17 @@ def home(browser, overlay: str, backend: Backend, size: str, pages: list) -> Pag
                             device_scale_factor=scale)
     pages.append(page)
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
-    page.get_by_test_id("site-list").wait_for(timeout=15000)
+    page.get_by_test_id("site-grid").wait_for(timeout=15000)
     page.wait_for_timeout(1600)  # past the entrance
     return page
+
+
+def another(page: Page, address: str = "") -> None:
+    """ "Another website": the second screen, for one that is not a card."""
+    page.get_by_test_id("another-site").click()
+    page.get_by_test_id("home-there").wait_for()
+    if address:
+        page.get_by_test_id("ask-where").fill(address)
 
 
 def edges(page: Page, testid: str) -> dict:
@@ -207,38 +215,57 @@ def edges(page: Page, testid: str) -> dict:
             "top": box["y"], "bottom": box["y"] + box["height"]}
 
 
-# --- the list ----------------------------------------------------------------
+def overlaps(a: dict, b: dict) -> bool:
+    return not (a["right"] <= b["left"] or b["right"] <= a["left"]
+                or a["bottom"] <= b["top"] or b["bottom"] <= a["top"])
+
+
+# --- the first screen --------------------------------------------------------
 
 
 @pytest.mark.parametrize("size", list(SIZES))
-def test_the_list_is_on_the_left_and_the_home_screen_still_fits(
+def test_the_first_screen_asks_where_and_every_website_is_a_card_that_fits(
         size, browser, overlay, backend, offer, pages):  # noqa: F811
+    """Redesigned 2026-11-14 (Raham: "the home screen must not look like three
+    tasks"): "Where do you want to go?", the websites as cards by kind, one box,
+    and "Another website". Until then the websites were a list down the left."""
     page = home(browser, overlay, backend, size, pages)
     width, height, _ = SIZES[size]
-    listed = edges(page, "site-list")
-    box = page.get_by_role("textbox", name=BOX).bounding_box()
-    greeting = edges(page, "greeting")
+    assert page.get_by_test_id("greeting").inner_text().strip().endswith(
+        "Where do you want to go?")
 
-    # Every website and every genre with one is there, in the backend's order.
-    names = [b.inner_text().strip() for b in page.get_by_test_id("site").all()]
+    # Every website and every kind with one is there, in the backend's order.
+    names = [b.get_attribute("aria-label") for b in page.get_by_test_id("site").all()]
     assert names == [site["name"] for site in offer["sites"]]
     genres = [g.get_attribute("aria-label") for g in page.get_by_test_id("site-genre").all()]
     assert genres == [g for g in offer["genres"]
                       if any(site["genre"] == g for site in offer["sites"])]
+    # Each card has its website's icon, or its first letter, and a name in
+    # type no smaller than 20px.
+    assert page.get_by_test_id("site-icon").count() == len(names)
+    assert page.get_by_test_id("site").first.locator("span").last.evaluate(
+        "e => parseFloat(getComputedStyle(e).fontSize)") >= 20
 
-    # On the left, wholly in the window, beside the column and not under it.
-    assert listed["left"] >= 0 and listed["bottom"] <= height
-    assert listed["right"] <= greeting["left"], (listed, greeting)
-    assert listed["right"] <= box["x"]
-    # The page never scrolls, sideways or down; the list scrolls by itself.
+    # Every card is wholly in the window: the shipped list fits without the
+    # cards scrolling, and the page never scrolls, sideways or down.
+    grid = page.get_by_test_id("site-grid")
+    assert not grid.evaluate("el => el.scrollHeight > el.clientHeight + 1")
+    for card in page.get_by_test_id("site").all():
+        box = card.bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= width
+        assert box["y"] + box["height"] <= height
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollWidth > innerWidth")
+    # The box, "Another website" and the settings are on screen, and the
+    # heading is clear of "Teach a task" in the corner.
+    for testid in ("another-site", "change-settings"):
+        assert edges(page, testid)["bottom"] <= height, testid
+    box = page.get_by_role("textbox", name=BOX).bounding_box()
     assert box["y"] + box["height"] <= height
-    # "Add a website" is at its foot, on screen.
-    add = edges(page, "add-site")
-    assert add["bottom"] <= listed["bottom"] and add["top"] >= listed["top"]
-    # And the three that are ready to go say so: not all SIMBA can do.
-    assert page.get_by_test_id("can-help").inner_text().strip() == "Ready to go"
+    assert not overlaps(edges(page, "greeting"), edges(page, "teach-entry"))
+    # And it is not three tasks: no tile, and no built-in task named.
+    assert page.get_by_test_id("tile").count() == 0
+    assert page.get_by_text("Register for a course").count() == 0
 
 
 def test_the_list_scrolls_inside_itself_when_it_is_long(browser, overlay, offer, pages):  # noqa: F811
@@ -248,7 +275,7 @@ def test_the_list_scrolls_inside_itself_when_it_is_long(browser, overlay, offer,
                              "tasks": [], "added": True} for n in range(30)]
     long_offer["genres"].append("Other")
     page = home(browser, overlay, Backend(long_offer), "150%", pages)
-    scroll = page.get_by_test_id("site-scroll")
+    scroll = page.get_by_test_id("site-grid")
     assert scroll.evaluate("el => el.scrollHeight > el.clientHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     # The last one can be reached.
@@ -264,21 +291,48 @@ def test_a_website_chosen_shows_what_simba_can_do_there(
         size, browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, size, pages)
     page.get_by_test_id("site").filter(has_text="UK bank holidays").click()
-    panel = page.get_by_test_id("site-panel")
+    panel = page.get_by_test_id("home-there")
     panel.wait_for()
+    page.wait_for_timeout(800)  # past the crossfade
     task = page.get_by_test_id("site-task")
     assert task.count() == 1
     assert "The next bank holiday" in task.inner_text()
     assert "I'll work it out" in task.inner_text()
-    # The box asks about it — in a short window its lead-in goes, as the home
-    # screen's always has, and the panel above names the website — and the
-    # whole screen still fits.
+    # The second question, under the website's name and icon, with a box for
+    # anything else — and the whole screen still fits.
+    assert page.get_by_test_id("there-heading").inner_text().strip() == (
+        "What do you want to do there?")
+    chosen = page.get_by_test_id("site-chosen")
+    assert "UK bank holidays" in chosen.inner_text() and "gov.uk" in chosen.inner_text()
+    assert chosen.get_by_test_id("site-icon").count() == 1
     page.get_by_role("textbox", name=BOX).wait_for()
-    assert page.get_by_text("What would you like me to do on UK bank holidays?").count() == 1
-    assert "UK bank holidays" in panel.inner_text()
     height = SIZES[size][1]
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     assert edges(page, "site-show-here")["bottom"] <= height
+    assert edges(page, "there-start")["bottom"] <= height
+
+
+def test_readings_offers_three_things_and_one_with_a_gap_is_finished_in_the_box(
+        browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "150%", pages)
+    page.get_by_test_id("site").filter(has_text="Readings").click()
+    tasks = page.get_by_test_id("site-task")
+    assert [t.inner_text().split("\n")[0] for t in tasks.all()] == [
+        "Find a book's price", "Buy a book", "Make an account"]
+    assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
+    # A suggestion with a gap starts nothing: it goes in the box, the gap
+    # marked, and what is typed takes the gap's place.
+    tasks.first.click()
+    page.wait_for_timeout(300)
+    assert backend.sent("task.start") == []
+    box = page.get_by_role("textbox", name=BOX)
+    assert box.input_value() == "Find the price of the book …"
+    page.keyboard.type("Atomic Habits")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(500)
+    start = backend.sent("task.start")[-1]
+    assert start["goal"] == "Find the price of the book Atomic Habits"
+    assert start["site"] == "https://www.readings.com.pk/"
 
 
 def test_an_ai_task_is_sent_with_its_website(browser, overlay, backend, pages):  # noqa: F811
@@ -317,13 +371,12 @@ def test_the_box_asks_about_the_chosen_website(browser, overlay, backend, pages)
 
 def test_choosing_it_again_lets_it_go(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "100%", pages)
-    site = page.get_by_test_id("site").filter(has_text="Wikipedia")
-    site.click()
-    page.get_by_test_id("site-panel").wait_for()
-    assert site.get_attribute("aria-pressed") == "true"
+    page.get_by_test_id("site").filter(has_text="Wikipedia").click()
+    page.get_by_test_id("home-there").wait_for()
     page.get_by_test_id("site-not-this").click()
-    page.get_by_test_id("tiles").wait_for()
-    assert site.get_attribute("aria-pressed") == "false"
+    # Back at the first question, with every card again.
+    page.get_by_test_id("home-where").wait_for()
+    assert page.get_by_test_id("site").count() > 1
 
 
 # --- any website, typed -----------------------------------------------------------
@@ -332,11 +385,32 @@ def test_choosing_it_again_lets_it_go(browser, overlay, backend, pages):  # noqa
 def test_any_website_typed_beside_the_box_is_sent_as_typed(
         browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "150%", pages)
+    another(page, "lums.edu.pk")
+    assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     page.get_by_role("textbox", name=BOX).fill("Opening hours")
-    page.get_by_test_id("ask-where").fill("lums.edu.pk")
     page.get_by_role("button", name="Start", exact=True).click()
     page.wait_for_timeout(500)
     assert backend.sent("task.start")[-1]["site"] == "lums.edu.pk"
+
+
+def test_an_address_typed_in_the_first_box_goes_to_that_website(
+        browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "100%", pages)
+    page.get_by_role("textbox", name=BOX).fill("lums.edu.pk")
+    page.get_by_test_id("home-go").click()
+    page.get_by_test_id("home-there").wait_for()
+    assert page.get_by_test_id("ask-where").input_value() == "lums.edu.pk"
+    assert backend.sent("task.start") == []
+
+
+def test_a_name_typed_in_the_first_box_finds_its_card(browser, overlay, backend, pages):  # noqa: F811
+    page = home(browser, overlay, backend, "100%", pages)
+    page.get_by_role("textbox", name=BOX).fill("wiki")
+    assert [b.get_attribute("aria-label") for b in page.get_by_test_id("site").all()] == [
+        "Wikipedia"]
+    page.keyboard.press("Enter")
+    page.get_by_test_id("home-there").wait_for()
+    assert "Wikipedia" in page.get_by_test_id("site-chosen").inner_text()
 
 
 def test_with_no_website_nothing_extra_is_sent(browser, overlay, backend, pages):  # noqa: F811
@@ -352,8 +426,8 @@ def test_with_no_website_nothing_extra_is_sent(browser, overlay, backend, pages)
 
 def test_not_yet_offers_a_helper_on_that_website(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "150%", pages)
+    another(page, "https://dgip.gov.pk/")
     page.get_by_role("textbox", name=BOX).fill("Track my passport application")
-    page.get_by_test_id("ask-where").fill("https://dgip.gov.pk/")
     page.get_by_role("button", name="Start", exact=True).click()
     page.get_by_test_id("not-yet").wait_for(timeout=10000)
     assert page.get_by_text("I don't know how to do that on dgip.gov.pk yet.").is_visible()
@@ -369,6 +443,8 @@ def test_not_yet_offers_a_helper_on_that_website(browser, overlay, backend, page
 @pytest.mark.parametrize("size", list(SIZES))
 def test_add_a_website_fits_and_adds_it(size, browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, size, pages)
+    # From "Another website" since 2026-11-14; it was at the foot of the list.
+    another(page)
     page.get_by_test_id("add-site").click()
     page.get_by_test_id("add-site-screen").wait_for()
     # Past the crossfade: while the home screen leaves, both share the column.
@@ -376,24 +452,28 @@ def test_add_a_website_fits_and_adds_it(size, browser, overlay, backend, pages):
     height = SIZES[size][1]
     assert edges(page, "add-site-go")["bottom"] <= height
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
-    # The list is the home screen's alone.
-    assert page.get_by_test_id("site-list").count() == 0
+    # The cards are the home screen's alone.
+    assert page.get_by_test_id("site-grid").count() == 0
 
     page.get_by_test_id("add-site-name").fill("My clinic")
     page.get_by_test_id("add-site-address").fill("clinic.example.pk")
     page.get_by_test_id("add-site-genre").select_option("Health")
     page.get_by_test_id("add-site-go").click()
 
-    # Back home, with the new website chosen and in the list under Health.
-    page.get_by_test_id("site-panel").wait_for(timeout=10000)
+    # Back home, with the new website chosen: "What do you want to do there?"
+    page.get_by_test_id("site-chosen").wait_for(timeout=10000)
     assert backend.sent("site.add")[-1] == {"name": "My clinic", "address": "clinic.example.pk",
                                             "genre": "Health"}
-    chosen = page.locator("[data-testid=site][aria-pressed=true]")
-    assert chosen.inner_text().strip() == "My clinic"
+    assert "My clinic" in page.get_by_test_id("site-chosen").inner_text()
+    # And among the cards, under Health.
+    page.get_by_test_id("site-not-this").click()
+    health = page.locator("[data-testid=site-genre][aria-label=Health]")
+    assert "My clinic" in health.inner_text()
 
 
 def test_a_website_that_cannot_be_added_says_why(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "100%", pages)
+    another(page)
     page.get_by_test_id("add-site").click()
     page.get_by_test_id("add-site-name").fill("Mine")
     page.get_by_test_id("add-site-address").fill("not an address")
@@ -404,15 +484,15 @@ def test_a_website_that_cannot_be_added_says_why(browser, overlay, backend, page
     # Still on the screen, to put it right.
     assert page.get_by_test_id("add-site-screen").is_visible()
     page.get_by_test_id("add-site-back").click()
-    page.get_by_test_id("site-list").wait_for()
+    page.get_by_test_id("home-there").wait_for()
 
 
 # --- phase 2: AI first, then teach (2026-11-13) --------------------------------------
 
 
 def ask_on(page: Page, goal: str, site: str) -> None:
+    another(page, site)
     page.get_by_role("textbox", name=BOX).fill(goal)
-    page.get_by_test_id("ask-where").fill(site)
     page.get_by_role("button", name="Start", exact=True).click()
 
 
@@ -512,11 +592,6 @@ def test_stop_on_the_handover_bar_says_nothing_was_changed(
 # --- phase 6: always says whether it is connected, and what it is doing (2026-11-13) ----
 
 
-def overlaps(a: dict, b: dict) -> bool:
-    return not (a["right"] <= b["left"] or b["right"] <= a["left"]
-                or a["bottom"] <= b["top"] or b["bottom"] <= a["top"])
-
-
 @pytest.mark.parametrize("size", list(SIZES))
 def test_the_status_line_says_connected_and_covers_nothing(
         size, browser, overlay, backend, pages):  # noqa: F811
@@ -525,11 +600,8 @@ def test_the_status_line_says_connected_and_covers_nothing(
     assert line.inner_text().replace("\n", " ").split() == ["Connected", "·", "Ready"]
     status = edges(page, "status-line")
     assert status["bottom"] <= SIZES[size][1]
-    for testid in ("site-list", "add-site", "change-settings", "greeting"):
+    for testid in ("site-grid", "another-site", "change-settings", "greeting"):
         assert not overlaps(status, edges(page, testid)), testid
-    start = page.get_by_role("button", name="Start", exact=True).bounding_box()
-    assert not overlaps(status, {"left": start["x"], "right": start["x"] + start["width"],
-                                 "top": start["y"], "bottom": start["y"] + start["height"]})
 
 
 def test_the_status_line_says_what_it_is_doing(browser, overlay, backend, pages):  # noqa: F811

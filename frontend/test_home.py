@@ -1,26 +1,21 @@
-"""The home screen: a greeting, three tiles, at most two goals asked for before,
-and the box always on screen.
+"""The first screen: a greeting that asks where, one box, and — with no list of
+websites offered — the three tasks SIMBA knows by heart in the websites' place.
 
-Until 2026-09-30 the home screen showed the three things SIMBA can do and then,
-under a second heading, up to three goals the person had asked for before: six
-cards. At 150% the window's content is 1266x606, and six cards put the text box
-below the bottom of it. `test_window_fit.py` never saw this, because the fit
-measurement launches the host with no backend, and with no backend there is no
-history — so what it measured was always the three-card screen.
+**Redesigned 2026-11-14** (Raham: "the home screen must not look like three
+tasks"). With a list of websites, the first screen is their cards, and
+`test_sites.py` checks it. This file keeps what is true whatever is offered:
+the box and its button are on screen at every scaling, what is typed is asked
+for in its own words, the greeting says the time of day, and the example is
+something SIMBA does. Goals asked for before are no longer a row here: one is
+a suggestion on its own website's screen.
 
-Since 2026-10-14 the three things SIMBA can do are three large tiles side by
-side, always, and goals asked for before are a short list under them: two at
-most, one line each, never one a tile already offers (`App.rememberedGoals`).
-The greeting says the time of day; the box sits close under the tiles, the
-whole group centred in the window's height (2026-10-15). This builds the overlay from source and renders
-it at the sizes the window actually gets — measured in EVALUATION.md,
-2026-09-25c, and the 632px window without Electron's menu bar — against a
-scripted backend that offers the history, and checks it from outside.
+Until then this file checked three large tiles, two remembered goals under
+them, what told two remembered goals apart, and the tiles' entrance — all of
+which went with that screen.
 
 The viewports are the window's content in CSS pixels, with the scale factor to
-match, which is how the overlay lays out since the zoom was withdrawn: at
-zoom 1, a CSS viewport of 1266x606 is the same layout whatever the device
-pixels behind it.
+match (EVALUATION.md, 2026-09-25c), and the 632px window without Electron's
+menu bar.
 """
 
 import asyncio
@@ -130,11 +125,7 @@ def home(browser, overlay: str, history: History, goals: list[str], size: str,  
         before(page)
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{history.port}")
     page.get_by_role("textbox", name=BOX).wait_for(timeout=15000)
-    # History arrives after the socket opens. A goal a tile already offers
-    # changes nothing on screen, so for that there is nothing to wait for.
-    if any(not tile_goal(goal["goal"] if isinstance(goal, dict) else goal) for goal in goals):
-        page.get_by_test_id("remembered").first.wait_for(timeout=10000)
-    page.wait_for_timeout(1600)  # past the entrance
+    page.wait_for_timeout(1600)  # past the entrance, and the history's arrival
     return page
 
 
@@ -165,9 +156,15 @@ def box_fits(page: Page) -> tuple[bool, dict]:
                 "entry_top": round(entry["y"]), "entry_bottom": round(entry["y"] + entry["height"]),
                 "entry_right": round(entry["x"] + entry["width"]),
                 "greeting_top": round(greeting["y"])}
+    # Clear of the greeting: above it, or — since the first screen grew wider
+    # (2026-11-14) — beside it, to the right of where its words end.
+    measured["entry_left"] = round(entry["x"])
+    measured["greeting_right"] = round(greeting["x"] + greeting["width"])
+    clear = (measured["entry_bottom"] <= measured["greeting_top"]
+             or measured["entry_left"] >= measured["greeting_right"])
     fits = (rect["y"] >= 0 and measured["box_bottom"] <= viewport["height"]
             and measured["start_bottom"] <= viewport["height"] and not scrolls
-            and measured["entry_top"] >= 0 and measured["entry_bottom"] <= measured["greeting_top"]
+            and measured["entry_top"] >= 0 and clear
             and measured["entry_right"] <= viewport["width"])
     return fits, measured
 
@@ -179,298 +176,114 @@ WORST = [LONGER, LONG, "Register for CS-401"]
 # Three bills looked up: every goal a whole sentence.
 BILLS = [f"Find the amount due for reference number {n}."
          for n in ("04141234567890", "04149999999999", "04145555555555")]
-# Longer than any goal the system writes: more than a line at every size, so
-# every remembered goal is held at its one-line limit.
+# Longer than any goal the system writes: more than a line at every size.
 TALLEST = [f"{bill} Then tell me which of them is due first and how much it is." for bill in BILLS]
 
 
 @pytest.mark.parametrize("size", list(SIZES))
-@pytest.mark.parametrize("goals", [[], WORST, BILLS, TALLEST],
-                         ids=["no history", "three long goals", "three bills", "three at the limit"])
+@pytest.mark.parametrize("goals", [[], TALLEST], ids=["no history", "three at the limit"])
 def test_the_box_is_on_screen_without_scrolling(
     size: str, goals: list[str], browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    """The requirement, at every scaling, with no history and with the longest
-    history the store would offer."""
+    """The requirement, at every scaling, whatever was asked for before: goals
+    asked before are no longer on the first screen (2026-11-14), so the longest
+    history the store would offer changes nothing here."""
     page = home(browser, overlay, history, goals, size, at)
 
     fits, measured = box_fits(page)
 
     assert fits, (size, measured)
+    assert page.get_by_test_id("remembered").count() == 0
 
 
-GROUP = """() => {
-  const top = (sel) => document.querySelector(sel).getBoundingClientRect();
-  const tiles = top('[data-testid=tiles]'), greeting = top('[data-testid=greeting]');
-  const last = [...document.querySelectorAll('[data-testid=remembered]')].pop();
-  const above = last ? last.getBoundingClientRect() : tiles;
-  const box = document.querySelector("input[aria-label='What would you like me to do?']")
-    .closest('.simba-field-frame').getBoundingClientRect();
-  const setting = [...document.querySelectorAll('label')].pop().getBoundingClientRect();
-  return {gap: Math.round(box.top - above.bottom), height: innerHeight,
-          above_greeting: Math.round(greeting.top), below_setting: Math.round(innerHeight - setting.bottom)};
-}"""
+# --- with no list of websites offered ------------------------------------------
 
 
-@pytest.mark.parametrize("goals", [[], BILLS], ids=["no history", "two remembered"])
-@pytest.mark.parametrize("size", list(SIZES))
-def test_the_box_sits_with_the_tiles(
-    size: str, goals: list[str], browser, overlay: str, history: History, at: dict,  # noqa: F811
+def test_with_no_websites_offered_the_three_known_tasks_stand_in(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    """One group, no large empty gap between the tiles and the box
-    (2026-10-15): from 2026-10-14 the box sat at the bottom of the window and
-    the tiles at the top, with everything spare between them. What is spare
-    is now above and below the group."""
-    page = home(browser, overlay, history, goals, size, at)
-
-    measured = page.evaluate(GROUP)
-
-    # Between them only the box's lead-in and the usual gaps.
-    assert measured["gap"] <= 90, measured
-    # The group is centred: what is spare is not all left below it.
-    assert measured["below_setting"] <= measured["above_greeting"] + 60, measured
-
-
-# --- the tiles ----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("size", list(SIZES))
-def test_three_tiles_side_by_side(
-    size: str, browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, TALLEST, size, at)
+    """This backend offers no websites, as an older one would, or one whose
+    list could not be read. The first screen is not left empty: the three
+    tasks SIMBA knows by heart are cards where the websites would be. With a
+    list, they are suggestions on their own websites (`test_sites.py`)."""
+    page = home(browser, overlay, history, [], "100%", at)
 
     assert tiles_on(page) == list(TILES.values())
-    tops = {round(t.bounding_box()["y"]) for t in page.get_by_test_id("tile").all()}
-    assert len(tops) == 1, tops
-    # Each with its picture.
-    assert page.locator("[data-testid=tile] svg").count() == 3
+    assert page.get_by_test_id("site").count() == 0
 
 
-def test_pressing_a_tile_runs_that_flow(
+def test_pressing_a_known_task_runs_that_flow(
     browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    """The tile's words are the goal, sent with the flow's name so the backend
-    runs exactly that rather than guessing."""
-    page = home(browser, overlay, history, [], "150%", at)
+    page = home(browser, overlay, history, [], "100%", at)
     history.received.clear()
 
-    page.get_by_test_id("tile").nth(1).click()
-    page.wait_for_timeout(800)
+    page.get_by_test_id("tile").filter(has_text="Find train times").click()
+    page.wait_for_timeout(600)
 
-    starts = [m["payload"] for m in history.received if m.get("type") == "task.start"]
-    assert starts and starts[0]["goal"] == TILES["billing"]
-    assert starts[0].get("flow") == "billing"
-
-
-# --- goals asked for before -------------------------------------------------
+    starts = [m["payload"] for m in history.received if m["type"] == "task.start"]
+    assert starts and starts[-1]["flow"] == "railways"
+    assert starts[-1]["goal"] == "Find train times"
 
 
-def test_with_no_history_nothing_under_the_tiles(
+def test_what_is_typed_in_the_box_is_asked_for_in_its_own_words(
     browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    page = home(browser, overlay, history, [], "150%", at)
-
-    assert remembered_on(page) == []
-    assert page.get_by_text("You asked before", exact=True).count() == 0
-
-
-def test_two_remembered_goals_at_most_most_recent_first(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, ["Pay my water bill", LONG, LONGER], "150%", at)
-
-    assert remembered_on(page) == ["Pay my water bill", LONG]
-
-
-def test_a_remembered_goal_a_tile_offers_is_not_shown_again(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    """Whatever its case, spacing or full stop."""
-    page = home(browser, overlay, history, ["check my  electricity bill.", LONG], "150%", at)
-
-    assert remembered_on(page) == [LONG]
-    assert tiles_on(page) == list(TILES.values())
-
-
-def test_the_same_goal_remembered_twice_is_shown_once(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    """Two sites can remember the same words; the person sees them once."""
-    page = home(browser, overlay, history, [LONG, LONG.upper(), LONGER], "150%", at)
-
-    assert remembered_on(page) == [LONG, LONGER]
-
-
-def test_two_bills_say_which_reference_each_is(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    """Both read "Find the amount due for..." on their one line (2026-10-14).
-    Each now ends with its reference's last four digits."""
-    page = home(browser, overlay, history, BILLS, "150%", at)
-
-    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
-
-    assert tags == ["ending 7890", "ending 9999"]
-    # Never cut off, and inside its own goal's button.
-    for button in page.get_by_test_id("remembered").all():
-        tag = button.get_by_test_id("apart")
-        box, inside = tag.bounding_box(), button.bounding_box()
-        assert box["x"] + box["width"] <= inside["x"] + inside["width"]
-        assert tag.evaluate("t => t.scrollWidth <= t.clientWidth")
-
-
-def test_two_journeys_say_where_they_part(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, [
-        "Find trains from Lahore Cantt to Rawalpindi on 2026-10-01.",
-        "Find trains from Lahore Cantt to Multan on 2026-10-01."], "150%", at)
-
-    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
-
-    assert tags == ["Rawalpindi", "Multan"]
-
-
-def labelled(goal: str, label: str) -> dict:
-    return {"goal": goal, "site": "127.0.0.1", "label": label}
-
-
-def test_a_remembered_goal_says_what_it_is_in_a_few_words(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    """The backend's short label, not the start of the sentence cut off
-    (2026-10-16): at 150% a bill read "Find the... ending 7890"."""
-    page = home(browser, overlay, history, [
-        labelled(BILLS[0], "Bill ending 7890"), labelled(BILLS[1], "Bill ending 9999")],
-        "150%", at)
-
-    assert remembered_on(page) == ["Bill ending 7890", "Bill ending 9999"]
-    assert page.get_by_test_id("apart").count() == 0
-    # The whole goal is still there, to hover over, and is what is asked for.
-    assert page.get_by_test_id("remembered").first.get_attribute("title") == BILLS[0]
+    """The first screen's box still takes something to do, as it always has:
+    what is typed goes to the backend as typed, with no flow and no website."""
+    page = home(browser, overlay, history, [], "125%", at)
     history.received.clear()
-    page.get_by_test_id("remembered").first.click()
-    page.wait_for_timeout(800)
-    starts = [m["payload"] for m in history.received if m.get("type") == "task.start"]
-    assert starts and starts[0]["goal"] == BILLS[0]
+    start = page.get_by_role("button", name="Start", exact=True)
+    assert start.is_disabled()
+
+    page.get_by_role("textbox", name=BOX).fill("Trains from Lahore to Karachi tomorrow")
+    start.click()
+    page.wait_for_timeout(600)
+
+    sent = [m["payload"] for m in history.received if m["type"] == "task.start"][-1]
+    assert sent["goal"] == "Trains from Lahore to Karachi tomorrow"
+    assert "flow" not in sent and "site" not in sent
 
 
-def test_two_journeys_labelled_alike_say_their_day(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, [
-        labelled("Find trains from Lahore Cantt to Rawalpindi on 2026-10-01.",
-                 "Trains Lahore Cantt to Rawalpindi"),
-        labelled("Find trains from Lahore Cantt to Rawalpindi on 2026-10-02.",
-                 "Trains Lahore Cantt to Rawalpindi")], "150%", at)
-
-    tags = [t.inner_text().strip() for t in page.get_by_test_id("apart").all()]
-
-    assert tags == ["1 October", "2 October"]
+# --- the greeting -----------------------------------------------------------
 
 
-def test_goals_that_look_different_get_no_tag(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, [LONG, LONGER], "150%", at)
-
-    assert page.get_by_test_id("apart").count() == 0
-
-
-def test_a_remembered_goal_is_one_line(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    """A goal can be as long as someone typed it. The line holds one line and
-    no more, and the words are all still there for a screen reader."""
-    page = home(browser, overlay, history, TALLEST, "100%", at)
-    line = page.get_by_test_id("remembered").first
-
-    lines = page.evaluate(
-        """el => { const t = el.querySelector('span.line-clamp-1');
-                   return Math.round(t.getBoundingClientRect().height /
-                                     parseFloat(getComputedStyle(t).lineHeight)); }""",
-        line.element_handle())
-
-    assert lines == 1
-    # Clamped, not cut: every word is still there.
-    assert TALLEST[0] in page.evaluate("el => el.textContent", line.element_handle())
-
-
-def test_pressing_a_remembered_goal_asks_for_it_in_its_own_words(
-    browser, overlay: str, history: History, at: dict,  # noqa: F811
-) -> None:
-    page = home(browser, overlay, history, [LONG], "150%", at)
-    history.received.clear()
-
-    page.get_by_test_id("remembered").first.click()
-    page.wait_for_timeout(800)
-
-    starts = [m["payload"] for m in history.received if m.get("type") == "task.start"]
-    assert starts and starts[0]["goal"] == LONG
-    assert not starts[0].get("flow")
-
-
-# --- the greeting, the example, the entrance --------------------------------
-
-
-@pytest.mark.parametrize("hour, words", [
-    (9, "Good morning. What can I do for you?"),
-    (14, "Good afternoon. What can I do for you?"),
-    (20, "Good evening. What can I do for you?"),
-    (2, "Good evening. What can I do for you?"),
+@pytest.mark.parametrize("hour, greeting", [
+    (9, "Good morning"), (14, "Good afternoon"), (20, "Good evening"), (2, "Good evening"),
 ], ids=["morning", "afternoon", "evening", "small hours"])
-def test_the_greeting_says_the_time_of_day(
-    hour: int, words: str, browser, overlay: str, history: History, at: dict,  # noqa: F811
+def test_the_greeting_says_the_time_of_day_and_asks_where(
+    hour: int, greeting: str, browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    def clock(page: Page) -> None:
+    """The first question is where, not what (2026-11-14)."""
+    def set_clock(page: Page) -> None:
         page.clock.set_fixed_time(datetime(2026, 10, 14, hour, 30))
 
-    page = home(browser, overlay, history, [], "100%", at, before=clock)
+    page = home(browser, overlay, history, [], "100%", at, before=set_clock)
 
-    assert page.get_by_test_id("greeting").inner_text().strip() == words
+    assert page.get_by_test_id("greeting").inner_text().strip() == (
+        f"{greeting}. Where do you want to go?")
 
 
 def test_the_example_is_something_simba_does(
     browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    """It said "Pay my electricity bill" until 2026-10-14, and SIMBA never pays."""
+    """The box's example names a website to go to and something to ask for,
+    and nothing SIMBA does not do: it never pays for anything by itself."""
     page = home(browser, overlay, history, [], "100%", at)
 
-    example = page.get_by_role("textbox", name=BOX).get_attribute("placeholder") or ""
+    example = page.get_by_role("textbox", name=BOX).get_attribute("placeholder")
 
-    assert example == "Trains from Lahore to Karachi tomorrow"
-    assert not any(word in example.lower() for word in ("pay", "book", "buy"))
-
-
-FIRST_TILE = "() => +getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"
+    assert example == "Readings, gov.uk, or train times to Karachi"
+    assert "pay" not in example.lower()
 
 
-def opened(page: Page, overlay: str, history: History) -> float:  # noqa: F811
-    """The first tile's opacity as soon as it is on the page."""
-    history.goals = []
-    page.goto(f"{overlay}?ws=ws://127.0.0.1:{history.port}")
-    page.get_by_test_id("tile").first.wait_for(state="attached", timeout=15000)
-    return page.evaluate(FIRST_TILE)
-
-
-def test_the_tiles_rise_in_when_simba_opens(
-    browser, overlay: str, history: History,  # noqa: F811
+def test_the_presence_mark_is_small_and_the_lion_is_in_the_corner(
+    browser, overlay: str, history: History, at: dict,  # noqa: F811
 ) -> None:
-    page = browser.new_page(viewport={"width": 1280, "height": 800})
-    try:
-        assert opened(page, overlay, history) < 0.5
-        page.wait_for_timeout(2000)
-        assert page.evaluate(FIRST_TILE) == 1
-    finally:
-        page.close()
+    """Small on the first screen too since 2026-11-14: the websites need the
+    height. The lion and the name stay in the corner, which is the brand."""
+    page = home(browser, overlay, history, [], "150%", at)
 
-
-def test_under_reduced_motion_there_is_no_entrance(
-    browser, overlay: str, history: History,  # noqa: F811
-) -> None:
-    page = browser.new_page(viewport={"width": 1280, "height": 800}, reduced_motion="reduce")
-    try:
-        assert opened(page, overlay, history) == 1
-    finally:
-        page.close()
+    mark = page.get_by_role("status").first.bounding_box()
+    assert mark["height"] <= 64
+    assert page.get_by_test_id("home-logo").is_visible()

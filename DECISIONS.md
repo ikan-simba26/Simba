@@ -6929,3 +6929,9 @@ and `data-toggle="modal"`, outside any form) — fewer presses, and it trusts th
 live site, which `loop.only_opens` deliberately does not. *Recommended:* (b), narrowly, after Raham
 says so; **(a) is what the code does today**, because this is the final-step rule and not mine to
 loosen.
+
+**Settled, 15 November — Raham: "Keep final screen".** A press whose words say it changes
+something gets its final screen even when it only opens a form: (a) above stands. Nothing in
+`loop.would_change` or `loop.only_opens` was changed for it. On Readings, making an account is
+therefore two final screens: one for "Register" at the top of the page, which opens the form, and
+one for the button that makes the account.

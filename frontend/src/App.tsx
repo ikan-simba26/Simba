@@ -53,22 +53,12 @@ import { HOME_WIDTH, Home, SiteIcon } from "./components/Home";
 import { TilesEditor } from "./components/TilesEditor";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
-import type { Finding, FlowName, PastGoal } from "@shared/schema";
+import type { Finding } from "@shared/schema";
 
 import { watchPresses } from "./pressGuard";
 import { useStore } from "./store";
 import { useOverflowGuard } from "./useOverflowGuard";
 import { useShortWindow } from "./useShortWindow";
-
-const ALL_FLOWS: FlowName[] = ["registration", "billing", "railways"];
-
-/** Two goals are the same if they differ only in case, spacing or a
- *  closing full stop — "Check my electricity bill." is the bill tile. */
-function sameGoal(a: string, b: string): boolean {
-  const plain = (text: string) =>
-    text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/, "").toLowerCase();
-  return plain(a) === plain(b);
-}
 
 export default function App() {
   const connect = useStore((state) => state.connect);
@@ -347,76 +337,6 @@ function ScreenFrame({ children }: { children: React.ReactNode }) {
 
 // The first screen is `components/Home.tsx` since 2026-11-14: "Where do you
 // want to go?", then "What do you want to do there?".
-
-/** How many goals asked for before the home screen lists under the tiles. */
-const REMEMBERED = 2;
-
-/**
- * Goals asked for before, most recent first, each once, and never one a tile
- * already offers — whatever its case, spacing or full stop.
- */
-export function rememberedGoals(history: PastGoal[]): PastGoal[] {
-  const out: PastGoal[] = [];
-  for (const past of history) {
-    if (ALL_FLOWS.some((flow) => sameGoal(FLOWS[flow], past.goal))) continue;
-    if (out.some((kept) => sameGoal(kept.goal, past.goal))) continue;
-    if (out.length < REMEMBERED) out.push(past);
-  }
-  return out;
-}
-
-/** Two goals that start with this many characters in common look the same
- *  on a remembered goal's one line, which shows about the first twenty. */
-const LOOKS_SAME = 16;
-
-/** A reference number, as the bill flow's goals spell it. */
-const REFERENCE = /\d{10,}/;
-
-/**
- * What tells each remembered goal from the others, when they would look the
- * same on one line (2026-10-15): two bills both read "Find the amount due
- * for…". For a bill, its reference's last four digits ("ending 7890");
- * otherwise the first word where the two part ("Multan"), or, where what is
- * shown is the same word for word — two journeys labelled alike, a day
- * apart — the first word where the goals themselves part. Null for a goal
- * that already looks like itself.
- */
-export function tellApart(shown: string[], goals: string[] = shown): (string | null)[] {
-  return shown.map((words, index) => {
-    const twin = shown.findIndex((other, at) =>
-      at !== index && commonStart(words, other).length >= LOOKS_SAME);
-    if (twin < 0) return null;
-    if (shown[twin] === words) return firstDifference(goals[index], goals[twin]);
-    return firstDifference(words, shown[twin]);
-  });
-}
-
-/** What tells one goal from another, in a word or two. */
-function firstDifference(goal: string, twin: string): string | null {
-  const reference = goal.match(REFERENCE);
-  if (reference && twin.match(REFERENCE)?.[0] !== reference[0]) {
-    return HOME.ending(reference[0].slice(-4));
-  }
-  const words = goal.split(/\s+/);
-  const others = twin.split(/\s+/);
-  const differs = words.findIndex((word, at) => word !== others[at]);
-  if (differs < 0) return null;
-  const word = words[differs].replace(/[.,!?]+$/, "");
-  // A day the goal spells as 2026-10-01 is said as people say it.
-  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(word);
-  return day ? HOME.onDay(Number(day[3]), Number(day[2])) : word;
-}
-
-/** The words two goals start with, whole words only. */
-function commonStart(a: string, b: string): string {
-  const one = a.split(/\s+/);
-  const two = b.split(/\s+/);
-  const same: string[] = [];
-  for (let at = 0; at < Math.min(one.length, two.length) && one[at] === two[at]; at += 1) {
-    same.push(one[at]);
-  }
-  return same.join(" ");
-}
 
 /** A lead-in and what it introduces. */
 function Section({ lead, children }: { lead: string; children: React.ReactNode }) {
