@@ -107,6 +107,46 @@ def test_rendered_page_has_ids_roles_and_labels_but_no_values() -> None:
     assert "hunter2" not in rendered
 
 
+# --- searching, and icons with no words (2026-11-14) ------------------------
+
+
+def _shaped(element_kwargs: dict, action: Action):
+    planner = LLMPlanner(ScriptedProvider([]), REGISTRATION_TASK)
+    from backend.orchestrator.llm_loop import _Choice
+
+    return asyncio.run(planner._shape(_Choice(action=action, element=element(**element_kwargs))))
+
+
+def test_typing_into_a_search_box_also_presses_enter() -> None:
+    """Readings, run E (EVALUATION.md, 2026-11-13j): the search was typed seven
+    times and never sent, because its button is an icon with no words."""
+    for kwargs in ({"role": "searchbox", "label": "Search"},
+                   {"role": "combobox", "label": "Keyword | Title | Author | ISBN | Publisher"}):
+        move = _shaped({"id": 6, "tag": "input", "input_type": "text", **kwargs},
+                       Action(action="type", element_id=6, value="Atomic Habits", reasoning="r"))
+        kinds = [(op.kind, op.value) for op in move.operations]
+        assert kinds == [("fill", "Atomic Habits"), ("press", "Enter")], kwargs
+
+
+def test_typing_into_any_other_field_does_not() -> None:
+    move = _shaped({"id": 3, "role": "textbox", "label": "Full name", "tag": "input",
+                    "input_type": "text"},
+                   Action(action="type", element_id=3, value=None, reasoning="r"))
+    assert [op.kind for op in move.operations] == ["fill"]
+
+
+def test_an_icon_font_character_is_not_a_name() -> None:
+    rendered = render_page([element(id=7, role="button", label=""),
+                            element(id=8, role="button", label=" Add to Wishlist")])
+    assert "" not in rendered and "" not in rendered
+    assert "7. button (no name)" in rendered.splitlines()
+    assert "8. button 'Add to Wishlist'" in rendered.splitlines()
+    move = _shaped({"id": 7, "role": "button", "label": ""},
+                   Action(action="click", element_id=7, reasoning="r"))
+    assert "" not in move.instruction
+    assert move.instruction != "Click ."
+
+
 # --- the trimmed list (2026-11-13) ------------------------------------------
 
 

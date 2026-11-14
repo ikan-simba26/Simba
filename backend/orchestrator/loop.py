@@ -1899,6 +1899,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             input_values = payload.get("input_values", {})
             if saved is not None:
                 input_values = {**input_values, **saved_answers(move, saved)}
+            # What the person typed, and a saved sign-in, never reach a model,
+            # even when the site shows them back (2026-11-14, `llm_loop`).
+            keep_private = getattr(planner, "keep_private", None)
+            if keep_private is not None:
+                keep_private(input_values.values())
             if action == voice.REMEMBER_ID:
                 keep = answers_to_save(move, input_values)
 

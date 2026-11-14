@@ -6790,3 +6790,32 @@ it press such a button and rely on the loop's final screen (`loop.carry_out` alr
 such press there); or keep it to finding and leave every change to the person. *Recommended:* the
 first, since the loop's final screen is the guard either way; *cost:* the rule text and its tests,
 and the advisor's "live tasks" become possible with the AI planner.
+
+---
+
+## The AI planner carries tasks out on live sites — `feat/orchestrator-live-doing`, 2026-11-14
+
+Raham, 14 November, non-negotiable: SIMBA must perform a task like a payment, even a real one of
+Rs 200-500; redo whatever it takes. Settled as follows; the loop's guards are unchanged.
+
+- **The model may press what orders, books, registers, applies, submits or pays**, when the goal
+  asks. `OPEN_GOAL_RULES` used to forbid it. Every such press still goes to the final screen first
+  (`loop.would_change`), and a payment page is still handed to the person; the model is told so.
+- **A doing-goal ends with the page's confirmation**, copied word for word (an order number), as
+  the answer — no new action needed, so the "answer only if the page shows it" check covers it.
+- **The model is shown the page's plain text** after its headings, pairs and tables, inside the
+  same 2,400-character cap: confirmations, prices and order numbers are often paragraphs.
+- **What the person types never reaches a model.** The loop hands every value it is about to type
+  (and a saved sign-in) to the planner, which replaces it with "[what you typed]" in the page, the
+  feedback and the history it sends — so a site showing the name back ("Deliver to: …") cannot
+  carry it to a free provider. *Not covered:* details a site already holds and shows by itself (an
+  account's own name, a saved address) — the person never typed them in this run. *Options:* the
+  person's saved profile name redacted too (needs it in the backend); or sign-in pages handed over.
+  Flagged; recommended: the profile name, after the 19th.
+- **The person's own details are typed by the person**: the model is told to choose "type" with no
+  value for a name, address, phone or ID; SIMBA then asks the person for it, as for every field.
+- **A search box sends its search** (Enter after typing), and icon glyphs are not names.
+
+*Unchanged, deliberately:* SIMBA never types card or bank details and never presses Pay itself on a
+live site: the payment page is the person's (CLAUDE.md). A real payment is Raham's own, with him at
+the keyboard. No account is created by SIMBA or by Claude: Readings needs one, and Raham makes it.
