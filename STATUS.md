@@ -8,7 +8,7 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
-**Last updated:** 2026-11-14 · **The AI planner now carries tasks out** (`feat/orchestrator-live-doing`): it may press order/book/pay behind the final screen, ends with the page's confirmation, reads plain page text, and never sends what the person typed to a model. With the real model on pages served here: orders 3 of 3, payments 2 of 2 through the handover (EVALUATION.md, 2026-11-14a). **Waiting on Raham**: the real payment run on Readings (a book ≤ Rs 350 + Rs 150 shipping), with his own Readings account and him at the keyboard. Yesterday: the installer, OpenRouter, the shorter list, the answer check, phase 5 runs A-E (2026-11-13a-j).
+**Last updated:** 2026-11-14 · **SIMBA makes accounts** (`feat/orchestrator-sign-up`: terms asked, password made and kept, the email step; sign-ups 3 of 3 with the real model, EVALUATION.md, 2026-11-14b). **The AI planner now carries tasks out** (`feat/orchestrator-live-doing`): it may press order/book/pay behind the final screen, ends with the page's confirmation, reads plain page text, and never sends what the person typed to a model. With the real model on pages served here: orders 3 of 3, payments 2 of 2 through the handover (EVALUATION.md, 2026-11-14a). **Waiting on Raham**: the real payment run on Readings (a book ≤ Rs 350 + Rs 150 shipping), with his own Readings account and him at the keyboard. Yesterday: the installer, OpenRouter, the shorter list, the answer check, phase 5 runs A-E (2026-11-13a-j).
 
 ---
 

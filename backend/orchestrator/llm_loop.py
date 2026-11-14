@@ -376,6 +376,10 @@ reference number the page gives.
 For the person's own details — name, address, phone, email, ID numbers — \
 choose "type" with value null: the person types them. Use a value from the \
 goal only if the goal gives it.
+To make an account: fill in the form the same way; for every password box \
+choose "type" with value null (SIMBA can make a strong password and keep it); \
+tick a box agreeing to the website's terms when the form needs it (SIMBA asks \
+the person first); then press the button that creates the account.
 Never type card numbers, bank details, passwords or one-time codes: a payment \
 page is handed to the person.
 """

@@ -9055,3 +9055,40 @@ test-only change. Overlay with Readings added to the list: `test_sites.py`, `tes
 "Buy a book"); `test_catalogue.py` 33 passed.
 
 For Raham's real payment run: `docs/live-payment-run.md`.
+
+## 2026-11-14b — making an account with SIMBA (`feat/orchestrator-sign-up`)
+
+Raham, 14 November: people will ask SIMBA to make an account for them, and for this audience it is
+one of the hardest things on the web. Four things, each with a test first:
+
+1. **Agreeing to a website's terms is the person's own choice.** A move that ticks or presses
+   agreement to terms/conditions/privacy policy is asked first, in plain words ("This website asks
+   you to agree to its rules (its terms)" — I agree / I don't agree), whichever planner wants it.
+   "I don't agree" stops with nothing sent.
+2. **"Make a strong password for me".** A box for a *new* password (its label says create, new,
+   confirm…, or the page asks for the password twice) offers it beside typing one. SIMBA makes an
+   18-character password (lower, upper, figure, symbol; from `secrets`), types it, and keeps it in
+   the vault with the account's email once the step works; the "confirm password" box is then
+   filled from the vault without asking. The password is never shown, never in a message to the
+   overlay, never sent to a model, never logged.
+3. **"The website has sent you an email."** A page saying so gets a plain step — open the email,
+   press its link, come back and press "I've done it" — and the run waits. A box for a code from it
+   is a one-time code, handed over as before.
+4. **Tested end to end** on a sign-up page served from this machine (`test_sign_up.py`, 2 tests;
+   the page accepts only matching passwords of 12+ characters and a ticked terms box).
+
+**A defect found on the way, older than all of this:** ticking a checkbox counted as "nothing
+changed". A checkbox's value was its `value` attribute ("on", ticked or not), so the loop's check
+after the tick failed, tried another way — clicking again, which unticked it — and the form went in
+without it. Perception now reads CDP's `inputChecked`: a checkbox or radio button holds "checked"
+or nothing (`backend/perception/test_checked.py`). Any AI task with a checkbox had this.
+
+**With the real model** (`tools/evaluation/live_doing_replica_run.py --runs 3`, pages served here,
+the person played by the script: types the email, chooses "Make a strong password for me", agrees,
+answers "Do it"; 2026-11-14T17:45:49+05:00, CPU load 21%, Gemini free tier):
+
+| Goal | Runs | Completed | What happened every time | Model calls | Email or name sent to the model | Seconds |
+|---|---|---|---|---|---|---|
+| "Make me an account on this website" | 3 | **3** | email typed by the person → password made and kept → confirm box filled from the vault → terms asked once → final screen before "Create account" → the email step → answer "Check your email We have sent a verification link to your email." | 6 | **never** | 17.5, 14.9, 9.4 |
+| "Order this book for me, cash on delivery" (again) | 3 | **3** | final screen once, order number answered | 4 | never | 19.4, 10.8, 6.5 |
+| "Top up my phone with Rs. 200" (again) | 2 | **2** | final screen, handover, receipt read | 1 | never | 3.5, 3.3 |

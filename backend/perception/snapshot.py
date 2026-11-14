@@ -75,6 +75,10 @@ class Document:
     # knowing it costs nothing extra, and without it perception cannot see
     # the one thing a filled form has that an empty one does not.
     input_values: dict[int, str] = field(default_factory=dict)
+    #: Checkboxes and radio buttons that are ticked (2026-11-14): CDP's
+    #: `inputChecked`. Their `inputValue` is the `value` attribute, "on" ticked
+    #: or not, so without this a tick changed nothing perception could see.
+    checked: set[int] = field(default_factory=set)
     #: What `bounds` were divided by to get CSS pixels. Recorded so a reader
     #: can tell a page that was read at 1 from one read at 1.5, and so a test
     #: can assert the conversion happened rather than assuming it.
@@ -296,6 +300,8 @@ def parse(
         children=children,
         index_of_backend_id={b: i for i, b in enumerate(backend_ids)},
         input_values=input_values,
+        # RareBooleanData: the indexes of the nodes for which it is true.
+        checked=set((nodes.get("inputChecked") or {}).get("index", [])),
         device_pixel_ratio=scale,
         scroll=(float(document.get("scrollOffsetX", 0) or 0) / scale,
                 float(document.get("scrollOffsetY", 0) or 0) / scale),

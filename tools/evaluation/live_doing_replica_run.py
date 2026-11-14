@@ -40,6 +40,8 @@ from backend.orchestrator.llm_loop import OpenGoalPlanner  # noqa: E402
 from backend.orchestrator.loop import Connection, Task, _Run, carry_out  # noqa: E402
 from backend.orchestrator.plan import About  # noqa: E402
 from backend.orchestrator.test_live_doing import PAY, SHOP  # noqa: E402
+from backend.orchestrator.test_sign_up import EMAIL, SIGN_UP  # noqa: E402
+from backend.orchestrator.vault import Vault  # noqa: E402
 from tools.evaluation.conditions import banner, record  # noqa: E402
 
 NAME = "Test Personname"
@@ -58,7 +60,14 @@ class Person(Connection):
             await asyncio.sleep(1.0)          # pays, then presses "I've finished"
             return {"type": "handover.done", "payload": {"action": "done"}}
         step = next((p for k, p in reversed(self.sent) if k == "step.presented"), {})
-        values = {field["id"]: NAME for field in step.get("fields") or []}
+        ids = [a["id"] for a in step.get("actions") or []]
+        if voice.MAKE_PASSWORD_ID in ids:      # a new password: SIMBA makes it
+            return {"type": "step.response",
+                    "payload": {"step_index": step_index,
+                                "action_id": voice.MAKE_PASSWORD_ID, "input_values": {}}}
+        values = {field["id"]: (EMAIL if field["type"] == "email" else NAME)
+                  for field in step.get("fields") or []}
+        # The terms question is answered "I agree" (its id is CONFIRM_ID).
         return {"type": "step.response",
                 "payload": {"step_index": step_index, "action_id": voice.CONFIRM_ID,
                             "input_values": values}}
@@ -75,7 +84,8 @@ async def one(url: str, goal: str) -> dict:
         browser = await playwright.chromium.launch()
         page = await browser.new_page(viewport={"width": 1280, "height": 800})
         try:
-            run = _Run(page, person, None, None)
+            vault = Vault(OUT / "vault.json")
+            run = _Run(page, person, None, None, vault=vault if vault.available else None)
             await run.open(goal, task.estimated_steps, url)
             await carry_out(run, planner, task)
         finally:
@@ -98,6 +108,12 @@ async def one(url: str, goal: str) -> dict:
         "worked_out_by": [p.get("worked_out_by") for p in steps if p.get("worked_out_by")],
         "model_calls": planner.calls_made,
         "name_sent_to_model": NAME.lower() in sent_to_model.lower(),
+        "email_sent_to_model": EMAIL.lower() in sent_to_model.lower(),
+        "terms_asked": sum(1 for p in steps if p["instruction"] == voice.AGREE_TERMS),
+        "password_made": any(voice.MADE_PASSWORD in json.dumps(p) for k, p in person.sent)
+        or any(voice.MAKE_PASSWORD_ID in [a["id"] for a in p.get("actions") or []]
+               for p in steps),
+        "email_explained": any(p["instruction"] == voice.CHECK_EMAIL for p in steps),
         "name_typed_on_page": any(NAME in json.dumps(p) for k, p in person.sent),
         "seconds": round(time.monotonic() - started, 1),
     }
@@ -113,6 +129,7 @@ def main() -> None:
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "index.html").write_text(SHOP, encoding="utf-8")
     (folder / "pay.html").write_text(PAY, encoding="utf-8")
+    (folder / "join.html").write_text(SIGN_UP, encoding="utf-8")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(folder))
     server = socketserver.TCPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -125,6 +142,11 @@ def main() -> None:
             print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
         for _ in range(max(1, options.runs - 1)):
             rows.append(asyncio.run(one(f"{base}/pay.html", "Top up my phone with Rs. 200")))
+            print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
+        for _ in range(options.runs):
+            (OUT / "vault.json").unlink(missing_ok=True)   # a new account each time
+            rows.append(asyncio.run(one(f"{base}/join.html",
+                                        "Make me an account on this website")))
             print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
     finally:
         server.shutdown()

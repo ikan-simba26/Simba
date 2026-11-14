@@ -335,7 +335,7 @@ def build_elements(
                     overlay=backend_id in report.overlay_ids,
                     occluded=backend_id in report.occluded_ids,
                     dead_link=is_dead_link(tag, attributes),
-                    value=parsed.input_values.get(node_index, "") if parsed else "",
+                    value=_value(parsed, node_index, attributes),
                     rect=parsed.bounds.get(node_index) if parsed else None,
                     backend_node_id=backend_id,
                 ),
@@ -380,6 +380,16 @@ def _from_inferred(found: Inferred, report: OverlayReport) -> Element:
         backend_node_id=found.backend_node_id,
         locator_hint=found.css_path,
     )
+
+
+def _value(parsed: "Document | None", node_index: int, attributes: dict[str, str]) -> str:
+    """What a field holds. A checkbox or radio button holds "checked" or nothing
+    (2026-11-14): its `value` attribute says the same ticked or not."""
+    if parsed is None:
+        return ""
+    if (attributes.get("type") or "").lower() in ("checkbox", "radio"):
+        return "checked" if node_index in parsed.checked else ""
+    return parsed.input_values.get(node_index, "")
 
 
 def is_dead_link(tag: str, attributes: dict[str, str]) -> bool:
