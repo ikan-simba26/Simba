@@ -279,6 +279,42 @@ def pick(elements: list[Element], target: Target) -> int | None:
     return None
 
 
+def fresh_id(elements: list[Element], operation: Operation) -> int | None:
+    """The element an operation means, in this reading of the page.
+
+    A planner that chose a number chose it from an earlier reading. A live
+    page does not stand still between two readings — a sliding banner adds
+    and drops elements — and every number after the change then names its
+    neighbour. On 2026-11-15, in the real window, Readings' sign-up form had
+    387 elements when the model chose "Email" and 386 when SIMBA typed: the
+    email went into "Last Name", was read back from "Last Name" and passed,
+    and only the check that typed values last stopped the run (EVALUATION.md,
+    2026-11-15a). So a number is believed only while it still names what was
+    chosen:
+
+      1. the same element, by the browser's own identity for it (`node`);
+      2. else the element at that number, if its role and words are still the
+         target's;
+      3. else the element with the target's role and words nearest that number;
+      4. else none: the move is not made.
+
+    A plan that names no number is matched by role and words, as always."""
+    if operation.element_id is None:
+        return pick(elements, operation.target)
+    target = operation.target
+    if operation.node is not None and operation.node >= 0:
+        for element in elements:
+            if element.backend_node_id == operation.node:
+                return element.id
+    same = [e for e in elements if e.role == target.role and e.label == target.label
+            and (target.qualifier is None or e.qualifier == target.qualifier)]
+    if any(e.id == operation.element_id for e in same):
+        return operation.element_id
+    if not same:
+        return None
+    return min(same, key=lambda e: abs(e.id - operation.element_id)).id
+
+
 def resolve(page: Page, elements: list[Element], element_id: int):
     """Resolve an integer id back to something clickable.
 
@@ -625,8 +661,7 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
     for operation in move.operations:
         if operation.kind != "fill":
             continue
-        element_id = (operation.element_id if operation.element_id is not None
-                      else pick(elements, operation.target))
+        element_id = fresh_id(elements, operation)
         element = next((e for e in elements if e.id == element_id), None)
         words = " ".join(filter(None, [operation.target.label,
                                        element.label if element else "",
@@ -775,8 +810,7 @@ async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
     for operation in move.operations:
         if operation.kind != "click":
             return False
-        element_id = (operation.element_id if operation.element_id is not None
-                      else pick(elements, operation.target))
+        element_id = fresh_id(elements, operation)
         if element_id is None:
             return False
         try:
@@ -1027,11 +1061,7 @@ async def send_preview(page: Page, connection: Connection, move: "Move | None") 
         caption = caption_for(move)
         elements, _, _ = await perceive(page)
         operation = move.operations[0]
-        element_id = (
-            operation.element_id
-            if operation.element_id is not None
-            else pick(elements, operation.target)
-        )
+        element_id = fresh_id(elements, operation)
         if element_id is not None and any(e.id == element_id for e in elements):
             try:
                 box = await resolve(page, elements, element_id).bounding_box()
@@ -2445,11 +2475,9 @@ async def attempt_move(
         # Perceive fresh each time: the previous operation may have navigated.
         elements, _, _ = await perceive(page)
 
-        element_id = (
-            operation.element_id
-            if operation.element_id is not None
-            else pick(elements, operation.target)
-        )
+        # The element chosen, found again in this reading: never the number
+        # alone, which names something else once the page has moved.
+        element_id = fresh_id(elements, operation)
         if element_id is None or not any(e.id == element_id for e in elements):
             return f"could not find {operation.target.label!r} on the page"
 

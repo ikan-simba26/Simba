@@ -674,6 +674,8 @@ class OpenGoalPlanner(LLMPlanner):
         self._led: dict[tuple[str, str, str], list[bool]] = {}
         self._stalled = 0
         self._chosen: Counter = Counter()
+        self._opened = False
+        self._was_on_top = False
 
     def look(self, content: Content) -> None:
         """What the page says now. The loop calls this before each move."""
@@ -721,6 +723,12 @@ class OpenGoalPlanner(LLMPlanner):
             return None  # done: the loop closes with the answer
         elements = without_widgets(elements)
         self._note(setback)
+        # Whether the last press put something on top of the page that was
+        # not there before it: a dialog this run opened itself.
+        on_top = any(e.overlay for e in elements)
+        self._opened = bool(self._made and self._made[0] == "click" and on_top
+                            and not self._was_on_top and not setback)
+        self._was_on_top = on_top
         self._weigh(page_signature(elements), setback)
         if self._stalled >= STALL_LIMIT:
             self.stuck_reason = voice.AI_NO_PROGRESS
@@ -776,12 +784,14 @@ class OpenGoalPlanner(LLMPlanner):
         field_id = element.name or str(element.id)
         operation = Operation(kind=kind, target=Target(role=element.role, label=element.label),
                               element_id=element.id, value=value,
-                              value_key=field_id if kind == "fill" else None)
+                              value_key=field_id if kind == "fill" else None,
+                              node=element.backend_node_id)
         operations = [operation]
         if search:
             # Typing into a search box sends the search too (2026-11-14).
             operations.append(Operation(kind="press", target=operation.target,
-                                        element_id=element.id, value="Enter"))
+                                        element_id=element.id, value="Enter",
+                                        node=element.backend_node_id))
         fields = [StepField(
             id=field_id, label=voice.short_name(label) or element.label,
             type="password" if element.is_password else (element.input_type or "text"),
@@ -848,7 +858,16 @@ class OpenGoalPlanner(LLMPlanner):
                 feedback = (f"element_id {action.element_id} is not in the list. Choose an "
                             "id from the list of elements, exactly as it is numbered there.")
                 continue
-            return _Choice(action=action, element=valid[action.element_id])
+            chosen = valid[action.element_id]
+            if (self._opened and action.action == "click" and chosen.overlay
+                    and voice.CLOSE_WORDS.match(_without_icons(chosen.label) or "")):
+                # Its own last press opened this; closing it undoes that press.
+                # Flash-Lite did exactly this on Readings' sign-up form, in the
+                # real window (EVALUATION.md, 2026-11-15a).
+                feedback = ("Your own last action opened this dialog. Closing it would undo "
+                            "that. Use what is in it: fill in its boxes or press its buttons.")
+                continue
+            return _Choice(action=action, element=chosen)
         self.stuck_reason = voice.AI_TOO_SLOW if unanswered == 2 else voice.AI_COULD_NOT
         return None
 

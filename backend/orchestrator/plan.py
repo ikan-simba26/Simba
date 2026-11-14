@@ -57,6 +57,12 @@ class Operation:
     # that matches by role and label (the hardcoded plan) leaves it None.
     element_id: int | None = None
     value: str | None = None
+    # The element itself, as the browser knows it (its backend node id), for a
+    # planner that chose from one reading of the page (2026-11-15). `element_id`
+    # is a place in a list, and the list is read again before anything is
+    # done: on a page that moves, the same number is then another element
+    # (`loop.fresh_id`). None: found by `element_id`, checked against `target`.
+    node: int | None = None
 
 
 @dataclass(frozen=True)

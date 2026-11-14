@@ -41,7 +41,8 @@ from backend.orchestrator.llm_loop import (
     usable,
     without_widgets,
 )
-from backend.orchestrator.loop import run_brief, settled
+from backend.orchestrator.loop import fresh_id, run_brief, settled
+from backend.orchestrator.plan import Operation, Target
 from backend.orchestrator.test_verification import FakeConnection
 from backend.perception.serializer import Element, is_dead_link
 
@@ -51,6 +52,9 @@ SHOP = """<!doctype html><html><head><title>Books</title></head><body>
 <form action="results.html"><input type="search" name="q" aria-label="Keyword | Title | Author">
 </form>
 <button id="noop" onclick="void 0">Offers</button>
+<button onclick="void 0">Deals</button>
+<button onclick="const p = document.getElementById('panel'); p.hidden = !p.hidden">Toggle panel</button>
+<div id="panel" hidden><a href="results.html">A result</a></div>
 <a href="index.html">Home</a>
 <div id="login" hidden style="position:fixed;inset:0;z-index:50;background:#fff">
   <button onclick="document.getElementById('login').hidden=true">Close</button>
@@ -239,24 +243,24 @@ def test_a_press_that_changes_something_still_gets_its_final_screen(shop):
 # --- never wandering ---------------------------------------------------------------
 
 
-def test_three_moves_that_get_nowhere_and_it_stops_and_offers_a_helper(shop):
-    # Login opens the dialog (somewhere new); Close, Login, Close go round.
-    model = Model([("click", "Login", None), ("click", "Close", None),
-                   ("click", "Login", None), ("click", "Close", None)])
+def test_going_round_in_a_circle_it_stops_and_offers_a_helper(shop):
+    # The panel opens (somewhere new), closes (a page already seen), and the
+    # same press is chosen a third time: it is not made.
+    model = Model([("click", "Toggle panel", None)] * 3)
     person = go(shop, model, goal="Make me an account")
     stuck = person.payload_of("help.requested")
     assert stuck["reason"] == voice.AI_NO_PROGRESS
     assert stuck["teach_site"] == shop
     assert stuck["suggestion"] == voice.AI_THEN_TEACH
-    # Stopped before a fifth choice was asked for, and the model was told,
-    # the first time it came back to a page it had seen.
+    # The model was told, the first time it came back to a page it had seen;
+    # and the third press was chosen and not made.
     assert model.script == []
     assert "already seen" in (model.feedback[2] or "")
-    assert len(person.lines()) <= 4
+    assert person.lines() == ["Pressing Toggle panel"] * 2
 
 
 def test_a_press_that_changes_nothing_is_fed_back_and_then_stops(shop):
-    model = Model([("click", "Offers", None), ("click", "Home", None)])
+    model = Model([("click", "Offers", None), ("click", "Deals", None)])
     person = go(shop, model)
     stuck = person.payload_of("help.requested")
     # Said in SIMBA's words, not the move's and the browser's.
@@ -413,3 +417,47 @@ def test_the_sdk_does_not_wait_or_retry_by_itself():
                                             transcript=llm.Transcript(Path("NUL")))
     assert provider._client.max_retries == 0
     assert provider._client.timeout == llm.CALL_TIMEOUT_S <= 30
+
+
+# --- the element chosen, found again (2026-11-15) -----------------------------------
+
+
+def box(id, label, node) -> Element:
+    return Element(id=id, role="textbox", label=label, type="fill", tag="input",
+                   input_type="text", backend_node_id=node)
+
+
+def test_a_number_is_believed_only_while_it_names_what_was_chosen():
+    """In the real window, Readings' sign-up form was 387 elements when the
+    model chose "Email" and 386 when SIMBA typed: the email went into "Last
+    Name". The number alone is never enough."""
+    chosen = Operation(kind="fill", target=Target(role="textbox", label="Email"),
+                       element_id=3, value="x", node=103)
+    as_chosen = [box(1, "First Name", 101), box(2, "Last Name", 102), box(3, "Email", 103)]
+    assert fresh_id(as_chosen, chosen) == 3
+    # One element has appeared above the form: every number moved down one.
+    moved = [box(1, "Offer", 99), box(2, "First Name", 101), box(3, "Last Name", 102),
+             box(4, "Email", 103)]
+    assert fresh_id(moved, chosen) == 4
+    # Without the browser's identity for it, by its role and words.
+    by_number = Operation(kind="fill", target=Target(role="textbox", label="Email"),
+                          element_id=3, value="x")
+    assert fresh_id(moved, by_number) == 4
+    # Two with the same words: the one nearest where it was.
+    twins = [box(1, "Email", 201), box(4, "Email", 202)]
+    assert fresh_id(twins, by_number) == 4
+    # Gone: nothing is typed anywhere.
+    assert fresh_id([box(1, "First Name", 101)], by_number) is None
+    # A written plan names no number, and is matched by role and words.
+    written = Operation(kind="fill", target=Target(role="textbox", label="Last Name"))
+    assert fresh_id(moved, written) == 3
+
+
+def test_a_dialog_its_own_press_opened_is_not_closed_by_its_next(shop):
+    # Login opens the dialog; the model then asks to close it, is told why
+    # not, and uses it instead.
+    model = Model([("click", "Login", None), ("click", "Close", None),
+                   ("click", "Register.", None), PRICE])
+    person = go(shop, model, goal="Make me an account")
+    assert "opened this dialog" in (model.feedback[2] or "")
+    assert "Closing a pop-up" not in person.lines()
