@@ -10,6 +10,9 @@ items sat under "blocked on quota" for eight days after the quota had reset.
 
 **Last updated:** 2026-11-14 · **SIMBA makes accounts** (`feat/orchestrator-sign-up`: terms asked, password made and kept, the email step; sign-ups 3 of 3 with the real model, EVALUATION.md, 2026-11-14b). **The AI planner now carries tasks out** (`feat/orchestrator-live-doing`): it may press order/book/pay behind the final screen, ends with the page's confirmation, reads plain page text, and never sends what the person typed to a model. With the real model on pages served here: orders 3 of 3, payments 2 of 2 through the handover (EVALUATION.md, 2026-11-14a). **Waiting on Raham**: the real payment run on Readings (a book ≤ Rs 350 + Rs 150 shipping), with his own Readings account and him at the keyboard. Yesterday: the installer, OpenRouter, the shorter list, the answer check, phase 5 runs A-E (2026-11-13a-j).
 
+
+**2026-11-15, step E** (`feat/eval-step-e`): real-window runs, OpenRouter answering. Readings price 2/3, make-an-account to the final screen 3/3, order a book 0/3 (stuck after opening the result), Railways 0/3 (date and From step), bill and test payment 0/3 with typed values (timeouts at Bill Enquiry; handover never reached). EVALUATION.md, 2026-11-15 step E. Next: find why the order flow stops on the result page and why the bill replica stalls under the AI planner; no fixes were made.
+
 ---
 
 ## Where the project actually is

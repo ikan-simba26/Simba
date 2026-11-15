@@ -9135,3 +9135,66 @@ fake renderer now takes (and ignores) what failed: it picks the same failing lin
 **Also reported by Raham:** "Press Back to start" (my advice) was not on his screen — he was on the
 step screen, where there is no way back but "Stop this"; he closed the window. Whether his window
 had not moved on to the stuck screen after 19:17 is not known; to check if it happens again.
+
+
+## 2026-11-15, step E: the real SIMBA window, real sites, three runs each
+
+Branch `feat/eval-step-e`. Driver `tools/evaluation/real_window_run.py` (the
+SIMBA window only, never the desktop). Stack from `.scratch/start_eval_stack.ps1`
+(the planner is the AI one, hardcoded plans off). Provider order OpenRouter
+first (`SIMBA_LLM_FIRST=openrouter`); only the OpenRouter key is set in `.env`
+(Gemini and Groq are unset), and the backend log shows OpenRouter
+(google/gemini-2.5-flash-lite, about 1.2-2.9 s per choice) answering every
+choice, no fallback needed. The first check (Task 2, run 1) passed. No real
+purchase, card or payment; nothing was changed on any site. Machine on battery
+at 38%, one machine, one evening: read the times as indicative only.
+
+"Steps" = questions SIMBA put to the person plus moves it made by itself (from
+the driver's `path`). Seconds are wall clock of the whole run.
+
+| # | Task | Run 1 | Run 2 | Run 3 | Pass | Median steps | Median s |
+|---|---|---|---|---|---|---|---|
+| 1 | Railways: search a train (first set, no values typed) | needs the person at "From", 42.5 s | same, 41.4 s | same, 41.9 s | 0/3 | 4 | 41.9 |
+| 1b | same, `--type From=Lahore --type To=Karachi` | timeout 434.8 s | stuck 90.5 s | timeout 434.0 s | 0/3 | 7-9 | 434 |
+| 2 | Readings: price of Atomic Habits | done, "Rs. 3221", 105.9 s | done, 96.6 s | stuck, 91.8 s | 2/3 | 2 | 96.6 |
+| 3 | Readings: order a book to the final screen | stuck 192.4 s | stuck 192.6 s | stuck 222.2 s | 0/3 | 4 | 192.6 |
+| 4 | Readings: make an account to the final screen | final screen, 55.8 s | final screen, 49.7 s | final screen, 51.9 s | 3/3 | 2 | 51.9 |
+| 5 | Electricity bill (replica) | needs "Reference number", 22 s | same | same | 0/3 | 1 | 22 |
+| 5b | same, test reference typed | timeout 433.4 s | 433.6 s | 435.9 s | 0/3 | 3 | 434 |
+| 6 | Test-gateway payment to the handover | needs "Reference number", 21.8 s | same | same | 0/3 | 1 | 22 |
+| 6b | same, test reference typed | timeout 434.2 s | 435.7 s | 434.6 s | 0/3 | 3 | 435 |
+
+Task 4 counts as passed when the run reached the final screen; the driver
+answers "Don't do it" there, and nothing was submitted. I did not separately
+read each ending screen to confirm the wording of "nothing was changed".
+
+### What failed and why
+
+- **1 (first set) and 5, 6 (first sets): driver, not SIMBA.** The driver stops
+  at any box only a person can fill unless `--type` supplies it. These are not
+  SIMBA failures; the "b" rows rerun them with values typed. The values are the
+  replica's own published test reference and city names; nothing personal.
+- **1b, Railways: real failures.** Runs 1 and 3 timed out at the driver's limit
+  after 9 questions, SIMBA offering "Click the button with no name." on the
+  Departure Date step, "Your turn". Run 2 stopped with SIMBA's own message:
+  "'From' no longer holds what I put in it — it held 'LAHORE JN.' and now holds
+  'KARACHI CANTT'". Cause not investigated (no time-boxed fix was clear).
+- **2, run 3:** "I couldn't work out how to do this on this website." after
+  "Searching for Atomic Habits". Cause not investigated; 2 of 3 passed.
+- **3, order a book: 3/3 stuck the same way.** SIMBA searched, then asked to open
+  the Atomic Habits result and, after pressing it, stopped: "I'm not getting
+  anywhere on this website, so I've stopped. I didn't change anything." Same
+  reason twice, so I stopped fixing it and did not guess at a cause.
+- **5b and 6b, bill replica: all six timed out** at "Click Bill Enquiry." with
+  the Reference / Look up / Your bill / Pay page showing and SIMBA in "Your turn"
+  for 433 s. Whether SIMBA or the driver's "go ahead" press is at fault I did
+  not establish; the same replica flow passed in earlier phases with the
+  hardcoded plan, so this may be the AI planner on the replica, or the driver
+  with a cookie step in the way. Not fixed.
+
+### Not measured
+
+The handover (Task 6) was never reached, so the payment handover was not
+exercised in this run. Tokens and cost not measured. Per-run provider was
+checked from the backend log in aggregate (OpenRouter only), not run by run.
+Railways is the live site as it stood on the evening of 2026-11-15.
