@@ -216,6 +216,31 @@ def test_the_first_provider_can_be_chosen(monkeypatch):
     assert [p.wait_out_rate_limits for p in provider.providers] == [False, False, True]
 
 
+def test_openrouter_alone_is_enough(monkeypatch):
+    monkeypatch.setattr(llm, "_load_dotenv", lambda: None)
+    for name in ("SIMBA_LLM_PROVIDER", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY",
+                 "OPENROUTER_BASE_URL", "SIMBA_LLM_FALLBACK", "SIMBA_LLM_FIRST"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    monkeypatch.setenv("OPENROUTER_MODEL", "google/gemini-3.1-flash-lite")
+    provider = provider_from_env()
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider.label == "OpenRouter"
+    assert provider.model == "google/gemini-3.1-flash-lite"
+    assert provider.wait_out_rate_limits is True
+    # The planner's provider is the same one: nothing to swap for Gemini.
+    assert llm.planner_provider_from_env().label == "OpenRouter"
+
+
+def test_an_anthropic_key_still_means_anthropic(monkeypatch):
+    monkeypatch.setattr(llm, "_load_dotenv", lambda: None)
+    for name in ("SIMBA_LLM_PROVIDER", "OPENAI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-key")
+    assert provider_from_env().name == "anthropic"
+
+
 def test_a_first_provider_nobody_answers_to_changes_nothing(monkeypatch):
     _gemini(monkeypatch)
     monkeypatch.setenv("GROQ_API_KEY", "groq-key")
@@ -259,11 +284,18 @@ def test_a_saved_setup_is_followed_by_groq_then_openrouter(monkeypatch, tmp_path
 
 def test_the_openrouter_key_is_never_in_an_error(monkeypatch):
     _gemini(monkeypatch)
+    # With only OpenRouter's key and the provider asked for being another
+    # that has no key, the error names what is missing and never the key
+    # (2026-11-15: a key for OpenRouter alone is now enough for OpenRouter
+    # itself, so the error is for a provider that is not it).
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-secret-value")
+    monkeypatch.setenv("SIMBA_LLM_PROVIDER", "anthropic")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(LLMError) as raised:
         provider_from_env()
     assert "openrouter-secret-value" not in str(raised.value)
+    assert "ANTHROPIC_API_KEY" in str(raised.value)
 
 
 def test_no_groq_key_is_gemini_alone(monkeypatch):

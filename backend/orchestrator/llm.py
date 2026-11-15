@@ -911,7 +911,21 @@ def provider_from_env(transcript: Transcript | None = None) -> Provider:
     saved = AiStore().load()
     if saved is not None:
         return _chained(provider_for(saved, transcript), transcript)
-    choice = os.environ.get("SIMBA_LLM_PROVIDER", "anthropic").strip().lower()
+    choice = os.environ.get("SIMBA_LLM_PROVIDER", "").strip().lower()
+    # OpenRouter alone (2026-11-15): a key for it and for nothing else is the
+    # whole configuration. Named, or with no other key to go by, it is the
+    # provider; before this a `.env` with only OpenRouter's lines asked for
+    # Anthropic's key and every call failed.
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    if openrouter_key and not os.environ.get("OPENAI_API_KEY") and (
+            choice == "openrouter" or (choice in ("", "openai")
+                                       and not os.environ.get("ANTHROPIC_API_KEY"))):
+        return _chained(OpenAICompatibleProvider(
+            api_key=openrouter_key,
+            base_url=os.environ.get("OPENROUTER_BASE_URL") or OPENROUTER_BASE_URL,
+            model=os.environ.get("OPENROUTER_MODEL") or OPENROUTER_DEFAULT_MODEL,
+            transcript=transcript), transcript)
+    choice = choice or "anthropic"
 
     if choice == "anthropic":
         return AnthropicProvider(
