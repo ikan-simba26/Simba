@@ -847,6 +847,13 @@ def _chained(first, transcript: Transcript | None):
     nothing comes after it."""
     rest = _fallbacks(transcript, getattr(first, "label", ""))
     chain = [first, *rest]
+    # `SIMBA_LLM_FIRST=openrouter` (2026-11-15): the one named is asked first
+    # and the others keep their order after it. For a paid OpenRouter key
+    # when the free Gemini hangs; a name no provider answers to changes nothing.
+    wanted = os.environ.get("SIMBA_LLM_FIRST", "").strip().lower()
+    chosen = next((p for p in chain if getattr(p, "label", "").lower() == wanted), None)
+    if wanted and chosen is not None:
+        chain = [chosen, *[p for p in chain if p is not chosen]]
     for provider in chain:
         provider.wait_out_rate_limits = provider is chain[-1]
     return FallbackProvider(chain) if rest else first

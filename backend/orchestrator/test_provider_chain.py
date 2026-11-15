@@ -170,7 +170,7 @@ def _gemini(monkeypatch):
     monkeypatch.setenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
     monkeypatch.setenv("OPENAI_MODEL", "gemini-3.1-flash-lite")
     for name in ("GROQ_MODEL", "GROQ_BASE_URL", "OPENROUTER_MODEL", "OPENROUTER_BASE_URL",
-                 "SIMBA_LLM_FALLBACK"):
+                 "SIMBA_LLM_FALLBACK", "SIMBA_LLM_FIRST"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -203,6 +203,25 @@ def test_openrouter_is_where_and_what_env_says(monkeypatch):
     provider = provider_from_env()
     assert provider.providers[2].label == "OpenRouter"
     assert provider.providers[2].model == "google/gemma-4-31b-it:free"
+
+
+def test_the_first_provider_can_be_chosen(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    monkeypatch.setenv("SIMBA_LLM_FIRST", "OpenRouter")
+    provider = provider_from_env()
+    assert [p.label for p in provider.providers] == ["OpenRouter", "Gemini", "Groq"]
+    # Only the last waits out a rate limit, whichever is last.
+    assert [p.wait_out_rate_limits for p in provider.providers] == [False, False, True]
+
+
+def test_a_first_provider_nobody_answers_to_changes_nothing(monkeypatch):
+    _gemini(monkeypatch)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("SIMBA_LLM_FIRST", "openrouter")
+    assert [p.label for p in provider_from_env().providers] == ["Gemini", "Groq"]
 
 
 def test_switched_off_there_is_no_openrouter_either(monkeypatch):
