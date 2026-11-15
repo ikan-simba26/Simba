@@ -157,7 +157,7 @@ def test_the_fullest_home_screen_fits_with_every_picture_whole(
     backend.routines = [{"id": "r1", "label": "Register for CS-401", "site": "127.0.0.1:5300"}]
     backend.goals = [{"goal": goal, "site": "127.0.0.1"} for goal in TALLEST]
     page, _ = opened(browser, overlay, backend, pages, size)
-    page.get_by_test_id("remembered").first.wait_for(timeout=10000)
+    page.get_by_test_id("own-tiles").wait_for(timeout=10000)
     page.wait_for_timeout(600)
     fits, measured = box_fits(page)
     assert fits, measured
@@ -171,7 +171,14 @@ def test_the_fullest_home_screen_fits_with_every_picture_whole(
                  return r.left >= b.left && r.right <= b.right && r.top >= b.top
                         && r.bottom <= b.bottom && r.width > 0; });
            })""")
-    assert inside == [True] * 6, inside
+    detail = page.eval_on_selector_all(
+        "[data-testid=tile], [data-testid=own-tile], [data-testid=own-routine]",
+        """tiles => tiles.map(t => { const b = t.getBoundingClientRect();
+             return [t.dataset.testid, Math.round(b.left), Math.round(b.right), Math.round(b.top),
+                     Math.round(b.bottom), [...t.querySelectorAll('[data-picture], [data-testid=taught-mark]')]
+                .map(p => { const r = p.getBoundingClientRect();
+                  return [Math.round(r.left), Math.round(r.right), Math.round(r.top), Math.round(r.bottom)]; })]; })""")
+    assert inside == [True] * 6, str((inside, detail))
     # No name is cut short at more than its two lines.
     cut = page.eval_on_selector_all(
         "[data-testid=own-tile] .line-clamp-2, [data-testid=own-routine] .line-clamp-2",

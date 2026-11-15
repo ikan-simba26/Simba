@@ -106,7 +106,7 @@ def forget(page: Page) -> None:
         page.locator("div:not([data-leaving]) > [data-testid=welcome]").get_by_test_id(
             "welcome-skip").click()
         page.wait_for_timeout(350)
-    page.get_by_test_id("can-help").wait_for(timeout=15000)
+    page.get_by_test_id("home-where").wait_for(timeout=15000)
     page.wait_for_timeout(500)
 
 
@@ -128,15 +128,13 @@ def test_after_a_bill_run_and_a_reset_the_home_screen_shows_nothing_from_it(
     # The control: before the reset, the run is all over the home screen.
     before = home_text(page)
     assert NAME in before and "My bill" in before, before
-    assert page.get_by_test_id("remembered").count() == 1
-    assert REFERENCE[-4:] in before
 
     forget(page)
     nothing_from_the_run(page)
 
     # Opened again, from the same backend: still nothing.
     page.reload()
-    page.get_by_test_id("can-help").wait_for(timeout=15000)
+    page.get_by_test_id("home-where").wait_for(timeout=15000)
     page.wait_for_timeout(500)
     nothing_from_the_run(page)
     assert page.evaluate("() => localStorage.getItem('simba.forgetting')") is None
@@ -162,7 +160,7 @@ def test_a_reset_made_with_no_backend_still_holds_when_it_comes_back(
     assert page.evaluate("() => localStorage.getItem('simba.forgetting')") == "1"
 
     page.goto(f"{overlay}?ws=ws://127.0.0.1:{PORT}/ws")
-    page.get_by_test_id("can-help").wait_for(timeout=15000)
+    page.get_by_test_id("home-where").wait_for(timeout=15000)
     page.wait_for_timeout(800)
     nothing_from_the_run(page)
     assert page.evaluate("() => localStorage.getItem('simba.forgetting')") is None

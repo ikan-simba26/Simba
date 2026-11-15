@@ -278,7 +278,10 @@ def test_it_waits_for_a_backend_that_starts_after_the_window(
 
         page.get_by_role("textbox", name=BOX).wait_for(timeout=12000)
 
-        assert page.get_by_test_id("remembered").count() == 2
+        # The first screen has no remembered goals since 2026-11-14: what it
+        # offers is there whole, the three tasks, and is not changed by goals.
+        assert page.get_by_test_id("remembered").count() == 0
+        assert page.get_by_test_id("tile").count() == 3
     finally:
         page.context.close()
 
@@ -298,7 +301,12 @@ def test_the_home_screen_arrives_whole_after_a_slow_first_word(
 
         page.get_by_role("textbox", name=BOX).wait_for(timeout=12000)
 
-        assert page.get_by_test_id("remembered").count() == 2
+        # Whole when the box is there, and not rearranged when the first word
+        # comes (2026-11-14: nothing on the first screen depends on the goals).
+        before = page.get_by_test_id("tile").count()
+        page.wait_for_timeout(3500)
+        assert before == page.get_by_test_id("tile").count() == 3
+        assert page.get_by_test_id("remembered").count() == 0
     finally:
         page.context.close()
 
@@ -357,8 +365,14 @@ def test_it_keeps_trying_at_home_but_never_over_a_press(browser: Browser, overla
         page.get_by_role("textbox", name=BOX).wait_for(timeout=20000)
         page.get_by_test_id("splash").wait_for(state="detached", timeout=5000)
         at_home = len(attempts)
-        # Long enough for two: a refused attempt takes about 2.5s on Windows.
-        page.wait_for_timeout(6000)
+        # Until it tries again, and for no longer than the backoff allows: a
+        # refused attempt takes about 2.5s on Windows and the gap between
+        # attempts grew to 10s in a whole-suite run, where a fixed 6s saw none
+        # (2026-11-15).
+        deadline = time.monotonic() + 25
+        while len(attempts) <= at_home and time.monotonic() < deadline:
+            page.wait_for_timeout(250)
+        page.wait_for_timeout(1500)
 
         assert at_home >= 2, attempts
         assert len(attempts) > at_home, attempts  # it keeps trying
@@ -399,10 +413,12 @@ def test_under_reduced_motion_there_is_nothing(browser: Browser, overlay: str) -
         page.context.close()
 
 
-def test_the_entrance_is_seen_as_the_logo_fades(
+def test_the_home_screen_is_there_whole_as_the_logo_leaves(
     browser: Browser, overlay: str, offers: History,  # noqa: F811
 ) -> None:
-    """The tiles rise in once (`entrance.ts`): as the logo leaves, not behind it."""
+    """The tiles no longer rise in (2026-11-14: the first screen is the cards
+    and the box, there at once). What stays: the logo leaves and the screen
+    behind it is whole, not half-faded."""
     page = kept_page(browser)
     page.add_init_script(SPLASH_ON)
     offers.goals = []
@@ -411,9 +427,9 @@ def test_the_entrance_is_seen_as_the_logo_fades(
         page.get_by_test_id("tile").first.wait_for(state="attached", timeout=15000)
         first = "+getComputedStyle(document.querySelector('[data-testid=tiles] li')).opacity"
 
-        assert page.evaluate(first) < 0.5
         page.wait_for_timeout(2000)
         assert page.evaluate(first) == 1
+        assert page.get_by_test_id("tile").count() == 3
         assert not splash_shown(page)
     finally:
         page.context.close()
@@ -477,7 +493,9 @@ def test_it_sits_top_left_and_touches_nothing(
         page.goto(f"{overlay}?ws=ws://127.0.0.1:{offers.port}")
         page.get_by_role("textbox", name=BOX).wait_for(timeout=15000)
         if goals:
-            page.get_by_test_id("remembered").first.wait_for(timeout=10000)
+            # Goals asked before are not on the first screen since 2026-11-14.
+            page.wait_for_timeout(600)
+            assert page.get_by_test_id("remembered").count() == 0
         page.wait_for_timeout(1400)  # past the entrance
 
         logo = logo_on(page)

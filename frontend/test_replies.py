@@ -88,6 +88,23 @@ def test_hello_is_greeted_with_what_i_can_do(page: Page, overlay: str, mock: str
     assert not page.get_by_text("Give me a moment.").is_visible()
 
 
+@pytest.mark.parametrize("goal, arrives", [("hello", GREETING), ("book a flight", CANNOT),
+                                           ("I need to pay for my course", WHICH)])
+def test_every_reply_has_a_way_back_to_the_first_screen(
+    page: Page, overlay: str, mock: str, goal: str, arrives: str  # noqa: F811
+) -> None:
+    """2026-11-15: "hello" left the person on a screen with no road back to
+    "Where do you want to go?" — the greeting, the question and the refusal
+    had no way back; only the two replies about a website did."""
+    ask(page, overlay, mock, goal)
+    arrived(page, arrives)
+
+    page.get_by_test_id("reply-back").click()
+
+    page.get_by_text("Where do you want to go?").wait_for(timeout=8000)
+    assert not page.get_by_text(arrives).is_visible()
+
+
 def test_a_card_after_hello_runs_that_flow(page: Page, overlay: str, mock: str) -> None:  # noqa: F811
     ask(page, overlay, mock, "hello")
     arrived(page, GREETING)
@@ -157,7 +174,7 @@ def test_every_reply_fits_without_scrolling(playwright_instance, overlay: str, m
         page.wait_for_timeout(1500)
         assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight"), (
             goal, size, page.evaluate("document.scrollingElement.scrollHeight - innerHeight"))
-        box = page.get_by_role("button", name="Start").bounding_box()
+        box = page.get_by_role("button", name="Start", exact=True).bounding_box()
         assert box and box["y"] + box["height"] <= height
     finally:
         browser.close()

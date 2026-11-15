@@ -48,7 +48,7 @@ FRONTEND = Path(__file__).resolve().parent
 BUILD = FRONTEND.parent / ".scratch" / "overlay-terminal"
 
 GOAL = "Find out what I owe"
-GREETING = "What can I do for you?"
+GREETING = "Where do you want to go?"
 
 # In a script, wait here for the overlay's `step.response` before going on.
 AWAIT_RESPONSE = "(await step.response)"

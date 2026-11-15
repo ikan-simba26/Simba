@@ -15,6 +15,7 @@ task's success condition rather than by the model claiming to be finished.
 """
 
 import asyncio
+import logging
 import re
 from collections import Counter
 from dataclasses import dataclass, replace
@@ -26,6 +27,8 @@ from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import VIEWPORT, Element
 from shared.schema import Finding, StepField
+
+log = logging.getLogger("simba.llm")
 
 SYSTEM_PROMPT = """You operate a web page on behalf of someone who finds \
 cluttered interfaces overwhelming.
@@ -479,8 +482,11 @@ from "What the page says" below — the answer itself and nothing round it (a \
 price, a date, a time, a name, a confirmation). Copy only words that are \
 there; never rephrase, add or calculate. In reasoning, write one short \
 sentence that tells the person the answer and contains the value exactly as \
-you copied it, like: Atomic Habits costs Rs. 3,221 on Readings. If the goal \
-needs a search first, search first.
+you copied it, like: The kettle costs Rs. 4,500 on the shop. Never take the example's \
+figures or format: the value is whatever the page shows, as it shows it. If the goal \
+needs a search first, search first: choose "type" on the website's search box \
+(a text box) with the words to look for. A menu that only sets what to search by \
+(Keyword, Title, Author, a category) is not the search box; leave it as it is.
 When the goal asks you to do something — order, book, register, apply, \
 submit, pay — do it: fill in what is needed and press the button that does it. \
 SIMBA shows the person what that button will do and presses it only if they \
@@ -846,15 +852,18 @@ class OpenGoalPlanner(LLMPlanner):
             except LLMError as error:
                 unanswered += 1
                 feedback = str(error)
+                log.info("AI choice refused: no usable reply (%.60s)", feedback)
                 continue
             if action.action == "answer":
                 said = (action.value or "").strip()
                 if said and self._content is not None and self._content.shows(said):
                     return _Choice(action=action, element=None)  # type: ignore[arg-type]
+                log.info("AI choice refused: its answer is not on the page word for word")
                 feedback = (f'"{said}" is not on the page word for word. Copy the answer '
                             'exactly from "What the page says", or act to find it.')
                 continue
             if action.element_id not in valid:
+                log.info("AI choice refused: element %s is not in the list", action.element_id)
                 feedback = (f"element_id {action.element_id} is not in the list. Choose an "
                             "id from the list of elements, exactly as it is numbered there.")
                 continue

@@ -324,6 +324,9 @@ def test_no_key_is_said_without_the_key(monkeypatch):
     monkeypatch.setattr(llm, "_load_dotenv", lambda: None)
     monkeypatch.setenv("SIMBA_LLM_PROVIDER", "openai")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # And no OpenRouter key (2026-11-15): since a key for it alone is enough, one
+    # left in the environment by a test that loaded `.env` meant nothing raised.
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.setenv("GROQ_API_KEY", "groq-secret-value")
     with pytest.raises(LLMError) as raised:
         provider_from_env()

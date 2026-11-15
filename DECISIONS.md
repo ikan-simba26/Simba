@@ -6935,3 +6935,54 @@ something gets its final screen even when it only opens a form: (a) above stands
 `loop.would_change` or `loop.only_opens` was changed for it. On Readings, making an account is
 therefore two final screens: one for "Register" at the top of the page, which opens the form, and
 one for the button that makes the account.
+
+
+## Step E failures: new-tab links, names the page capitalises, a way back from every reply — `feat/eval-step-e`, 2026-11-15
+
+Found by re-running step E after the setup mistake in its first run (the three built-in tasks had
+gone through the AI planner because `SIMBA_USE_HARDCODED_PLAN` was off). Each was decided while
+fixing, not asked for. **Flagged for review** where marked.
+
+- **A link that opens "in a new tab" is followed in the site view** (`frontend/electron/main.ts`,
+  `setWindowOpenHandler`: http(s) addresses load in the same view, everything else is denied).
+  Measured: `window.open` added a second page to the CDP target list and left the site view where it
+  was, so after the press SIMBA saw nothing change. Test `frontend/test_new_tab_links.py` fails
+  without it (2 of 2) and passes with it. *Flagged for Aly* (Electron main): this also means a site
+  that opens a login or payment popup now loads it in the one hidden view; a popup that needs its
+  opener (some payment pages) would lose it. Options: this (done), or allow the popup as a hidden
+  second view and tell perception about it. Recommended: this for the 19th; payment pages are
+  handed over whole anyway.
+- **An element is found by its name without regard to case** (`loop.resolve`, `name_matcher`).
+  Chromium's accessibility tree names a link as it is drawn, so a page with `text-transform:
+  capitalize` (every Readings result) gives "An Easy And Proven"; Playwright reads the page's own
+  "an Easy and Proven", and `exact=True` found nothing. The press timed out, was retried, timed out,
+  and the run stopped "stuck": 3 of 3 on "order a book". `backend/orchestrator/test_resolve_transform.py`.
+  Twins are counted case-insensitively too, so `.nth` still agrees; two links differing only by case
+  are still told apart (tested). *Flagged for Raham*: a label that differs from the page's text by
+  case only is now matched on any site; a wrong match needs two elements of one role whose names
+  differ by case alone, which is rare and tested for.
+- **Every reply has a way back** (`App.tsx`, "Back to start" beside the heading of a greeting, a
+  question and "I can't do that yet"; the two replies about a website already had one). "hello"
+  had left the person on a screen with no road to the first. Beside the heading so the screen is
+  no taller; the fit tests at 100%, 125% and 150% pass. One existing locator (`name="Start"`) became
+  ambiguous with "Back to start" and was made exact. *Flagged for Aly.*
+- **One sentence added to the AI planner's rules**: type into the search box; a menu that only
+  sets what to search by is not the box. One real-window run had pressed Readings' "Keyword | Title |
+  Author…" menu twice and stopped. Prompt wording is not measured beyond the runs in EVALUATION.md.
+
+
+## Tests that pinned the old first screen, updated — `feat/eval-step-e`, 2026-11-15
+
+*Flagged for Aly and Raham.* The commit that made the first screen "Where do you want to go?" (6e093c0,
+14 November) said the tests pinning the old one would follow in the next commit; 63 had not. They were
+updated to what the screen does now, not deleted: remembered goals are asserted *absent*, the tiles'
+entrance animation is no longer asserted (it is gone from the home screen), the presence mark is
+"small" on the first screen, the way in and the pictures still fit at every scaling.
+
+- *Not reversed, and worth a look:* the removal of remembered goals from the first screen, and of the
+  tiles' entrance. Both were Raham's 14 November decision; nothing here changes them.
+- **The "taught" badge** (`ui.tsx`) sits 4px below its picture's corner, not 8px: at 100% it stuck 1px
+  out of the compact own-task tile, which the old test had caught.
+- **A test's `.env`.** `test_trip_answers`'s app now gets no `.env` and no provider keys, so a key in
+  this machine's `.env` neither changes its answer nor spends quota. Other tests that start the app
+  and rely on `SIMBA_ROUTER=keywords` were not changed.

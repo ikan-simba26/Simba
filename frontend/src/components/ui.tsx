@@ -241,7 +241,7 @@ export function PictureChip({ kind, taught = false }: { kind: PictureKind; taugh
           data-picture={kind} data-taught={taught ? "true" : undefined} aria-hidden>
       <PictureIcon kind={kind} size={26} />
       {taught && (
-        <span className="absolute -right-2 -bottom-2 flex h-6 w-6 items-center justify-center
+        <span className="absolute -right-2 -bottom-1 flex h-6 w-6 items-center justify-center
                          rounded-full border border-edge bg-surface text-accent"
               data-testid="taught-mark">
           <Svg size={16} weight={2.2}>

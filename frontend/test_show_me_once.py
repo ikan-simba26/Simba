@@ -433,7 +433,7 @@ def test_the_way_in_fits_the_fullest_home_screen_at_every_size(
     backend.routines = [ROUTINE]
     backend.goals = [{"goal": goal, "site": "127.0.0.1"} for goal in TALLEST]
     page, _ = opened(browser, overlay, backend, pages, size)
-    page.get_by_test_id("remembered").first.wait_for(timeout=10000)
+    page.get_by_test_id("own-tiles").wait_for(timeout=10000)
     page.wait_for_timeout(600)
     assert page.get_by_test_id("own-routine").count() == 1
     # The box, the tiles and the goals as before, and the way in above the

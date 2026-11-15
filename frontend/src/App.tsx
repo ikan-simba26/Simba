@@ -437,9 +437,22 @@ function Reply() {
   return (
     <div className="flex flex-col gap-10 short:gap-6">
       <div className="flex flex-col gap-5 short:gap-3">
-        <h1 className="text-display font-semibold tracking-[-0.015em] text-ink short:text-heading">
-          {heading}
-        </h1>
+        {/* A way back on every reply (2026-11-15). A greeting, a question and
+            "I can't do that" had none: "hello" left the person on a screen
+            with no road to the first one. Beside the heading, so the screen
+            is no taller; the two replies that carry their own are left alone. */}
+        <div className="flex items-start justify-between gap-6">
+          <h1 className="min-w-0 flex-1 text-display font-semibold tracking-[-0.015em] text-ink
+                         short:text-heading">
+            {heading}
+          </h1>
+          {reply.kind !== "not_yet" && reply.kind !== "not_allowed" && (
+            <Button variant="secondary" size="md" wide={false} onClick={startOver}
+                    data-testid="reply-back">
+              {ONWARD}
+            </Button>
+          )}
+        </div>
         {/* Their words on one line with the lead-in, not two: the reply to
             "book a flight" scrolled by 24px at 100% and 45px at 150% until
             2026-10-14. */}

@@ -93,7 +93,7 @@ def test_forgetting_clears_the_profile_and_the_tiles_and_starts_again(
         page.get_by_test_id("welcome-skip").click()
         page.wait_for_timeout(250)
     greeting = page.get_by_test_id("greeting").inner_text()
-    assert "Ayesha" not in greeting and greeting.endswith("What can I do for you?")
+    assert "Ayesha" not in greeting and greeting.endswith("Where do you want to go?")
     assert page.get_by_test_id("own-tiles").count() == 0
     assert page.get_by_test_id("can-help").is_visible()
     # And the read-aloud button is back for the next person, as by default.

@@ -9198,3 +9198,77 @@ The handover (Task 6) was never reached, so the payment handover was not
 exercised in this run. Tokens and cost not measured. Per-run provider was
 checked from the backend log in aggregate (OpenRouter only), not run by run.
 Railways is the live site as it stood on the evening of 2026-11-15.
+
+
+## 2026-11-15b, step E repeated: the setup mistake removed, three defects fixed
+
+Branch `feat/eval-step-e`. Same driver (`tools/evaluation/real_window_run.py`), the SIMBA window only.
+One machine, one evening, OpenRouter `google/gemini-2.5-flash-lite` for every AI-planned run (free
+tier, no billing). Three runs a task is a count, not a pass rate. No real purchase, card or payment;
+every final screen was answered "Don't do it".
+
+**Setup fix.** Step E's stack had `SIMBA_USE_HARDCODED_PLAN=0`, so Railways, the bill and the test
+payment (built-in tasks, which keep written plans) went through the AI planner. Rerun with it on
+(`.scratch/start_eval_stack_hc.ps1`).
+
+| Task | Planner | Result | Seconds |
+|---|---|---|---|
+| Electricity bill (replica), reference typed | written plan | **3/3 completed** | 32.4, 26.1, 20.1 |
+| Pay the bill (replica) to the final screen | written plan | **3/3 final screen** | 23.1, 23.8, 23.2 |
+| Railways search, Lahore to Karachi, live | written plan | **1/1 completed** (3 questions, 5 moves; the run was permitted once, two more were not made) | 36.5 |
+| Readings: price of Atomic Habits | AI | **3/3 completed** (after the changes below) | 97.8, 86.9, 69.5 |
+| Readings: order a book to the final screen | AI | **3/3 final screen** (after the changes below) | 67.5, 50.4, 67.5 |
+| Readings: make an account to the final screen | AI | **3/3 final screen** | 27.1, 26.9, 27.0 |
+
+Before the changes, same day: price 2/3, order 0/3, sign-up 3/3 (2026-11-15 step E).
+
+### What failed and why
+
+- **Order a book, 0/3 then: the press on the result never landed.** Readings styles every result
+  title `text-transform: capitalize`. Chromium's accessibility tree names the link as drawn ("An Easy
+  And Proven"); Playwright's exact name match reads the page's own text ("an Easy and Proven") and
+  found nothing, so `act` timed out (10 s), tried again, timed out, and the run stopped. Reproduced
+  by hand on the live page (`Locator.click: Timeout 10000ms exceeded`, waiting for the
+  capitalised name) and in a local page (`test_resolve_transform.py`, failing before the fix).
+  Fixed in `loop.resolve`.
+- **A new-tab link opened a second window** (`window.open` added a second page to the CDP list and
+  the site view stayed put). Fixed in `main.ts`; `test_new_tab_links.py` fails 2/2 without it. This
+  was real but was not the cause of the order stall; the Readings result links are plain links.
+- **Planner variance:** twice the model pressed Readings' "Keyword | Title | Author…" menu first
+  (one run stalled after it, one went on and finished). A sentence was added to its rules. Price run 2
+  of the intermediate pair also stalled after the search with two refused answers; the cause was not
+  logged then. The planner's prompt example had named a real price in a different format
+  ("Rs. 3,221" where the page says "Rs. 3221"); the example is now neutral, and the reasons a choice is
+  refused are now logged (no page text). After both changes 9 of 9 AI runs above passed. **Which of
+  the two changes did it is not established**: they went in together.
+- **"hello" left the person on a screen with no way back.** Fixed (a way back on every reply).
+
+### Tests (final state, 2026-11-15 night)
+
+- Backend `backend/orchestrator`: **955 passed, 5 skipped, 0 failed** (19m17s) with `test_routine_lists.py`
+  deselected, and **27 passed** in that file alone (1m20s). Earlier runs the same evening failed on
+  five things, none the product: two `test_calm_planner` tests (load; pass alone),
+  `test_provider_chain::test_no_key_is_said_without_the_key` (a key left in the environment by a test
+  that loaded `.env`) and `test_trip_answers::test_the_default_launch...` (this machine's `.env` has a
+  real OpenRouter key, which the app asked, in place of the test's fake server, and it spent real quota;
+  fixed by blanking the keys and `SIMBA_ENV_FILE` in that fixture, twice: the first fix passed alone and
+  failed in a whole run, the second held).
+- Frontend `frontend`: **738 passed, 5 skipped, 1 failed** (29m), then the one failure
+  (`test_brand::test_it_keeps_trying_at_home_but_never_over_a_press`, a fixed 6 s wait for a reconnect
+  that the backoff had spaced 10 s apart) was made to wait up to 25 s; `test_brand.py` 47 passed twice.
+  **The whole frontend directory was not re-run after that last edit.**
+  Before: 62 failed + 1 error, the same 62 with my `App.tsx` change stashed. 41 were the old home
+  heading; 22 pinned things the 2026-11-14 first screen removed on purpose (remembered goals, the left
+  list, the tiles' entrance, a large presence mark on the first screen), and were updated to the
+  new screen, not deleted: they now check that the three tasks are there whole, that remembered goals
+  are *not* shown, the way in and the pictures at 100/125/150%.
+- One was a real defect the old test caught: the "taught" badge on a helper-taught tile stuck 1 px
+  out of its tile (badge bottom 338, tile bottom 337 at 100%; the same at 125/150%). `ui.tsx` moves it up
+  4 px of its old 8; the pictures test passes at every size.
+- New: `test_resolve_transform.py` (2), `test_new_tab_links.py` (2, host tests), a back-button test (3).
+
+### Not measured
+
+The handover with the test gateway (the driver answers "Don't do it" at the final screen, so it is
+never reached); tokens and cost; Railways more than once today (earlier runs: see 2026-11-13 and
+step E); the AI planner on Railways, the bill or the test payment as a product path (not one).

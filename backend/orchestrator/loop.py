@@ -329,10 +329,26 @@ def resolve(page: Page, elements: list[Element], element_id: int):
     element = next(e for e in elements if e.id == element_id)
     if element.locator_hint:
         return page.locator(element.locator_hint)
-    twins = [e for e in elements if e.role == element.role and e.label == element.label]
-    return page.get_by_role(element.role, name=element.label, exact=True).nth(
+    # By the name without regard to case (2026-11-15). The accessibility tree
+    # names an element as it is drawn, and a page that styles its titles
+    # `text-transform: capitalize` (every result on Readings) is named "An Easy
+    # And Proven"; Playwright reads the page's own "an Easy and Proven", and an
+    # exact match found nothing, so the press timed out, twice, and the run
+    # stopped. Twins are counted the same way, so `.nth` still agrees.
+    twins = [e for e in elements if e.role == element.role
+             and e.label.casefold() == element.label.casefold()]
+    if not element.label.strip():  # nameless: as before
+        return page.get_by_role(element.role, name=element.label, exact=True).nth(
+            twins.index(element))
+    return page.get_by_role(element.role, name=name_matcher(element.label)).nth(
         twins.index(element)
     )
+
+
+def name_matcher(label: str) -> re.Pattern[str]:
+    """The whole name, whatever its case, with any run of spaces as one."""
+    words = [re.escape(word) for word in label.split()]
+    return re.compile(r"^\s*" + r"\s+".join(words) + r"\s*$", re.IGNORECASE)
 
 
 async def act(page: Page, elements: list[Element], element_id: int, operation: Operation,

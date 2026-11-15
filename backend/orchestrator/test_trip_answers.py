@@ -683,6 +683,16 @@ def app_without_quota(railways: str) -> Iterator[str]:
         "SIMBA_RAILWAYS_URL": railways,
         "SIMBA_RECORD_STEPS": "0",
         "SIMBA_FLOW": "",
+        # No `.env` (2026-11-15): with a real OpenRouter key in it the app asked
+        # OpenRouter first, the fake server below was never called, and the test
+        # failed and spent real quota. The fake is the only model it may meet.
+        "SIMBA_ENV_FILE": str(REPO_ROOT / ".scratch" / "no-such.env"),
+        "SIMBA_LLM_FIRST": "",
+        # Nor keys an earlier test loaded from `.env` into this process, which
+        # the app would inherit: in a whole-suite run it asked the real
+        # OpenRouter, was told to clarify, and the test failed there only.
+        "OPENROUTER_API_KEY": "", "GROQ_API_KEY": "", "GEMINI_API_KEY": "",
+        "GOOGLE_API_KEY": "", "ANTHROPIC_API_KEY": "",
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "backend.orchestrator.app:app",
@@ -744,7 +754,7 @@ def test_the_default_launch_with_no_model_quota_asks_and_searches(
     ])
 
     shown = [m["payload"]["instruction"] for m in received if m["type"] == "step.presented"]
-    assert shown[:3] == [voice.ASK_FROM, voice.ASK_TO, voice.ASK_DAY]
+    assert shown[:3] == [voice.ASK_FROM, voice.ASK_TO, voice.ASK_DAY], [(m["type"], str(m["payload"])[:160]) for m in received]
     assert shown[3].startswith("Hyderabad Jn to Sukkur, tomorrow")
     assert received[-1]["type"] == "task.completed", [m["type"] for m in received]
     # The model was asked, and had nothing to give: routing and reading both fell

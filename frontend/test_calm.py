@@ -106,14 +106,14 @@ def thinking(page: Page, overlay: str, backend: Backend) -> None:  # noqa: F811
     page.wait_for_timeout(800)
 
 
-def test_one_presence_mark_large_and_still_on_the_home_screen(
+def test_one_presence_mark_small_and_still_on_the_home_screen(
     moving_page: Page, overlay: str, backend: Backend  # noqa: F811
 ) -> None:
     """The shape is the presence mark (2026-10-14): one of it, and no dot."""
     home(moving_page, overlay, backend)
 
     assert moving_page.locator("[data-testid=shape]").count() == 1
-    assert moving_page.get_attribute("[data-presence]", "data-size") == "large"
+    assert moving_page.get_attribute("[data-presence]", "data-size") == "small"
     assert len(set(samples(moving_page, SHAPE_POSE, count=6, every_ms=500))) == 1
 
 

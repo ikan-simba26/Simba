@@ -199,6 +199,16 @@ app.whenReady().then(async () => {
   siteView.webContents.on("dom-ready", () => {
     void siteView.webContents.insertCSS(HIDE_SCROLLBARS, { cssOrigin: "user" });
   });
+  // A link that opens "in a new tab" (target=_blank, window.open) is followed
+  // in this view instead (2026-11-15). Left alone, Electron opens a second,
+  // visible window: the site view stays on the page it was on, SIMBA sees
+  // nothing change after the press, and the run stops as "stuck" (step E,
+  // Readings "order a book", 3 of 3). Measured: window.open added a second
+  // page to the CDP target list. Only web addresses are followed.
+  siteView.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void siteView.webContents.loadURL(url);
+    return { action: "deny" };
+  });
   void siteView.webContents.loadURL(START_URL);
 
   const overlay = new WebContentsView();
