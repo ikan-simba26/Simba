@@ -778,6 +778,8 @@ AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
 #: It stops rather than wander, and the stuck screen offers a helper.
 AI_NO_PROGRESS = ("I'm not getting anywhere on this website, so I've stopped. "
                   "I didn't change anything.")
+#: `task.failed.reason` when a website would not open at all (2026-11-16).
+COULD_NOT_OPEN = "I couldn't open that website. I didn't change anything."
 #: `help.requested.reason` when no AI service answered in time (2026-11-14).
 AI_TOO_SLOW = "The AI service is taking too long to answer just now, so I've stopped."
 #: Under an open goal's answer when the run changed nothing (2026-11-14).

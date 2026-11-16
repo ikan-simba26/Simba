@@ -85,6 +85,8 @@ export const HOME = {
   go: "Go",
   /** The card after the last website: one that is not in the list. */
   another: "Another website",
+  /** In the empty space beside the list of websites (2026-11-16). */
+  pickLeft: "Choose a website on the left, or tell me what you want.",
   /** When nothing in the list has the words typed. */
   noMatch: "Press Start and I'll see what I can do.",
   /** Above the person's own tasks, kept or shown by a helper: a row of its
@@ -823,6 +825,7 @@ export const SITUATIONS: Record<string, string> = {
   "checklist.heading": CHECKLIST.heading,
   "home.askHeading": HOME.askHeading,
   "home.noMatch": HOME.noMatch,
+  "home.pickLeft": HOME.pickLeft,
   "sites.whatThere": SITES.whatThere,
   "sites.anotherAsk": SITES.anotherAsk,
   "home.morningNamed": greetingAt(9, "Ayesha"),

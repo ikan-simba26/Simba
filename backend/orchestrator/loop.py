@@ -32,6 +32,7 @@ from urllib.parse import urlsplit
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from backend.estimator.page_features import PageFeatures
 from backend.estimator.page_features import features as page_features
@@ -1247,6 +1248,15 @@ WINDOW_POLL_S = 0.5
 #: (`app.log_runs`). Never a value the person typed.
 log = logging.getLogger("simba.run")
 
+#: How long a website has to open before SIMBA goes on without its `load` event,
+#: or, with nothing there, says it could not (2026-11-16).
+OPEN_TIMEOUT_MS = 30_000
+
+
+def _host(address: str) -> str:
+    """A website's host, as a person reads it: no "www."."""
+    return urlsplit(address).netloc.lower().removeprefix("www.")
+
 
 class StoppedWhileAway(Exception):
     """The person pressed stop on the step that said the window was back."""
@@ -1463,7 +1473,9 @@ class _Run:
         )
 
     async def open(self, goal: str, estimated_steps: int, start_url: str,
-                   stages: list[str] | None = None) -> None:
+                   stages: list[str] | None = None) -> bool:
+        """Open the site. False when it would not open: the run is ended, in
+        plain words, and the caller returns."""
         self.total = estimated_steps
         await self.connection.send(
             "task.started",
@@ -1471,9 +1483,25 @@ class _Run:
         )
         await self.set_state("thinking")
         opening = time.monotonic()
-        await self.page.goto(start_url)
+        try:
+            await self.page.goto(start_url, timeout=OPEN_TIMEOUT_MS)
+        except PlaywrightTimeout:
+            # A heavy page may never say it has loaded (ads, trackers: PakWheels,
+            # 2026-11-16). If this website's page has arrived, it is there to
+            # read: go on. If nothing has, say so; never hang (it used to raise
+            # here, nothing caught it, and the overlay waited for good).
+            if _host(self.page.url) == _host(start_url):
+                log.info("page on %s did not finish loading in %.0fs; going on with it",
+                         urlsplit(start_url).netloc, time.monotonic() - opening)
+            else:
+                log.info("page on %s did not open in %.0fs; ending the run",
+                         urlsplit(start_url).netloc, time.monotonic() - opening)
+                await self.connection.send(
+                    "task.failed", TaskFailed(reason=voice.COULD_NOT_OPEN, recoverable=True))
+                return False
         log.info("task started on %s, %d steps estimated; page open in %.1fs",
                  urlsplit(start_url).netloc, estimated_steps, time.monotonic() - opening)
+        return True
 
     async def present(
         self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
@@ -1640,7 +1668,8 @@ async def run_task(
     """
     run = _Run(page, connection, recorder, rules, vault, window, auto)
     run.teach_site = teach_site
-    await run.open(task.goal, task.estimated_steps, start_url)
+    if not await run.open(task.goal, task.estimated_steps, start_url):
+        return
     await carry_out(run, planner, task)
 
 
@@ -1675,8 +1704,9 @@ async def run_brief(
     # (2026-10-16): book the train, pay the bill. Its stages say so.
     if hasattr(brief, "finishes"):
         brief.finishes = on_replica(start_url)
-    await run.open(brief.goal, brief.estimated_steps, start_url,
-                   getattr(brief, "stages", None))
+    if not await run.open(brief.goal, brief.estimated_steps, start_url,
+                          getattr(brief, "stages", None)):
+        return
 
     # A brief that holds its answers to what the site offers reads that first,
     # without touching anything: the train search's own station list

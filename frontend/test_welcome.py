@@ -199,11 +199,18 @@ def test_each_example_is_drawn_small_inside_its_own_card(
 
 FITS = """() => {
   const scrolls = document.scrollingElement.scrollHeight > innerHeight;
+  // A button inside a box that scrolls on its own (the websites to start with,
+  // 30 since 2026-11-16) is reached by scrolling it: the box itself is what has
+  // to be in the window.
+  const inBox = b => b.closest('[data-testid=setup-sites]');
+  const outside = el => { const r = el.getBoundingClientRect();
+                          return r.top < 0 || r.bottom > innerHeight || r.right > innerWidth; };
   const off = [...document.querySelectorAll('[data-testid=welcome] button')]
-    .filter(b => b.offsetParent && !b.closest('[aria-hidden=true]'))
-    .filter(b => { const r = b.getBoundingClientRect();
-                   return r.top < 0 || r.bottom > innerHeight || r.right > innerWidth; })
+    .filter(b => b.offsetParent && !b.closest('[aria-hidden=true]') && !inBox(b))
+    .filter(outside)
     .map(b => b.innerText.trim());
+  document.querySelectorAll('[data-testid=setup-sites]').forEach(box => {
+    if (box.offsetParent && outside(box)) off.push('setup-sites'); });
   return {scrolls, off};
 }"""
 

@@ -131,113 +131,120 @@ function Where() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-162px)] flex-col gap-5 pt-3
-                    short:h-[calc(100dvh-110px)] short:gap-3 short:pt-4" data-testid="home-where">
-      <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
-                     text-balance short:text-heading" data-testid="greeting">
-        {greetingAt(hour, profile.name)}
-      </h1>
-
-      <div className="flex items-stretch gap-4">
-        <div className="simba-field-frame flex min-w-0 flex-1 items-center gap-4 rounded-xl
-                        py-1.5 pr-2 pl-6 shadow-card">
-          <span className="shrink-0 text-soft" aria-hidden><SpeechIcon /></span>
-          <input className="min-w-0 flex-1 bg-transparent py-3 text-lead text-ink outline-none
-                            placeholder:text-soft focus-visible:outline-none short:py-2"
-                 value={typed} onChange={(event) => setTyped(event.target.value)}
-                 onKeyDown={(event) => event.key === "Enter" && go()}
-                 placeholder={HOME.findPlaceholder} aria-label={HOME.askHeading}
-                 data-testid="ask-goal" />
-          {/* Always there, as the box's button always was: "Go" to the one
-              website found or to an address, "Start" for anything else. */}
-          <Button size="md" wide={false} onClick={go} disabled={!words} data-testid="home-go">
-            {words && (address || found.length === 1) ? HOME.go : HOME.start}
-          </Button>
+    <div className="flex h-[calc(100dvh-162px)] gap-8 pt-3
+                    short:h-[calc(100dvh-110px)] short:gap-5 short:pt-4" data-testid="home-where">
+      {/* The websites are a list down the left, the full height of the screen, by
+          kind, scrolling inside itself (the advisor, 2026-11-16: it had gone on
+          2026-11-14). The greeting, the box and the rest are in the column beside it. */}
+      {groups.length > 0 && (
+        <div className="flex w-[300px] shrink-0 flex-col gap-4 overflow-y-auto pr-2 pt-1
+                        short:w-[250px] short:gap-2" data-testid="site-grid">
+          {groups.map(({ genre, sites: inGenre }) => (
+            <section key={genre} aria-label={genre} data-testid="site-genre"
+                     className="flex flex-col gap-1.5 short:gap-0.5">
+              <p className="text-small font-medium text-soft short:leading-tight">{genre}</p>
+              <ul className="flex flex-col gap-2 short:gap-1.5">
+                {inGenre.map((site) => (
+                  <li key={`${genre}-${site.id}`}>
+                    <button type="button" data-testid="site" title={hostOf(site.address)}
+                            aria-label={site.name}
+                            onClick={() => chooseSite(site.id)} className={SITE_ROW}>
+                      <SiteIcon address={site.address} name={site.name} genre={site.genre}
+                                size={36} />
+                      {/* Without a name's aside in brackets, which the kind above
+                          the row already says: "(practice copy)". */}
+                      <span className="line-clamp-2 text-small font-semibold leading-tight
+                                       text-ink">
+                        {site.name.replace(/\s*\([^)]*\)\s*$/, "")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
-        {/* Beside the box, not after the last card: a row of cards fewer,
-            which is what fits every listed website into a 150% window. */}
-        <button type="button" data-testid="another-site"
-                onClick={() => chooseSite(ANOTHER, address ? typed.trim() : undefined)}
-                className="flex shrink-0 items-center gap-3 rounded-xl border border-dashed
-                           border-edge bg-surface px-5 text-left shadow-card
-                           transition-[box-shadow,border-color,transform] duration-200
-                           hover:border-accent/50 hover:shadow-lift active:translate-y-px">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
-                           bg-tint text-[28px] font-semibold leading-none text-accent"
-                aria-hidden>
-            +
-          </span>
-          <span className="text-small font-semibold leading-tight text-ink">
-            {HOME.another}
-          </span>
-        </button>
-      </div>
-
-      {own && !words && (
-        <section className="flex items-center gap-3" aria-label={HOME.yourTasks}
-                 data-testid="own-tiles">
-          <p className="shrink-0 text-small font-medium text-soft">{HOME.yourTasks}</p>
-          <ul className="flex min-w-0 flex-1 gap-3 overflow-hidden">
-            {tiles.map((tile) => (
-              <li key={tile.id} className="min-w-0">
-                <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
-                        title={tile.label} className={OWN_TASK}>
-                  <PictureChip kind={pictureForName(tile.label)} />
-                  <span className="line-clamp-1 text-small font-semibold text-ink">
-                    {tile.label}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {routines.map((routine) => (
-              <li key={routine.id} className="min-w-0">
-                <button type="button" onClick={() => startRoutine(routine)}
-                        data-testid="own-routine" title={routine.label} className={OWN_TASK}>
-                  <PictureChip kind={pictureForName(routine.label)} taught />
-                  <span className="line-clamp-1 text-small font-semibold text-ink">
-                    {routine.label}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <Button variant="quiet" size="md" wide={false} onClick={() => setTilesOpen(true)}
-                  data-testid="change-tiles">
-            {TILES.change}
-          </Button>
-        </section>
       )}
+      <div className="flex min-w-0 flex-1 flex-col gap-5 short:gap-3">
+        <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
+                       text-balance short:text-heading" data-testid="greeting">
+          {greetingAt(hour, profile.name)}
+        </h1>
 
-      {/* The cards scroll on their own when there are more than fit; the rest
-          of the screen never does. */}
-      <div className="-mx-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-6 gap-y-4
-                      overflow-y-auto px-2 pb-2 short:gap-y-1.5 short:pb-1"
-           data-testid="site-grid">
-        {groups.map(({ genre, sites: inGenre }) => (
-          <section key={genre} aria-label={genre} data-testid="site-genre"
-                   className="flex max-w-full flex-col gap-1.5 short:gap-0.5">
-            <p className="text-small font-medium text-soft short:leading-tight">{genre}</p>
-            {/* Wrapping: a kind with more websites than a row holds. */}
-            <ul className="flex flex-wrap gap-3 short:gap-y-1.5">
-              {inGenre.map((site) => (
-                <li key={`${genre}-${site.id}`}>
-                  <button type="button" data-testid="site" title={hostOf(site.address)}
-                          aria-label={site.name}
-                          onClick={() => chooseSite(site.id)} className={SITE_CARD}>
-                    <SiteIcon address={site.address} name={site.name} genre={site.genre}
-                              size={40} />
-                    {/* Without a name's aside in brackets, which the kind above
-                        the card already says: "(practice copy)". */}
-                    <span className="line-clamp-2 text-small font-semibold leading-tight
-                                     text-ink">
-                      {site.name.replace(/\s*\([^)]*\)\s*$/, "")}
+        <div className="flex items-stretch gap-4">
+          <div className="simba-field-frame flex min-w-0 flex-1 items-center gap-4 rounded-xl
+                          py-1.5 pr-2 pl-6 shadow-card">
+            <span className="shrink-0 text-soft" aria-hidden><SpeechIcon /></span>
+            <input className="min-w-0 flex-1 bg-transparent py-3 text-lead text-ink outline-none
+                              placeholder:text-soft focus-visible:outline-none short:py-2"
+                   value={typed} onChange={(event) => setTyped(event.target.value)}
+                   onKeyDown={(event) => event.key === "Enter" && go()}
+                   placeholder={HOME.findPlaceholder} aria-label={HOME.askHeading}
+                   data-testid="ask-goal" />
+            {/* Always there, as the box's button always was: "Go" to the one
+                website found or to an address, "Start" for anything else. */}
+            <Button size="md" wide={false} onClick={go} disabled={!words} data-testid="home-go">
+              {words && (address || found.length === 1) ? HOME.go : HOME.start}
+            </Button>
+          </div>
+          {/* Beside the box, not after the last card: a row of cards fewer,
+              which is what fits every listed website into a 150% window. */}
+          <button type="button" data-testid="another-site" aria-label={HOME.another}
+                  title={HOME.another}
+                  onClick={() => chooseSite(ANOTHER, address ? typed.trim() : undefined)}
+                  className="flex shrink-0 items-center gap-3 rounded-xl border border-dashed
+                             border-edge bg-surface px-5 text-left shadow-card
+                             max-[900px]:px-3
+                             transition-[box-shadow,border-color,transform] duration-200
+                             hover:border-accent/50 hover:shadow-lift active:translate-y-px">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+                             bg-tint text-[28px] font-semibold leading-none text-accent"
+                  aria-hidden>
+              +
+            </span>
+            {/* Only the "+" in a narrow window, where the list takes a third of it. */}
+            <span className="text-small font-semibold leading-tight text-ink max-[900px]:hidden">
+              {HOME.another}
+            </span>
+          </button>
+        </div>
+
+        {own && !words && (
+          <section className="flex items-center gap-3" aria-label={HOME.yourTasks}
+                   data-testid="own-tiles">
+            <p className="shrink-0 text-small font-medium text-soft">{HOME.yourTasks}</p>
+            <ul className="flex min-w-0 flex-1 gap-3 overflow-hidden">
+              {tiles.map((tile) => (
+                <li key={tile.id} className="min-w-0">
+                  <button type="button" onClick={() => startTile(tile)} data-testid="own-tile"
+                          title={tile.label} className={OWN_TASK}>
+                    <PictureChip kind={pictureForName(tile.label)} />
+                    <span className="line-clamp-1 text-small font-semibold text-ink">
+                      {tile.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {routines.map((routine) => (
+                <li key={routine.id} className="min-w-0">
+                  <button type="button" onClick={() => startRoutine(routine)}
+                          data-testid="own-routine" title={routine.label} className={OWN_TASK}>
+                    <PictureChip kind={pictureForName(routine.label)} taught />
+                    <span className="line-clamp-1 text-small font-semibold text-ink">
+                      {routine.label}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
+            <Button variant="quiet" size="md" wide={false} onClick={() => setTilesOpen(true)}
+                    data-testid="change-tiles">
+              {TILES.change}
+            </Button>
           </section>
-        ))}
+        )}
+
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
         {sites.length === 0 && !words && (
           <section className="flex flex-col gap-1.5 short:gap-1" aria-label={HOME.canHelp}
                    data-testid="tiles">
@@ -265,14 +272,21 @@ function Where() {
             {HOME.noMatch}
           </p>
         )}
+        {sites.length > 0 && !(words && found.length === 0 && !address) && (
+          <p className="pt-4 text-lead text-soft short:pt-1 short:text-body"
+             data-testid="pick-left">
+            {HOME.pickLeft}
+          </p>
+        )}
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
-                data-testid="change-settings">
-          {HOME.settings}
-        </Button>
-        <AskEachSetting />
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="quiet" size="md" wide={false} onClick={openWelcome}
+                  data-testid="change-settings">
+            {HOME.settings}
+          </Button>
+          <AskEachSetting />
+        </div>
       </div>
     </div>
   );
@@ -282,6 +296,12 @@ const SITE_CARD =
   "flex h-[76px] w-[200px] items-center gap-3 rounded-xl border border-edge bg-surface px-3 "
   + "text-left shadow-card transition-[box-shadow,border-color,transform] duration-200 "
   + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[60px]";
+
+/** A website in the list down the left: the whole width of the list. */
+const SITE_ROW =
+  "flex h-[60px] w-full items-center gap-3 rounded-xl border border-edge bg-surface px-3 "
+  + "text-left shadow-card transition-[box-shadow,border-color,transform] duration-200 "
+  + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[48px]";
 
 const OWN_TASK =
   "flex w-full min-w-0 items-center gap-3 rounded-xl border border-accent/40 bg-surface px-4 "

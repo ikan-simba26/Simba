@@ -227,16 +227,19 @@ def overlaps(a: dict, b: dict) -> bool:
 def test_the_first_screen_asks_where_and_every_website_is_a_card_that_fits(
         size, browser, overlay, backend, offer, pages):  # noqa: F811
     """Redesigned 2026-11-14 (Raham: "the home screen must not look like three
-    tasks"): "Where do you want to go?", the websites as cards by kind, one box,
-    and "Another website". Until then the websites were a list down the left."""
+    tasks"): "Where do you want to go?", the websites by kind, one box, and
+    "Another website". The list went back down the left on 2026-11-16, the
+    advisor having asked for it."""
     page = home(browser, overlay, backend, size, pages)
     width, height, _ = SIZES[size]
     assert page.get_by_test_id("greeting").inner_text().strip().endswith(
         "Where do you want to go?")
 
-    # Every website and every kind with one is there, in the backend's order.
+    # Every website and every kind with one is there, kind by kind in the
+    # backend's order of kinds (the list is grouped, whatever order the file is in).
     names = [b.get_attribute("aria-label") for b in page.get_by_test_id("site").all()]
-    assert names == [site["name"] for site in offer["sites"]]
+    assert names == [site["name"] for genre in offer["genres"]
+                     for site in offer["sites"] if site["genre"] == genre]
     genres = [g.get_attribute("aria-label") for g in page.get_by_test_id("site-genre").all()]
     assert genres == [g for g in offer["genres"]
                       if any(site["genre"] == g for site in offer["sites"])]
@@ -246,14 +249,17 @@ def test_the_first_screen_asks_where_and_every_website_is_a_card_that_fits(
     assert page.get_by_test_id("site").first.locator("span").last.evaluate(
         "e => parseFloat(getComputedStyle(e).fontSize)") >= 20
 
-    # Every card is wholly in the window: the shipped list fits without the
-    # cards scrolling, and the page never scrolls, sideways or down.
-    grid = page.get_by_test_id("site-grid")
-    assert not grid.evaluate("el => el.scrollHeight > el.clientHeight + 1")
+    # The list is down the left (the advisor asked for it, 2026-11-16), wholly
+    # in the window, scrolling inside itself when it is long; no card sticks out
+    # sideways, the first is in view, and the page never scrolls, sideways or down.
+    listing = page.get_by_test_id("site-grid")
+    lbox = listing.bounding_box()
+    assert lbox["x"] >= 0 and lbox["x"] < width / 3, lbox
+    assert lbox["y"] >= 0 and lbox["y"] + lbox["height"] <= height, lbox
     for card in page.get_by_test_id("site").all():
         box = card.bounding_box()
-        assert box["x"] >= 0 and box["x"] + box["width"] <= width
-        assert box["y"] + box["height"] <= height
+        assert box["x"] >= lbox["x"] and box["x"] + box["width"] <= lbox["x"] + lbox["width"] + 1
+    assert page.get_by_test_id("site").first.is_visible()
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollWidth > innerWidth")
     # The box, "Another website" and the settings are on screen, and the

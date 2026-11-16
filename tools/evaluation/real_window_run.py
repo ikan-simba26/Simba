@@ -177,7 +177,17 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
         host = (urlsplit(site).netloc or site).removeprefix("www.")
         card = page.locator(f'[data-testid=site][title="{host}"]')
         if card.count():
+            # The list scrolls inside itself (2026-11-16): bring the card into
+            # view and let the press guard's settle time pass, as a person
+            # would, or the press lands where another card was a moment ago and
+            # is ignored (`pressGuard.ts`; seen in `window.__simbaPresses`).
+            page.wait_for_timeout(1500)  # the list has only just arrived
+            card.first.scroll_into_view_if_needed()
+            page.wait_for_timeout(900)
             card.first.click()
+            page.wait_for_timeout(800)
+            if not page.locator("[data-testid=home-there]").count():
+                card.first.click()  # ignored as too soon: a person presses again
         else:
             page.locator("[data-testid=another-site]").click()
             page.locator("[data-testid=ask-where]").fill(site)

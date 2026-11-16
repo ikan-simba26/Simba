@@ -482,8 +482,11 @@ from "What the page says" below — the answer itself and nothing round it (a \
 price, a date, a time, a name, a confirmation). Copy only words that are \
 there; never rephrase, add or calculate. In reasoning, write one short \
 sentence that tells the person the answer and contains the value exactly as \
-you copied it, like: The kettle costs Rs. 4,500 on the shop. Never take the example's \
-figures or format: the value is whatever the page shows, as it shows it. If the goal \
+you copied it, like: The kettle costs Rs. 4,500. Never take the example's \
+figures or format: the value is whatever the page shows, as it shows it. The \
+answer must be about what the goal asked for: never a cart, basket or order total, \
+and never a zero or empty value such as "Rs 0"; if the page shows only those, keep \
+looking and open the item itself. If the goal \
 needs a search first, search first: choose "type" on the website's search box \
 (a text box) with the words to look for. A menu that only sets what to search by \
 (Keyword, Title, Author, a category) is not the search box; leave it as it is.

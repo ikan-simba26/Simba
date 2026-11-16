@@ -6986,3 +6986,47 @@ entrance animation is no longer asserted (it is gone from the home screen), the 
 - **A test's `.env`.** `test_trip_answers`'s app now gets no `.env` and no provider keys, so a key in
   this machine's `.env` neither changes its answer nor spends quota. Other tests that start the app
   and rely on `SIMBA_ROUTER=keywords` were not changed.
+
+
+## The list of websites back on the left; 17 more websites; a page that never loads — `feat/eval-step-e`, 2026-11-16
+
+Asked for by Raham, who said the advisor (Ma'am Samia) had suggested the list on the left and
+wanted more cluttered Pakistani websites. Each was decided while building. **Flagged for Aly and
+Raham** where marked.
+
+- **The list is back down the left, the full height of the screen** (`Home.tsx`: a 300px column,
+  250px in a short window, grouped by kind, scrolling inside itself; the greeting, the box, "Another
+  website", the person's own tasks and the settings are the column beside it). This undoes the part
+  of the 14 November redesign that put the websites in the middle as cards; the two-step flow ("Where
+  do you want to go?", then "What do you want to do there?") and the testids are as they were, so the
+  tests that pin them still pass at 100%, 125% and 150%. The three built-in task cards still show
+  only when there is no list. *Flagged:* Raham's 14 November reason was that the screen "must not look
+  like three tasks"; with 30 websites down the left it does not, but the right half is quiet when
+  nothing is typed (one sentence, "Choose a website on the left, or tell me what you want."). Below
+  900px wide "Another website" shrinks to its "+" so it is not cut off.
+- **A press right after the list scrolls is ignored** (`pressGuard.ts`, 2026-10-16: a press where a
+  different button was a moment ago, within 500ms). Seen in the real window: the driver scrolled the
+  list and pressed at once and the press was dropped (`window.__simbaPresses`: `ignored: true`, "was
+  under: IESCO electricity bill"). A person who wheel-scrolls and taps within half a second would
+  meet the same. Not changed: the guard exists because of a real wrong press. *Flagged for Aly:*
+  options are leave it (a second tap works), or let a scroll of the list not count as a move.
+  The driver now waits after scrolling.
+- **17 websites added** to `data/catalogue.json` (13 to 30), a new kind "Jobs": FBR, HEC, Pakistan
+  Post, Punjab Police, K-Electric, Sui Northern Gas, PTCL, PIA, BISE Lahore, University of the Punjab,
+  NUST, PakWheels, Zameen, Rozee, Shaukat Khanum Hospital, Dawaai. Picked as busy, cluttered Pakistani
+  sites a person might need. Screened with `robots.allowed` (the same fail-closed check SIMBA makes
+  before it opens a page): **17 of 22 candidates allowed; NADRA, Punjab Excise, LESCO, Airblue and
+  Virtual University are not used.** *Flagged:* only robots.txt was checked, not each site's terms
+  of use (Daraz was dropped on 12 November for its terms as well as its robots.txt). Every task is
+  "I'll work it out" (the AI planner); three were tried once (EVALUATION.md, 2026-11-16), the rest not.
+  Nothing here promises a site works.
+- **A page that never finishes loading no longer hangs the run** (`loop._Run.open`). `page.goto`
+  waits for `load`; PakWheels never delivers it inside 30s, the timeout was not caught, and the
+  overlay stayed on "Give me a moment." for good (seen: 7 minutes of nothing). Now the run goes on
+  with the page if this website's page has arrived, and otherwise ends with "I couldn't open that
+  website. I didn't change anything." (`OPEN_TIMEOUT_MS`, `voice.COULD_NOT_OPEN`;
+  `test_open_slow_page.py`). *Flagged:* the 30s is the old default, not measured.
+- **One more sentence in the AI planner's rules**: the answer is never a cart total or a zero. It did
+  not fix the Dawaai run ("The price of Panadol is Rs 0"): SIMBA's check is that the page says
+  those words, not that they answer the question; the person is asked "Is this what you wanted?"
+  and can say no. Left as a known weakness.

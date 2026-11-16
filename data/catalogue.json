@@ -7,6 +7,7 @@
     "Government",
     "Health",
     "Shopping",
+    "Jobs",
     "Look things up",
     "Practice sites"
   ],
@@ -119,6 +120,150 @@
       "genre": "Look things up",
       "tasks": [
         {"label": "Look something up", "goal": "Look up … on Wikipedia", "how": "ai"}
+      ]
+    },
+    {
+      "id": "fbr",
+      "name": "FBR (tax)",
+      "address": "https://www.fbr.gov.pk/",
+      "genre": "Government",
+      "tasks": [
+        {"label": "Find how to register for a tax number", "goal": "Find how to register for a tax number", "how": "ai"}
+      ]
+    },
+    {
+      "id": "hec",
+      "name": "HEC (degrees)",
+      "address": "https://hec.gov.pk/",
+      "genre": "Education",
+      "tasks": [
+        {"label": "Find the degree attestation steps", "goal": "Find the steps to get my degree attested", "how": "ai"}
+      ]
+    },
+    {
+      "id": "pakpost",
+      "name": "Pakistan Post",
+      "address": "https://www.pakpost.gov.pk/",
+      "genre": "Government",
+      "tasks": [
+        {"label": "Track a parcel", "goal": "Track my parcel", "how": "ai"}
+      ]
+    },
+    {
+      "id": "punjab-police",
+      "name": "Punjab Police",
+      "address": "https://punjabpolice.gov.pk/",
+      "genre": "Government",
+      "tasks": [
+        {"label": "Find a service", "goal": "Find a Punjab Police service for …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "ke",
+      "name": "K-Electric bill",
+      "address": "https://www.ke.com.pk/",
+      "genre": "Bills",
+      "tasks": [
+        {"label": "Look up my electricity bill", "goal": "Look up my K-Electric bill", "how": "ai"}
+      ]
+    },
+    {
+      "id": "sngpl",
+      "name": "Sui Northern Gas",
+      "address": "https://www.sngpl.com.pk/",
+      "genre": "Bills",
+      "tasks": [
+        {"label": "Look up my gas bill", "goal": "Look up my gas bill", "how": "ai"}
+      ]
+    },
+    {
+      "id": "ptcl",
+      "name": "PTCL",
+      "address": "https://ptcl.com.pk/",
+      "genre": "Bills",
+      "tasks": [
+        {"label": "Look up my phone bill", "goal": "Look up my PTCL bill", "how": "ai"}
+      ]
+    },
+    {
+      "id": "pia",
+      "name": "PIA flights",
+      "address": "https://www.piac.com.pk/",
+      "genre": "Travel",
+      "tasks": [
+        {"label": "Find flights", "goal": "Find flights from … to …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "biselahore",
+      "name": "BISE Lahore",
+      "address": "https://www.biselahore.com/",
+      "genre": "Education",
+      "tasks": [
+        {"label": "Find my exam result", "goal": "Find my exam result", "how": "ai"}
+      ]
+    },
+    {
+      "id": "pu",
+      "name": "University of the Punjab",
+      "address": "https://www.pu.edu.pk/",
+      "genre": "Education",
+      "tasks": [
+        {"label": "Find the admission dates", "goal": "Find the admission dates", "how": "ai"}
+      ]
+    },
+    {
+      "id": "nust",
+      "name": "NUST",
+      "address": "https://nust.edu.pk/",
+      "genre": "Education",
+      "tasks": [
+        {"label": "Find admission requirements", "goal": "Find the admission requirements for …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "pakwheels",
+      "name": "PakWheels",
+      "address": "https://www.pakwheels.com/",
+      "genre": "Shopping",
+      "tasks": [
+        {"label": "Find a used car", "goal": "Find a used car … in …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "zameen",
+      "name": "Zameen (property)",
+      "address": "https://www.zameen.com/",
+      "genre": "Shopping",
+      "tasks": [
+        {"label": "Find a house to rent", "goal": "Find a house to rent in …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "rozee",
+      "name": "Rozee (jobs)",
+      "address": "https://www.rozee.pk/",
+      "genre": "Jobs",
+      "tasks": [
+        {"label": "Find a job", "goal": "Find a job as … in …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "shaukatkhanum",
+      "name": "Shaukat Khanum Hospital",
+      "address": "https://shaukatkhanum.org.pk/",
+      "genre": "Health",
+      "tasks": [
+        {"label": "Find a doctor", "goal": "Find a doctor for …", "how": "ai"}
+      ]
+    },
+    {
+      "id": "dawaai",
+      "name": "Dawaai (medicines)",
+      "address": "https://dawaai.pk/",
+      "genre": "Health",
+      "tasks": [
+        {"label": "Find a medicine's price", "goal": "Find the price of the medicine …", "how": "ai"}
       ]
     },
     {

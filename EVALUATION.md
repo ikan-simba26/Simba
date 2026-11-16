@@ -9272,3 +9272,47 @@ Before the changes, same day: price 2/3, order 0/3, sign-up 3/3 (2026-11-15 step
 The handover with the test gateway (the driver answers "Don't do it" at the final screen, so it is
 never reached); tokens and cost; Railways more than once today (earlier runs: see 2026-11-13 and
 step E); the AI planner on Railways, the bill or the test payment as a product path (not one).
+
+
+## 2026-11-16: the list on the left, 17 websites more, three tried live
+
+Branch `feat/eval-step-e`. Real SIMBA window (`tools/evaluation/real_window_run.py`), the AI planner
+(OpenRouter `google/gemini-2.5-flash-lite`), read-only goals with nothing personal, one run each:
+**exploratory, not a pass rate.**
+
+**Screening.** 22 cluttered Pakistani websites checked with `robots.allowed` (fail-closed): 17 allowed
+and added (catalogue 13 to 30); NADRA, Punjab Excise, LESCO, Airblue and Virtual University not used.
+Terms of use were not read.
+
+| Website, goal | Result | Seconds |
+|---|---|---|
+| PakWheels, "Find a used Honda Civic in Lahore" | **completed**: Used Cars, Honda Civic, Lahore; quoted one real listing's title | 158.6 |
+| Zameen, "Find a house to rent in Lahore" | **completed**: "6,660 Houses for Rent in Lahore" | 152.1 |
+| Dawaai, "Find the price of Panadol" | completed, **answer probably wrong**: "Rs 0" (twice, 64.5 s and 65.6 s) | 64.5 |
+
+### What failed and why
+
+- **PakWheels hung the first time** (434 s, nothing on screen): `page.goto` waits for `load`, which
+  PakWheels does not fire inside 30 s; the timeout was not caught, so no message ever reached the
+  overlay. Fixed in `loop._Run.open` (`test_open_slow_page.py`, 2 tests); the rerun above completed.
+  This would have hit any heavy site, not only this one.
+- **Dawaai's "Rs 0"** passes SIMBA's check (the page says those words) and does not answer the
+  question; the person is asked "Is this what you wanted?". A planner rule against cart totals and
+  zeros did not change it. Open.
+- **The first driver presses on the new list were ignored** by the overlay's press guard (it had
+  just scrolled the list under the pointer): `window.__simbaPresses` showed `ignored: true`. The
+  driver now waits and retries once; whether a person can hit this is flagged (DECISIONS.md).
+
+### Tests
+
+- Backend `backend/orchestrator`, the whole directory: **984 passed, 5 skipped, 0 failed** (24m17s).
+- Frontend, the whole directory: **739 passed, 5 skipped, 0 failed** (34m40s), after the home screen's
+  websites moved to a full-height column down the left. Fit checks at 100%, 125% and 150% pass.
+  Tests changed for the list: site order is by kind; the long-list scroll is the list's; the setup
+  question's fit check lets its own scroll box scroll.
+
+### Not measured
+
+The other 14 added websites were not tried. K-Electric, SNGPL, PTCL and BISE Lahore need the person's
+own numbers (a customer or roll number) and were not run. The installed app was not run with the new
+list. No token or cost figures.
