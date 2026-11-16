@@ -16,6 +16,7 @@ screen was answered "do it".
 """
 
 from backend.orchestrator import voice
+from backend.orchestrator.payment import pay_mode
 from backend.orchestrator.plan import (
     About,
     Answer,
@@ -257,7 +258,8 @@ class PaymentPlanner:
             # pays there, and reads the receipt once they have.
             self._done.add("final")
             return Move(
-                instruction=voice.FINAL_PAY_CARD, detail=voice.FINAL_WAITS,
+                instruction=(voice.FINAL_PAY_CARD_SIMBA if pay_mode() == "card"
+                             else voice.FINAL_PAY_CARD), detail=voice.FINAL_WAITS,
                 operations=[Operation("click", Target("button", "Pay by card (test gateway)"))],
                 expect=Expectation(title_contains="Card payment"), fields=[],
                 actions=voice.final_actions(voice.PAY_BY_CARD, voice.DONT_PAY),

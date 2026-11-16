@@ -238,6 +238,24 @@ class CatalogueStore:
         host = host_of(address)
         return next((site for site in self.load().sites if site.host == host), None)
 
+    def named_in(self, goal: str) -> Site | None:
+        """The listed site a goal names in words (2026-11-16): "price of the
+        book alchemist on readings" is for Readings. By the site's full name,
+        or by its one-word id ("readings", "olx", "wikipedia") as a whole word.
+        None when no site is named, or when two are: a goal that names two
+        websites is not decided here."""
+        text = " ".join(re.findall(r"[a-z0-9]+", (goal or "").lower()))
+        if not text:
+            return None
+        padded = f" {text} "
+        found: list[Site] = []
+        for site in self.load().sites:
+            name = " ".join(re.findall(r"[a-z0-9]+", site.name.lower()))
+            word = site.id if site.id.isalpha() and len(site.id) >= 3 else None
+            if (name and f" {name} " in padded) or (word and f" {word} " in padded):
+                found.append(site)
+        return found[0] if len(found) == 1 else None
+
     def add(self, name: str, address: str, genre: str) -> Site:
         """A site added in the app. Raises `CatalogueError` with a reason the
         overlay can say: `name`, `address`, `listed` (already in the list),

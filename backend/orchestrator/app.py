@@ -347,11 +347,13 @@ async def add_site(connection: Connection, message: dict, tiles: TileStore,
     return True
 
 
-def site_for(payload: dict, goal: str) -> str | None:
+def site_for(payload: dict, goal: str, catalogue: CatalogueStore | None = None) -> str | None:
     """The website a `task.start` is for (2026-11-13): `site` as sent, or an
-    address written in the goal. None when there is neither, or when what was
-    sent is not a web address — then the goal is routed as it always was."""
-    for candidate in (payload.get("site"), address_in(goal)):
+    address written in the goal, or (2026-11-16) a listed site the goal names
+    in words ("on readings"). None when there is none, or when what was sent
+    is not a web address — then the goal is routed as it always was."""
+    named = catalogue.named_in(goal) if catalogue is not None else None
+    for candidate in (payload.get("site"), address_in(goal), named.address if named else None):
         if not candidate:
             continue
         try:
@@ -627,7 +629,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
             # again: they have already answered the question.
             decided = Route("flow", chosen, (chosen,), "chosen")
         else:
-            site = site_for(payload, goal)
+            site = site_for(payload, goal, catalogue)
             decided = await route(goal, model)
         # The flow only, never the words typed (2026-10-18): this line goes to
         # logs/backend.log, and a goal can hold a reference number. The site by

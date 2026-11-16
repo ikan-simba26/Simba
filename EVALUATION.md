@@ -9316,3 +9316,25 @@ Terms of use were not read.
 The other 14 added websites were not tried. K-Electric, SNGPL, PTCL and BISE Lahore need the person's
 own numbers (a customer or roll number) and were not run. The installed app was not run with the new
 list. No token or cost figures.
+
+## 2026-11-16 — Flash against Flash-Lite, and the card payment's tests
+
+**Planner, real Readings page, read-only, "Find the price of the book The Alchemist"**
+(`tools/evaluation/open_goal_live_run.py`, headless 1280x800, OpenRouter; one run each, so a hint,
+not a result):
+
+| Model | Outcome | Model calls | Seconds | Answer |
+|---|---|---|---|---|
+| `google/gemini-2.5-flash-lite` | completed | 3 | 35.3 | Rs.2295 (opened the book) |
+| `google/gemini-2.5-flash` | completed | 2 | 27.2 | Rs.2065 (read from the results) |
+
+The two prices differ: Readings lists more than one "The Alchemist"; neither was checked against the
+page by a person. Router question, 4 calls each: Flash 1.2 s median (1.1-1.4), Flash-Lite 1.5 s (1.0-2.1).
+
+**Card payment** (`test_card_payment.py`, 35 tests, real Chromium): the card is typed into the billing
+copy's test gateway with real keystrokes; the gateway only shows its code page to the published test
+card, and declines any other. Also a differently built form (labels only, month and year drop-downs),
+a form in an iframe, a Pay button it cannot tell, a page with no amount, decline, don't, wrong card
+asked again, kept card reused, hand-over mode unchanged. The card (number, name, expiry, code) was
+searched for in every message sent and every log line of the run: not found. 64 payment tests pass
+together with the older hand-over, gateway, paying and final-step tests.

@@ -44,18 +44,23 @@
 :root {
   color-scheme: light;
 
-  --canvas: #f5efe3;
-  --surface: #fffcf5;
-  --sunk: #ede5d6;
-  --line: #d9d0be;
-  --edge: #76857f;
+  /* 2026-11-16, Raham: "outdated and AI-generated". The cream, the white glow
+     from the top and the soft pillowy shadows were what read that way. Now: a
+     cool paper-white canvas, pure white surfaces divided by hairlines instead
+     of shadows, tighter corners, and the same one teal. Every pairing below is
+     re-measured (see DECISIONS.md, 2026-11-16). */
+  --canvas: #f4f5f2;
+  --surface: #ffffff;
+  --sunk: #eaede8;
+  --line: #dde1db;
+  --edge: #77827c;
   --field: #ffffff;
-  --ink: #10211f;
-  --soft: #45524f;
-  --accent: #0d5a53;
-  --accent-hover: #094842;
+  --ink: #121e1c;
+  --soft: #46524e;
+  --accent: #0b5e54;
+  --accent-hover: #084840;
   --accent-ink: #ffffff;
-  --tint: #dbeae4;
+  --tint: #e0eeea;
   --stuck: #9a3820;
   --stuck-tint: #f8e0d6;
 
@@ -73,30 +78,33 @@
   --pic-other: #3e5560;
   --pic-other-tint: #e2e9ec;
 
-  --glow: radial-gradient(120% 60% at 50% -12%, rgb(255 255 255 / 0.6), transparent 70%);
-  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.06),
-    0 3px 8px -3px rgb(12 40 37 / 0.08), 0 18px 40px -14px rgb(12 40 37 / 0.18);
-  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(12 40 37 / 0.08),
-    0 6px 14px -6px rgb(12 40 37 / 0.14), 0 22px 44px -16px rgb(12 40 37 / 0.24);
-  --shadow-press: 0 1px 1px rgb(12 40 37 / 0.1), 0 2px 6px -3px rgb(12 40 37 / 0.12);
+  /* No glow in the default look: a flat ground. */
+  --glow: none;
+  /* A hairline ring and a low, short shadow: a card sits on the page, it does
+     not float above it. */
+  --shadow-card: 0 0 0 1px rgb(18 30 28 / 0.07), 0 1px 2px rgb(18 30 28 / 0.04),
+    0 10px 24px -16px rgb(18 30 28 / 0.14);
+  --shadow-lift: 0 0 0 1px rgb(18 30 28 / 0.1), 0 2px 4px rgb(18 30 28 / 0.05),
+    0 14px 28px -14px rgb(18 30 28 / 0.22);
+  --shadow-press: 0 0 0 1px rgb(18 30 28 / 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --canvas: #0b1817;
-    --surface: #122321;
-    --sunk: #0f1d1c;
-    --line: #24403c;
-    --edge: #5f7f78;
-    --field: #17302d;
-    --ink: #f4eee2;
-    --soft: #b5c3be;
+    --canvas: #0c1514;
+    --surface: #131d1c;
+    --sunk: #101918;
+    --line: #243836;
+    --edge: #62807a;
+    --field: #172625;
+    --ink: #f1f4f2;
+    --soft: #b4c1bd;
     --accent: #7fcdbf;
     --accent-hover: #98d9cd;
     --accent-ink: #06201d;
-    --tint: #163430;
+    --tint: #16312d;
     --stuck: #f0a083;
     --stuck-tint: #3c2017;
 
@@ -109,12 +117,10 @@
     --pic-other: #b0c4cc;
     --pic-other-tint: #1f2c31;
 
-    --glow: radial-gradient(120% 60% at 50% -12%, rgb(127 205 191 / 0.08), transparent 70%);
-    --shadow-card: inset 0 1px 0 rgb(230 255 248 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4),
-      0 16px 38px -12px rgb(0 0 0 / 0.6);
-    --shadow-lift: inset 0 1px 0 rgb(230 255 248 / 0.06), 0 1px 2px rgb(0 0 0 / 0.45),
-      0 20px 44px -14px rgb(0 0 0 / 0.7);
-    --shadow-press: 0 1px 1px rgb(0 0 0 / 0.5);
+    --glow: none;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.06), 0 12px 28px -16px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 0 0 1px rgb(255 255 255 / 0.1), 0 16px 32px -14px rgb(0 0 0 / 0.7);
+    --shadow-press: 0 0 0 1px rgb(255 255 255 / 0.08);
   }
 }
 
@@ -234,10 +240,10 @@
   --text-hero--line-height: 1.02;
 
   /* Corners. Soft everywhere; nothing on screen is sharp. */
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-xl: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 
   /* Spacing is Tailwind's 4px scale, used only at these steps:
      1 2 3 4 6 8 10 12 16 24 — 4 8 12 16 24 32 40 48 64 96px. */
@@ -270,9 +276,8 @@ body {
    typed into should say so however it was reached. */
 .simba-field {
   background-color: var(--field);
-  border: 2px solid var(--edge);
+  border: 1.5px solid var(--edge);
   color: var(--ink);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.06);
   outline: none;
   transition: border-color 0.2s, outline-color 0.2s;
 }
@@ -284,13 +289,13 @@ body {
 .simba-field:focus,
 .simba-field-frame:focus-within {
   border-color: var(--accent);
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 0;
 }
 
 .simba-field-frame {
   background-color: var(--field);
-  border: 2px solid var(--edge);
+  border: 1.5px solid var(--edge);
   transition: border-color 0.2s, outline-color 0.2s;
 }
 
@@ -301,6 +306,13 @@ body {
 .simba-canvas {
   background-image: var(--glow);
   background-repeat: no-repeat;
+}
+
+/* A list that scrolls inside itself gets a thin, quiet bar rather than the
+   system's wide grey one (2026-11-16). */
+.simba-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--edge) transparent;
 }
 
 ::selection {

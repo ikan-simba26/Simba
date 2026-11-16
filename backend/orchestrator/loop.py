@@ -38,7 +38,7 @@ from backend.estimator.page_features import PageFeatures
 from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
-from backend.orchestrator import voice
+from backend.orchestrator import payment, voice
 from backend.orchestrator.browser import capture_site
 from backend.orchestrator.plan import (
     About,
@@ -741,10 +741,15 @@ async def page_asks_for_payment(page: Page, elements: "list[Element]") -> bool:
             if PAYMENT_WORDS.search(words):
                 return True
     try:
-        return bool(await page.evaluate(
-            "() => !!document.querySelector('input[autocomplete^=\"cc-\"]')"))
+        if await page.evaluate(
+                "() => !!document.querySelector('input[autocomplete^=\"cc-\"]')"):
+            return True
     except PlaywrightError:
-        return False
+        pass
+    # A gateway's card form is often a frame of the page, whose boxes the
+    # page's own element list never holds (2026-11-16): looked for in every
+    # frame, by what each box says about itself.
+    return bool(await payment.find_card_fields(page))
 
 
 async def amounts_on_page(page: Page, most: int = 3) -> list[Detail]:
@@ -844,9 +849,13 @@ async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
 
 
 def pressed(move: "Move") -> str:
-    """The site's own words on what a move presses: "Confirm Booking"."""
-    return next((o.target.label for o in move.operations if o.kind == "click"
-                 and o.target.label), move.instruction)
+    """The site's own words on what a move presses: "Confirm Booking". Without
+    the name of an icon drawn in front of them (Readings: "cart Buy Now",
+    2026-11-16)."""
+    label = next((o.target.label for o in move.operations if o.kind == "click"
+                  and o.target.label), move.instruction)
+    return re.sub(r"^(?:cart|bag|basket|search|menu|user|home|heart|arrow|chevron|close)\s+"
+                  r"(?=[A-Z])", "", label)
 
 
 def read_final(content: Content, read: FinalRead) -> str | None:
@@ -1010,7 +1019,7 @@ def caption_for(move: "Move") -> str:
 
 #: What counts as a password box in a picture of the page.
 PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
-                  "input[autocomplete=new-password]")
+                  "input[autocomplete=new-password], input[autocomplete^=cc-]")
 #: What a password box is painted over with. Solid, and the same in both themes.
 MASK_COLOUR = "#8c7a66"
 
@@ -1424,11 +1433,14 @@ class _Run:
             ),
         )
 
-    async def hand_over(self, reason: str) -> str:
+    async def hand_over(self, reason: str, sentence: str | None = None) -> str:
         """The real page, the person's (2026-11-13): the bar says why, and the
         website shows below it. "done", "cancel", or "timeout". Nothing on the
-        page is read while it is theirs."""
-        sentence = voice.HANDOVER_PAYMENT if reason == "payment" else voice.HANDOVER_CHECK
+        page is read while it is theirs. `sentence` is the bar's words when
+        the default does not fit (SIMBA filled the card and cannot tell which
+        button pays, 2026-11-16)."""
+        sentence = sentence or (voice.HANDOVER_PAYMENT if reason == "payment"
+                                else voice.HANDOVER_CHECK)
         log.info("handed over: %s, on %s", reason, urlsplit(self.page.url).netloc or "a page")
         await self.set_state("waiting")
         await self.connection.send("handover", HandOver(
@@ -1450,9 +1462,9 @@ class _Run:
         log.info("handed back: %s", reason)
         return "done"
 
-    async def after_payment(self) -> None:
-        """The person has paid, or says so: what the page now says, in its own
-        words — or that it does not say."""
+    async def after_payment(self, caveat: str = voice.PAID_CAVEAT) -> None:
+        """The person has paid, or says so, or SIMBA did after "pay now": what
+        the page now says, in its own words — or that it does not say."""
         _, after, _ = await perceive(self.page)
         said = done_words(after)
         if said is None:
@@ -1462,8 +1474,187 @@ class _Run:
             summary=f"paid {self.page.url}",
             duration_ms=int((time.monotonic() - self.started) * 1000),
             steps_taken=self.shown, llm_calls=0, replayed=False, findings=[],
-            heading=voice.PAID, caveat=voice.PAID_CAVEAT,
+            heading=voice.PAID,
+            caveat=caveat,
             confirmation=voice.site_says(said)))
+
+    async def pay_by_hand(self, sentence: str | None = None,
+                          caveat: str = voice.PAID_CAVEAT) -> None:
+        """The page is the person's: they pay, SIMBA reads what it says after.
+        Ends the run, one way or another."""
+        handed = await self.hand_over("payment", sentence)
+        if handed != "done":
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+            return
+        await self.after_payment(caveat)
+
+    async def ask_card(self, *, goal: str, findings: list[Finding], view: PageView,
+                       can_keep: bool) -> "tuple[payment.Card, bool] | str | None":
+        """The card to pay with, asked once in protected boxes (2026-11-16).
+        A `Card` and whether to keep it; `"myself"` when the person would type
+        it themselves; None when the run has ended (they declined or stopped).
+        What is typed here goes from the overlay to this process and into the
+        page, nowhere else: not the model, not a log."""
+        note: str | None = None
+        for _ in range(4):
+            asked = Move(
+                instruction=voice.CARD_ASK, detail=voice.CARD_ASK_DETAIL, operations=[],
+                expect=Expectation(), question=True, kind="type", note=note,
+                fields=[
+                    StepField(id="name", label=voice.CARD_NAME_LABEL, type="text", value=""),
+                    StepField(id="number", label=voice.CARD_NUMBER_LABEL, type="password",
+                              value=""),
+                    StepField(id="expiry", label=voice.CARD_EXPIRY_LABEL, type="text",
+                              value=""),
+                    StepField(id="cvv", label=voice.CARD_CVV_LABEL, type="password", value=""),
+                ],
+                actions=[
+                    StepAction(id=voice.USE_CARD_ID, label=voice.USE_CARD, kind="primary"),
+                    *([StepAction(id=voice.KEEP_CARD_ID, label=voice.KEEP_CARD,
+                                  kind="primary")] if can_keep else []),
+                    StepAction(id=voice.MYSELF_ID, label=voice.TYPE_MYSELF, kind="secondary"),
+                    StepAction(id=voice.DECLINE_ID, label=voice.DONT_PAY_NOW, kind="secondary"),
+                ])
+            payload = await self.present(asked, goal=goal, findings=findings, view=view)
+            action = payload.get("action_id")
+            if action == voice.MYSELF_ID:
+                return "myself"
+            if action == voice.DECLINE_ID:
+                await self.connection.send("task.failed", TaskFailed(
+                    reason=voice.NOTHING_CHANGED, recoverable=True))
+                return None
+            if action not in (voice.USE_CARD_ID, voice.KEEP_CARD_ID):
+                await self.stopped()
+                return None
+            typed = payload.get("input_values") or {}
+            try:
+                card = payment.parse_card(typed.get("name", ""), typed.get("number", ""),
+                                          typed.get("expiry", ""), typed.get("cvv", ""))
+            except payment.CardError as error:
+                note = voice.CARD_NOTES[error.reason]
+                continue
+            return card, action == voice.KEEP_CARD_ID
+        await self.pay_by_hand()
+        return None
+
+    async def pay(self, *, goal: str, findings: list[Finding], view: PageView) -> None:
+        """A page with a card form (2026-11-16): SIMBA pays, with the person's
+        say-so. Ends the run, one way or another.
+
+        1. The card: the saved one, or asked for once.
+        2. A final screen: the amount as the page states it, the website, the
+           card by its last four digits; answered "pay now" or "don't pay".
+           No default, no timer. "Don't" ends the task and changes nothing.
+        3. The boxes are filled one by one through the browser, each a line of
+           the checklist and each read back; then Pay is pressed.
+        4. A one-time code or a check is the person's (handed over); then the
+           page is read for what it says.
+
+        Anything SIMBA cannot do for itself (a box that will not take the
+        card, a Pay button it cannot tell) is handed to the person, who
+        finishes on the real page. `SIMBA_PAY_MODE=handover` makes every
+        payment that. The card is never in a message, a log or a prompt."""
+        fields = (await payment.find_card_fields(self.page)
+                  if payment.pay_mode() == "card" else [])
+        if not fields:
+            await self.pay_by_hand()
+            return
+        host = urlsplit(self.page.url).netloc or "this website"
+        amounts = await amounts_on_page(self.page)
+        if not amounts:
+            # Not stating what it costs, the page cannot have its final screen:
+            # the person reads it themselves, before any card is asked for.
+            log.info("card: no amount on the page at %s; handed over", host)
+            await self.pay_by_hand()
+            return
+        vault = payment.CardVault()
+        card, keep = vault.get(), False
+        if card is None:
+            entered = await self.ask_card(goal=goal, findings=findings, view=view,
+                                          can_keep=vault.available)
+            if entered is None:
+                return
+            if entered == "myself":
+                await self.pay_by_hand()
+                return
+            card, keep = entered  # type: ignore[misc]
+        details = [*amounts, Detail(label=voice.FINAL_WEBSITE_LABEL, value=host),
+                   Detail(label=voice.FINAL_CARD_LABEL, value=card.spoken)]
+        final = Move(instruction=voice.pay_card_final(host, card.spoken),
+                     detail=voice.FINAL_WAITS, operations=[], expect=Expectation(),
+                     fields=[], actions=voice.final_actions(voice.PAY_NOW, voice.DONT_PAY_NOW),
+                     changes=True, kind="confirm")
+        payload = await self.present(final, goal=goal, findings=findings, view=view,
+                                     final=details)
+        action = payload.get("action_id")
+        if action == voice.DECLINE_ID:
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.NOTHING_CHANGED, recoverable=True))
+            return
+        if action != voice.CONFIRM_ID:
+            await self.stopped()
+            return
+
+        if keep:
+            try:
+                vault.put(card)
+            except Exception as error:  # noqa: BLE001 - not kept is not a failure
+                log.info("card: not kept (%s)", type(error).__name__)
+
+        # The typing, one box at a time, each said on the checklist.
+        said = [voice.TYPING_PART[f.role] for f in fields] + [voice.PRESSING_PAY]
+        for position, field in enumerate(fields):
+            line = Move(instruction=said[position], detail="", operations=[],
+                        expect=Expectation(), fields=[], actions=[], kind="type",
+                        doing=said[position])
+            await self.tick(line, findings=[], coming=said[position + 1:])
+            try:
+                await payment.fill_card(self.page, card, field)
+            except payment.FillError as error:
+                log.info("card: %s did not take on %s", error.role, host)
+                await self.pay_by_hand(
+                    voice.HANDOVER_CARD_PART.format(part=payment.ROLE_WORDS[error.role]),
+                    voice.PAID_CAVEAT_CARD_FINISHED)
+                return
+        log.info("card: %d boxes typed on %s", len(fields), host)
+
+        found = await payment.find_pay_button(self.page, fields[0])
+        if found is None:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_CARD_FINISHED)
+            return
+        button, label = found
+        line = Move(instruction=voice.PRESSING_PAY, detail="", operations=[],
+                    expect=Expectation(), fields=[], actions=[], kind="confirm",
+                    doing=voice.PRESSING_PAY)
+        await self.tick(line, findings=[], coming=[])
+        try:
+            await button.click(timeout=ACTION_TIMEOUT_MS)
+        except PlaywrightError:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_CARD_FINISHED)
+            return
+        log.info("card: pressed %r on %s", label[:30], host)
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=10_000)
+        except PlaywrightError:
+            pass
+        await settled(self.page)
+
+        # A code from the bank, or a check that a person is there: theirs.
+        for _ in range(MOST_CHECKS):
+            elements, after, _ = await perceive(self.page)
+            if not blocked(after, elements):
+                break
+            handed = await self.hand_over("check")
+            if handed != "done":
+                await self.connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+        declined = await site_sentence(self.page, "declined")
+        if declined is not None:
+            await self.give_up(f"{voice.site_says(declined)} {voice.NOT_RETRIED}")
+            return
+        await self.after_payment(voice.PAID_CAVEAT_CARD)
 
     async def stopped(self) -> None:
         log.info("task stopped by the person after %.1fs", time.monotonic() - self.started)
@@ -1951,12 +2142,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # A page that asks for card or bank details (2026-11-13): paying is
         # the person's, on the real page. SIMBA never types into it.
         if await page_asks_for_payment(page, elements):
-            handed = await run.hand_over("payment")
-            if handed != "done":
-                await connection.send("task.failed", TaskFailed(
-                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                return
-            await run.after_payment()
+            await run.pay(goal=task.goal, findings=findings, view=view)
             return
 
         # The website sent an email with a link (2026-11-14): say what to do,
@@ -2025,12 +2211,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # Card or bank details are never typed, on any site (2026-10-16): the
         # page is handed to the person instead (2026-11-13).
         if await asks_for_payment(page, elements, move):
-            handed = await run.hand_over("payment")
-            if handed != "done":
-                await connection.send("task.failed", TaskFailed(
-                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                return
-            await run.after_payment()
+            await run.pay(goal=task.goal, findings=findings, view=view)
             return
 
         # A box to agree to the website's terms (2026-11-14): the person's own
@@ -2082,14 +2263,12 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             if action != voice.CONFIRM_ID:
                 await run.stopped()
                 return
-            if paying:
-                # "Do it" to paying: the page is theirs, and they press Pay.
-                handed = await run.hand_over("payment")
-                if handed != "done":
-                    await connection.send("task.failed", TaskFailed(
-                        reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                    return
-                await run.after_payment()
+            if paying and payment.pay_mode() == "handover":
+                # "Do it" to paying, in hand-over mode: the page is theirs, and
+                # they press Pay. In card mode (2026-11-16) the "do it" is the
+                # person's say-so and SIMBA presses it; a card form that
+                # follows is `run.pay`'s, after its own final screen.
+                await run.pay_by_hand()
                 return
 
         # The checklist: a safe move, run without a press (2026-10-14). Pause

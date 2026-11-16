@@ -189,8 +189,8 @@ def run_one(page, overlay_url: str, goal: str, site: str | None, name: str,
             if not page.locator("[data-testid=home-there]").count():
                 card.first.click()  # ignored as too soon: a person presses again
         else:
-            page.locator("[data-testid=another-site]").click()
-            page.locator("[data-testid=ask-where]").fill(site)
+            page.locator("[data-testid=ask-goal]").fill(site)
+            page.locator("[data-testid=home-go]").click()
         page.wait_for_timeout(800)
         shot("there")
     # The second: "What do you want to do there?" — a suggestion, or the box.

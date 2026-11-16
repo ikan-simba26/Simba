@@ -36,8 +36,7 @@ def test_on_a_real_site_it_reads_says_so_and_offers_nothing(
     assert done.of("task.completed")[0]["offer"] is None
     assert voice.BOOK_STAGE not in done.of("task.started")[0]["stages"]
     end = done.of("task.completed")[0]
-    assert end["scope"] == ("I only looked up times. I don't book tickets or pay on the real "
-                            "site.")
+    assert end["scope"] == "I only looked up times. I did not book a ticket or pay for anything."
     # One way to see the real page, at the right place: the trains ringed.
     assert end["proof"] and len(end["proof"]["rings"]) == 2
 

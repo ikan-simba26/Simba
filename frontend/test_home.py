@@ -273,7 +273,7 @@ def test_the_example_is_something_simba_does(
 
     example = page.get_by_role("textbox", name=BOX).get_attribute("placeholder")
 
-    assert example == "Readings, gov.uk, or train times to Karachi"
+    assert example == "Type a website, then what to do there"
     assert "pay" not in example.lower()
 
 

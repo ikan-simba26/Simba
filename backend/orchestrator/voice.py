@@ -1049,6 +1049,10 @@ PAY_THIS_BILL = "Pay this bill"
 #: (2026-11-13): SIMBA opens the card page; the person pays there.
 FINAL_PAY_CARD = ("I'll open the card payment page for this bill. You'll type your card "
                   "details there yourself.")
+#: The same final screen when SIMBA types the card itself (2026-11-16): the
+#: next screen asks which card, and has its own final screen with the amount.
+FINAL_PAY_CARD_SIMBA = ("I'll open the card payment page for this bill. Next I'll ask which "
+                        "card to use, and you'll say yes before I pay.")
 PAY_BY_CARD = "Go to card payment"
 PAY_ID = "pay"
 DOING_PAYMENT_PAGE = "Opening the payment page"
@@ -1080,10 +1084,22 @@ def final_register(course: str) -> str:
 # --- the real site: read, never booked or paid (2026-10-16) -----------------
 
 #: The closing line of a search on the live site.
-NOT_ON_REAL_SITE_TIMES = ("I only looked up times. I don't book tickets or pay on the real "
-                          "site.")
+#: 2026-11-16: it said "I don't book tickets or pay on the real site", which has
+#: not been the rule since 2026-11-13 (a live site's change goes behind the final
+#: screen, and a payment is handed to the person). It now says only what this
+#: run did, as the practice sites' closing line does.
+NOT_ON_REAL_SITE_TIMES = ONLY_LOOKED_UP_TIMES
 #: The same, for a bill on a site that is not ours.
-NOT_ON_REAL_SITE_BILL = "I only looked at your bill. I don't pay bills on the real site."
+NOT_ON_REAL_SITE_BILL = ONLY_LOOKED_AT_BILL
+#: A page that offers more than one way to pay (2026-11-16, Raham: "it should adapt
+#: to the website"): which is the person's to choose, from the page's own words.
+#: Cash on delivery is then an order SIMBA places after the final screen; a card,
+#: bank or wallet page is handed to the person.
+PAY_HOW = "How do you want to pay?"
+PAY_HOW_DETAIL = "This website offers more than one way. It is your choice."
+PAY_ID_PREFIX = "pay:"
+
+
 #: `help.requested.reason` when a step would type card or bank details.
 #: Never, on any site.
 NO_PAYMENT_DETAILS = ("This page asks for card or bank details. I never type those, so I've "
@@ -1422,3 +1438,71 @@ def try_or_not() -> list[StepAction]:
         StepAction(id=DECLINE_ID, label=NO, kind="primary"),
         StepAction(id=CANCEL_ID, label=STOP, kind="secondary"),
     ]
+
+
+# --- paying by card, typed by SIMBA (2026-11-16) -----------------------------
+#
+# The card is kept on this computer, locked with the Windows account, and typed
+# into the page by the backend; the model never sees it. Everything the person
+# reads about it is here.
+
+CARD_ASK = "Which card should I pay with?"
+CARD_ASK_DETAIL = ("I type it into the website for you. It stays on this computer, locked "
+                   "with your Windows account, and the AI never sees it.")
+CARD_NAME_LABEL = "Name on the card"
+CARD_NUMBER_LABEL = "Card number"
+CARD_EXPIRY_LABEL = "Expiry date (month/year)"
+CARD_CVV_LABEL = "Security code (CVV)"
+USE_CARD_ID = "use_card"
+KEEP_CARD_ID = "keep_card"
+MYSELF_ID = "myself"
+USE_CARD = "Use this card"
+KEEP_CARD = "Use it and keep it"
+TYPE_MYSELF = "I'll type it myself"
+#: Beside the card question again, by which box was wrong.
+CARD_NOTES = {
+    "name": "I need the name that is on the card.",
+    "number": "That card number doesn't look right. Please check the digits.",
+    "expiry": "That expiry date doesn't look right, or the card has expired.",
+    "cvv": "The security code is the 3 or 4 digits on the card.",
+}
+CARD_NOT_KEPT = "I couldn't keep it on this computer, so I used it only for this payment."
+
+
+def pay_card_final(host: str, spoken: str) -> str:
+    return (f"I'll pay on {host} with your {spoken}. "
+            "This takes money from your card.")
+
+
+PAY_NOW = "Pay now"
+DONT_PAY_NOW = "Don't pay"
+FINAL_AMOUNT_LABEL = "Amount"
+FINAL_WEBSITE_LABEL = "Website"
+FINAL_CARD_LABEL = "Card"
+
+#: The checklist while SIMBA types: one line per box, in the page's words.
+TYPING_PART = {
+    "number": "Typing the card number",
+    "name": "Typing the name on the card",
+    "expiry": "Typing the expiry date",
+    "exp_month": "Choosing the expiry month",
+    "exp_year": "Choosing the expiry year",
+    "cvv": "Typing the security code",
+}
+PRESSING_PAY = "Pressing the Pay button"
+
+#: The hand-over bar when SIMBA could not finish typing, or could not tell
+#: which button pays.
+HANDOVER_CARD_PART = ("I couldn't fill in {part}. Your turn: finish the card on the page "
+                      "below and press Pay. Press I've finished when it's done.")
+HANDOVER_PRESS_PAY = ("I've filled in your card but I can't tell which button pays. Your turn: "
+                      "check it and press Pay on the page below. Press I've finished when "
+                      "it's done.")
+#: Under the closing screen when SIMBA paid.
+PAID_CAVEAT_CARD = ("I typed your card into the page and pressed Pay after you said yes. "
+                    "The AI never saw your card.")
+#: Under the closing screen when SIMBA typed the card and the person finished.
+PAID_CAVEAT_CARD_FINISHED = ("I typed what I could of your card after you said yes, and you "
+                             "finished on the page. The AI never saw your card.")
+#: After a decline the page states, so a second try is the person's call.
+NOT_RETRIED = "I didn't try again."

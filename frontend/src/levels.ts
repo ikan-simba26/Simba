@@ -128,10 +128,27 @@ export function typeSize(level: Level, instruction: string): number {
   return TYPE.title;
 }
 
-/** The first sentence, or the whole thing if it is already one. */
+/** Station and title abbreviations whose full stop does not end a sentence. */
+const ABBREVIATION = /\b(?:Jn|Jct|Cantt|St|Dr|Mr|Mrs|Ms|No|Rs|vs|etc)$/i;
+
+/**
+ * The first sentence, or the whole thing if it is already one.
+ *
+ * A full stop after "Jn" or "Cantt", or one followed by a lower-case word, is
+ * not the end (2026-11-16): "Lahore Jn. to Karachi Cantt, tomorrow. Is that
+ * right?" was cut to "Lahore Jn." at level 3, and the person was asked to say
+ * yes to a journey they could not see the end of.
+ */
 export function firstSentence(text: string): string {
-  const match = text.match(/^.*?[.!?](?=\s|$)/);
-  return match ? match[0] : text;
+  const end = /[.!?](?=\s|$)/g;
+  for (let found = end.exec(text); found; found = end.exec(text)) {
+    if (found[0] === ".") {
+      const after = text.slice(found.index + 1).trimStart();
+      if (ABBREVIATION.test(text.slice(0, found.index)) || /^[a-z]/.test(after)) continue;
+    }
+    return text.slice(0, found.index + 1);
+  }
+  return text;
 }
 
 /**

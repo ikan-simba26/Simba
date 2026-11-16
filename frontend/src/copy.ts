@@ -80,11 +80,9 @@ export const HOME = {
    *  cards as it is typed in, goes to an address, and takes anything else as
    *  something to do, as the box always has. Its name is still `askHeading`:
    *  what it has always been called, and what it still does. */
-  findPlaceholder: "Readings, gov.uk, or train times to Karachi",
+  findPlaceholder: "Type a website, then what to do there",
   /** On the box's button: go to the one website found, or to the address. */
   go: "Go",
-  /** The card after the last website: one that is not in the list. */
-  another: "Another website",
   /** In the empty space beside the list of websites (2026-11-16). */
   pickLeft: "Choose a website on the left, or tell me what you want.",
   /** When nothing in the list has the words typed. */

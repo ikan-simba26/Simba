@@ -26,7 +26,7 @@ from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import VIEWPORT, Element
-from shared.schema import Finding, StepField
+from shared.schema import Finding, StepAction, StepField
 
 log = logging.getLogger("simba.llm")
 
@@ -503,6 +503,9 @@ To make an account: fill in the form the same way; for every password box \
 choose "type" with value null (SIMBA can make a strong password and keep it); \
 tick a box agreeing to the website's terms when the form needs it (SIMBA asks \
 the person first); then press the button that creates the account.
+When the page offers ways to pay (cash on delivery, card, bank transfer, a \
+wallet), choose the one the goal names; if the goal names none, choose any one: \
+SIMBA asks the person which they want.
 Never type card numbers, bank details, passwords or one-time codes: a payment \
 page is handed to the person.
 """
@@ -553,6 +556,27 @@ PERSONAL = re.compile(
 #: Theirs to choose, so asked (`voice.ASK_COOKIES` is the written plans' way).
 CONSENT_WORDS = re.compile(
     r"\b(accept|allow|agree|consent|i understand|opt in|notify me|subscribe)\b", re.IGNORECASE)
+#: A way of paying a page offers (2026-11-16). Not "pay now" or "place order":
+#: those are the press that finishes, not a way to pay.
+PAYMENT_METHOD = re.compile(
+    r"(cash on delivery|cash on delievery|\bcod\b|pay (online|by card|with card|on delivery|"
+    r"at the door|later)|credit card|debit card|card payment|bank transfer|easypaisa|"
+    r"jazz ?cash|wallet|raast|safepay)", re.IGNORECASE)
+#: Roles that are a choice among ways, not a button that finishes.
+METHOD_ROLES = {"radio", "checkbox", "option", "tab", "menuitemradio"}
+
+
+def is_payment_method(element: Element) -> bool:
+    """Whether an element is one of the ways of paying a page offers."""
+    return bool(PAYMENT_METHOD.search(element.label or "")) and (
+        element.role in METHOD_ROLES or element.role in ("button", "link"))
+
+
+def names_a_method(goal: str) -> bool:
+    """Whether the goal already says how to pay: "cash on delivery", "by card"."""
+    return bool(PAYMENT_METHOD.search(goal) or re.search(r"\b(cash|card|online)\b", goal, re.I))
+
+
 #: A floating button for a help chat (2026-11-14). Perception marks one as an
 #: overlay when it is all that is on top of a page still loading, and under
 #: "dismiss the overlay first" the model's first move on Readings, in the real
@@ -685,13 +709,22 @@ class OpenGoalPlanner(LLMPlanner):
         self._chosen: Counter = Counter()
         self._opened = False
         self._was_on_top = False
+        # Which way to pay, when the page offers several (2026-11-16): asked once.
+        self._method_asked = False
+        self._method_options: dict[str, Element] = {}
+        self._method_chosen: Element | None = None
 
     def look(self, content: Content) -> None:
         """What the page says now. The loop calls this before each move."""
         self._content = content
 
     def answered(self, action_id: str, values: dict) -> None:  # noqa: ARG002
-        """The person's answer to "Is this what you wanted?"."""
+        """The person's answer to "Is this what you wanted?", or to "How do you
+        want to pay?"."""
+        if action_id in self._method_options:
+            self._method_chosen = self._method_options[action_id]
+            self._method_options = {}
+            return
         if self._proposed is None:
             return
         if action_id == voice.CONFIRM_ID:
@@ -749,11 +782,38 @@ class OpenGoalPlanner(LLMPlanner):
         elif self._stalled and not setback:
             setback = ("Your last action changed nothing, or brought you back to a page "
                        "you had already seen. Choose something different.")
+        if self._method_chosen is not None:
+            # The person chose how to pay: press that, on the page as it is now.
+            wanted, self._method_chosen = self._method_chosen, None
+            now = next((e for e in usable(elements, self._failed)
+                        if e.label == wanted.label and e.role == wanted.role), None)
+            if now is not None:
+                self._made = ("click", now.role, now.label)
+                return await self._shape(_Choice(
+                    action=Action(action="click", element_id=now.id,
+                                  reasoning="This is the way you chose to pay."),
+                    element=now))
         choice = await self._choose(elements, history, setback)
         self._chose(choice)
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
+        if (choice.element is not None and not self._method_asked
+                and is_payment_method(choice.element) and not names_a_method(self._task.goal)):
+            self._method_asked = True
+            ways: dict[str, Element] = {}
+            for element in usable(elements, self._failed):
+                if is_payment_method(element) and element.label not in {
+                        w.label for w in ways.values()}:
+                    ways[voice.PAY_ID_PREFIX + str(element.id)] = element
+            if len(ways) >= 2:
+                self._method_options = ways
+                actions = [StepAction(id=key, label=voice.short_name(_without_icons(e.label))
+                                      or e.label, kind="primary") for key, e in ways.items()]
+                actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+                return Move(instruction=voice.PAY_HOW, detail=voice.PAY_HOW_DETAIL,
+                            operations=[], expect=Expectation(), fields=[], actions=actions,
+                            question=True, kind="choose")
         if choice.action.action == "answer":
             said = (choice.action.value or "").strip()
             sentence = answer_sentence(said, choice.action.reasoning, self._task.goal)

@@ -107,7 +107,8 @@ export default function App() {
           {/* Most of the window, not a third of it: 880 of 1280. The first
               column was 680, which at this type size left the person reading
               a narrow strip down the middle of an empty screen. */}
-          <div className="relative z-[1] mt-6 w-full short:mt-3"
+          <div className={`relative z-[1] w-full ${screen === "idle"
+                            ? "mt-14 short:mt-12" : "mt-6 short:mt-3"}`}
                style={{ maxWidth: screen === "idle" ? HOME_WIDTH : COLUMN }}>
             <NoticeTimers />
             <Column />
@@ -197,6 +198,9 @@ function PresenceBar() {
   const reduce = useReducedMotion() ?? false;
   const [settle] = useState(() => !reduce && !entrancePlayed());
   const aside = trustOpen;
+  // The first screen has the lion in its corner and the status line at the
+  // foot; a third mark floating over the greeting was clutter (2026-11-16).
+  if (home) return null;
   return (
     // Out of the way while the real page is being shown. Nothing else is in
     // this row: since
@@ -1288,7 +1292,7 @@ function Tickets({ findings, rows, onLine, apart, less }: {
                 // column (2026-10-16): on the live site "06:20, next day", a
                 // 22-hour journey and "Fastest" pushed the card 112px wider
                 // than the buttons under it.
-                className={`flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border-2
+                className={`flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border
                             bg-canvas px-5 py-2 short:py-1.5
                             ${quickest ? "border-accent" : "border-line"}`}>
               <span className="w-28 shrink-0 font-semibold leading-[1.1] tracking-[-0.02em]
