@@ -66,7 +66,7 @@ def test_every_question_can_be_skipped_and_it_is_not_shown_again(
 
     assert asked == QUESTIONS
     greeting = page.get_by_test_id("greeting").inner_text()
-    assert greeting.endswith("Where do you want to go?") and "," not in greeting
+    assert greeting.startswith("Good") and "," not in greeting
     assert saved(page)["welcomed"] is True
     assert "level" not in saved(page) and "name" not in saved(page)
 
@@ -94,7 +94,7 @@ def test_the_answers_make_the_profile_and_the_level_goes_with_every_task(
 
     greeting = page.get_by_test_id("greeting")
     greeting.wait_for(timeout=5000)
-    assert ", Ayesha. Where do you want to go?" in greeting.inner_text()
+    assert greeting.inner_text().endswith(", Ayesha")
     assert saved(page) == {"name": "Ayesha", "level": 3, "readAloud": False,
                            "askEach": False, "welcomed": True}
 

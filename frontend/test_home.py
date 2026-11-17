@@ -139,33 +139,46 @@ def remembered_on(page: Page) -> list[str]:
     return [r.inner_text().strip() for r in page.get_by_test_id("remembered").all()]
 
 
+def rect(page: Page, test_id: str) -> dict:
+    box = page.get_by_test_id(test_id).first.bounding_box()
+    assert box, test_id
+    return box
+
+
+def overlap(a: dict, b: dict) -> bool:
+    """Whether two boxes share any area (touching edges do not count)."""
+    return (a["x"] < b["x"] + b["width"] - 1 and b["x"] < a["x"] + a["width"] - 1
+            and a["y"] < b["y"] + b["height"] - 1 and b["y"] < a["y"] + a["height"] - 1)
+
+
+#: What the first screen is made of (2026-11-17, the home redesign), none of it over any other.
+PARTS = ["home-logo", "status-line", "teach-a-task", "change-settings", "ask-goal", "home-go",
+         "chips", "site-grid", "bookings-panel", "own-tiles"]
+
+
 def box_fits(page: Page) -> tuple[bool, dict]:
     box = page.get_by_role("textbox", name=BOX)
-    rect = box.bounding_box()
+    rect_ = box.bounding_box()
     viewport = page.viewport_size
     button = page.get_by_role("button", name="Start", exact=True).bounding_box()
     scrolls = page.evaluate(
         "() => document.scrollingElement.scrollHeight > window.innerHeight")
-    # And the way in for a helper (2026-11-10), in the top right corner:
-    # wholly in the window, and above the person's column.
-    entry = page.get_by_test_id("teach-entry").bounding_box()
-    greeting = page.get_by_test_id("greeting").bounding_box()
-    measured = {"box_bottom": round(rect["y"] + rect["height"]),
+    # Every part of the screen wholly in the window (the grid and the aside scroll inside
+    # themselves when there is more of them than room, so only their tops are held to it),
+    # and none over another: the way in for a helper and "My bookings" used to be drawn
+    # over the greeting at 150%.
+    boxes = {name: rect(page, name) for name in PARTS if page.get_by_test_id(name).count()}
+    crossings = [(a, b) for i, a in enumerate(boxes) for b in list(boxes)[i + 1:]
+                 if overlap(boxes[a], boxes[b])]
+    inside = all(0 <= r["x"] and r["x"] + r["width"] <= viewport["width"] + 1 and r["y"] >= 0
+                 for r in boxes.values())
+    measured = {"box_bottom": round(rect_["y"] + rect_["height"]),
                 "start_bottom": round(button["y"] + button["height"]),
-                "height": viewport["height"], "scrolls": scrolls,
-                "entry_top": round(entry["y"]), "entry_bottom": round(entry["y"] + entry["height"]),
-                "entry_right": round(entry["x"] + entry["width"]),
-                "greeting_top": round(greeting["y"])}
-    # Clear of the greeting: above it, or — since the first screen grew wider
-    # (2026-11-14) — beside it, to the right of where its words end.
-    measured["entry_left"] = round(entry["x"])
-    measured["greeting_right"] = round(greeting["x"] + greeting["width"])
-    clear = (measured["entry_bottom"] <= measured["greeting_top"]
-             or measured["entry_left"] >= measured["greeting_right"])
-    fits = (rect["y"] >= 0 and measured["box_bottom"] <= viewport["height"]
+                "height": viewport["height"], "scrolls": scrolls, "crossings": crossings,
+                "inside": inside}
+    fits = (rect_["y"] >= 0 and measured["box_bottom"] <= viewport["height"]
             and measured["start_bottom"] <= viewport["height"] and not scrolls
-            and measured["entry_top"] >= 0 and clear
-            and measured["entry_right"] <= viewport["width"])
+            and not crossings and inside)
     return fits, measured
 
 
@@ -260,8 +273,10 @@ def test_the_greeting_says_the_time_of_day_and_asks_where(
 
     page = home(browser, overlay, history, [], "100%", at, before=set_clock)
 
-    assert page.get_by_test_id("greeting").inner_text().strip() == (
-        f"{greeting}. Where do you want to go?")
+    # A small greeting over the one question (2026-11-17).
+    assert page.get_by_test_id("greeting").inner_text().strip().startswith(greeting)
+    assert page.get_by_role("heading").count() >= 0
+    assert page.get_by_text("What would you like to do?", exact=True).is_visible()
 
 
 def test_the_example_is_something_simba_does(
@@ -273,7 +288,7 @@ def test_the_example_is_something_simba_does(
 
     example = page.get_by_role("textbox", name=BOX).get_attribute("placeholder")
 
-    assert example == "Type a website, then what to do there"
+    assert example == "For example: book a bus from Lahore to Karachi on Friday"
     assert "pay" not in example.lower()
 
 

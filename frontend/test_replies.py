@@ -101,7 +101,7 @@ def test_every_reply_has_a_way_back_to_the_first_screen(
 
     page.get_by_test_id("reply-back").click()
 
-    page.get_by_text("Where do you want to go?").wait_for(timeout=8000)
+    page.get_by_text("What would you like to do?", exact=True).wait_for(timeout=8000)
     assert not page.get_by_text(arrives).is_visible()
 
 

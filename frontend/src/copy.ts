@@ -83,6 +83,24 @@ export const HOME = {
   findPlaceholder: "Type a website, then what to do there",
   /** On the box's button: go to the one website found, or to the address. */
   go: "Go",
+  /** The first screen, redesigned (2026-11-17): a small greeting over the one
+   *  question, a box for the answer, then the websites as cards. */
+  hello: (hour: number, name?: string) => {
+    const word = hour >= 5 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon"
+      : "Good evening";
+    return name ? `${word}, ${name}` : word;
+  },
+  question: "What would you like to do?",
+  examplePlaceholder: "For example: book a bus from Lahore to Karachi on Friday",
+  pickSite: "Or pick a website",
+  seeAll: (n: number) => `See all ${n}`,
+  seeFewer: "Show fewer",
+  anotherSite: "Another website",
+  anotherSiteDetail: "Type any address",
+  /** On the button in the top bar, for a helper (it was a link in the corner). */
+  forHelpers: "For helpers: teach a task",
+  tasksHint: "One press each. No waiting.",
+  tasksNone: "When you keep a task, or a helper shows me one, it will be here.",
   /** In the empty space beside the list of websites (2026-11-16). */
   pickLeft: "Choose a website on the left, or tell me what you want.",
   /** When nothing in the list has the words typed. */
@@ -212,6 +230,8 @@ export const HANDOVER = {
 
 /** "My bookings" (2026-11-17). */
 export const BOOKINGS = {
+  /** On the first screen, beside the newest booking: all of them. */
+  seeAll: "See all",
   enter: "My bookings",
   title: "My bookings",
   back: "Back",

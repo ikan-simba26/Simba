@@ -113,10 +113,14 @@ def test_the_websites_chosen_go_first_in_the_list(browser, overlay, setup_backen
     page.get_by_test_id("sites-done").click()
     page.get_by_test_id("site-grid").wait_for(timeout=5000)
     assert sorted(saved(page)["favourites"]) == ["pakrailways", "wikipedia"]
+    # The first cards on the first screen are theirs (2026-11-17), and in the full list
+    # they are a kind of their own, first.
+    assert [s.get_attribute("aria-label") for s in page.get_by_test_id("site").all()][:2] == [
+        "Pakistan Railways", "Wikipedia"]
+    page.get_by_test_id("see-all").click()
     first = page.get_by_test_id("site-genre").first
     assert first.get_attribute("aria-label") == "Your websites"
-    # Each card has the site's letter icon above its name (2026-11-14): the name is the last line.
-    assert [s.inner_text().strip().splitlines()[-1] for s in first.get_by_test_id("site").all()] == [
+    assert [s.get_attribute("aria-label") for s in first.get_by_test_id("site").all()] == [
         "Pakistan Railways", "Wikipedia"]
 
 

@@ -15,7 +15,7 @@ import { useStore } from "../store";
 
 export type Activity = keyof typeof STATUS;
 
-export function StatusLine({ activity }: { activity: Activity }) {
+export function StatusLine({ activity, inline = false }: { activity: Activity; inline?: boolean }) {
   const status = useStore((state) => state.status);
   const between = useStore((state) => Boolean(state.completed || state.failed
     || state.stoppedByPerson || state.declined || state.help));
@@ -26,8 +26,11 @@ export function StatusLine({ activity }: { activity: Activity }) {
     : between ? CONNECTION.connected : CONNECTION.connecting;
   const fault = status === "error";
   return (
-    <p className="pointer-events-none fixed bottom-1.5 left-6 z-[2] flex items-center gap-2
-                  text-small text-soft"
+    <p className={inline
+         // The first screen's top bar (2026-11-17): a pill in the middle of it.
+         ? "flex items-center gap-2 rounded-full bg-tint px-4 py-1 text-small font-medium text-accent"
+         : `pointer-events-none fixed bottom-1.5 left-6 z-[2] flex items-center gap-2
+            text-small text-soft`}
        role="status" aria-live="polite" data-testid="status-line"
        data-connection={status}>
       <span className={`inline-block h-2 w-2 rounded-full ${fault ? "bg-stuck"

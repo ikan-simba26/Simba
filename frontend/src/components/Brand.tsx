@@ -120,6 +120,15 @@ function Logo({ light, dark, className }: { light: string; dark: string; classNa
   );
 }
 
+/** The small horizontal logo, in the first screen's top bar (2026-11-17). */
+export function BrandMark() {
+  return (
+    <span data-testid="home-logo" className="flex items-center">
+      <Logo light={horizontal} dark={horizontalDark} className="h-10 w-auto short:h-9" />
+    </span>
+  );
+}
+
 /**
  * The stacked logo, centred, over the canvas. It leaves as a fade, with the
  * home screen arriving behind it, and takes no presses while it does.

@@ -15,7 +15,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { HomeLogo, Splash, useSplash } from "./components/Brand";
+import { Splash, useSplash } from "./components/Brand";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
 import { LevelControl } from "./components/LevelControl";
 import { FinalCheck } from "./components/FinalCheck";
@@ -44,8 +44,7 @@ import {
   Presence,
   SpeechIcon,
 } from "./components/ui";
-import { BOOKINGS, CHECKLIST, ENDING, FINAL, FLOWS, FRAME, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
-         TEACH,
+import { CHECKLIST, ENDING, FINAL, FLOWS, FRAME, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
          TILES,
          WHICH,
          presence } from "./copy";
@@ -54,7 +53,8 @@ import { ARRIVE, COLUMN, EASE, TYPE } from "./design";
 import { StepView } from "./components/StepView";
 import { Welcome } from "./components/Welcome";
 import { AddSite, hostOf } from "./components/Sites";
-import { HOME_WIDTH, Home, SiteIcon } from "./components/Home";
+import { Home, SiteIcon } from "./components/Home";
+import { HomeFrame } from "./components/HomeFrame";
 import { TilesEditor } from "./components/TilesEditor";
 import { TopLine } from "./components/StepShell";
 import { NoticeTimers } from "./components/Notices";
@@ -102,6 +102,18 @@ export default function App() {
   const handover = useStore((state) => state.handover);
 
   if (teaching) return <TeachBar bar={teaching} />;
+  // The first screen has a frame of its own: a top bar, and under it the screen and the
+  // person's own things (2026-11-17).
+  if (screen === "idle" && !opening) {
+    return (
+      <>
+        <HomeFrame>
+          <Home />
+        </HomeFrame>
+        <DebugPanel />
+      </>
+    );
+  }
   if (framed && !handover && !opening) {
     return (
       <>
@@ -133,15 +145,13 @@ export default function App() {
       <StateBar />
       {!opening && (
         <>
-          <CornerLogo />
-          <TeachEntry />
           <PresenceBar />
           {/* Most of the window, not a third of it: 880 of 1280. The first
               column was 680, which at this type size left the person reading
               a narrow strip down the middle of an empty screen. */}
           <div className={`relative z-[1] w-full ${screen === "idle"
                             ? "mt-14 short:mt-12" : "mt-6 short:mt-3"}`}
-               style={{ maxWidth: screen === "idle" ? HOME_WIDTH : COLUMN }}>
+               style={{ maxWidth: COLUMN }}>
             <NoticeTimers />
             <Column />
           </div>
@@ -167,53 +177,6 @@ function useIsFramed(): boolean {
   const screen = useScreen();
   const routine = useStore((state) => Boolean(state.step?.routine));
   return (screen === "working" || screen === "checklist" || screen.startsWith("step-")) && !routine;
-}
-
-/** The small logo, on the home screen and no other. */
-function CornerLogo() {
-  return <HomeLogo shown={useScreen() === "idle"} />;
-}
-
-/**
- * The way in for a helper (2026-11-10): "Teach a task", with the line under
- * it saying who it is for, in the window's top right corner on the home
- * screen and on no other, across from the small logo. It opens the same
- * "Show me a task once" screen as the settings do.
- *
- * Outside the person's column, as the logo is, because the column has no
- * height to give: with three own tiles, the three things SIMBA can do and two
- * goals asked before, the fullest home screen at 150% (1266x606) already
- * reaches the window's bottom edge, and one more row under the settings put
- * the box to ask in off the bottom by 73px; a row fixed at the bottom sat on
- * the settings row by 33px (both measured 2026-11-10). The corner costs the
- * column nothing; `test_home.box_fits` checks it stays above the greeting
- * and wholly in the window at every size.
- */
-function TeachEntry() {
-  const shown = useScreen() === "idle";
-  const setTeachOpen = useStore((state) => state.setTeachOpen);
-  const setBookingsOpen = useStore((state) => state.setBookingsOpen);
-  return (
-    <AnimatePresence initial={false}>
-      {shown && (
-        <motion.div key="teach-entry"
-                    className="fixed top-6 right-8 z-[1] flex flex-col items-end gap-0.5 text-right
-                               short:top-3"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    transition={ARRIVE} data-testid="teach-entry">
-          <Button variant="quiet" size="md" wide={false} onClick={() => setTeachOpen(true)}
-                  data-testid="teach-a-task">
-            {TEACH.enter}
-          </Button>
-          <p className="px-2 text-small text-soft">{TEACH.enterDetail}</p>
-          <Button variant="quiet" size="md" wide={false} onClick={() => setBookingsOpen(true)}
-                  data-testid="my-bookings">
-            {BOOKINGS.enter}
-          </Button>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
 
 function PresenceBar() {
