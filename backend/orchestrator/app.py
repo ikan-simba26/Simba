@@ -73,6 +73,7 @@ from backend.orchestrator.ai_settings import (
 )
 from backend.orchestrator.llm_loop import REGISTRATION_TASK, LLMPlanner, OpenGoalBrief
 from backend.orchestrator import robots
+from backend.orchestrator.bookings import BookingStore
 from backend.estimator import page_model
 from backend.estimator.pairing import Recorder, recording_enabled
 from backend.estimator.rules import Decision, LevelRules
@@ -284,7 +285,7 @@ def past_goals(tiles: TileStore | None = None,
     return HistoryOffered(goals=[PastGoal(goal=goal, site=site, label=voice.short_label(goal))
                                  for goal, site in goals],
                           tiles=own, routines=taught, sites=sites, genres=listed.genres,
-                          ai=ai_status())
+                          ai=ai_status(), bookings=BookingStore().all())
 
 
 def ai_status(check: str = "not_checked") -> AiStatus:

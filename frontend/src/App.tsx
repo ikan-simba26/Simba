@@ -21,6 +21,9 @@ import { FinalCheck } from "./components/FinalCheck";
 import { ReadBack } from "./components/ReadBack";
 import { TeachBar } from "./components/TeachBar";
 import { HandoverBar } from "./components/HandoverBar";
+import { HelpMe } from "./components/HelpMe";
+import { Bookings } from "./components/Bookings";
+import { ChoiceCards, isChoiceStep } from "./components/ChoiceCards";
 import { StatusLine } from "./components/StatusLine";
 import { TeachIntro } from "./components/TeachIntro";
 import { ProofPanel } from "./components/ProofPanel";
@@ -39,7 +42,7 @@ import {
   SpeechIcon,
   type PresenceMode,
 } from "./components/ui";
-import { CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
+import { BOOKINGS, CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
          TEACH,
          TILES,
          WHICH,
@@ -91,7 +94,7 @@ export default function App() {
   const handover = useStore((state) => state.handover);
 
   if (teaching) return <TeachBar bar={teaching} />;
-  if (handover) return <HandoverBar bar={handover} />;
+  if (handover) return handover.kind ? <HelpMe bar={handover} /> : <HandoverBar bar={handover} />;
 
   return (
     // The bottom padding is the one space on every screen nothing reads:
@@ -153,6 +156,7 @@ function CornerLogo() {
 function TeachEntry() {
   const shown = useScreen() === "idle";
   const setTeachOpen = useStore((state) => state.setTeachOpen);
+  const setBookingsOpen = useStore((state) => state.setBookingsOpen);
   return (
     <AnimatePresence initial={false}>
       {shown && (
@@ -166,6 +170,10 @@ function TeachEntry() {
             {TEACH.enter}
           </Button>
           <p className="px-2 text-small text-soft">{TEACH.enterDetail}</p>
+          <Button variant="quiet" size="md" wide={false} onClick={() => setBookingsOpen(true)}
+                  data-testid="my-bookings">
+            {BOOKINGS.enter}
+          </Button>
         </motion.div>
       )}
     </AnimatePresence>
@@ -230,7 +238,7 @@ function PresenceBar() {
 function useScreen(): string {
   const { step, help, completed, failed, stoppedByPerson, task, reply, state,
           asking, checklist, declined, welcomeOpen, tilesOpen, teachOpen,
-          addSiteOpen } = useStore();
+          addSiteOpen, bookingsOpen } = useStore();
   const stuck = state === "stuck" || Boolean(help);
 
   return declined
@@ -251,6 +259,9 @@ function useScreen(): string {
             ? "working"
             : reply
               ? `reply-${reply.kind}`
+              // "My bookings", from the home screen's corner (2026-11-17).
+              : bookingsOpen
+                ? "bookings"
               // "Add a website", from the foot of the list (2026-11-13).
               : addSiteOpen
                 ? "addsite"
@@ -292,6 +303,7 @@ function Column() {
             {screen === "welcome" && <Welcome />}
             {screen === "teach" && <TeachIntro />}
             {screen === "addsite" && <AddSite />}
+            {screen === "bookings" && <Bookings />}
             {screen === "tiles" && <TilesEditor />}
             {screen.startsWith("reply-") && <Reply />}
             {screen === "working" && <Working />}
@@ -613,6 +625,10 @@ function Step({ index }: { index: number }) {
           // whatever the level, so nothing about what will happen folds away.
           <FinalCheck step={shown} answered={answered || !step}
                       onAction={(actionId) => respond(actionId, values)} />
+        ) : isChoiceStep(shown) ? (
+          // "Which one?" (2026-11-17): the site's own choices as cards.
+          <ChoiceCards step={shown} answered={answered || !step}
+                       onAction={(actionId) => respond(actionId, values)} />
         ) : shown.routine ? (
           // What a helper showed, read back before it is kept (2026-11-04).
           <ReadBack step={shown} values={values} answered={answered || !step}

@@ -50,8 +50,12 @@ MODES = ("card", "handover")
 
 
 def pay_mode() -> str:
-    mode = os.environ.get("SIMBA_PAY_MODE", "card").strip().lower()
-    return mode if mode in MODES else "card"
+    # `handover` since 2026-11-17: the person types the card themselves, in the
+    # help-me step on the real page (`helpme.py`); SIMBA presses Pay after the
+    # pay screen. `card` — SIMBA types the card from its own vault — stays
+    # behind `SIMBA_PAY_MODE=card`, off.
+    mode = os.environ.get("SIMBA_PAY_MODE", "handover").strip().lower()
+    return mode if mode in MODES else "handover"
 
 
 # --- the card ---------------------------------------------------------------

@@ -180,6 +180,21 @@ class AiSetup(BaseModel):
     __str__ = __repr__
 
 
+class Booking(BaseModel):
+    """A booking or order SIMBA completed (2026-11-17), kept on this computer
+    and shown as a card on the home screen's "My bookings". `lines` are what
+    the person chose and the website confirmed (from, to, date, time, seat…),
+    never a card, a code or a detail that identifies them."""
+
+    id: str
+    title: str
+    site: str
+    when: str
+    lines: List["Detail"] = []
+    number: Optional[str] = None
+    amount: Optional[str] = None
+
+
 class HistoryOffered(BaseModel):
     """What the home screen offers instead of an empty box.
 
@@ -203,6 +218,9 @@ class HistoryOffered(BaseModel):
     # Additive and optional (2026-11-13). Whether an AI provider is set up,
     # for the first-time setup and settings. Absent: the setup does not ask.
     ai: Optional[AiStatus] = None
+    # Additive and optional (2026-11-17). The bookings and orders SIMBA has
+    # completed, newest first, for "My bookings". Absent: none.
+    bookings: Optional[List[Booking]] = None
 
 
 FlowName = Literal["registration", "billing", "railways"]
@@ -277,6 +295,11 @@ class StepAction(BaseModel):
     id: str
     label: str
     kind: ActionKind
+    # Additive and optional (2026-11-17). A choice drawn as a card: a small
+    # line under the label (a price, a time) and a picture (a data: address of
+    # the site's own picture, taken by the backend). Absent: a plain button.
+    sub: Optional[str] = None
+    picture: Optional[str] = None
 
 
 class Detail(BaseModel):
@@ -405,6 +428,15 @@ class HandOver(BaseModel):
     reason: Literal["payment", "check"]
     sentence: str
     site: str
+    # Additive and optional (2026-11-17, "help-me step"). What the person is
+    # asked to do on the page: tick a box (`captcha`), type a code the website
+    # sent (`code`), enter card details (`card`), or something else. When set,
+    # the overlay shows only that part of the real page, zoomed and scrollable
+    # (`HelpMe`), instead of the bar. Absent: the bar, as before.
+    kind: Optional[Literal["captcha", "code", "card", "other"]] = None
+    # Additive and optional (2026-11-17). Two minutes passed with nothing done:
+    # the overlay asks "Still there?" with "Try again" and "Stop".
+    idle: bool = False
 
 
 class TaskOffer(BaseModel):
@@ -603,7 +635,7 @@ class HandoverDone(BaseModel):
     """The person's answer on the handover bar (2026-11-13, pending
     agreement): `done` — read the page now — or `cancel`, which stops."""
 
-    action: Literal["done", "cancel"]
+    action: Literal["done", "cancel", "again"]
 
 
 class SiteAdd(BaseModel):

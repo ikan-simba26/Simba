@@ -147,7 +147,7 @@ class Action(BaseModel):
     # "answer" (2026-11-13): the page shows what the goal asked for. `value` is
     # the answer copied exactly from the page; `element_id` is 0. The planner
     # checks the page says it before anyone sees it (`llm_loop.OpenGoalPlanner`).
-    action: Literal["click", "type", "select", "answer"]
+    action: Literal["click", "type", "select", "answer", "ask"]
     element_id: int
     value: str | None = None
     reasoning: str
@@ -160,7 +160,7 @@ class LLMError(RuntimeError):
 ACTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "action": {"type": "string", "enum": ["click", "type", "select", "answer"]},
+        "action": {"type": "string", "enum": ["click", "type", "select", "answer", "ask"]},
         "element_id": {"type": "integer"},
         "value": {"type": ["string", "null"]},
         "reasoning": {"type": "string"},

@@ -210,6 +210,26 @@ export const HANDOVER = {
   stop: "Stop, change nothing",
 } as const;
 
+/** "My bookings" (2026-11-17). */
+export const BOOKINGS = {
+  enter: "My bookings",
+  title: "My bookings",
+  back: "Back",
+  none: "Nothing yet. When I finish a booking or an order for you, it will be here.",
+  number: "Number",
+} as const;
+
+/** The help-me step (2026-11-17): only the part of the real page to use. */
+export const HELP = {
+  never: (site: string) =>
+    `On ${site}. I can't see what you type here, and neither can the AI.`,
+  done: "I've done it",
+  stop: "Stop",
+  stillThere: "Still there?",
+  stillThereDetail: "Nothing has changed for two minutes. Try again, or stop here.",
+  again: "Try again",
+} as const;
+
 /** Under a move the AI planner chose (2026-11-13, the advisor's direction):
  *  which provider worked it out, small. */
 export const WORKED_OUT_BY = (provider: string) => `Worked out with ${provider}.`;

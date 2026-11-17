@@ -899,6 +899,58 @@ HANDOVER_PAYMENT = ("Your turn: pay on the page below. Type your card details or
 #: On the handover bar, for a check that a person is there.
 HANDOVER_CHECK = ("The website wants to check that a person is using it. Please do that on "
                   "the page below, then press I've finished.")
+# --- "Which one?", one item, the cart (2026-11-17) ---------------------------------
+
+WHICH_ONE = "Which one?"
+WHICH_ONE_SITE = "These are the choices the website gives. Pick one and I'll choose it for you."
+WHICH_ONE_DETAIL = "These are the ones on the page. Choose one and I'll open it."
+FACT_CHOSEN = "You chose"
+FACT_PAYING = "Paying"
+FACT_IN_CART = "Items in cart"
+CART_GO_ON = "Carry on with all of them"
+
+
+def cart_has(things: int) -> str:
+    return f"Your cart already has {things} items, not only the one you asked for."
+
+
+REMEMBER_DETAIL = "Remember this for next time"
+
+
+def ask_detail(said: str) -> str:
+    return f"Please type {said}."
+
+
+def typing_detail(said: str) -> str:
+    return f"Type {said}"
+
+
+def typing_detail_doing(said: str) -> str:
+    return f"Typing {said}"
+
+
+# --- the help-me step (2026-11-17) -----------------------------------------------
+#
+# Only the small part of the real page the person must use is shown, zoomed;
+# they click or type straight into it. One plain sentence says what to do.
+
+HELP_CAPTCHA = "Please tick the box."
+HELP_CODE = "Type the code the website sent to your phone."
+HELP_CARD = "Enter your card details here."
+HELP_OTHER = "The website needs you for this part. Please do it on the page below."
+HELP_NEVER_SEEN = "I can't see what you type here, and neither can the AI."
+HELP_DONE = "I've done it"
+HELP_STOP = "Stop"
+HELP_STILL_THERE = "Still there?"
+HELP_TRY_AGAIN = "Try again"
+HELP_SENTENCES = {"captcha": HELP_CAPTCHA, "code": HELP_CODE, "card": HELP_CARD,
+                  "other": HELP_OTHER}
+
+
+def help_sentence(kind: str) -> str:
+    return HELP_SENTENCES.get(kind, HELP_OTHER)
+
+
 #: The closing screen's heading when the page says the payment went through.
 PAID = "The website says it went through."
 #: Under it, always: what SIMBA did not do while the page was theirs.
@@ -1473,6 +1525,18 @@ def pay_card_final(host: str, spoken: str) -> str:
     return (f"I'll pay on {host} with your {spoken}. "
             "This takes money from your card.")
 
+
+def pay_final(host: str) -> str:
+    """The pay screen when the person typed the card themselves (2026-11-17)."""
+    return (f"You've entered your card. I'll press Pay on {host} now. "
+            "This takes money from your card.")
+
+
+#: Under the closing screen when the person typed the card and SIMBA pressed Pay.
+PAID_CAVEAT_HELP = ("You typed your card yourself, and I pressed Pay after you said yes. "
+                    "I didn't see or keep your card, and the AI never did.")
+PAID_CAVEAT_HELP_FINISHED = ("You typed your card and finished on the page yourself. "
+                             "I didn't see or keep your card, and the AI never did.")
 
 PAY_NOW = "Pay now"
 DONT_PAY_NOW = "Don't pay"

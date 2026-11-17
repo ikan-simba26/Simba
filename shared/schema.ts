@@ -156,6 +156,18 @@ export interface AiSetup {
   model?: string;
 }
 
+/** A booking or order SIMBA completed (2026-11-17), shown as a card on "My
+ *  bookings" and kept on this computer only. */
+export interface Booking {
+  id: string;
+  title: string;
+  site: string;
+  when: string;
+  lines: Detail[];
+  number?: string;
+  amount?: string;
+}
+
 export interface HistoryOffered {
   goals: PastGoal[];
   /** Additive and optional (2026-10-18): the person's own tiles, in order. */
@@ -170,6 +182,8 @@ export interface HistoryOffered {
   genres?: string[];
   /** Additive and optional (2026-11-13): whether an AI provider is set up. */
   ai?: AiStatus;
+  /** Additive and optional (2026-11-17): the bookings and orders completed. */
+  bookings?: Booking[];
 }
 
 export type FlowName = "registration" | "billing" | "railways";
@@ -228,6 +242,10 @@ export interface StepAction {
   id: string;
   label: string;
   kind: ActionKind;
+  /** Additive and optional (2026-11-17). A choice drawn as a card: a line
+   *  under the label (a price, a time) and a picture (a data: address). */
+  sub?: string;
+  picture?: string;
 }
 
 /** One thing a final screen shows, by name, as the page states it (2026-10-16). */
@@ -491,11 +509,16 @@ export interface HandOver {
   reason: "payment" | "check";
   sentence: string;
   site: string;
+  /** Additive and optional (2026-11-17, the help-me step). What the person is
+   *  asked to do: only that part of the real page is shown, zoomed. */
+  kind?: "captcha" | "code" | "card" | "other";
+  /** Two minutes with nothing done: "Still there?" */
+  idle?: boolean;
 }
 
 /** The person's answer on the handover bar (2026-11-13, pending agreement). */
 export interface HandoverDone {
-  action: "done" | "cancel";
+  action: "done" | "cancel" | "again";
 }
 
 /** A website added to the home screen's list (2026-11-13, pending agreement).
