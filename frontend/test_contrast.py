@@ -157,3 +157,25 @@ def test_the_four_pictures_are_four_colours() -> None:
         pics = pictures(dark)
         assert len({pics[f"pic-{kind}"] for kind in PICTURES}) == 4
         assert len({pics[f"pic-{kind}-tint"] for kind in PICTURES}) == 4
+
+
+# --- the state colours (2026-11-17, the frontend redesign) -----------------------
+
+def states(dark: bool) -> dict[str, str]:
+    values = dict(re.findall(r"--([a-z-]+):\s*(#[0-9a-fA-F]{6});", block(":root", dark)))
+    needed = {"turn", "turn-tint", "turn-ink", "done", "done-tint", "done-ink", "spot", "spot-ground"}
+    assert needed <= set(values), sorted(needed - set(values))
+    return values
+
+
+@pytest.mark.parametrize("dark", [False, True], ids=["light", "dark"])
+def test_the_words_on_a_state_colour_are_at_least_4_5(dark: bool) -> None:
+    """"Your turn" on amber and "Done" on green, in the pill and on the card; and the
+    help-me step's words, white on its dark ground."""
+    colours = {**palette(":root", dark), **states(dark)}
+    assert contrast(colours["turn-ink"], colours["turn-tint"]) >= 4.5
+    assert contrast(colours["done-ink"], colours["done-tint"]) >= 4.5
+    assert contrast("#ffffff", colours["spot-ground"]) >= 7
+    # And the amber of the bar is seen against both the page and the card (a 6px band).
+    for ground in ("canvas", "surface"):
+        assert contrast(colours["turn"], colours[ground]) >= 1.8, ground

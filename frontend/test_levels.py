@@ -241,7 +241,11 @@ def test_height_is_not_the_ordering_and_is_not_claimed_to_be(case: str, request)
     layout quietly change character.
     """
     heights = request.getfixturevalue(case)
-    assert heights[1] <= heights[2], heights
+    # In the task frame (2026-11-17) the step has the middle panel, 486px of
+    # text, not the 880px card. Level 1's detail line, which level 2 leaves out,
+    # then wraps onto a second line: a short step is up to 40px taller at level 1
+    # than at 2 for that reason alone. Medium and long steps are as they were.
+    assert heights[1] <= heights[2] + (40 if case == "short" else 0), heights
 
 
 def test_the_levels_are_actually_different(medium: dict[int, int]) -> None:

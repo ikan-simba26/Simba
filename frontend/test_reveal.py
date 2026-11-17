@@ -133,7 +133,7 @@ def start(page: Page, overlay: str, picture: str) -> PictureBackend:  # noqa: F8
 
 
 #: Every way the overlay has had of showing the real page.
-PAGE_BUTTONS = ("What are you doing?", "Show the real page", "See it on the real page")
+PAGE_BUTTONS = ("See the real page", "Show the real page", "See it on the real page")
 
 
 def page_buttons(page: Page) -> list[str]:
@@ -145,7 +145,7 @@ def test_a_step_has_one_way_to_see_the_page(page: Page, overlay: str,  # noqa: F
                                             picture: str) -> None:
     start(page, overlay, picture)
 
-    assert page_buttons(page) == ["What are you doing?"]
+    assert page_buttons(page) == ["See the real page"]
     # And nothing of the page is drawn behind the step.
     assert page.locator("[data-testid=backdrop]").count() == 0
 
@@ -154,14 +154,14 @@ def test_it_opens_close_up_with_the_whole_page_inside(page: Page, overlay: str, 
                                                       picture: str) -> None:
     start(page, overlay, picture)
 
-    page.get_by_role("button", name="What are you doing?").click()
+    page.get_by_role("button", name="See the real page").click()
     page.get_by_test_id("trust-panel").wait_for(timeout=10000)
     page.get_by_test_id("trust-highlight").wait_for(timeout=5000)
     assert page.get_by_role("button", name="Show the whole page").is_visible()
 
     page.get_by_role("button", name="Show the whole page").click()
     assert page.get_by_role("button", name="Show it close up").is_visible()
-    page.get_by_role("button", name="Hide the page").click()
+    page.get_by_role("button", name="Hide the real page").click()
     page.wait_for_timeout(900)
     assert page.get_by_test_id("trust-panel").count() == 0
 
@@ -175,7 +175,7 @@ def test_no_picture_is_asked_for_unless_the_person_asks(
     page.wait_for_timeout(1500)
     assert [m for m in backend.heard if m["type"] == "trust.requested"] == []
 
-    page.get_by_role("button", name="What are you doing?").click()
+    page.get_by_role("button", name="See the real page").click()
     page.get_by_test_id("trust-panel").wait_for(timeout=10000)
     assert len([m for m in backend.heard if m["type"] == "trust.requested"]) == 1
 
@@ -201,7 +201,7 @@ def test_the_row_under_the_step_fits(browser, overlay: str, picture: str,  # noq
     try:
         start(page, overlay, picture)
         page.wait_for_timeout(1500)
-        for name in ("What are you doing?", "Stop this"):
+        for name in ("See the real page", "Stop this"):
             box = page.get_by_role("button", name=name, exact=True).bounding_box()
             assert box and box["y"] + box["height"] <= height, (size, name, box)
         assert not page.evaluate(
@@ -226,12 +226,12 @@ def test_asking_with_no_picture_coming_says_so(browser, overlay: str) -> None:  
         page.fill("input[aria-label='What would you like me to do?']", GOAL)
         page.get_by_role("button", name="Start").click()
         page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
-        page.get_by_role("button", name="What are you doing?").click()
+        page.get_by_role("button", name="See the real page").click()
         page.get_by_test_id("no-picture").wait_for(timeout=9000)
         assert "I couldn't get a picture just now." in page.inner_text("[data-testid=no-picture]")
         page.get_by_role("button", name="Close").click()
         page.wait_for_timeout(800)
         assert page.get_by_test_id("no-picture").count() == 0
-        assert page.get_by_role("button", name="What are you doing?").is_visible()
+        assert page.get_by_role("button", name="See the real page").is_visible()
     finally:
         page.close()

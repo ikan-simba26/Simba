@@ -138,7 +138,7 @@ def test_the_final_screen_fits(browser, overlay: str, backend: Backend,  # noqa:
     page = final(browser, overlay, backend, size, step=step)
     try:
         height = SIZES[size][1]
-        names = [a["label"] for a in step["actions"]] + ["What are you doing?"]
+        names = [a["label"] for a in step["actions"]] + ["See the real page"]
         for name in names:
             box = page.get_by_role("button", name=name, exact=True).bounding_box()
             assert box and box["y"] + box["height"] <= height, (size, name, box)

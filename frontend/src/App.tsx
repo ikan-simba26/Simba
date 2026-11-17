@@ -13,6 +13,7 @@
 
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { HomeLogo, Splash, useSplash } from "./components/Brand";
 import { DebugPanel, useDebugShortcut } from "./components/Debug";
@@ -27,7 +28,9 @@ import { ChoiceCards, isChoiceStep } from "./components/ChoiceCards";
 import { StatusLine } from "./components/StatusLine";
 import { TeachIntro } from "./components/TeachIntro";
 import { ProofPanel } from "./components/ProofPanel";
-import { TrustControl, TrustPanel } from "./components/TrustPanel";
+import { LivePage, TrustControl, TrustPanel } from "./components/TrustPanel";
+import { StateBar, TaskFrame, Lion } from "./components/TaskFrame";
+import { useFramed } from "./components/framed";
 import { StuckNote, isWaiting } from "./components/StateSignal";
 import {
   Button,
@@ -40,9 +43,8 @@ import {
   PauseIcon,
   Presence,
   SpeechIcon,
-  type PresenceMode,
 } from "./components/ui";
-import { BOOKINGS, CHECKLIST, ENDING, FINAL, FLOWS, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
+import { BOOKINGS, CHECKLIST, ENDING, FINAL, FLOWS, FRAME, HOME, ONWARD, PROOF, REPLY, SITES, STOPPED,
          TEACH,
          TILES,
          WHICH,
@@ -59,7 +61,11 @@ import { NoticeTimers } from "./components/Notices";
 import type { Finding } from "@shared/schema";
 
 import { watchPresses } from "./pressGuard";
+import { usePresenceMode } from "./presenceMode";
 import { useStore } from "./store";
+import { CardView } from "./components/TheCard";
+import { buildCard, numberIn } from "./journey";
+import { CARD } from "./copy";
 import { useOverflowGuard } from "./useOverflowGuard";
 import { useShortWindow } from "./useShortWindow";
 
@@ -89,12 +95,34 @@ export default function App() {
   // The first screen is wider than a step's column (2026-11-14): its website
   // cards are five to a row.
   const screen = useScreen();
+  // Every screen of a task is drawn in one fixed layout (2026-11-17).
+  const framed = useIsFramed();
 
   // The real page handed to the person, to pay or pass a check (2026-11-13).
   const handover = useStore((state) => state.handover);
 
   if (teaching) return <TeachBar bar={teaching} />;
-  if (handover) return handover.kind ? <HelpMe bar={handover} /> : <HandoverBar bar={handover} />;
+  if (framed && !handover && !opening) {
+    return (
+      <>
+        <StateBar />
+        <TaskFrame centre={<LivePage />}>
+          <Column inFrame />
+        </TaskFrame>
+        <StatusNow />
+        <ProofPanel />
+        <DebugPanel />
+      </>
+    );
+  }
+  if (handover) {
+    return (
+      <>
+        <StateBar />
+        {handover.kind ? <HelpMe bar={handover} /> : <HandoverBar bar={handover} />}
+      </>
+    );
+  }
 
   return (
     // The bottom padding is the one space on every screen nothing reads:
@@ -102,6 +130,7 @@ export default function App() {
     // button (2026-10-07) took the last few pixels at 100% and 150%.
     <div className="simba-canvas flex min-h-full flex-col items-center bg-canvas px-8 pt-6 pb-8
                     short:pt-3 short:pb-1">
+      <StateBar />
       {!opening && (
         <>
           <CornerLogo />
@@ -131,6 +160,13 @@ export default function App() {
 function StatusNow() {
   const mode = usePresenceMode();
   return <StatusLine activity={mode} />;
+}
+
+/** Whether the screen is one of a task's: the working, checklist and question screens. */
+function useIsFramed(): boolean {
+  const screen = useScreen();
+  const routine = useStore((state) => Boolean(state.step?.routine));
+  return (screen === "working" || screen === "checklist" || screen.startsWith("step-")) && !routine;
 }
 
 /** The small logo, on the home screen and no other. */
@@ -178,20 +214,6 @@ function TeachEntry() {
       )}
     </AnimatePresence>
   );
-}
-
-/** Which of the presence mark's six shapes the current screen means. */
-function usePresenceMode(): PresenceMode {
-  const { state, step, help, completed, failed, stoppedByPerson, task, asking,
-          declined } = useStore();
-  // The person's own decision, carried out: calm, not stuck.
-  if (stoppedByPerson || declined) return "ready";
-  if (help || failed || state === "stuck") return "stuck";
-  if (completed) return "done";
-  if (state === "acting") return "acting";
-  if (step && isWaiting(state)) return "waiting";
-  if (task || asking) return "thinking";
-  return "ready";
 }
 
 function PresenceBar() {
@@ -277,11 +299,13 @@ function useScreen(): string {
                   : "idle";
 }
 
-function Column() {
+function Column({ inFrame = false }: { inFrame?: boolean }) {
   const trustOpen = useStore((state) => state.trustOpen);
   const screen = useScreen();
-  // Put aside while the real page is shown: the trust panel's picture.
-  const aside = trustOpen;
+  // Put aside while the real page is shown: the trust panel's picture. Inside
+  // the task frame the real page takes the middle panel instead, and this
+  // stays where it is, hidden, with what was typed in it.
+  const aside = trustOpen && !inFrame;
 
   return (
     <motion.div
@@ -566,6 +590,21 @@ function Working() {
   // exists, the backend is still working out what was asked for.
   const situation = task ? "working" : asking ? "reading" : "opening";
   const goal = task?.goal ?? asking;
+  const framed = useFramed();
+  if (framed) {
+    // In the task frame (2026-11-17): the lion, haloed, and what is happening.
+    // What was asked is in the header and the left panel already.
+    return (
+      <div className="flex min-h-[360px] flex-col items-center justify-center gap-6 text-center">
+        <span aria-hidden className="simba-halo flex h-36 w-36 items-center justify-center rounded-full
+                                     bg-tint short:h-28 short:w-28"><Lion className="h-24 w-24 short:h-20 short:w-20" /></span>
+        <h1 className="max-w-[520px] text-heading font-semibold tracking-[-0.015em] text-ink
+                       short:text-title">
+          {presence(situation)}
+        </h1>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-5 pt-20 text-center">
       <h1 className="text-display font-semibold tracking-[-0.015em] text-ink">
@@ -577,6 +616,11 @@ function Working() {
 }
 
 /* ----------------------------------------------------------------- step */
+
+/** A step's surface: a card of its own in the old layout, the frame's middle panel in the new. */
+function Surface({ framed, children }: { framed: boolean; children: React.ReactNode }) {
+  return framed ? <>{children}</> : <Card className="px-12 py-10 short:py-7">{children}</Card>;
+}
 
 function Step({ index }: { index: number }) {
   const { step: current, state, level, respond, answered } = useStore();
@@ -615,11 +659,12 @@ function Step({ index }: { index: number }) {
   useOverflowGuard(measured, { level, active: Boolean(step) && !step?.final
                                               && !step?.routine });
 
+  const framed = useFramed();
   if (!shown) return null;
 
   return (
     <div ref={measured}>
-      <Card className="px-12 py-10 short:py-7">
+      <Surface framed={framed}>
         {shown.final ? (
           // The final screen before a change (2026-10-16): its own layout,
           // whatever the level, so nothing about what will happen folds away.
@@ -649,7 +694,7 @@ function Step({ index }: { index: number }) {
           onAction={(actionId) => respond(actionId, values)}
         />
         )}
-      </Card>
+      </Surface>
       {/* The level dots and "What are you doing?" share one row under the
           card: at this type size, stacked, they pushed a step with a field
           past the bottom of the window. "What are you doing?" is the one way
@@ -661,7 +706,8 @@ function Step({ index }: { index: number }) {
       {!shown.routine && (
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 short:mt-4">
           <TrustControl />
-          <LevelControl />
+          {/* The dots are the frame's header's (2026-11-17). */}
+          {!framed && <LevelControl />}
         </div>
       )}
     </div>
@@ -700,6 +746,52 @@ function Checklist() {
                                        state: "to come" as const })),
   ];
   const shown = simplest ? rows.filter((row) => row.state === "now") : rows;
+  const framed = useFramed();
+  if (framed) {
+    // In the task frame (2026-11-17): the one thing being done, large, with the
+    // lion haloed above it. The list of moves is still here for a screen reader.
+    const now = rows.find((row) => row.state === "now");
+    return (
+      <div className="flex min-h-[360px] flex-col items-center justify-center gap-5 text-center
+                      short:gap-3" data-testid="checklist">
+        <div className="w-full"><TopLine step={null} stages full answered /></div>
+        <span aria-hidden className="simba-halo flex h-28 w-28 items-center justify-center rounded-full
+                                     bg-tint short:h-20 short:w-20"><Lion className="h-20 w-20 short:h-14 short:w-14" /></span>
+        <p className="rounded-full bg-tint px-4 py-0.5 text-small font-medium text-accent"
+           data-testid="journey-here">{CHECKLIST.now}</p>
+        <h1 className="max-w-[540px] text-heading font-semibold leading-tight tracking-[-0.015em] text-ink
+                       short:text-title" data-testid="journey-doing">{now?.label}</h1>
+        {/* At the simplest level how many are left; at the others, which. */}
+        {coming.length > 0 && simplest && (
+          <p className="text-lead text-soft short:text-body" data-testid="journey-left">
+            {CHECKLIST.left(coming.length)}
+          </p>
+        )}
+        {coming.length > 0 && !simplest && (
+          <p className="max-w-[540px] text-body text-soft short:text-small" data-testid="journey-next">
+            <span className="font-medium">{FRAME.next}</span> {coming.join(" · ")}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button variant="secondary" size="md" wide={false} onClick={pause} disabled={pausing}>
+            <span data-icon="pause"><PauseIcon size={24} /></span>
+            {pausing ? CHECKLIST.pausing : CHECKLIST.pause}
+          </Button>
+          <TrustControl />
+        </div>
+        <h2 className="sr-only">{CHECKLIST.heading}</h2>
+        <ol className="sr-only" aria-live="polite" data-testid="checklist-lines" data-level={level}>
+          {shown.map((row) => (
+            <li key={row.key} data-state={row.state} aria-current={row.state === "now" ? "step" : undefined}>
+              <span className="sr-only block">{row.state === "done" ? CHECKLIST.done
+                : row.state === "now" ? CHECKLIST.now : CHECKLIST.next}</span>
+              <span className="block">{row.label}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
   return (
     <Card className="px-12 py-10 short:py-7">
       <div className="flex flex-col gap-6 short:gap-4" data-testid="checklist">
@@ -852,6 +944,7 @@ function Completed() {
 
   return (
     <div ref={screen} className="flex flex-col gap-8 short:gap-5">
+      <BookedFlight />
       {completed?.confirmation ? (
         // A change the site has confirmed (2026-10-16): said done, in the
         // site's own words, with what it gave back.
@@ -970,6 +1063,53 @@ function Completed() {
         <OnwardButton onClick={startOver} />
       )}
     </div>
+  );
+}
+
+/**
+ * After "do it" (2026-11-17): the card, complete, gets the booking or order
+ * number and moves into My bookings — it comes forward, shows its number, and
+ * shrinks away toward the corner where "My bookings" is, which says it is
+ * saved. One calm movement over about three seconds, over the closing screen
+ * and never in the way of it (it takes no presses), and not at all under
+ * reduced motion. Only for a ticket or an order, which are what is kept.
+ */
+function BookedFlight() {
+  const { completed, task, taskSite, facts, finalDetails, findingsSoFar } = useStore();
+  const reduce = useReducedMotion() ?? false;
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setGone(true), 3400);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (reduce || gone || !completed?.confirmation) return null;
+  const model = buildCard({ goal: task?.goal ?? "", genre: taskSite?.genre, site: taskSite?.name ?? null,
+                            facts, final: finalDetails ?? [], findings: findingsSoFar, step: null });
+  if (model.shape !== "ticket" && model.shape !== "receipt") return null;
+  const number = numberIn(completed.confirmation)
+    ?? completed.findings?.find((finding) => /number|reference/i.test(finding.label))?.value ?? null;
+  // On the page itself, not inside the screen that is arriving: that one is
+  // transformed, and a fixed element inside a transform is fixed to it.
+  return createPortal(
+    <motion.div className="pointer-events-none fixed inset-0 z-[6] flex items-center justify-center
+                           bg-canvas/70" aria-hidden data-testid="booked-flight"
+                initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 1, 0] }}
+                transition={{ duration: 3.2, times: [0, 0.12, 0.55, 0.8, 1], ease: EASE }}>
+      <motion.div className="h-[480px] w-[360px]"
+                  initial={{ scale: 0.96, x: 0, y: 0 }}
+                  animate={{ scale: [0.96, 1, 1, 0.16], x: [0, 0, 0, "40vw"], y: [0, 0, 0, "-34vh"],
+                             opacity: [1, 1, 1, 0.2] }}
+                  transition={{ duration: 3.2, times: [0, 0.12, 0.55, 1], ease: EASE }}>
+        <CardView model={{ ...model, complete: true }} number={number} saved />
+      </motion.div>
+      <motion.p className="fixed top-6 right-8 flex items-center gap-2 rounded-full bg-done-tint px-4 py-1.5
+                           text-small font-semibold text-done-ink"
+                initial={{ opacity: 0 }} animate={{ opacity: [0, 0, 1, 1] }}
+                transition={{ duration: 3.2, times: [0, 0.6, 0.85, 1] }}>
+        <CheckIcon size={18} /> {CARD.saved}
+      </motion.p>
+    </motion.div>,
+    document.body,
   );
 }
 

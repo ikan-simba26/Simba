@@ -64,6 +64,22 @@
   --stuck: #9a3820;
   --stuck-tint: #f8e0d6;
 
+  /* The state colours (2026-11-17, the frontend redesign), the same on every
+     task screen: teal is the accent and means "SIMBA is working"; amber means
+     "your turn" or "your decision"; the spotlight is the help-me step; green is
+     done. Each is a bar, a pill, and nothing else, so a glance says whose turn
+     it is. Text on a tint is the `-ink` of its colour, at least 4.5:1. */
+  --turn: #e9a23b;
+  --turn-tint: #fbebcf;
+  --turn-edge: #f1cf93;
+  --turn-ink: #6e4d00;
+  --done: #1f8a52;
+  --done-tint: #dff1e5;
+  --done-ink: #0f5c34;
+  --spot: #7fd3c6;
+  --spot-ground: #10221f;
+  --halo: rgb(127 211 198 / 0.35);
+
   /* A tile's picture and the pale square it sits on (2026-11-10,
      `pictures.ts`): a train, a bill, a book, and a globe for anything else.
      Calm and darker than bright, each picture at least 6:1 on its own pale
@@ -107,6 +123,17 @@
     --tint: #16312d;
     --stuck: #f0a083;
     --stuck-tint: #3c2017;
+
+    --turn: #e9a23b;
+    --turn-tint: #3a2a0c;
+    --turn-edge: #7a5a1e;
+    --turn-ink: #f6d7a6;
+    --done: #6fcf8c;
+    --done-tint: #12301d;
+    --done-ink: #a5e6b9;
+    --spot: #7fd3c6;
+    --spot-ground: #0a1615;
+    --halo: rgb(127 211 198 / 0.3);
 
     --pic-train: #93c0ea;
     --pic-train-tint: #152b40;
@@ -196,6 +223,15 @@
   --color-tint: var(--tint);
   --color-stuck: var(--stuck);
   --color-stuck-tint: var(--stuck-tint);
+  --color-turn: var(--turn);
+  --color-turn-tint: var(--turn-tint);
+  --color-turn-edge: var(--turn-edge);
+  --color-turn-ink: var(--turn-ink);
+  --color-done: var(--done);
+  --color-done-tint: var(--done-tint);
+  --color-done-ink: var(--done-ink);
+  --color-spot: var(--spot);
+  --color-spot-ground: var(--spot-ground);
 
   /* Depth. Soft, low, and warm-tinted in the light theme. */
   --shadow-card: var(--shadow-card);
@@ -413,5 +449,63 @@ body {
   .simba-shape--turning {
     animation: none !important;
     transform: rotateX(16deg) rotateY(28deg);
+  }
+}
+
+/* --- the task frame (2026-11-17, the frontend redesign) ------------------ */
+
+/* SIMBA is working: a soft halo that breathes round the lion. A pseudo-element
+   moved by transform and opacity alone, so it is composited and costs the page
+   nothing to paint (`test_calm.py` holds it to the old shape's budget). Still
+   under reduced motion, and while the window is not focused. */
+@keyframes simba-halo {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.3); opacity: 0.3; }
+}
+
+.simba-halo {
+  position: relative;
+  isolation: isolate;
+}
+
+.simba-halo::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--halo);
+  animation: simba-halo 3.2s ease-in-out infinite;
+}
+
+/* A field of the card the moment SIMBA learns it: a short wash of the
+   spotlight colour that fades out. */
+@keyframes simba-flash {
+  0% { background-color: color-mix(in srgb, var(--spot) 65%, transparent); }
+  100% { background-color: transparent; }
+}
+
+.simba-flash {
+  animation: simba-flash 2.4s ease-out 1;
+}
+
+/* The ring round what SIMBA is touching on the real page (screen C). */
+/* The help-me step's frame: the real page's one part, lit on a dark ground. */
+.simba-spot-ring {
+  box-shadow: 0 0 0 6px var(--spot), 0 0 32px 10px var(--halo);
+}
+
+.simba-ring-glow {
+  box-shadow: 0 0 0 4px var(--accent), 0 0 0 10px var(--halo), 0 0 28px 8px var(--halo);
+}
+
+[data-motion="paused"] .simba-halo::before {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simba-halo::before,
+  .simba-flash {
+    animation: none !important;
   }
 }

@@ -287,9 +287,10 @@ def test_with_a_notice_up_the_top_shows_one_thing_and_covers_nothing(
                 "([x, y, sel]) => document.elementFromPoint(x, y)?.closest(sel) !== null",
                 [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, target])
             assert under, f"something lies over {target}"
-        # The row above the card: the mark, and nothing else that can be seen.
+        # The header's left: the mark (the lion, since the task frame, 2026-11-17) and
+        # the task's name, and no notice among them.
         row = page.locator("[data-presence]").locator("xpath=..")
-        assert row.evaluate("r => [...r.children].filter(c => c.offsetParent).length") == 1
+        assert row.evaluate("r => [...r.children].filter(c => c.offsetParent).length") == 2
         assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
     finally:
         page.close()

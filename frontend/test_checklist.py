@@ -107,7 +107,7 @@ def test_the_lines_tick_off_and_the_last_is_being_done(page: Page, overlay: str,
     # One thing to press, and it is Pause.
     buttons = page.eval_on_selector_all(
         "[data-testid=checklist] button", "bs => bs.map(b => b.innerText.trim())")
-    assert buttons == ["Pause"]
+    assert buttons == ["Pause", "See the real page"]
     # With a pause sign: two upright bars, not the alert's circle (2026-10-15).
     icon = page.eval_on_selector("[data-testid=checklist] button [data-icon=pause] svg",
                                  "svg => [svg.querySelectorAll('circle').length, "
@@ -284,26 +284,19 @@ def test_the_journey_is_a_list_with_where_you_are_marked(page: Page, overlay: st
             f"[data-testid=checklist-lines] li[data-state='{state}'] .sr-only",
             "els => els.map(e => e.innerText)")
         assert set(hidden) == {words}, (state, hidden)
-    # Done dots filled, the one being done larger, those to come empty.
-    dots = page.eval_on_selector_all(
-        "[data-testid=checklist-lines] li",
-        """items => items.map(i => { const d = i.querySelector('[aria-hidden] > span');
-             const s = getComputedStyle(d);
-             return [i.dataset.state, Math.round(d.getBoundingClientRect().width),
-                     s.backgroundColor === getComputedStyle(document.body).getPropertyValue('--accent')
-                       || s.backgroundColor, s.borderStyle]; })""")
-    widths = {state: width for state, width, _, _ in dots}
-    assert widths["now"] > widths["done"] == widths["to come"], dots
-    assert {style for state, _, _, style in dots if state == "to come"} == {"dashed"}
-    # A path from each dot to the next: solid where it has been, dashed on.
-    paths = page.eval_on_selector_all(
-        "[data-testid=journey-path]",
-        "ps => ps.map(p => [p.closest('li').dataset.state, getComputedStyle(p).borderLeftStyle])")
-    assert paths == [["done", "solid"]] * 3 + [["now", "dashed"], ["to come", "dashed"]], paths
+    # Drawn in the task frame (2026-11-17): the move being done, large, with the lion
+    # haloed above it, and what comes next said under it. The list above is kept for a
+    # screen reader (`sr-only`); the dots and the path between them are not drawn.
+    assert page.get_by_test_id("journey-doing").inner_text() == SIX[3]
+    assert page.get_by_test_id("journey-doing").evaluate(
+        "e => parseFloat(getComputedStyle(e).fontSize)") >= 30
+    assert "simba-halo" in page.get_by_test_id("frame-lion").get_attribute("class")
+    assert page.get_by_test_id("journey-next").inner_text() == f"Next: {SIX[4]} · {SIX[5]}"
+    assert page.get_by_test_id("journey-path").count() == 0
     # Pause, and nothing else to press, as before.
     buttons = page.eval_on_selector_all(
         "[data-testid=checklist] button", "bs => bs.map(b => b.innerText.trim())")
-    assert buttons == ["Pause"]
+    assert buttons == ["Pause", "See the real page"]
 
 
 @pytest.mark.parametrize("level, shown", [(1, 6), (2, 6), (3, 1)])
@@ -356,36 +349,20 @@ def test_one_more_thing_is_said_as_one(browser, overlay: str,  # noqa: F811
         context.close()
 
 
-def test_the_dot_grows_into_place_and_not_under_reduced_motion(
-        browser, overlay: str, backend: Backend) -> None:  # noqa: F811
-    for reduced in (False, True):
-        context, page = at_level(browser, None, reduced=reduced)
-        try:
-            backend.script = FOURTH
-            backend.responses.clear()
-            page.goto(f"{overlay}?ws=ws://127.0.0.1:{backend.port}")
-            page.fill("input[aria-label='What would you like me to do?']", GOAL)
-            page.get_by_role("button", name="Start").click()
-            # Every frame of the dot's arrival, from the moment it is there.
-            seen = page.evaluate("""() => new Promise((done) => {
-              const frames = [];
-              const look = () => {
-                const dot = document.querySelector('[data-testid=journey-now]');
-                if (dot) frames.push([getComputedStyle(dot).transform,
-                                      getComputedStyle(dot).opacity]);
-                if (frames.length >= 40) done(frames); else requestAnimationFrame(look);
-              };
-              look();
-            })""")
-            moving = [frame for frame in seen if frame != ["none", "1"]]
-            if reduced:
-                assert moving == [], seen[:5]
-            else:
-                assert moving, "the dot should grow into place"
-                # Small: from 60% of its size, never larger than itself.
-                assert seen[-1] == ["none", "1"], seen[-1]
-        finally:
-            context.close()
+@pytest.mark.parametrize("reduced", [False, True])
+def test_the_lions_halo_breathes_and_not_under_reduced_motion(browser, overlay: str,  # noqa: F811
+                                                              backend: Backend,
+                                                              reduced: bool) -> None:
+    """The halo round the lion is a soft shadow that breathes while SIMBA works
+    (the task frame, 2026-11-17); asked for less motion, it is still."""
+    context, page = at_level(browser, None, reduced=reduced)
+    try:
+        begin(page, overlay, backend, FOURTH)
+        name = page.get_by_test_id("frame-lion").evaluate(
+            "e => getComputedStyle(e, '::before').animationName")
+        assert (name == "none") if reduced else (name == "simba-halo"), name
+    finally:
+        context.close()
 
 
 @pytest.mark.parametrize("level", [1, 2, 3])
@@ -402,18 +379,11 @@ def test_the_journey_fits_at_every_size_and_level(browser, overlay: str,  # noqa
         assert not page.evaluate("document.scrollingElement.scrollHeight > innerHeight")
         box = page.get_by_role("button", name="Pause").bounding_box()
         assert box and box["y"] + box["height"] <= height
-        # Every line, its dot and "Doing this now" wholly in the window and in
-        # the card, nothing overlapping the line under it.
-        rows = page.eval_on_selector_all(
-            "[data-testid=checklist-lines] li",
-            """items => items.map(i => { const r = i.getBoundingClientRect();
-                 return [Math.round(r.top), Math.round(r.bottom), Math.round(r.right)]; })""")
-        card = page.get_by_test_id("checklist").bounding_box()
-        for top, bottom, right in rows:
-            assert 0 <= top and bottom <= height and right <= card["x"] + card["width"] + 1
-        for above, below in zip(rows, rows[1:]):
-            assert above[1] <= below[0], rows
-        here = page.get_by_test_id("journey-here").bounding_box()
-        assert here["x"] + here["width"] <= card["x"] + card["width"]
+        # The move being done and "Doing this now" wholly in the middle panel.
+        centre = page.get_by_test_id("frame-centre").bounding_box()
+        for name in ("journey-doing", "journey-here"):
+            box = page.get_by_test_id(name).bounding_box()
+            assert box["y"] >= centre["y"] and box["y"] + box["height"] <= centre["y"] + centre["height"]
+            assert box["x"] >= centre["x"] and box["x"] + box["width"] <= centre["x"] + centre["width"] + 1
     finally:
         context.close()
