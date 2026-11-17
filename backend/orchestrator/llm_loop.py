@@ -111,15 +111,35 @@ def _is_search(element: Element) -> bool:
         element.role in ("combobox", "textbox") and bool(SEARCH_LABEL.search(element.label)))
 
 
+#: Roles of a box a person types or chooses in.
+ENTRY_ROLES = ("textbox", "searchbox", "combobox", "spinbutton")
+
+
+def echoes(elements: list[Element]) -> set[int]:
+    """The ids of floating labels read as buttons (2026-11-17): a `<label>` that
+    perception took for a button because the page makes it pointable, standing
+    just before the very box it names (Daewoo's sign-up form has one before
+    every box). Choosing one to type in cannot work and was how a CNIC step
+    failed in the real window; the box itself is what is offered."""
+    found: set[int] = set()
+    for index, element in enumerate(elements[:-1]):
+        if element.tag == "label" and element.role == "button":
+            following = elements[index + 1]
+            if following.role in ENTRY_ROLES or following.input_type in ("password", "text"):
+                found.add(element.id)
+    return found
+
+
 def usable(elements: list[Element],
            failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset()
            ) -> list[Element]:
     """The elements a planner is shown, and so may choose (2026-11-14): what
     `render_page` lists. Part of an overlay, or neither behind one, nor a link
     that goes nowhere, nor off the side, nor something that just failed."""
-    return [e for e in elements if e.overlay
+    echo = echoes(elements)
+    return [e for e in elements if e.id not in echo and (e.overlay
             or (not (e.occluded or e.dead_link) and not _off_the_side(e)
-                and (e.role, e.label) not in failed)]
+                and (e.role, e.label) not in failed))]
 
 
 #: Said above the list, for a goal with no plan, when something is on top of
@@ -165,9 +185,10 @@ def render_page(elements: list[Element],
              and _off_the_side(e)]
     tried = [e for e in elements if not e.overlay and not (e.occluded or e.dead_link)
              and not _off_the_side(e) and (e.role, e.label) in failed]
-    gone = {id(e) for e in aside + tried}
-    listed = [e for e in elements if e.overlay
-              or (not (e.occluded or e.dead_link) and id(e) not in gone)]
+    echo = echoes(elements)
+    gone = {id(e) for e in aside + tried} | {id(e) for e in elements if e.id in echo}
+    listed = [e for e in elements if id(e) not in gone and (e.overlay
+              or not (e.occluded or e.dead_link))]
 
     lines = []
     if blocked and on_top:
@@ -233,8 +254,15 @@ def render_page(elements: list[Element],
     if lines and lines[-1] != "":
         lines += [""]
 
+    # A box with no name of its own is named by the floating label just before
+    # it (2026-11-17): Daewoo's city list was "combobox (no name)", and the model
+    # went on to press Register without ever choosing one.
+    named = {}
+    for index, element in enumerate(elements[:-1]):
+        if element.id in echo and not elements[index + 1].label.strip():
+            named[elements[index + 1].id] = element.label
     for element in listed:
-        name = _label(element.label)
+        name = _label(element.label or named.get(element.id, ""))
         line = f"{element.id}. {element.role} {name!r}" if name else f"{element.id}. {element.role} (no name)"
         if element.qualifier:
             # Without this a month grid offers two elements called '30' and
@@ -517,6 +545,7 @@ pick one yourself: choose action "ask" with the element_id of that dropdown, or 
 of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
+Before you press the button that sends a form, make sure every box and every drop-down list in it has been filled or chosen, the lists too (a city, a title). If a message on the page says something is missing, do that, not the message.
 If the form or button the goal needs (a search for a journey, a booking form, \
 a cart) is not on the page, it may need the person to be signed in first: look \
 for a "Sign In", "Login" or "Book" link or button and use it, before anything \
@@ -535,6 +564,9 @@ NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|conf
 WAY_IN = re.compile(r"\b(sign ?in|log ?in|book(ing)?|reserve|buy ticket|my account)\b", re.IGNORECASE)
 CARD_ID_PREFIX = "card:"
 OPTION_ID_PREFIX = "opt:"
+#: A box that holds a date, by its words, and the shape a box shows for one.
+DATE_BOX = re.compile(r"(\bdate\b|birth|\bdob\b|dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm)", re.IGNORECASE)
+DATE_SHAPE = re.compile(r"(dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm.?dd)", re.IGNORECASE)
 #: The most options of one choice put in front of the person.
 MOST_OPTIONS = 10
 _OPTIONS_JS = """e => {
@@ -964,6 +996,12 @@ class OpenGoalPlanner(LLMPlanner):
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
+        dated = self._date_box(choice, elements)
+        if dated is not None:
+            return await dated
+        selecting = await self._select_box(choice, elements)
+        if selecting is not None:
+            return selecting
         if choice.action.action == "ask":
             asking = await self._ask_site(choice, elements)
             if asking is not None:
@@ -1047,6 +1085,113 @@ class OpenGoalPlanner(LLMPlanner):
         return Move(instruction=voice.WHICH_ONE, detail=voice.WHICH_ONE_DETAIL, operations=[],
                     expect=Expectation(), fields=[], actions=actions, question=True,
                     kind="choose")
+
+    def _date_box(self, choice: "_Choice", elements: list[Element]):
+        """A box for a date (2026-11-17), however the model tried to use it. A
+        date picker's box is read-only, so pressing it shows a calendar nobody
+        can use well: the person types the date, in the shape the box shows
+        ("25-03-1998"), and SIMBA sets it. Returns the move to await, or None."""
+        el = choice.element
+        if el is None or el.role != "textbox" or choice.action.action not in (
+                "click", "type", "select"):
+            return None
+        index = next((i for i, e in enumerate(elements) if e.id == el.id), 0)
+        before = elements[index - 1] if index else None
+        name = (_without_icons(before.label) if before is not None and before.tag == "label"
+                else "")
+        said = f"{el.label} {name} {el.name or ''}"
+        birth = profilelib.kind_of(name or el.label, el.name) == "dob"
+        # A press on a date box, or any move on a date of birth, is the person's to
+        # type; a date the goal gave, typed by the model, is left alone.
+        if not (birth or (DATE_BOX.search(said) and choice.action.action == "click")):
+            return None
+        shape = el.label if DATE_SHAPE.search(el.label or "") else ""
+        label = f"{name or voice.DATE_WORD} ({shape})" if shape else (name or voice.DATE_WORD)
+        asked = replace(el, label=label)
+        self._made = ("fill", el.role, el.label)
+        return self._shape(_Choice(
+            action=Action(action="type", element_id=el.id, value=None,
+                          reasoning=voice.TYPE_DATE), element=asked))
+
+    async def _select_box(self, choice: "_Choice", elements: list[Element]) -> Move | None:
+        """A drop-down list (2026-11-17), however the model tried to use it —
+        pressed, typed in, or chosen from. Pressing one does nothing the page
+        shows ("Choose Please Select City did not work"), so it is always a
+        choice among the list's own options: made by itself when the goal or
+        a kept detail names one of them; else asked, as buttons when there are
+        a few, or as a box that accepts only the list's own words when there
+        are many (a city among 128)."""
+        el = choice.element
+        if (self.page is None or el is None or el.tag != "select"
+                or choice.action.action not in ("click", "select", "type", "ask")):
+            return None
+        try:
+            found = await resolve(self.page, elements, el.id).evaluate(_OPTIONS_JS, timeout=3000)
+        except Exception:  # noqa: BLE001 - not a list we can read: left to the model
+            return None
+        options = [o for o in dict.fromkeys(found or []) if o]
+        if len(options) < 2:
+            return None
+        index = next((i for i, e in enumerate(elements) if e.id == el.id), 0)
+        before = elements[index - 1] if index else None
+        name = _without_icons(el.label) or (_without_icons(before.label) if before is not None
+                                            and before.tag == "label" else "") or el.name or "one"
+        plain_options = {_plain(o): o for o in options}
+
+        def option_for(text: str | None) -> str | None:
+            return plain_options.get(_plain(text or "")) if text else None
+
+        chosen = option_for(choice.action.value) if choice.action.action in ("select", "type") \
+            else None
+        if chosen is not None and not _said_in(chosen, self._task.goal):
+            # The model's own pick, not the goal's: only for a list that is not
+            # about the person (a size, a class) is that its call; a city or
+            # anything of theirs is asked.
+            if profilelib.kind_of(name, el.name) is not None:
+                chosen = None
+        detail = profilelib.kind_of(name, el.name)
+        if chosen is None and detail is not None:
+            saved = option_for(profilelib.ProfileVault().get(detail))
+            if saved is not None:
+                chosen = saved
+                self.keep_private([saved])
+        if chosen is not None:
+            self._new_facts.append(Detail(label=voice.short_name(name) or name, value=chosen))
+            self._made = ("select", el.role, el.label)
+            return await self._shape(_Choice(
+                action=Action(action="select", element_id=el.id, value=chosen,
+                              reasoning="This is the one that fits."), element=el))
+        question = voice.which_named(voice.short_name(name) or name)
+        if len(options) <= MOST_OPTIONS:
+            self._site_question = question
+            self._site_element = el
+            self._site_options = {f"{OPTION_ID_PREFIX}{i}": text for i, text in enumerate(options)}
+            actions = [StepAction(id=key, label=text, kind="primary")
+                       for key, text in self._site_options.items()]
+            actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+            return Move(instruction=question, detail=voice.WHICH_ONE_SITE, operations=[],
+                        expect=Expectation(), fields=[], actions=actions, question=True,
+                        kind="choose")
+        # Many options: a box that takes only the list's own words.
+        field_id = el.name or str(el.id)
+        actions = voice.actions(voice.GO_AHEAD)
+        kinds: tuple = ()
+        if detail is not None:
+            kinds = ((field_id, detail),)
+            if profilelib.ProfileVault().available:
+                actions = [actions[0], StepAction(id=voice.REMEMBER_ID,
+                                                  label=voice.REMEMBER_DETAIL, kind="primary"),
+                           *actions[1:]]
+        self._made = ("select", el.role, el.label)
+        return Move(
+            instruction=question, detail=voice.TYPE_AND_PICK, kind="choose",
+            operations=[Operation(kind="select", target=Target(role=el.role, label=el.label),
+                                  element_id=el.id, value=None, value_key=field_id,
+                                  node=el.backend_node_id)],
+            expect=Expectation(),
+            fields=[StepField(id=field_id, label=voice.short_name(name) or name, type="text",
+                              value="", options=options)],
+            actions=actions, kinds=kinds)
 
     async def _ask_site(self, choice: "_Choice", elements: list[Element]) -> Move | None:
         """The model says a choice is the person's: read the site's own

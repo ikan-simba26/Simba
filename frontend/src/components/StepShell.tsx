@@ -128,7 +128,13 @@ export function StepShell({
   // is ticked, and its own when it is not. Unticked for every new step.
   const saveOffer = step.actions.find((action) => action.id === SAVE_ID);
   const [save, setSave] = useState(false);
-  useEffect(() => setSave(false), [step.step_index]);
+  // Ticked for the person's own details (2026-11-17): typed once, kept, and typed by SIMBA
+  // next time, so a task that has to start again does not ask for them again. Never for a
+  // password, which stays the person's choice each time.
+  useEffect(
+    () => setSave(Boolean(saveOffer) && !step.fields.some((field) => field.type === "password")),
+    [step.step_index],
+  );
   const answers = step.actions.filter((action) => action.id !== SAVE_ID);
   const act = (id: string) =>
     onAction(saveOffer && save && id === lead?.id ? saveOffer.id : id);

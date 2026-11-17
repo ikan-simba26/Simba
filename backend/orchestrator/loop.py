@@ -348,7 +348,9 @@ def resolve(page: Page, elements: list[Element], element_id: int):
 
 def name_matcher(label: str) -> re.Pattern[str]:
     """The whole name, whatever its case, with any run of spaces as one."""
-    words = [re.escape(word) for word in label.split()]
+    # A "/" is escaped for the browser: "CNIC/Passport No" made Playwright build a
+    # selector it could not parse, and the box could never be typed in (2026-11-17).
+    words = [re.escape(word).replace("/", "\\/") for word in label.split()]
     return re.compile(r"^\s*" + r"\s+".join(words) + r"\s*$", re.IGNORECASE)
 
 
@@ -372,6 +374,16 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
         return
 
     if operation.kind == "fill":
+        # A box a date picker owns is read-only: it cannot be typed in, and the
+        # page takes the value it is given (Daewoo's date of birth, 2026-11-17).
+        # Set as the page's own input would, with the events a form listens to.
+        if await locator.evaluate("e => !!e.readOnly", timeout=3000):
+            await locator.evaluate(
+                "(e, v) => { const set = Object.getOwnPropertyDescriptor("
+                "HTMLInputElement.prototype, 'value').set; set.call(e, v); "
+                "e.dispatchEvent(new Event('input', {bubbles: true})); "
+                "e.dispatchEvent(new Event('change', {bubbles: true})); }", value)
+            return
         if strategy == 0:
             await locator.fill(value, timeout=ACTION_TIMEOUT_MS)
         else:
@@ -591,13 +603,22 @@ def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
     return mismatch(after, expect)
 
 
-async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | None:
+#: How long a press that changes something is given to show its result
+#: (2026-11-17). A sign-up that sends a code takes the website longer than 5s:
+#: Daewoo's REGISTER was called "not confirmed" while its answer was still
+#: coming. Waited for, with the page as it is, until then.
+CHANGE_TIMEOUT_S = 45.0
+
+
+async def verify(page: Page, before: Snapshot, expect: Expectation,
+                 patient: bool = False) -> str | None:
     """Poll until the page settles into the expected state, or give up.
 
     A step waiting on a list the site fetches gets longer to see it than an
     ordinary step (`LIST_TIMEOUT_S`); nothing else about the check changes.
     """
-    window = LIST_TIMEOUT_S if expect.list_opens else VERIFY_TIMEOUT_S
+    window = (CHANGE_TIMEOUT_S if patient
+              else LIST_TIMEOUT_S if expect.list_opens else VERIFY_TIMEOUT_S)
     deadline = time.monotonic() + window
     failure = "the page did not change at all"
     while time.monotonic() < deadline:
@@ -1176,6 +1197,9 @@ def sign_in_fields(move: "Move") -> tuple[StepField | None, StepField | None]:
 
 # --- making an account (2026-11-14) -----------------------------------------
 
+#: A box that asks for the same password again.
+CONFIRM_PASSWORD = re.compile(r"\b(confirm|re-?enter|re-?type|repeat|again|verify)\b", re.IGNORECASE)
+
 #: A box to agree to a website's terms: by its words. Ticking it is the
 #: person's own choice (`voice.AGREE_TERMS`).
 AGREE_WORDS = re.compile(r"\b(agree|accept|consent|i have read)\b", re.IGNORECASE)
@@ -1351,6 +1375,11 @@ class _Run:
         #: shows it before anything is done (2026-11-17): "Chose: …", "Name:
         #: …", "Paying with: cash on delivery". Theirs to see, never a model's.
         self.facts: list[Detail] = []
+        #: The password given or made in this run, so a "confirm password" box
+        #: on the same form gets the same one by itself (2026-11-17): a second
+        #: strong password for the confirm box made Daewoo's sign-up say the two
+        #: did not match. Never shown, logged or sent.
+        self.password: str | None = None
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
         self.shown = 0
@@ -2444,8 +2473,19 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # The checklist: a safe move, run without a press (2026-10-14). Pause
         # is looked for first, so a press lands before the next move rather
         # than after it. Never a move that changes something.
-        by_itself = (run.auto and move.safe and not move.quiet and not ask_next
-                     and not move.changes)
+        # The same password again (2026-11-17): typed by itself, not asked.
+        confirming = sign_in_fields(move)[1]
+        auto_confirm = bool(run.password and confirming is not None
+                            and CONFIRM_PASSWORD.search(confirming.label or "")
+                            and not move.changes)
+        if auto_confirm:
+            input_values = {confirming.id: run.password}
+            move = replace(move, safe=True, quiet=False, doing=voice.CONFIRMING_PASSWORD)
+            keep_private = getattr(planner, "keep_private", None)
+            if keep_private is not None:
+                keep_private([run.password])
+        by_itself = ((run.auto or auto_confirm) and move.safe and not move.quiet
+                     and (not ask_next or auto_confirm) and not move.changes)
         if by_itself and await run.pause_pressed():
             paused = Move(instruction=voice.PAUSED, detail="", operations=[],
                           expect=Expectation(), fields=[],
@@ -2510,6 +2550,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                     input_values = {**input_values, password_field.id: made}
                 keep = Credentials(run.identity or "", made)
                 history.append(voice.MADE_PASSWORD)
+            given = sign_in_fields(move)[1]
+            if (given is not None and input_values.get(given.id)
+                    and not CONFIRM_PASSWORD.search(given.label or "")):
+                run.password = input_values[given.id]
             # The name an account is known by — an email, a user name — for
             # keeping with a password made later in the same run.
             for field in move.fields:
@@ -2944,7 +2988,7 @@ async def attempt_move(
     if only_input and move.expect == Expectation():
         return None
 
-    return await verify(page, before, move.expect)
+    return await verify(page, before, move.expect, patient=move.changes)
 
 
 async def covering(page: Page, element: Element) -> str | None:
