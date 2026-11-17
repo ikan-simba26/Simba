@@ -254,8 +254,15 @@ def render_page(elements: list[Element],
     if lines and lines[-1] != "":
         lines += [""]
 
+    # A box with no name of its own is named by the floating label just before
+    # it (2026-11-17): Daewoo's city list was "combobox (no name)", and the model
+    # went on to press Register without ever choosing one.
+    named = {}
+    for index, element in enumerate(elements[:-1]):
+        if element.id in echo and not elements[index + 1].label.strip():
+            named[elements[index + 1].id] = element.label
     for element in listed:
-        name = _label(element.label)
+        name = _label(element.label or named.get(element.id, ""))
         line = f"{element.id}. {element.role} {name!r}" if name else f"{element.id}. {element.role} (no name)"
         if element.qualifier:
             # Without this a month grid offers two elements called '30' and
@@ -538,6 +545,7 @@ pick one yourself: choose action "ask" with the element_id of that dropdown, or 
 of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
+Before you press the button that sends a form, make sure every box and every drop-down list in it has been filled or chosen, the lists too (a city, a title). If a message on the page says something is missing, do that, not the message.
 If the form or button the goal needs (a search for a journey, a booking form, \
 a cart) is not on the page, it may need the person to be signed in first: look \
 for a "Sign In", "Login" or "Book" link or button and use it, before anything \
