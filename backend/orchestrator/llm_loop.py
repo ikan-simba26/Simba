@@ -752,6 +752,42 @@ def goal_words(goal: str) -> list[str]:
     return [w for w in re.findall(r"[a-z0-9]{4,}", (goal or "").lower()) if w not in GOAL_FILLER]
 
 
+MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
+          "september", "october", "november", "december"]
+
+
+def goal_date(goal: str, shape: str = "") -> str | None:
+    """The date a goal names ("21 November", "November 21"), written the way a
+    box shows it (`shape` like "dd-MM-yyyy"), else as 2026-11-21. None when the
+    goal names no date. The year is this year, or next if the day has passed."""
+    import datetime
+
+    text = (goal or "").lower()
+    pattern = "(" + "|".join(MONTHS) + ")"
+    found = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + pattern + r"\b", text)
+    if found:
+        day, month = int(found.group(1)), MONTHS.index(found.group(2)) + 1
+    else:
+        found = re.search(pattern + r"\s+(\d{1,2})\b", text)
+        if not found:
+            return None
+        month, day = MONTHS.index(found.group(1)) + 1, int(found.group(2))
+    today = datetime.date.today()
+    try:
+        when = datetime.date(today.year, month, day)
+        if when < today:
+            when = datetime.date(today.year + 1, month, day)
+    except ValueError:
+        return None
+    sep = next((c for c in shape if c in "-/."), "-")
+    lowered = shape.lower()
+    if lowered.startswith("dd"):
+        return f"{when.day:02d}{sep}{when.month:02d}{sep}{when.year}"
+    if lowered.startswith("mm"):
+        return f"{when.month:02d}{sep}{when.day:02d}{sep}{when.year}"
+    return when.isoformat()
+
+
 def _plain(text: str) -> str:
     return " ".join(re.sub(r"[^\w ]+", " ", (text or "").lower()).split())
 
@@ -1109,8 +1145,11 @@ class OpenGoalPlanner(LLMPlanner):
         label = f"{name or voice.DATE_WORD} ({shape})" if shape else (name or voice.DATE_WORD)
         asked = replace(el, label=label)
         self._made = ("fill", el.role, el.label)
+        # A date the goal itself names is typed, in the box's own shape; a date
+        # of birth, or none named, is the person's.
+        named = None if birth else goal_date(self._task.goal, shape)
         return self._shape(_Choice(
-            action=Action(action="type", element_id=el.id, value=None,
+            action=Action(action="type", element_id=el.id, value=named,
                           reasoning=voice.TYPE_DATE), element=asked))
 
     async def _select_box(self, choice: "_Choice", elements: list[Element]) -> Move | None:
