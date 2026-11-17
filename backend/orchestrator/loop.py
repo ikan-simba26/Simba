@@ -603,13 +603,22 @@ def check(before: Snapshot, after: Snapshot, expect: Expectation) -> str | None:
     return mismatch(after, expect)
 
 
-async def verify(page: Page, before: Snapshot, expect: Expectation) -> str | None:
+#: How long a press that changes something is given to show its result
+#: (2026-11-17). A sign-up that sends a code takes the website longer than 5s:
+#: Daewoo's REGISTER was called "not confirmed" while its answer was still
+#: coming. Waited for, with the page as it is, until then.
+CHANGE_TIMEOUT_S = 45.0
+
+
+async def verify(page: Page, before: Snapshot, expect: Expectation,
+                 patient: bool = False) -> str | None:
     """Poll until the page settles into the expected state, or give up.
 
     A step waiting on a list the site fetches gets longer to see it than an
     ordinary step (`LIST_TIMEOUT_S`); nothing else about the check changes.
     """
-    window = LIST_TIMEOUT_S if expect.list_opens else VERIFY_TIMEOUT_S
+    window = (CHANGE_TIMEOUT_S if patient
+              else LIST_TIMEOUT_S if expect.list_opens else VERIFY_TIMEOUT_S)
     deadline = time.monotonic() + window
     failure = "the page did not change at all"
     while time.monotonic() < deadline:
@@ -2979,7 +2988,7 @@ async def attempt_move(
     if only_input and move.expect == Expectation():
         return None
 
-    return await verify(page, before, move.expect)
+    return await verify(page, before, move.expect, patient=move.changes)
 
 
 async def covering(page: Page, element: Element) -> str | None:
