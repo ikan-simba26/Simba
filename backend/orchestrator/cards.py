@@ -34,7 +34,7 @@ _FIND_JS = r"""(most) => {
     const r = e.getBoundingClientRect(), s = getComputedStyle(e);
     return r.width > 8 && r.height > 8 && s.visibility !== 'hidden' && s.display !== 'none';
   };
-  const sig = (e) => e.tagName + '.' + [...e.classList].filter(c => !/\d/.test(c)).slice(0, 3).join('.');
+  const sig = (e) => e.tagName + '.' + [...e.classList].filter(c => !/\d/.test(c)).slice(0, 1).join('.');
   const prices = [...document.querySelectorAll('body *')].filter(e =>
     e.children.length <= 3 && seen(e) && (e.innerText || '').length < 60 && PRICE.test(e.innerText || ''));
   const groups = new Map();
@@ -79,14 +79,26 @@ _FIND_JS = r"""(most) => {
     let control = link ? link.a : null;
     let controlText = link ? link.t : '';
     if (!control) {
-      const b = card.querySelector('button, input[type=button], input[type=submit], [role=button], a[href]');
-      if (b) { control = b; controlText = (b.innerText || b.value || b.title || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim(); }
+      const texts = [...card.querySelectorAll('button, input[type=button], input[type=submit], [role=button], a[href]')]
+        .map(b => ({b, t: (b.innerText || b.value || b.title || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim()}))
+        .filter(x => x.t && !/^(close|cancel|more|details?|info)$/i.test(x.t));
+      const pick = texts.find(x => x.b.tagName !== 'A') || texts[0];
+      if (pick) { control = pick.b; controlText = pick.t; }
     }
     if (!name) { const img = card.querySelector('img[alt]'); name = img ? img.alt.trim() : ''; }
     const rs = text.match(/(?:\brs\.?|\bpkr|₨)\s?\d[\d,]*(?:\.\d+)?/i);
     const match = rs || text.match(PRICE);
     // A row of a table has no heading: its own words, without the price.
-    if (!name) name = text.replace(PRICE, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
+    // A row of a table, or a heading with no spaces (cells run together): its own
+    // words up to the first price are the name.
+    if (!name || !/\s/.test(name) || /\d[A-Za-z]{3,}[A-Z]|[a-z][A-Z]{2,}/.test(name)) {
+      const upTo = match ? text.slice(0, text.indexOf(match[0])) : text;
+      // The cells read one by one, so they are not run together ("38DNLAHORE").
+      const cells = [...card.querySelectorAll('*')].filter(e => e.children.length === 0 && e.offsetWidth > 0)
+        .map(e => (e.innerText || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
+      const cut = match ? cells.indexOf(match[0]) : -1;
+      name = ((cut > 0 ? cells.slice(0, cut) : cells) || upTo || text).slice(0, 90);
+    }
     const imgs = [...card.querySelectorAll('img')].filter(seen)
       .sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height
                     - a.getBoundingClientRect().width * a.getBoundingClientRect().height);
