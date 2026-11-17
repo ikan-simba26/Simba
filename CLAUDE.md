@@ -59,29 +59,39 @@ and a step that changes something (a second press could make the change twice).
   shows the key details (what, how much, when) as the page states them, and
   has two buttons: do it / don't. No default, no timer. "Don't" ends the task
   and says nothing was changed. This now holds on a live site too, not only on
-  a replica. **Paying** (changed 2026-11-16 by Raham's direction, **pending
-  Nahail and Aly**; DECISIONS.md): SIMBA can pay by card itself. On a page
-  with a card form it asks which card (once; kept encrypted with Windows' own
-  key, `data/card.json`, never committed), shows a **pay screen** — the amount
-  as the page states it, the website, the card by its last four digits — and
-  only on "pay now" types each box through the browser (each one a line on the
-  checklist, each read back) and presses Pay. "Don't pay" ends the task and
-  nothing was changed. A one-time code, a CAPTCHA or a check that a person is
-  there is still the person's ("handover"), as is any box SIMBA cannot fill or
-  Pay button it cannot tell; the person can always choose "I'll type it
-  myself", and `SIMBA_PAY_MODE=handover` makes every payment theirs. Cash on
-  delivery is an order, which SIMBA may place after the final screen. No real
-  purchase is made in development or testing: tests use replicas, the test
-  gateway and the gateway's published test cards, or stop at the final screen;
-  a real one is Raham's own, with his own card. `loop.carry_out` enforces all
-  of it whichever planner asks.
+  a replica. **Paying** (changed 2026-11-17 by Raham's direction, approved
+  by the advisor, Nahail and Aly; DECISIONS.md, which replaces the 2026-11-16
+  version in which SIMBA typed the card itself): **the person types the card,
+  SIMBA presses Pay.** On a page with a card form SIMBA shows the **help-me
+  step** — only the card boxes, zoomed and scrollable, over the real page, with
+  "Enter your card details here." — and the person types straight into the real
+  page. SIMBA never types, reads, logs or keeps a card number, expiry or code;
+  it learns only whether those boxes are filled (a count of characters, never
+  the text), then shows a **pay screen** — the amount as the page states it
+  and the website — and only on "pay now" presses the page's own Pay button.
+  "Don't pay" ends the task and nothing was changed. A one-time code or a
+  CAPTCHA is the person's too, in the same help-me step, noticed as done by
+  itself, with "I've done it" and a "Still there?" after two minutes. Cash on
+  delivery or pay at the counter is preferred when a site offers it, and is an
+  order SIMBA may place after the final screen. `SIMBA_PAY_MODE=card` (SIMBA
+  types a card from `data/card.json`) is off by default and kept for tests only.
+  No real purchase is made in development or testing: tests use replicas, the
+  test gateway and its published test cards, or stop at the final screen; a
+  real one is the person's own press. `loop.carry_out` enforces all of it
+  whichever planner asks.
+  **Never more than one of anything** unless the goal says so; several matches
+  are shown as cards ("Which one?"), and a cart holding more than was asked for
+  is said before checkout (2026-11-17).
   Until 2026-11-13 the rule read: "only (a) on a replica … On a live site SIMBA
   reads and never books, pays or changes anything."
-- **The LLM never sees a payment detail** (2026-11-13; still true on
-  2026-11-16). The card is typed by the backend (`payment.py`) straight from the
-  vault: it is in no prompt, no log, no message to the overlay, and card boxes
-  are masked in every picture of the page. Nothing on a page is read while it
-  is handed over.
+- **The LLM never sees a payment detail, nor anything the person typed**
+  (2026-11-13; 2026-11-17). Card details are typed by the person in the help-me
+  step on the real page: they are in no prompt, no log and no message, and
+  card boxes are masked in every picture of the page. The person's own details
+  (name, CNIC, phone, email, address, city) are kept encrypted
+  (`data/profile.json`, never committed), typed by the backend, and redacted
+  from every prompt a model is sent. Nothing on a page is read while it is the
+  person's.
 - **The LLM never sees a credential.** The vault injects values directly into
   the DOM. Secrets never enter a prompt or a log.
 - **The LLM never emits a selector.** Perception assigns integer IDs to

@@ -281,7 +281,7 @@ export function StepShell({
             <input type="checkbox" className="h-6 w-6 shrink-0 accent-[var(--accent)]"
                    checked={save} disabled={answered}
                    onChange={(event) => setSave(event.target.checked)} />
-            {SIGN_IN.save}
+            {step.fields.some((field) => field.type === "password") ? SIGN_IN.save : saveOffer?.label}
           </label>
         </Fold>
 

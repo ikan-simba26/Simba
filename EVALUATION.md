@@ -9338,3 +9338,28 @@ a form in an iframe, a Pay button it cannot tell, a page with no amount, decline
 asked again, kept card reused, hand-over mode unchanged. The card (number, name, expiry, code) was
 searched for in every message sent and every log line of the run: not found. 64 payment tests pass
 together with the older hand-over, gateway, paying and final-step tests.
+
+## 2026-11-17 — the real window, live: what the new engine did (one run each; hints, not results)
+
+Driven through the real SIMBA window (`run.ps1`, `tools/evaluation/drive.py`), Gemini 2.5 Flash through
+OpenRouter. Nothing was bought, booked or paid on a live site; the one payment was on our test gateway
+with its published test card.
+
+| Site | Goal | How far | Stopped because |
+|---|---|---|---|
+| Readings (live) | "Order me an alchemist book" | cards of 6 matches ("Which one?", pictures for 3 of 6), chose one, opened it, model chose Buy Now, final screen with "You chose" and the page's Rs 4495 | I declined the final screen; it is the person's press |
+| Practice bill + test gateway | "Pay my electricity bill, reference ..." | whole flow: help-me step for the card (done noticed after typing), pay screen, SIMBA pressed Pay, help-me step for the one-time code, "Payment Received" quoted | completed; test card only |
+| Daewoo (live) | "Book a bus ticket from Lahore to Karachi on 21 November" | opened, pressed Sign In (after a fix, below), asks "Please type your phone number." | needs the person's account: the booking form is hidden until sign-in |
+| Pakistan Railways (live) | "Book a train from Lahore to Karachi" | routed to the written train search (read-only); a booking goal is now routed to the AI planner, not run | needs the person's account |
+
+**Found and fixed in the run:** the "which one" cards fired on Readings' front page, before any search
+(they now need a word of the goal in a card's name); a Sign In link made by a script has no accessible name,
+so the press timed out twice and the run stopped (`click_node`); the model answered "click element 0"
+on Daewoo's home page, which has no booking form, until the feedback named the Sign In link; the
+price on a card was the foreign-currency list price rather than Rs (now Rs is preferred); the
+"Save my password" tick showed on a phone-number step.
+**Failed:** 6 pictures asked for, 3 returned (lazy-loaded images below the fold). Timings were not recorded
+beyond the log: the Readings run took about 3 minutes to the final screen, mostly model calls of 1-2 s
+and the person's presses.
+**Tests:** `test_do_whole_task.py` 6 passed; see the report for the handover/gateway files. The full
+suite was not run, as asked.

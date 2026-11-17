@@ -145,24 +145,14 @@ async def pays(page):
                         "<p>Receipt no. <b>PX-2201</b></p>'")
 
 
-def test_a_press_that_pays_is_handed_to_the_person_after_its_final_screen():
+def test_a_press_that_pays_is_pressed_by_simba_after_its_final_screen():
+    # Changed 2026-11-17: the person types the card in the help-me step; a press
+    # that pays is SIMBA's after "do it", like any change. The page is no longer
+    # handed over wholesale for it.
     done, after = drive(PAY, [press("Pay now", changes=True)], [("confirm", {})], person=pays)
-    # The final screen first, then the page is theirs: SIMBA never pressed Pay.
     assert done.of("step.presented")[-1]["final"] is not None
-    handover = done.of("handover")[0]
-    assert handover["reason"] == "payment"
-    assert after.clicked == 0
-    # Then SIMBA reads what the page says, in its own words.
-    end = done.of("task.completed")[0]
-    assert "Payment successful" in (end.get("confirmation") or "")
-
-
-def test_a_payment_the_page_does_not_confirm_is_said_honestly():
-    done, _ = drive(PAY, [press("Pay now", changes=True)], [("confirm", {})])
-    help_ = done.of("help.requested")[0]
-    assert help_["reason"] == voice.PAYMENT_NOT_SEEN
-    assert help_["unconfirmed"] is True
-    assert "task.completed" not in done.types()
+    assert done.of("handover") == []
+    assert after.clicked == 1
 
 
 CARD = page("<h1>Card details</h1><label>Card number <input name=n></label>"
@@ -179,19 +169,23 @@ def fill(label: str) -> PlanStep:
 async def types_card(page):
     await page.fill("input[name=n]", "4242424242424242")
     await page.fill("input[name=c]", "123")
-    await page.evaluate("document.body.innerHTML = '<h1>Thank you for your payment</h1>'")
 
 
 def test_a_page_asking_for_card_details_is_handed_over_and_never_typed_into():
-    done, after = drive(CARD, [fill("Card number")], person=types_card)
+    # Since 2026-11-17 the person types the card in the help-me step; SIMBA then
+    # shows the pay screen, and "don't pay" changes nothing.
+    done, after = drive(CARD, [fill("Card number")], [("decline", {})], person=types_card)
     assert done.of("handover")[0]["reason"] == "payment"
-    # Not a single step about the card was put to the person or done.
-    assert all("Card" not in s["instruction"] for s in done.of("step.presented"))
-    assert "Thank you for your payment" in done.of("task.completed")[0]["confirmation"]
+    assert done.of("handover")[0]["kind"] == "card"
+    # Not a single step about the card was put to the person or done by SIMBA.
+    assert all("Card" not in s["instruction"] for s in done.of("step.presented")
+               if not s.get("final"))
+    assert done.of("step.presented")[-1]["final"] is not None
+    assert done.of("task.failed")[0]["reason"] == voice.NOTHING_CHANGED
 
 
 def test_what_the_person_types_is_never_sent_anywhere():
-    done, _ = drive(CARD, [fill("Card number")], person=types_card)
+    done, _ = drive(CARD, [fill("Card number")], [("decline", {})], person=types_card)
     sent = repr(done.sent)
     assert "4242424242424242" not in sent and "123\"" not in sent
 

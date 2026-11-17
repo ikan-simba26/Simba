@@ -391,12 +391,38 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
             await locator.press_sequentially(value, timeout=ACTION_TIMEOUT_MS)
         return
 
+    # A link the page made with a script and no address (`<a onclick=…>`, Daewoo's
+    # "Sign In") has no role in the browser's accessibility tree, so no name
+    # finds it, though perception read it from the page: pressed by the
+    # browser's own identity for it instead (2026-11-17).
+    if await locator.count() == 0:
+        element = next((e for e in elements if e.id == element_id), None)
+        if element is not None and element.backend_node_id >= 0:
+            await click_node(page, element.backend_node_id)
+            return
+
     if strategy == 0:
         await locator.click(timeout=ACTION_TIMEOUT_MS)
     else:
         # Bypasses hit-testing and actionability, which is the usual reason
         # a click silently does nothing.
         await locator.evaluate("element => element.click()")
+
+
+async def click_node(page: Page, node: int) -> None:
+    """Press the element the browser knows as `node` (a backend node id from
+    perception): scrolled into view and clicked as the page's own script
+    would be. Through the browser's debugging connection; nothing is typed."""
+    session = await page.context.new_cdp_session(page)
+    try:
+        resolved = await session.send("DOM.resolveNode", {"backendNodeId": node})
+        await session.send("Runtime.callFunctionOn", {
+            "objectId": resolved["object"]["objectId"],
+            "functionDeclaration": "function () { this.scrollIntoView({block: 'center'}); "
+                                   "this.click(); }",
+        })
+    finally:
+        await session.detach()
 
 
 def mismatch(after: Snapshot, expect: Expectation) -> str | None:
