@@ -914,6 +914,7 @@ def cart_has(things: int) -> str:
     return f"Your cart already has {things} items, not only the one you asked for."
 
 
+CONFIRMING_PASSWORD = "Typing the same password again"
 REMEMBER_DETAIL = "Remember this for next time"
 
 
