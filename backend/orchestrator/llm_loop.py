@@ -556,6 +556,9 @@ NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|conf
 WAY_IN = re.compile(r"\b(sign ?in|log ?in|book(ing)?|reserve|buy ticket|my account)\b", re.IGNORECASE)
 CARD_ID_PREFIX = "card:"
 OPTION_ID_PREFIX = "opt:"
+#: A box that holds a date, by its words, and the shape a box shows for one.
+DATE_BOX = re.compile(r"(\bdate\b|birth|\bdob\b|dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm)", re.IGNORECASE)
+DATE_SHAPE = re.compile(r"(dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm.?dd)", re.IGNORECASE)
 #: The most options of one choice put in front of the person.
 MOST_OPTIONS = 10
 _OPTIONS_JS = """e => {
@@ -985,6 +988,9 @@ class OpenGoalPlanner(LLMPlanner):
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
+        dated = self._date_box(choice, elements)
+        if dated is not None:
+            return await dated
         selecting = await self._select_box(choice, elements)
         if selecting is not None:
             return selecting
@@ -1071,6 +1077,33 @@ class OpenGoalPlanner(LLMPlanner):
         return Move(instruction=voice.WHICH_ONE, detail=voice.WHICH_ONE_DETAIL, operations=[],
                     expect=Expectation(), fields=[], actions=actions, question=True,
                     kind="choose")
+
+    def _date_box(self, choice: "_Choice", elements: list[Element]):
+        """A box for a date (2026-11-17), however the model tried to use it. A
+        date picker's box is read-only, so pressing it shows a calendar nobody
+        can use well: the person types the date, in the shape the box shows
+        ("25-03-1998"), and SIMBA sets it. Returns the move to await, or None."""
+        el = choice.element
+        if el is None or el.role != "textbox" or choice.action.action not in (
+                "click", "type", "select"):
+            return None
+        index = next((i for i, e in enumerate(elements) if e.id == el.id), 0)
+        before = elements[index - 1] if index else None
+        name = (_without_icons(before.label) if before is not None and before.tag == "label"
+                else "")
+        said = f"{el.label} {name} {el.name or ''}"
+        birth = profilelib.kind_of(name or el.label, el.name) == "dob"
+        # A press on a date box, or any move on a date of birth, is the person's to
+        # type; a date the goal gave, typed by the model, is left alone.
+        if not (birth or (DATE_BOX.search(said) and choice.action.action == "click")):
+            return None
+        shape = el.label if DATE_SHAPE.search(el.label or "") else ""
+        label = f"{name or voice.DATE_WORD} ({shape})" if shape else (name or voice.DATE_WORD)
+        asked = replace(el, label=label)
+        self._made = ("fill", el.role, el.label)
+        return self._shape(_Choice(
+            action=Action(action="type", element_id=el.id, value=None,
+                          reasoning=voice.TYPE_DATE), element=asked))
 
     async def _select_box(self, choice: "_Choice", elements: list[Element]) -> Move | None:
         """A drop-down list (2026-11-17), however the model tried to use it —

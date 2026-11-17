@@ -923,6 +923,8 @@ def which_named(name: str) -> str:
     return f"Which {name.lower()}?" if name and name != "one" else WHICH_ONE
 
 
+DATE_WORD = "Date"
+TYPE_DATE = "Please type the date the way the box shows it."
 REMEMBER_DETAIL = "Remember this for next time"
 
 
