@@ -245,6 +245,10 @@ async def health() -> dict[str, str]:
     }
 
 
+#: Where a train booking starts: the ticket page, whose search keeps its boxes
+#: (the timetable page's search empties them: 2026-11-17).
+RAILWAYS_BOOKING_URL = "https://www.pakrailways.gov.pk/buy"
+
 #: A goal that books or buys a ticket, not one that looks one up.
 BOOKING_WORDS = re.compile(r"\b(book|reserve|buy|purchase)\b", re.IGNORECASE)
 
@@ -647,8 +651,13 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # A train goal that books (2026-11-17): the written train plan only
         # reads the timetable, so on a website the AI planner does the booking,
         # behind the final screen like any change.
-        books_a_train = (decided.flow == "railways" and site is not None
-                         and bool(BOOKING_WORDS.search(goal)))
+        # With no website named too (2026-11-17): "book me a train to Karachi" is
+        # carried out on Pakistan Railways' ticket page, to the final screen and,
+        # with the person's say-so, the payment (`RAILWAYS_BOOKING_URL`).
+        books_a_train = (decided.flow == "railways" and bool(BOOKING_WORDS.search(goal))
+                         and (site is None or "pakrailways" in site))
+        if books_a_train:
+            site = RAILWAYS_BOOKING_URL
         if decided.kind == "flow" and decided.flow is not None and not books_a_train and (
                 site is None or is_flows_site(decided.flow, site, catalogue)):
             break
