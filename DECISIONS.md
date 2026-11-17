@@ -7131,3 +7131,67 @@ real Readings task "Find the price of the book The Alchemist", read-only, one ru
 calls, 35.3 s; Flash 2 calls, 27.2 s; both completed. Router question: Flash 1.2 s median, Lite 1.5 s.
 `.env` now has `OPENROUTER_MODEL=google/gemini-2.5-flash`; `.env.example` says so. Costs about three
 times the tokens' price, a few cents a task.
+
+## 2026-11-17 — SIMBA does the whole task; the person types the card in a help-me step
+
+**Direction** (Raham; approved by Ma'am Samia, Nahail and Aly, by his account): SIMBA carries out real
+tasks on real websites — search, choose, fill in, pay, confirm — built once in the general AI planner and
+loop, never per site. What changed, and what was decided on the way:
+
+- **The card is typed by the person, not by SIMBA.** This replaces 2026-11-16's "SIMBA types the card
+  from its vault". On a card form the overlay shows only the card boxes of the real page (the *help-me
+  step*), zoomed and scrollable; the person types into the page itself. The backend learns only
+  whether those boxes hold characters (a count, never the text) and when they do, shows the pay screen
+  and, on "pay now", presses the page's own Pay button. `SIMBA_PAY_MODE` now defaults to `handover`
+  (the person types); `card` (the old typing from `data/card.json`) stays behind the variable, off.
+  `feat/orchestrator-card-payment` (7d3ef06) is what carried the old behaviour; its pay screen, card
+  fields finder and Pay-button finder are reused, its vault and typing are not used by default.
+- **A press that pays is SIMBA's after its final screen** (was: the whole page handed over). That hand-over
+  is what made checkout unscrollable on Readings on 2026-11-16. The card form that follows is the
+  help-me step's.
+- **CAPTCHA, one-time code, card number: one mechanism** (`helpme.py`): found by what the page shows
+  (a CAPTCHA frame, a box that says OTP or code, card boxes), scrolled to the middle, shown zoomed
+  (1.5x for a tick box or code, 1.25x for a card) in a frame the overlay draws, with the website laid
+  exactly over it by the host (`main.ts`: site view moved and zoomed, put above the overlay, put back to
+  1280x800 at the origin after). Done is noticed by itself (the part is gone, a "solved" token is
+  non-empty, every card box is filled) or by "I've done it"; two minutes of nothing asks "Still there?"
+  with "Try again" and "Stop". *Open:* the site view's viewport shrinks during the step, so a page may
+  switch to its small-screen layout; perception is not read then and is restored after.
+- **"Which one?" cards** (`cards.py`): a repeated block with a price and a link or button, found by what
+  a card is, not by a site's markup. Shown only when the goal does something (order, buy, book...), only
+  for cards that mention a word of the goal (Readings' front page showed unrelated "Readings Classics"
+  as matches before this), once per run, never after something is in the cart. The person's choice is
+  pressed on the real page. Pictures are element screenshots, small, optional.
+- **One of anything unless asked.** A second "Add to cart" in a run is refused unless the goal says a
+  quantity or "both/several/..." (`cards.goal_wants_many`); a cart holding more than one thing is
+  said before checkout, once.
+- **A choice the site offers** (class, time, size...): a new model verb `ask` (additive) makes the planner
+  hand a dropdown or a radio group to the person as buttons with the site's own words, then presses it.
+- **The person's own details are kept and typed by SIMBA, never sent to a model** (`profile.py`):
+  encrypted with the Windows key like the vault, `data/profile.json`, ignored. A box for a name, CNIC,
+  phone, email, address, city or date of birth is filled from it as a checklist line; else asked in its own
+  screen with "Remember this for next time". Every value is redacted from every prompt.
+- **Final screens carry what the person chose and gave** (`_Run.facts`): the chosen card, the way of
+  paying, their details, items in cart, with the page's amounts.
+- **My bookings** (`bookings.py`, home screen): every completed change (the run's moves include one marked
+  as changing something) becomes a card, `data/bookings.json`, on this computer only. Details that
+  identify the person are left out of it.
+- **A press on a link without an address** (`<a onclick>`, Daewoo's "Sign In") is made by the browser's own
+  identity for the element (`click_node`) when no accessible name finds it. Found live; it had stopped
+  the Daewoo run.
+- A train goal that **books** on a website goes to the AI planner; the written train plan only reads
+  the timetable.
+
+**Flagged for review.** (1) The help-me step moves and resizes the site view while it is shown; the
+rule in this file about never positioning it outside the window still holds (it stays inside, with a
+positive origin). Tried on the billing copy only, at the window's size on this machine. (2) `SIMBA_PAY_MODE`
+`card` still exists and still types a card from a vault; recommendation: delete it after the review.
+(3) A press that pays is no longer handed over; if the advisor wants it handed over again, one
+condition in `loop.carry_out` brings it back. (4) Several older tests pinned the earlier hand-over
+rule; one was rewritten (`test_handover.py`), the others were not all run.
+
+**Not done (stated plainly).** Part 5.2, "learns from success" (saving a completed AI run as a routine),
+is not built: a routine needs the final answer's label and the cards' choice kept as a pick, and neither
+could be tested without a completed live task, which needs the person's own account. Seat-map redrawing
+(5.1) is built only as far as options and cards; Daewoo's seat map was not seen because its booking form
+is behind a sign-in.

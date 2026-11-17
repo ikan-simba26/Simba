@@ -517,6 +517,11 @@ pick one yourself: choose action "ask" with the element_id of that dropdown, or 
 of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
+If the form or button the goal needs (a search for a journey, a booking form, \
+a cart) is not on the page, it may need the person to be signed in first: look \
+for a "Sign In", "Login" or "Book" link or button and use it, before anything \
+else. Never type into a box that is not for the goal (a refund status, a \
+newsletter, a complaints form).
 """
 
 #: A goal that does something (2026-11-17): the person is asked "Which one?"
@@ -526,6 +531,8 @@ DOING_GOAL = re.compile(
     r"register|apply|sign up)\b", re.IGNORECASE)
 #: A page that is the cart, a checkout or a payment is not a list of choices.
 NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|confirm)", re.IGNORECASE)
+#: A link or button that is the way into a booking or search the page hides.
+WAY_IN = re.compile(r"\b(sign ?in|log ?in|book(ing)?|reserve|buy ticket|my account)\b", re.IGNORECASE)
 CARD_ID_PREFIX = "card:"
 OPTION_ID_PREFIX = "opt:"
 #: The most options of one choice put in front of the person.
@@ -1207,9 +1214,16 @@ class OpenGoalPlanner(LLMPlanner):
                             'exactly from "What the page says", or act to find it.')
                 continue
             if action.element_id not in valid:
-                log.info("AI choice refused: element %s is not in the list", action.element_id)
+                log.info("AI choice refused: %s element %s is not in the list", action.action, action.element_id)
                 feedback = (f"element_id {action.element_id} is not in the list. Choose an "
                             "id from the list of elements, exactly as it is numbered there.")
+                # A page with no form yet (Daewoo's search needs a sign-in): name
+                # the way in, from what is listed (2026-11-17).
+                ways = [f"{e.id}. {e.role} {_label(e.label)!r}" for e in usable(elements, self._failed)
+                        if e.role in ("link", "button") and WAY_IN.search(e.label or "")][:3]
+                if ways:
+                    feedback += (" The page shows no form for the goal yet. It may need a sign-in "
+                                 "or a booking page first: " + "; ".join(ways) + ".")
                 continue
             chosen = valid[action.element_id]
             if (self._added and action.action == "click"

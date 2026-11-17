@@ -51,6 +51,7 @@ The switches, all environment variables:
 
 import logging
 import os
+import re
 import sqlite3
 from dataclasses import replace
 from logging.handlers import RotatingFileHandler
@@ -242,6 +243,10 @@ async def health() -> dict[str, str]:
         # it runs one (`tools/record_demo.py` refuses the live site).
         "railways_site": flow_setup("railways")[3],
     }
+
+
+#: A goal that books or buys a ticket, not one that looks one up.
+BOOKING_WORDS = re.compile(r"\b(book|reserve|buy|purchase)\b", re.IGNORECASE)
 
 
 def past_goals(tiles: TileStore | None = None,
@@ -639,7 +644,12 @@ async def ws_endpoint(websocket: WebSocket) -> None:
                  decided.flow or list(decided.flows), decided.via,
                  f" on {host_of(site)}" if site else "")
 
-        if decided.kind == "flow" and decided.flow is not None and (
+        # A train goal that books (2026-11-17): the written train plan only
+        # reads the timetable, so on a website the AI planner does the booking,
+        # behind the final screen like any change.
+        books_a_train = (decided.flow == "railways" and site is not None
+                         and bool(BOOKING_WORDS.search(goal)))
+        if decided.kind == "flow" and decided.flow is not None and not books_a_train and (
                 site is None or is_flows_site(decided.flow, site, catalogue)):
             break
         if site is not None and decided.kind != "greeting":
