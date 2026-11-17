@@ -374,15 +374,23 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
         return
 
     if operation.kind == "fill":
-        # A box a date picker owns is read-only: it cannot be typed in, and the
-        # page takes the value it is given (Daewoo's date of birth, 2026-11-17).
-        # Set as the page's own input would, with the events a form listens to.
-        if await locator.evaluate("e => !!e.readOnly", timeout=3000):
+        # A read-only box (2026-11-17). Some are a component's own, which wakes on
+        # a click and then takes typing (the railways station boxes): that is the
+        # first try. Some are a date picker's, which never takes typing and takes
+        # the value it is given (Daewoo's date of birth): that is the second,
+        # set as the page's own input would, with the events a form listens to.
+        readonly = await locator.evaluate("e => !!e.readOnly", timeout=3000)
+        if readonly and strategy == 1:
             await locator.evaluate(
                 "(e, v) => { const set = Object.getOwnPropertyDescriptor("
                 "HTMLInputElement.prototype, 'value').set; set.call(e, v); "
                 "e.dispatchEvent(new Event('input', {bubbles: true})); "
                 "e.dispatchEvent(new Event('change', {bubbles: true})); }", value)
+            return
+        if readonly:
+            await locator.click(timeout=ACTION_TIMEOUT_MS)
+            await locator.press("Control+a", timeout=ACTION_TIMEOUT_MS)
+            await locator.press_sequentially(value, timeout=ACTION_TIMEOUT_MS)
             return
         if strategy == 0:
             await locator.fill(value, timeout=ACTION_TIMEOUT_MS)
@@ -407,8 +415,17 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
     # "Sign In") has no role in the browser's accessibility tree, so no name
     # finds it, though perception read it from the page: pressed by the
     # browser's own identity for it instead (2026-11-17).
+    element = next((e for e in elements if e.id == element_id), None)
+    # And an element with no words at all (an icon-only search button): several
+    # share the role and the empty name, and "the third one" by the accessible
+    # tree is not the third by the page's own order, which sent Pakistan
+    # Railways' search press to the app-store link (2026-11-17). Pressed by the
+    # browser's own identity for it.
+    if (operation.kind == "click" and element is not None and element.backend_node_id >= 0
+            and not element.label.strip()):
+        await click_node(page, element.backend_node_id)
+        return
     if await locator.count() == 0:
-        element = next((e for e in elements if e.id == element_id), None)
         if element is not None and element.backend_node_id >= 0:
             await click_node(page, element.backend_node_id)
             return
@@ -3099,6 +3116,37 @@ async def recommitted(page: Page, filled: list[FilledValue], move: Move,
     return kept
 
 
+_DATE_FORMATS = ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%m/%d/%Y", "%d.%m.%Y", "%d %B %Y",
+                 "%d %b %Y", "%B %d, %Y", "%b %d, %Y", "%d %B", "%B %d", "%d %b", "%b %d")
+
+
+def _as_date(text: str):
+    """A date as a box may write it, or None. Without a year: the year of the
+    other one it is compared with is the one meant (see `same_date`)."""
+    import datetime
+
+    text = " ".join((text or "").replace(",", ", ").split())
+    for form in _DATE_FORMATS:
+        try:
+            return datetime.datetime.strptime(text, form).date(), "%Y" in form
+        except ValueError:
+            continue
+    return None
+
+
+def same_date(typed: str, actual: str) -> bool:
+    """Whether a box now shows the date that was typed, written another way
+    (2026-11-21 and 21-11-2026; "21 November" and 21-11-2026). A date picker
+    rewrites what it is given, which is the date being set, not undone."""
+    one, two = _as_date(typed), _as_date(actual)
+    if one is None or two is None:
+        return False
+    (a, a_year), (b, b_year) = one, two
+    if a_year and b_year:
+        return a == b
+    return (a.month, a.day) == (b.month, b.day)
+
+
 async def lapsed_value(
     page: Page, recorded: list[FilledValue], holds: tuple[FieldValue, ...] = ()
 ) -> tuple[FilledValue, str] | None:
@@ -3152,6 +3200,8 @@ async def lapsed_value(
         if actual == record.value:
             continue
         if any(held.label == record.label and held.accepts(actual) for held in holds):
+            continue
+        if same_date(record.value, actual):
             continue
         return record, (
             f"{record.label!r} no longer holds what I put in it — it held "
