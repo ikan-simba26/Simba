@@ -546,6 +546,7 @@ of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
 Before you press the button that sends a form, make sure every box and every drop-down list in it has been filled or chosen, the lists too (a city, a title). If a message on the page says something is missing, do that, not the message.
+When the website says you must be signed in (a "session has expired", "please log in again", a "Re-login" or "Log in" button), do that first, with its own Log in button, before anything else: the person gives their details and password in SIMBA's own screens. Booking and buying sites usually need it, so sign in before you search.
 If the form or button the goal needs (a search for a journey, a booking form, \
 a cart) is not on the page, it may need the person to be signed in first: look \
 for a "Sign In", "Login" or "Book" link or button and use it, before anything \
@@ -564,6 +565,10 @@ NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|conf
 WAY_IN = re.compile(r"\b(sign ?in|log ?in|book(ing)?|reserve|buy ticket|my account)\b", re.IGNORECASE)
 CARD_ID_PREFIX = "card:"
 OPTION_ID_PREFIX = "opt:"
+#: A page saying the person has to be signed in.
+LOGIN_NEEDED = re.compile(
+    r"(session (has )?expired|log ?in again|sign ?in again|please (log ?in|sign ?in)|"
+    r"you (must|need to) (be )?(logged|signed) ?in|login required)", re.IGNORECASE)
 #: A box that holds a date, by its words, and the shape a box shows for one.
 DATE_BOX = re.compile(r"(\bdate\b|birth|\bdob\b|dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm)", re.IGNORECASE)
 DATE_SHAPE = re.compile(r"(dd.?mm.?yy|mm.?dd.?yy|yyyy.?mm.?dd)", re.IGNORECASE)
@@ -974,6 +979,12 @@ class OpenGoalPlanner(LLMPlanner):
         if self._stalled >= STALL_LIMIT:
             self.stuck_reason = voice.AI_NO_PROGRESS
             return None
+        if (self._content is not None and LOGIN_NEEDED.search(self._content.text or "")
+                and not setback):
+            # The page itself says so (Pakistan Railways, 2026-11-17: "Your session has
+            # expired. Please log in again!" over a booking that could not go on).
+            setback = ("The website says you must log in. Use its Log in or Re-login "
+                       "button now, before anything else.")
         if self._declined is not None:
             setback = (f'The person said "{self._declined}" is not what they wanted. '
                        "Keep looking, or do what the goal needs to find it.")
