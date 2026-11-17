@@ -386,3 +386,31 @@ train search: the screens are the same, **the trains in it are invented**. Then 
 - **"Is it always this slow?"** The pace is deliberate — it waits for you.
   The recordings run faster than the live railways site, because they are
   made on our own copy of it; billing and the greeting are the same speed.
+
+---
+
+## What changed on 17 November 2026: SIMBA does the whole task
+
+Run `.\run.ps1`. Nothing else is needed. Every part below was tried in the real window; the parts that
+need a person's own account are marked.
+
+1. **"Which one?"** Type `Order me an alchemist book` on Readings. SIMBA reads the page and shows the
+   matches as cards (name, price, picture). Press one. It opens that one, only that one, and never
+   adds a second. The final screen then says what it will press and shows "You chose ...". Press "Don't
+   do it" in a rehearsal.
+2. **The help-me step** (card, code, tick box). Type `Pay my electricity bill, reference
+   04141234567890`, answer the cookie question, press "Go to card payment". The window shows only the
+   card boxes of the real payment page, zoomed. Type the published test card (4242 4242 4242 4242, any
+   future expiry, any 3 digits). SIMBA notices by itself that the boxes are filled, shows the pay
+   screen, and presses Pay only when you press "Pay now". The bank's code is another help-me step. SIMBA
+   and the AI never see what you type. Leave it two minutes and it asks "Still there?".
+3. **Sign in first sites** (Daewoo, Pakistan Railways). `Book a bus ticket from Lahore to Karachi on
+   <date>` on Daewoo: SIMBA presses Sign In and asks for your phone number and password in its own
+   screens, with "Remember this for next time". **Needs your own account**, which is why a Daewoo final
+   screen has not been shown by an agent: the booking form is hidden until sign-in.
+4. **My bookings** in the top right of the home screen: every booking or order SIMBA completes, as a
+   card, on this computer only.
+
+What to say when it fails in front of someone: the live sites change. If a site's own page hides what
+SIMBA needs, SIMBA says "I couldn't work out how to do this on this website" and offers a helper's
+"Show me once". Nothing was changed.
