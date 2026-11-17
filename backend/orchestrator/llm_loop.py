@@ -985,6 +985,9 @@ class OpenGoalPlanner(LLMPlanner):
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
+        selecting = await self._select_box(choice, elements)
+        if selecting is not None:
+            return selecting
         if choice.action.action == "ask":
             asking = await self._ask_site(choice, elements)
             if asking is not None:
@@ -1068,6 +1071,86 @@ class OpenGoalPlanner(LLMPlanner):
         return Move(instruction=voice.WHICH_ONE, detail=voice.WHICH_ONE_DETAIL, operations=[],
                     expect=Expectation(), fields=[], actions=actions, question=True,
                     kind="choose")
+
+    async def _select_box(self, choice: "_Choice", elements: list[Element]) -> Move | None:
+        """A drop-down list (2026-11-17), however the model tried to use it —
+        pressed, typed in, or chosen from. Pressing one does nothing the page
+        shows ("Choose Please Select City did not work"), so it is always a
+        choice among the list's own options: made by itself when the goal or
+        a kept detail names one of them; else asked, as buttons when there are
+        a few, or as a box that accepts only the list's own words when there
+        are many (a city among 128)."""
+        el = choice.element
+        if (self.page is None or el is None or el.tag != "select"
+                or choice.action.action not in ("click", "select", "type", "ask")):
+            return None
+        try:
+            found = await resolve(self.page, elements, el.id).evaluate(_OPTIONS_JS, timeout=3000)
+        except Exception:  # noqa: BLE001 - not a list we can read: left to the model
+            return None
+        options = [o for o in dict.fromkeys(found or []) if o]
+        if len(options) < 2:
+            return None
+        index = next((i for i, e in enumerate(elements) if e.id == el.id), 0)
+        before = elements[index - 1] if index else None
+        name = _without_icons(el.label) or (_without_icons(before.label) if before is not None
+                                            and before.tag == "label" else "") or el.name or "one"
+        plain_options = {_plain(o): o for o in options}
+
+        def option_for(text: str | None) -> str | None:
+            return plain_options.get(_plain(text or "")) if text else None
+
+        chosen = option_for(choice.action.value) if choice.action.action in ("select", "type") \
+            else None
+        if chosen is not None and not _said_in(chosen, self._task.goal):
+            # The model's own pick, not the goal's: only for a list that is not
+            # about the person (a size, a class) is that its call; a city or
+            # anything of theirs is asked.
+            if profilelib.kind_of(name, el.name) is not None:
+                chosen = None
+        detail = profilelib.kind_of(name, el.name)
+        if chosen is None and detail is not None:
+            saved = option_for(profilelib.ProfileVault().get(detail))
+            if saved is not None:
+                chosen = saved
+                self.keep_private([saved])
+        if chosen is not None:
+            self._new_facts.append(Detail(label=voice.short_name(name) or name, value=chosen))
+            self._made = ("select", el.role, el.label)
+            return await self._shape(_Choice(
+                action=Action(action="select", element_id=el.id, value=chosen,
+                              reasoning="This is the one that fits."), element=el))
+        question = voice.which_named(voice.short_name(name) or name)
+        if len(options) <= MOST_OPTIONS:
+            self._site_question = question
+            self._site_element = el
+            self._site_options = {f"{OPTION_ID_PREFIX}{i}": text for i, text in enumerate(options)}
+            actions = [StepAction(id=key, label=text, kind="primary")
+                       for key, text in self._site_options.items()]
+            actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+            return Move(instruction=question, detail=voice.WHICH_ONE_SITE, operations=[],
+                        expect=Expectation(), fields=[], actions=actions, question=True,
+                        kind="choose")
+        # Many options: a box that takes only the list's own words.
+        field_id = el.name or str(el.id)
+        actions = voice.actions(voice.GO_AHEAD)
+        kinds: tuple = ()
+        if detail is not None:
+            kinds = ((field_id, detail),)
+            if profilelib.ProfileVault().available:
+                actions = [actions[0], StepAction(id=voice.REMEMBER_ID,
+                                                  label=voice.REMEMBER_DETAIL, kind="primary"),
+                           *actions[1:]]
+        self._made = ("select", el.role, el.label)
+        return Move(
+            instruction=question, detail=voice.TYPE_AND_PICK, kind="choose",
+            operations=[Operation(kind="select", target=Target(role=el.role, label=el.label),
+                                  element_id=el.id, value=None, value_key=field_id,
+                                  node=el.backend_node_id)],
+            expect=Expectation(),
+            fields=[StepField(id=field_id, label=voice.short_name(name) or name, type="text",
+                              value="", options=options)],
+            actions=actions, kinds=kinds)
 
     async def _ask_site(self, choice: "_Choice", elements: list[Element]) -> Move | None:
         """The model says a choice is the person's: read the site's own

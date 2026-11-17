@@ -915,6 +915,14 @@ def cart_has(things: int) -> str:
 
 
 CONFIRMING_PASSWORD = "Typing the same password again"
+TYPE_AND_PICK = "Start typing, then choose the one you mean from the list."
+
+
+def which_named(name: str) -> str:
+    """"Which city?" - the question for a list's choice, in the site's own word."""
+    return f"Which {name.lower()}?" if name and name != "one" else WHICH_ONE
+
+
 REMEMBER_DETAIL = "Remember this for next time"
 
 
