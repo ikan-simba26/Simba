@@ -348,7 +348,9 @@ def resolve(page: Page, elements: list[Element], element_id: int):
 
 def name_matcher(label: str) -> re.Pattern[str]:
     """The whole name, whatever its case, with any run of spaces as one."""
-    words = [re.escape(word) for word in label.split()]
+    # A "/" is escaped for the browser: "CNIC/Passport No" made Playwright build a
+    # selector it could not parse, and the box could never be typed in (2026-11-17).
+    words = [re.escape(word).replace("/", "\\/") for word in label.split()]
     return re.compile(r"^\s*" + r"\s+".join(words) + r"\s*$", re.IGNORECASE)
 
 
@@ -372,6 +374,16 @@ async def act(page: Page, elements: list[Element], element_id: int, operation: O
         return
 
     if operation.kind == "fill":
+        # A box a date picker owns is read-only: it cannot be typed in, and the
+        # page takes the value it is given (Daewoo's date of birth, 2026-11-17).
+        # Set as the page's own input would, with the events a form listens to.
+        if await locator.evaluate("e => !!e.readOnly", timeout=3000):
+            await locator.evaluate(
+                "(e, v) => { const set = Object.getOwnPropertyDescriptor("
+                "HTMLInputElement.prototype, 'value').set; set.call(e, v); "
+                "e.dispatchEvent(new Event('input', {bubbles: true})); "
+                "e.dispatchEvent(new Event('change', {bubbles: true})); }", value)
+            return
         if strategy == 0:
             await locator.fill(value, timeout=ACTION_TIMEOUT_MS)
         else:

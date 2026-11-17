@@ -111,15 +111,35 @@ def _is_search(element: Element) -> bool:
         element.role in ("combobox", "textbox") and bool(SEARCH_LABEL.search(element.label)))
 
 
+#: Roles of a box a person types or chooses in.
+ENTRY_ROLES = ("textbox", "searchbox", "combobox", "spinbutton")
+
+
+def echoes(elements: list[Element]) -> set[int]:
+    """The ids of floating labels read as buttons (2026-11-17): a `<label>` that
+    perception took for a button because the page makes it pointable, standing
+    just before the very box it names (Daewoo's sign-up form has one before
+    every box). Choosing one to type in cannot work and was how a CNIC step
+    failed in the real window; the box itself is what is offered."""
+    found: set[int] = set()
+    for index, element in enumerate(elements[:-1]):
+        if element.tag == "label" and element.role == "button":
+            following = elements[index + 1]
+            if following.role in ENTRY_ROLES or following.input_type in ("password", "text"):
+                found.add(element.id)
+    return found
+
+
 def usable(elements: list[Element],
            failed: "set[tuple[str, str]] | frozenset[tuple[str, str]]" = frozenset()
            ) -> list[Element]:
     """The elements a planner is shown, and so may choose (2026-11-14): what
     `render_page` lists. Part of an overlay, or neither behind one, nor a link
     that goes nowhere, nor off the side, nor something that just failed."""
-    return [e for e in elements if e.overlay
+    echo = echoes(elements)
+    return [e for e in elements if e.id not in echo and (e.overlay
             or (not (e.occluded or e.dead_link) and not _off_the_side(e)
-                and (e.role, e.label) not in failed)]
+                and (e.role, e.label) not in failed))]
 
 
 #: Said above the list, for a goal with no plan, when something is on top of
@@ -165,9 +185,10 @@ def render_page(elements: list[Element],
              and _off_the_side(e)]
     tried = [e for e in elements if not e.overlay and not (e.occluded or e.dead_link)
              and not _off_the_side(e) and (e.role, e.label) in failed]
-    gone = {id(e) for e in aside + tried}
-    listed = [e for e in elements if e.overlay
-              or (not (e.occluded or e.dead_link) and id(e) not in gone)]
+    echo = echoes(elements)
+    gone = {id(e) for e in aside + tried} | {id(e) for e in elements if e.id in echo}
+    listed = [e for e in elements if id(e) not in gone and (e.overlay
+              or not (e.occluded or e.dead_link))]
 
     lines = []
     if blocked and on_top:
