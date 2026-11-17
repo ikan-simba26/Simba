@@ -1,5 +1,28 @@
 # Running SIMBA
 
+## The one way to run it (2026-11-16)
+
+From `D:\simba`, in PowerShell:
+
+```powershell
+.\run.ps1
+```
+
+That is SIMBA: the window, the backend, the practice sites and the AI planner,
+all started and all stopped together (Ctrl+C). The home screen lists every
+website; pick one or type what you want. **Nothing else needs to be chosen.**
+Train times run on the live Pakistan Railways site, the practice bill and
+course sites are in the list under "Practice sites", and any other website is
+typed or added in the window.
+
+Everything below this box is for someone working on one piece of SIMBA. The
+names after `run.ps1` (`railways-local`, `billing`, `mock`) are rehearsal
+settings for development, not other versions of the app; leave them off.
+There is one copy of the project, in `D:\simba`. Ignore any other folder named
+`simba` or any copy under `.claude\worktrees\`.
+
+---
+
 One command. `run.ps1` on Windows PowerShell, `run.sh` anywhere with bash —
 they do the same thing and print the same lines.
 

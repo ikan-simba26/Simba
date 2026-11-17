@@ -57,6 +57,13 @@ ROUTINES_FOR_TESTS = Path(__file__).resolve().parents[1] / ".scratch" / "routine
 os.environ.setdefault("SIMBA_ROUTINES", str(ROUTINES_FOR_TESTS))
 ROUTINES_FOR_TESTS.unlink(missing_ok=True)
 
+# Paying by card (2026-11-16): the older payment tests pin the hand-over, and no
+# test reads or writes the person's saved card. A test of SIMBA paying itself
+# sets `SIMBA_PAY_MODE=card` and a card vault of its own.
+os.environ.setdefault("SIMBA_PAY_MODE", "handover")
+os.environ.setdefault(
+    "SIMBA_CARD_VAULT", str(Path(__file__).resolve().parents[1] / ".scratch" / "card-tests.json"))
+
 REPLICAS = Path(__file__).resolve().parents[1] / "replicas"
 BASE_URL = "http://127.0.0.1:5001"
 BILLING_URL = "http://127.0.0.1:5002"

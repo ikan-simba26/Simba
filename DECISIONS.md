@@ -7030,3 +7030,104 @@ Raham** where marked.
   not fix the Dawaai run ("The price of Panadol is Rs 0"): SIMBA's check is that the page says
   those words, not that they answer the question; the person is asked "Is this what you wanted?"
   and can say no. Left as a known weakness.
+
+## The front end restyled, three small fixes, and one question on payment — 2026-11-16
+
+**Asked by Raham:** one way to run SIMBA; why a train task cannot pay; the app should work; the
+look is "cluttered, outdated, AI-generated".
+
+**Decided without being asked (each reversible):**
+- **Look.** Cool paper-white canvas, white surfaces divided by hairlines, no glow, much lower
+  shadows, corners 8–20 px instead of 12–32 px, 1.5 px field borders. Same single teal. Tokens in
+  `index.css`; text sizes and the `short:` layout untouched. `test_contrast.py` re-run: 23 passed.
+- **Home.** The 30 websites are plain rows under quiet headings, one hairline from the page,
+  instead of 30 bordered, shadowed buttons. The greeting is left-aligned. The floating presence
+  mark is not drawn on the home screen (the lion and the status line already say it).
+- **Level-3 cut fixed (`levels.ts`, `firstSentence`).** A full stop after "Jn" or "Cantt", or
+  before a lower-case word, no longer ends the sentence. It had cut "Lahore Jn. to Karachi Cantt,
+  tomorrow…" to "Lahore Jn." and asked the person to confirm a journey they could not see.
+- **Stale closing line.** A live-site lookup said "I don't book tickets or pay on the real site",
+  which stopped being the rule on 2026-11-13. It now says what the run did: "I only looked up
+  times. I did not book a ticket or pay for anything."
+- **RUNNING.md** opens with the one command, `.\run.ps1`.
+
+**Flagged, not changed — payment.** Raham says the advisor told the team the model should execute a
+payment. DECISIONS.md (the 12 November entry) records her asking for "an answer to what happens at
+the payment gateway", and the rule as approved is: SIMBA goes to the final screen, then hands the
+payment page to the person, who types the card; SIMBA never types or sees card details. Options:
+(a) keep it (recommended: it is the written rule, needs no card data in SIMBA, and a real payment
+by software is the one mistake that cannot be undone); (b) let SIMBA press the final "Pay" button
+after the final screen, card entry still the person's (what exists on test gateways today);
+(c) SIMBA types stored card details. (c) needs Nahail's and Aly's agreement under CLAUDE.md and
+the advisor's wording in writing. The train task itself has no booking flow on the live site:
+that is missing, not forbidden, and not built.
+
+**Addendum, 2026-11-16 — payment adapts to the website (Raham: "it depends on the website").**
+The engine already split by page: a card/bank box or a "Pay" press goes to handover, an order paid
+in cash is placed by SIMBA after the final screen (`loop.carry_out`). What was missing: when a
+checkout offers several ways to pay, the AI planner picked one itself. Now (`llm_loop.py`,
+`OpenGoalPlanner`) a page that lists two or more ways (cash on delivery, card, bank, wallet) makes
+SIMBA ask "How do you want to pay?" with the page's own labels, unless the goal already names one;
+the person's choice is pressed, and the site's reaction decides the rest. Tests:
+`test_payment_method.py` (4), plus `test_open_goal`, `test_llm_loop`, `test_live_doing` (42 passed).
+Not run against a real shop with both options; Readings is the one to try, stopping at the final screen.
+
+**2026-11-16 — a goal that names a listed website in words is for that website.**
+Raham typed "find me the price of the book alchemist on readings book" with no site picked and got
+"I can't do that yet": the router only knows the three built-in flows, and a site was found only from
+a picked site or a written web address. Now `CatalogueStore.named_in` finds a listed site named in the
+goal by its full name or its one-word id as a whole word ("readings", "olx", "wikipedia"); `site_for`
+uses it after the picked site and a written address. Two sites named in one goal decides nothing.
+Not asked for; recommendation taken. Tests: `test_catalogue.py` (+7), router tests unchanged (91 pass).
+
+## 2026-11-16 — SIMBA pays by card itself, behind a pay screen (Raham's direction; pending Nahail and Aly)
+
+**Asked:** when a page asks for a card, SIMBA should type it into the real form, on any website, show
+which boxes it is filling, and press Pay when told to; sandbox for tests; card never in a log, picture
+or overlay line. **This reverses** "Paying is always the person's" (13 November, the advisor's
+direction F) for card forms, so CLAUDE.md's rule is rewritten and flagged pending.
+
+**What was built** (`backend/orchestrator/payment.py`, `loop._Run.pay`):
+- `parse_card` checks a card before it is typed anywhere (Luhn, date not passed, 3-4 digit code).
+- `CardVault`: one card, DPAPI-sealed like the sign-in vault, `data/card.json` (ignored), `SIMBA_CARD_VAULT`.
+- `classify`/`find_card_fields`: which box is which by its `autocomplete`, then name, id, label,
+  placeholder, aria-label; searched in the page and every frame (gateways are often iframes). Not
+  site-specific. Month/year drop-downs and one "MM/YY" box both work.
+- `fill_card`: real keystrokes (`press_sequentially`), each box read back; one retry by setting the
+  value; then hand over. `find_pay_button`: the card form's own Pay button; two possible buttons or
+  none = the person presses.
+- The flow: amount on the page (none = handed over before any card is asked) -> card asked once in
+  protected boxes ("use", "use and keep", "I'll type it myself", "don't pay") -> **pay screen**
+  (amount, website, "Visa ending 4242"; "Pay now"/"Don't pay", no default, no timer) -> one checklist
+  line per box, then "Pressing the Pay button" -> a one-time code or check is still handed over ->
+  the page is read; a stated decline is reported as a decline ("I didn't try again"), never as paid.
+- A press that pays on a live site now runs after its final screen (was: handed over). Detection of a
+  card form now covers frames, which also makes the hand-over mode safer.
+- Switch: `SIMBA_PAY_MODE=handover` restores every payment to the person (the tests default to it).
+
+**Options considered for the card's home:** (a) ask each time and keep nothing; (b) vault (chosen,
+same threat model as the saved passwords: the Windows account); (c) a file/env. Recommendation taken:
+(a) is always available ("use", not "keep"); (b) is opt-in per card.
+
+**Flagged:** the advisor's wording and CLAUDE.md now agree, but Nahail and Aly have not been told. A
+real card on a real site has not been tried and will not be by an agent: Raham's own, own card. The
+overlay screens are the existing step, checklist and final-screen components; not yet looked at in the
+real window with a card.
+
+## 2026-11-16 — The "Another website" button is gone; the one box does it
+
+The "+ Another website" button beside the home box opened a second screen asking for an address and a
+task. The box already does that: an address typed in it and Go opens the same screen, a site's name
+goes to the site, and, since today, a goal that names a listed site in words ("...on readings") or
+holds an address goes there. The button read like "add another site to this task" (it never did: one
+task is one website). "Keep a website in my list" stays, on that second screen. Placeholder is now
+"Type a website, then what to do there" (was "Readings, gov.uk, or train times to Karachi").
+
+## 2026-11-16 — Model: Gemini 2.5 Flash for everything through OpenRouter
+
+The configured provider is OpenRouter with `google/gemini-2.5-flash-lite` (no direct Gemini key and no
+Groq key set), so the repo's `SIMBA_PLANNER_MODEL` (direct Gemini only) never applied. Measured on the
+real Readings task "Find the price of the book The Alchemist", read-only, one run each: Flash-Lite 3
+calls, 35.3 s; Flash 2 calls, 27.2 s; both completed. Router question: Flash 1.2 s median, Lite 1.5 s.
+`.env` now has `OPENROUTER_MODEL=google/gemini-2.5-flash`; `.env.example` says so. Costs about three
+times the tokens' price, a few cents a task.

@@ -196,3 +196,29 @@ def test_a_taught_routine_is_a_task_on_the_site_it_was_taught_on(tmp_path):
     rail = next(site for site in sites if site.id == "rail")
     assert all(task.how != "taught" for task in rail.tasks)
     assert len(sites) == 2
+
+
+# ------------------------------------------------------- a site named in words
+
+def shipped_store() -> CatalogueStore:
+    return CatalogueStore(SHIPPED, SHIPPED.parent / "no-such-local.json")
+
+
+@pytest.mark.parametrize("goal, site_id", [
+    ("find me the price of the book alchemist on readings book", "readings"),
+    ("Order the book Sapiens from Readings bookshop", "readings"),
+    ("look up Allama Iqbal on Wikipedia", "wikipedia"),
+    ("search for a bicycle on OLX", "olx"),
+])
+def test_a_goal_that_names_a_listed_site_is_for_that_site(goal, site_id):
+    found = shipped_store().named_in(goal)
+    assert found is not None and found.id == site_id
+
+
+@pytest.mark.parametrize("goal", [
+    "Trains from Lahore to Karachi tomorrow",
+    "hello",
+    "compare readings and olx for this book",   # two sites: not decided here
+])
+def test_a_goal_that_names_no_single_site_is_for_none(goal):
+    assert shipped_store().named_in(goal) is None

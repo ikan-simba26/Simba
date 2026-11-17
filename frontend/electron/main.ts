@@ -223,6 +223,29 @@ app.whenReady().then(async () => {
   // the bar goes. Everywhere else it is covered, not hidden (CLAUDE.md).
   let overlayBounds = { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height };
   let bar: number | null = null;
+  // The help-me step (2026-11-17): the site view is moved over a frame the
+  // overlay draws, and zoomed, and put above the overlay; the person clicks and
+  // types on the real page there. Nothing else of the page shows. Put back to
+  // 1280x800 at the origin, below the overlay, the moment it ends. The overlay
+  // stays the whole window under it, so it covers everything else.
+  let help: { x: number; y: number; width: number; height: number; zoom: number } | null = null;
+  const restoreSite = (): void => {
+    help = null;
+    siteView.setBounds(VIEWPORT);
+    siteView.webContents.setZoomFactor(1);
+    // Overlay last: above the site view again.
+    win.contentView.addChildView(overlay);
+  };
+  const showHelp = (x: number, y: number, width: number, height: number, zoom: number): void => {
+    const first = help === null;
+    help = { x, y, width, height, zoom };
+    // Inside the window, with a positive origin: a view past its parent's edge
+    // collapses its viewport (CLAUDE.md), and this one is wholly inside it.
+    siteView.setBounds({ x: Math.max(0, x), y: Math.max(0, y),
+                         width: Math.max(80, width), height: Math.max(60, height) });
+    siteView.webContents.setZoomFactor(zoom);
+    if (first) win.contentView.addChildView(siteView);  // above the overlay
+  };
   const place = (): void => {
     overlay.setBounds(bar === null ? overlayBounds
       : { ...overlayBounds, height: Math.min(bar, overlayBounds.height) });
@@ -286,7 +309,8 @@ app.whenReady().then(async () => {
   // view a remembered zoom would be worse — it would change the CSS viewport
   // perception measures without anything saying so.
   for (const view of [siteView, overlay]) {
-    view.webContents.on("did-finish-load", () => view.webContents.setZoomFactor(1));
+    view.webContents.on("did-finish-load", () =>
+      view.webContents.setZoomFactor(view === siteView && help ? help.zoom : 1));
   }
 
   fit(screen.getDisplayMatching(win.getBounds()));
@@ -367,7 +391,14 @@ app.whenReady().then(async () => {
     if (message.startsWith("[simba] press ")) console.log(`SIMBA overlay ${message.slice(8)}`);
     // "Show me once" (2026-11-04): the overlay asks for the bar, or for the
     // whole window back (`frontend/src/store.ts`, `hostBar`).
+    const helping = /^\[simba\] host help (-?\d+) (-?\d+) (\d+) (\d+) ([\d.]+)$/.exec(message);
+    if (helping) {
+      showHelp(Number(helping[1]), Number(helping[2]), Number(helping[3]), Number(helping[4]),
+               Number(helping[5]));
+      return;
+    }
     const asked = /^\[simba\] host (bar (\d+)|full)$/.exec(message);
+    if (asked && asked[1] === "full" && help) restoreSite();
     if (asked) {
       bar = asked[2] ? Number(asked[2]) : null;
       place();

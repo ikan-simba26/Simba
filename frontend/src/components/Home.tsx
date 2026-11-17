@@ -70,7 +70,7 @@ export function SiteIcon({ address, name, genre, size = 44 }:
   const kind = pictureForGenre(genre);
   return (
     <span className="relative flex shrink-0 items-center justify-center overflow-hidden
-                     rounded-lg font-semibold"
+                     rounded-md font-semibold"
           style={{ width: size, height: size, fontSize: Math.round(size * 0.5),
                    background: `var(--pic-${kind}-tint)`, color: `var(--pic-${kind})` }}
           data-testid="site-icon" data-icon={state} aria-hidden>
@@ -131,29 +131,35 @@ function Where() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-162px)] gap-8 pt-3
-                    short:h-[calc(100dvh-110px)] short:gap-5 short:pt-4" data-testid="home-where">
+    <div className="flex h-[calc(100dvh-136px)] gap-10 pt-2
+                    short:h-[calc(100dvh-108px)] short:gap-6 short:pt-1" data-testid="home-where">
       {/* The websites are a list down the left, the full height of the screen, by
           kind, scrolling inside itself (the advisor, 2026-11-16: it had gone on
-          2026-11-14). The greeting, the box and the rest are in the column beside it. */}
+          2026-11-14). The greeting, the box and the rest are in the column beside it.
+          2026-11-16, Raham ("more cluttered than the websites"): thirty bordered,
+          shadowed buttons became plain rows under quiet headings, divided from the
+          page by one hairline. */}
       {groups.length > 0 && (
-        <div className="flex w-[300px] shrink-0 flex-col gap-4 overflow-y-auto pr-2 pt-1
-                        short:w-[250px] short:gap-2" data-testid="site-grid">
+        <div className="simba-scroll flex w-[288px] shrink-0 flex-col gap-6 overflow-y-auto
+                        border-r border-line pr-5 pb-4 short:w-[250px] short:gap-3"
+             data-testid="site-grid">
           {groups.map(({ genre, sites: inGenre }) => (
             <section key={genre} aria-label={genre} data-testid="site-genre"
-                     className="flex flex-col gap-1.5 short:gap-0.5">
-              <p className="text-small font-medium text-soft short:leading-tight">{genre}</p>
-              <ul className="flex flex-col gap-2 short:gap-1.5">
+                     className="flex flex-col gap-1">
+              <p className="px-3 pb-1 text-small font-semibold text-soft short:leading-tight">
+                {genre}
+              </p>
+              <ul className="flex flex-col">
                 {inGenre.map((site) => (
                   <li key={`${genre}-${site.id}`}>
                     <button type="button" data-testid="site" title={hostOf(site.address)}
                             aria-label={site.name}
                             onClick={() => chooseSite(site.id)} className={SITE_ROW}>
                       <SiteIcon address={site.address} name={site.name} genre={site.genre}
-                                size={36} />
+                                size={32} />
                       {/* Without a name's aside in brackets, which the kind above
                           the row already says: "(practice copy)". */}
-                      <span className="line-clamp-2 text-small font-semibold leading-tight
+                      <span className="line-clamp-2 text-small font-medium leading-tight
                                        text-ink">
                         {site.name.replace(/\s*\([^)]*\)\s*$/, "")}
                       </span>
@@ -165,15 +171,15 @@ function Where() {
           ))}
         </div>
       )}
-      <div className="flex min-w-0 flex-1 flex-col gap-5 short:gap-3">
-        <h1 className="text-center text-display font-semibold tracking-[-0.015em] text-ink
+      <div className="flex min-w-0 flex-1 flex-col gap-6 pt-10 short:gap-4 short:pt-9">
+        <h1 className="text-left text-display font-semibold tracking-[-0.02em] text-ink
                        text-balance short:text-heading" data-testid="greeting">
           {greetingAt(hour, profile.name)}
         </h1>
 
-        <div className="flex items-stretch gap-4">
+        <div className="flex items-stretch gap-3">
           <div className="simba-field-frame flex min-w-0 flex-1 items-center gap-4 rounded-xl
-                          py-1.5 pr-2 pl-6 shadow-card">
+                          py-1.5 pr-2 pl-5">
             <span className="shrink-0 text-soft" aria-hidden><SpeechIcon /></span>
             <input className="min-w-0 flex-1 bg-transparent py-3 text-lead text-ink outline-none
                               placeholder:text-soft focus-visible:outline-none short:py-2"
@@ -187,26 +193,6 @@ function Where() {
               {words && (address || found.length === 1) ? HOME.go : HOME.start}
             </Button>
           </div>
-          {/* Beside the box, not after the last card: a row of cards fewer,
-              which is what fits every listed website into a 150% window. */}
-          <button type="button" data-testid="another-site" aria-label={HOME.another}
-                  title={HOME.another}
-                  onClick={() => chooseSite(ANOTHER, address ? typed.trim() : undefined)}
-                  className="flex shrink-0 items-center gap-3 rounded-xl border border-dashed
-                             border-edge bg-surface px-5 text-left shadow-card
-                             max-[900px]:px-3
-                             transition-[box-shadow,border-color,transform] duration-200
-                             hover:border-accent/50 hover:shadow-lift active:translate-y-px">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
-                             bg-tint text-[28px] font-semibold leading-none text-accent"
-                  aria-hidden>
-              +
-            </span>
-            {/* Only the "+" in a narrow window, where the list takes a third of it. */}
-            <span className="text-small font-semibold leading-tight text-ink max-[900px]:hidden">
-              {HOME.another}
-            </span>
-          </button>
         </div>
 
         {own && !words && (
@@ -297,11 +283,10 @@ const SITE_CARD =
   + "text-left shadow-card transition-[box-shadow,border-color,transform] duration-200 "
   + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[60px]";
 
-/** A website in the list down the left: the whole width of the list. */
+/** A website in the list down the left: a plain row, the whole width of the list. */
 const SITE_ROW =
-  "flex h-[60px] w-full items-center gap-3 rounded-xl border border-edge bg-surface px-3 "
-  + "text-left shadow-card transition-[box-shadow,border-color,transform] duration-200 "
-  + "hover:border-accent/50 hover:shadow-lift active:translate-y-px short:h-[48px]";
+  "flex min-h-[48px] w-full items-center gap-3 rounded-md px-3 py-1 text-left "
+  + "transition-colors duration-150 hover:bg-tint active:bg-tint short:min-h-[42px]";
 
 const OWN_TASK =
   "flex w-full min-w-0 items-center gap-3 rounded-xl border border-accent/40 bg-surface px-4 "

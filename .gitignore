@@ -80,3 +80,8 @@ data/routines.json
 # The person's own: their tiles (encrypted) and the websites they added (2026-11-13).
 data/tiles.json
 data/catalogue.local.json
+
+# What SIMBA keeps for the person (2026-11-17): details and bookings
+data/profile.json
+data/bookings.json
+data/card.json

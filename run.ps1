@@ -41,6 +41,9 @@ Set-Location -Path $PSScriptRoot
 $BackendPort = if ($env:SIMBA_BACKEND_PORT) { $env:SIMBA_BACKEND_PORT } else { "8000" }
 $CdpPort = if ($env:SIMBA_CDP_PORT) { $env:SIMBA_CDP_PORT } else { "9222" }
 $Hardcoded = if ($null -ne $env:SIMBA_USE_HARDCODED_PLAN) { $env:SIMBA_USE_HARDCODED_PLAN } else { "1" }
+# The practice bill pays through the test card gateway on the billing copy, and SIMBA types
+# the test card itself (2026-11-16). Test cards only; no money moves anywhere.
+if (-not $env:SIMBA_CARD_GATEWAY) { $env:SIMBA_CARD_GATEWAY = "1" }
 # Where `railways-local` serves our own copy of the train search.
 $RailwaysLocalPort = "5200"
 $PlannerName = if ($Hardcoded -eq "1") { "hardcoded (no API quota spent)" } else { "LLM (spends API quota)" }

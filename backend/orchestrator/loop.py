@@ -38,7 +38,7 @@ from backend.estimator.page_features import PageFeatures
 from backend.estimator.page_features import features as page_features
 from backend.estimator.pairing import Recorder
 from backend.estimator.rules import Decision, LevelRules
-from backend.orchestrator import voice
+from backend.orchestrator import bookings, helpme, payment, profile, voice
 from backend.orchestrator.browser import capture_site
 from backend.orchestrator.plan import (
     About,
@@ -637,6 +637,9 @@ class Move:
     # read: "Book train 7UP" opens the booking form, and "Confirm Booking"
     # books (2026-11-04, fix). Believed only as `only_opens` checks it.
     opens: bool = False
+    # Which kept detail each box asks for (2026-11-17): (field id, kind) pairs,
+    # so what the person types can be kept for next time (`profile.py`).
+    kinds: tuple[tuple[str, str], ...] = ()
 
 
 # --- the final step (2026-10-16) ---------------------------------------------
@@ -726,6 +729,11 @@ DONE_WORDS = re.compile(
 HANDOVER_WAIT_S = 20 * 60
 #: How many times one run hands over for a check before it stops.
 MOST_CHECKS = 2
+#: The help-me step: how often it looks at the page, how long before it says
+#: nothing could be done yet, and the two minutes before "Still there?".
+HELP_POLL_S = 1.2
+HELP_GRACE_S = 3.0
+HELP_IDLE_S = 120.0
 
 #: An amount as a page writes it.
 MONEY = re.compile(r"(rs\.?|pkr|usd|us\$|\$|£|€)\s?[\d,]+(\.\d+)?|[\d,]+(\.\d+)?\s?(rs|pkr)\b",
@@ -741,10 +749,15 @@ async def page_asks_for_payment(page: Page, elements: "list[Element]") -> bool:
             if PAYMENT_WORDS.search(words):
                 return True
     try:
-        return bool(await page.evaluate(
-            "() => !!document.querySelector('input[autocomplete^=\"cc-\"]')"))
+        if await page.evaluate(
+                "() => !!document.querySelector('input[autocomplete^=\"cc-\"]')"):
+            return True
     except PlaywrightError:
-        return False
+        pass
+    # A gateway's card form is often a frame of the page, whose boxes the
+    # page's own element list never holds (2026-11-16): looked for in every
+    # frame, by what each box says about itself.
+    return bool(await payment.find_card_fields(page))
 
 
 async def amounts_on_page(page: Page, most: int = 3) -> list[Detail]:
@@ -844,9 +857,13 @@ async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
 
 
 def pressed(move: "Move") -> str:
-    """The site's own words on what a move presses: "Confirm Booking"."""
-    return next((o.target.label for o in move.operations if o.kind == "click"
-                 and o.target.label), move.instruction)
+    """The site's own words on what a move presses: "Confirm Booking". Without
+    the name of an icon drawn in front of them (Readings: "cart Buy Now",
+    2026-11-16)."""
+    label = next((o.target.label for o in move.operations if o.kind == "click"
+                  and o.target.label), move.instruction)
+    return re.sub(r"^(?:cart|bag|basket|search|menu|user|home|heart|arrow|chevron|close)\s+"
+                  r"(?=[A-Z])", "", label)
 
 
 def read_final(content: Content, read: FinalRead) -> str | None:
@@ -1010,7 +1027,7 @@ def caption_for(move: "Move") -> str:
 
 #: What counts as a password box in a picture of the page.
 PASSWORD_BOXES = ("input[type=password], input[autocomplete=current-password], "
-                  "input[autocomplete=new-password]")
+                  "input[autocomplete=new-password], input[autocomplete^=cc-]")
 #: What a password box is painted over with. Solid, and the same in both themes.
 MASK_COLOUR = "#8c7a66"
 
@@ -1304,6 +1321,10 @@ class _Run:
         #: first, then teach"). None: nothing is offered.
         self.teach_site: str | None = None
         self.started = time.monotonic()
+        #: What the person chose and gave in this run, as the final screen
+        #: shows it before anything is done (2026-11-17): "Chose: …", "Name:
+        #: …", "Paying with: cash on delivery". Theirs to see, never a model's.
+        self.facts: list[Detail] = []
         self.state: str | None = None
         #: How many things have been put on screen: steps and questions both.
         self.shown = 0
@@ -1424,25 +1445,75 @@ class _Run:
             ),
         )
 
-    async def hand_over(self, reason: str) -> str:
-        """The real page, the person's (2026-11-13): the bar says why, and the
-        website shows below it. "done", "cancel", or "timeout". Nothing on the
-        page is read while it is theirs."""
-        sentence = voice.HANDOVER_PAYMENT if reason == "payment" else voice.HANDOVER_CHECK
-        log.info("handed over: %s, on %s", reason, urlsplit(self.page.url).netloc or "a page")
+    async def hand_over(self, reason: str, sentence: str | None = None,
+                        kind: str | None = None) -> str:
+        """The help-me step (2026-11-17; the bar and the whole page before):
+        only the part of the real page the person must use is shown, zoomed
+        and scrollable, with one plain sentence. They click or type straight
+        into it. "done", "cancel", or "timeout". SIMBA reads nothing they
+        type: it learns only whether the part is still there, or whether a
+        box holds any characters at all (a count, never the text).
+
+        Done is noticed by itself — the check goes, the box is filled, the
+        page moves on — and the person can always say so ("I've done it").
+        After two minutes of nothing the overlay asks "Still there?", and
+        "Try again" starts the two minutes and the looking over.
+        `sentence` is the words when the default for the kind does not fit."""
+        if kind is None:
+            kind = await helpme.kind_of_page(self.page) if reason in ("check", "payment")                 else "other"
+        sentence = sentence or voice.help_sentence(kind)
+        target = await helpme.find(self.page, kind)
+        site = urlsplit(self.page.url).netloc
+        log.info("help-me: %s (%s), on %s%s", kind, reason, site or "a page",
+                 "" if target.has_part else ", no part found: the whole page")
         await self.set_state("waiting")
-        await self.connection.send("handover", HandOver(
-            reason=reason, sentence=sentence, site=urlsplit(self.page.url).netloc))
-        try:
-            message = await asyncio.wait_for(
-                self.connection.receive(("handover.done", "task.cancel")), HANDOVER_WAIT_S)
-        except asyncio.TimeoutError:
-            return "timeout"
-        if message.get("type") == "task.cancel":
-            return "cancel"
-        action = (message.get("payload") or {}).get("action")
-        if action != "done":
-            return "cancel"
+
+        async def show(idle: bool) -> None:
+            await self.connection.send("handover", HandOver(
+                reason=reason, sentence=sentence, site=site, kind=kind, idle=idle))
+
+        await show(False)
+        started = time.monotonic()
+        scrolled = 0
+        finished_polls = 0
+        idle_said = False
+        waited = time.monotonic()
+        while True:
+            try:
+                message = await asyncio.wait_for(
+                    self.connection.receive(("handover.done", "task.cancel")), HELP_POLL_S)
+            except asyncio.TimeoutError:
+                message = None
+            if time.monotonic() - waited > HANDOVER_WAIT_S:
+                return "timeout"
+            if message is not None:
+                if message.get("type") == "task.cancel":
+                    return "cancel"
+                action = (message.get("payload") or {}).get("action")
+                if action == "again":
+                    await show(False)
+                    started, scrolled, finished_polls, idle_said = time.monotonic(), 0, 0, False
+                    continue
+                if action != "done":
+                    return "cancel"
+                break
+            elapsed = time.monotonic() - started
+            # The overlay lays the part out a moment after it is sent: scrolled
+            # to the middle three times, then left to the person's own hand.
+            if scrolled < 3 and elapsed > 1.0 + 1.5 * scrolled:
+                await target.scroll()
+                scrolled += 1
+            if elapsed >= HELP_IDLE_S and not idle_said:
+                idle_said = True
+                await show(True)
+            if target.has_part and elapsed > HELP_GRACE_S:
+                if await target.finished(self.page):
+                    finished_polls += 1
+                    if finished_polls >= 2:
+                        log.info("help-me: done by itself after %.0fs", elapsed)
+                        break
+                else:
+                    finished_polls = 0
         try:
             await self.page.wait_for_load_state("domcontentloaded", timeout=10_000)
         except PlaywrightError:
@@ -1450,9 +1521,9 @@ class _Run:
         log.info("handed back: %s", reason)
         return "done"
 
-    async def after_payment(self) -> None:
-        """The person has paid, or says so: what the page now says, in its own
-        words — or that it does not say."""
+    async def after_payment(self, caveat: str = voice.PAID_CAVEAT) -> None:
+        """The person has paid, or says so, or SIMBA did after "pay now": what
+        the page now says, in its own words — or that it does not say."""
         _, after, _ = await perceive(self.page)
         said = done_words(after)
         if said is None:
@@ -1462,8 +1533,264 @@ class _Run:
             summary=f"paid {self.page.url}",
             duration_ms=int((time.monotonic() - self.started) * 1000),
             steps_taken=self.shown, llm_calls=0, replayed=False, findings=[],
-            heading=voice.PAID, caveat=voice.PAID_CAVEAT,
+            heading=voice.PAID,
+            caveat=caveat,
             confirmation=voice.site_says(said)))
+
+    async def pay_by_hand(self, sentence: str | None = None,
+                          caveat: str = voice.PAID_CAVEAT) -> None:
+        """The page is the person's: they pay, SIMBA reads what it says after.
+        Ends the run, one way or another."""
+        handed = await self.hand_over("payment", sentence)
+        if handed != "done":
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+            return
+        await self.after_payment(caveat)
+
+    async def ask_card(self, *, goal: str, findings: list[Finding], view: PageView,
+                       can_keep: bool) -> "tuple[payment.Card, bool] | str | None":
+        """The card to pay with, asked once in protected boxes (2026-11-16).
+        A `Card` and whether to keep it; `"myself"` when the person would type
+        it themselves; None when the run has ended (they declined or stopped).
+        What is typed here goes from the overlay to this process and into the
+        page, nowhere else: not the model, not a log."""
+        note: str | None = None
+        for _ in range(4):
+            asked = Move(
+                instruction=voice.CARD_ASK, detail=voice.CARD_ASK_DETAIL, operations=[],
+                expect=Expectation(), question=True, kind="type", note=note,
+                fields=[
+                    StepField(id="name", label=voice.CARD_NAME_LABEL, type="text", value=""),
+                    StepField(id="number", label=voice.CARD_NUMBER_LABEL, type="password",
+                              value=""),
+                    StepField(id="expiry", label=voice.CARD_EXPIRY_LABEL, type="text",
+                              value=""),
+                    StepField(id="cvv", label=voice.CARD_CVV_LABEL, type="password", value=""),
+                ],
+                actions=[
+                    StepAction(id=voice.USE_CARD_ID, label=voice.USE_CARD, kind="primary"),
+                    *([StepAction(id=voice.KEEP_CARD_ID, label=voice.KEEP_CARD,
+                                  kind="primary")] if can_keep else []),
+                    StepAction(id=voice.MYSELF_ID, label=voice.TYPE_MYSELF, kind="secondary"),
+                    StepAction(id=voice.DECLINE_ID, label=voice.DONT_PAY_NOW, kind="secondary"),
+                ])
+            payload = await self.present(asked, goal=goal, findings=findings, view=view)
+            action = payload.get("action_id")
+            if action == voice.MYSELF_ID:
+                return "myself"
+            if action == voice.DECLINE_ID:
+                await self.connection.send("task.failed", TaskFailed(
+                    reason=voice.NOTHING_CHANGED, recoverable=True))
+                return None
+            if action not in (voice.USE_CARD_ID, voice.KEEP_CARD_ID):
+                await self.stopped()
+                return None
+            typed = payload.get("input_values") or {}
+            try:
+                card = payment.parse_card(typed.get("name", ""), typed.get("number", ""),
+                                          typed.get("expiry", ""), typed.get("cvv", ""))
+            except payment.CardError as error:
+                note = voice.CARD_NOTES[error.reason]
+                continue
+            return card, action == voice.KEEP_CARD_ID
+        await self.pay_by_hand()
+        return None
+
+    async def pay_with_help(self, *, goal: str, findings: list[Finding], view: PageView) -> None:
+        """A page with a card form (2026-11-17): the person types the card
+        themselves, in the help-me step, on the real page; nobody else sees
+        it. Then the pay screen — the amount as the page states it, the
+        website — and only on "Pay now" SIMBA presses the page's own Pay
+        button. "Don't pay" ends the task and nothing was changed. A one-time
+        code or a check is the person's again, in the same step. Ends the
+        run, one way or another."""
+        host = urlsplit(self.page.url).netloc or "this website"
+        fields = await payment.find_card_fields(self.page)
+        amounts = await amounts_on_page(self.page)
+        if not fields or not amounts:
+            # No card form to point at, or no stated amount for a final
+            # screen: the page is the person's, as it was.
+            log.info("pay: %s; the page is the person's", "no card form" if not fields
+                     else "no amount stated")
+            await self.pay_by_hand()
+            return
+        handed = await self.hand_over("payment", kind="card")
+        if handed != "done":
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+            return
+        # The page, as the person left it: the amount may have moved.
+        amounts = await amounts_on_page(self.page) or amounts
+        details = [*self.facts, *amounts, Detail(label=voice.FINAL_WEBSITE_LABEL, value=host)]
+        final = Move(instruction=voice.pay_final(host),
+                     detail=voice.FINAL_WAITS, operations=[], expect=Expectation(),
+                     fields=[], actions=voice.final_actions(voice.PAY_NOW, voice.DONT_PAY_NOW),
+                     changes=True, kind="confirm")
+        payload = await self.present(final, goal=goal, findings=findings, view=view,
+                                     final=details)
+        action = payload.get("action_id")
+        if action == voice.DECLINE_ID:
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.NOTHING_CHANGED, recoverable=True))
+            return
+        if action != voice.CONFIRM_ID:
+            await self.stopped()
+            return
+        found = await payment.find_pay_button(self.page, fields[0])
+        if found is None:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_HELP_FINISHED)
+            return
+        button, label = found
+        line = Move(instruction=voice.PRESSING_PAY, detail="", operations=[],
+                    expect=Expectation(), fields=[], actions=[], kind="confirm",
+                    doing=voice.PRESSING_PAY)
+        await self.tick(line, findings=[], coming=[])
+        try:
+            await button.click(timeout=ACTION_TIMEOUT_MS)
+        except PlaywrightError:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_HELP_FINISHED)
+            return
+        log.info("pay: pressed %r on %s", label[:30], host)
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=10_000)
+        except PlaywrightError:
+            pass
+        await settled(self.page)
+        for _ in range(MOST_CHECKS):
+            elements, after, _ = await perceive(self.page)
+            if not blocked(after, elements):
+                break
+            handed = await self.hand_over("check")
+            if handed != "done":
+                await self.connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+        declined = await site_sentence(self.page, "declined")
+        if declined is not None:
+            await self.give_up(f"{voice.site_says(declined)} {voice.NOT_RETRIED}")
+            return
+        await self.after_payment(voice.PAID_CAVEAT_HELP)
+
+    async def pay(self, *, goal: str, findings: list[Finding], view: PageView) -> None:
+        """A page with a card form (2026-11-16): SIMBA pays, with the person's
+        say-so. Ends the run, one way or another.
+
+        1. The card: the saved one, or asked for once.
+        2. A final screen: the amount as the page states it, the website, the
+           card by its last four digits; answered "pay now" or "don't pay".
+           No default, no timer. "Don't" ends the task and changes nothing.
+        3. The boxes are filled one by one through the browser, each a line of
+           the checklist and each read back; then Pay is pressed.
+        4. A one-time code or a check is the person's (handed over); then the
+           page is read for what it says.
+
+        Anything SIMBA cannot do for itself (a box that will not take the
+        card, a Pay button it cannot tell) is handed to the person, who
+        finishes on the real page. `SIMBA_PAY_MODE=handover` makes every
+        payment that. The card is never in a message, a log or a prompt."""
+        if payment.pay_mode() != "card":
+            await self.pay_with_help(goal=goal, findings=findings, view=view)
+            return
+        fields = await payment.find_card_fields(self.page)
+        if not fields:
+            await self.pay_by_hand()
+            return
+        host = urlsplit(self.page.url).netloc or "this website"
+        amounts = await amounts_on_page(self.page)
+        if not amounts:
+            # Not stating what it costs, the page cannot have its final screen:
+            # the person reads it themselves, before any card is asked for.
+            log.info("card: no amount on the page at %s; handed over", host)
+            await self.pay_by_hand()
+            return
+        vault = payment.CardVault()
+        card, keep = vault.get(), False
+        if card is None:
+            entered = await self.ask_card(goal=goal, findings=findings, view=view,
+                                          can_keep=vault.available)
+            if entered is None:
+                return
+            if entered == "myself":
+                await self.pay_by_hand()
+                return
+            card, keep = entered  # type: ignore[misc]
+        details = [*amounts, Detail(label=voice.FINAL_WEBSITE_LABEL, value=host),
+                   Detail(label=voice.FINAL_CARD_LABEL, value=card.spoken)]
+        final = Move(instruction=voice.pay_card_final(host, card.spoken),
+                     detail=voice.FINAL_WAITS, operations=[], expect=Expectation(),
+                     fields=[], actions=voice.final_actions(voice.PAY_NOW, voice.DONT_PAY_NOW),
+                     changes=True, kind="confirm")
+        payload = await self.present(final, goal=goal, findings=findings, view=view,
+                                     final=details)
+        action = payload.get("action_id")
+        if action == voice.DECLINE_ID:
+            await self.connection.send("task.failed", TaskFailed(
+                reason=voice.NOTHING_CHANGED, recoverable=True))
+            return
+        if action != voice.CONFIRM_ID:
+            await self.stopped()
+            return
+
+        if keep:
+            try:
+                vault.put(card)
+            except Exception as error:  # noqa: BLE001 - not kept is not a failure
+                log.info("card: not kept (%s)", type(error).__name__)
+
+        # The typing, one box at a time, each said on the checklist.
+        said = [voice.TYPING_PART[f.role] for f in fields] + [voice.PRESSING_PAY]
+        for position, field in enumerate(fields):
+            line = Move(instruction=said[position], detail="", operations=[],
+                        expect=Expectation(), fields=[], actions=[], kind="type",
+                        doing=said[position])
+            await self.tick(line, findings=[], coming=said[position + 1:])
+            try:
+                await payment.fill_card(self.page, card, field)
+            except payment.FillError as error:
+                log.info("card: %s did not take on %s", error.role, host)
+                await self.pay_by_hand(
+                    voice.HANDOVER_CARD_PART.format(part=payment.ROLE_WORDS[error.role]),
+                    voice.PAID_CAVEAT_CARD_FINISHED)
+                return
+        log.info("card: %d boxes typed on %s", len(fields), host)
+
+        found = await payment.find_pay_button(self.page, fields[0])
+        if found is None:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_CARD_FINISHED)
+            return
+        button, label = found
+        line = Move(instruction=voice.PRESSING_PAY, detail="", operations=[],
+                    expect=Expectation(), fields=[], actions=[], kind="confirm",
+                    doing=voice.PRESSING_PAY)
+        await self.tick(line, findings=[], coming=[])
+        try:
+            await button.click(timeout=ACTION_TIMEOUT_MS)
+        except PlaywrightError:
+            await self.pay_by_hand(voice.HANDOVER_PRESS_PAY, voice.PAID_CAVEAT_CARD_FINISHED)
+            return
+        log.info("card: pressed %r on %s", label[:30], host)
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=10_000)
+        except PlaywrightError:
+            pass
+        await settled(self.page)
+
+        # A code from the bank, or a check that a person is there: theirs.
+        for _ in range(MOST_CHECKS):
+            elements, after, _ = await perceive(self.page)
+            if not blocked(after, elements):
+                break
+            handed = await self.hand_over("check")
+            if handed != "done":
+                await self.connection.send("task.failed", TaskFailed(
+                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
+                return
+        declined = await site_sentence(self.page, "declined")
+        if declined is not None:
+            await self.give_up(f"{voice.site_says(declined)} {voice.NOT_RETRIED}")
+            return
+        await self.after_payment(voice.PAID_CAVEAT_CARD)
 
     async def stopped(self) -> None:
         log.info("task stopped by the person after %.1fs", time.monotonic() - self.started)
@@ -1864,6 +2191,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
     history: list[str] = []
     setback: str | None = None
     consecutive_setbacks = 0
+    # A planner that asks the page things (the cards of a list, a cart) gets it
+    # (2026-11-17).
+    attach = getattr(planner, "attach", None)
+    if attach is not None:
+        attach(page)
     # Steps the person agreed to and the run then did. Questions are not
     # steps, and neither is the quiet remainder of a step already agreed to.
     steps_taken = 0
@@ -1951,12 +2283,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # A page that asks for card or bank details (2026-11-13): paying is
         # the person's, on the real page. SIMBA never types into it.
         if await page_asks_for_payment(page, elements):
-            handed = await run.hand_over("payment")
-            if handed != "done":
-                await connection.send("task.failed", TaskFailed(
-                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                return
-            await run.after_payment()
+            await run.pay(goal=task.goal, findings=findings, view=view)
             return
 
         # The website sent an email with a link (2026-11-14): say what to do,
@@ -2017,6 +2344,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 await run.stopped()
                 return
             planner.answered(payload["action_id"], payload.get("input_values") or {})
+            take = getattr(planner, "take_facts", None)
+            if take is not None:
+                run.facts.extend(take())
             continue
 
         input_values: dict[str, str] = {}
@@ -2025,12 +2355,7 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # Card or bank details are never typed, on any site (2026-10-16): the
         # page is handed to the person instead (2026-11-13).
         if await asks_for_payment(page, elements, move):
-            handed = await run.hand_over("payment")
-            if handed != "done":
-                await connection.send("task.failed", TaskFailed(
-                    reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                return
-            await run.after_payment()
+            await run.pay(goal=task.goal, findings=findings, view=view)
             return
 
         # A box to agree to the website's terms (2026-11-14): the person's own
@@ -2067,6 +2392,9 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 await give_up(voice.NO_FINAL_SCREEN)
                 return
             move, details = screen
+            # What the person chose and gave in this run (2026-11-17), then the
+            # page's own amounts.
+            details = details + run.facts
             if live and not move.final:
                 # Nobody wrote which details matter: the page's own amounts.
                 details = details + await amounts_on_page(page)
@@ -2082,15 +2410,10 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             if action != voice.CONFIRM_ID:
                 await run.stopped()
                 return
-            if paying:
-                # "Do it" to paying: the page is theirs, and they press Pay.
-                handed = await run.hand_over("payment")
-                if handed != "done":
-                    await connection.send("task.failed", TaskFailed(
-                        reason=voice.HANDED_BACK_STOPPED, recoverable=True))
-                    return
-                await run.after_payment()
-                return
+            # "Do it" to a press that pays (2026-11-17): SIMBA presses it, as for
+            # any change. The card form that follows is `run.pay`'s: the person
+            # types the card in the help-me step, a pay screen follows, and
+            # SIMBA presses Pay only on "Pay now".
 
         # The checklist: a safe move, run without a press (2026-10-14). Pause
         # is looked for first, so a press lands before the next move rather
@@ -2173,6 +2496,21 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
                 keep_private(input_values.values())
             if action == voice.REMEMBER_ID:
                 keep = answers_to_save(move, input_values)
+                if move.kinds:
+                    kept = profile.ProfileVault()
+                    for field_id, detail_kind in move.kinds:
+                        typed = input_values.get(field_id)
+                        if typed:
+                            try:
+                                kept.put(detail_kind, typed)
+                            except Exception as error:  # noqa: BLE001 - not kept is not a failure
+                                log.info("details: not kept (%s)", type(error).__name__)
+            # What the person gave, for the final screen (2026-11-17).
+            for field_id, detail_kind in move.kinds:
+                typed = input_values.get(field_id)
+                if typed:
+                    label = next((f.label for f in move.fields if f.id == field_id), detail_kind)
+                    run.facts.append(Detail(label=label, value=typed))
 
         await set_state("acting")
         # A glimpse still being taken is of the page before this move.
@@ -2258,6 +2596,11 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             run.vault.put(page.url, keep)
         completed.append(move)
         history.append(move.instruction)
+        take = getattr(planner, "take_facts", None)
+        if take is not None:
+            for fact in take():
+                if not any(f.label == fact.label and f.value == fact.value for f in run.facts):
+                    run.facts.append(fact)
         # Anything typed on a page we have since left is not ours to police.
         filled = [f for f in filled if f.url == page.url]
         # A choice from the list a box opened commits the box: what it holds
@@ -2396,6 +2739,19 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
             proof_note=proof_note,
     )
     log.info("task completed: %d steps, %.1fs", steps_taken, time.monotonic() - run.started)
+    # A booking or an order that went through is kept as a card (2026-11-17),
+    # on this computer only.
+    if any(m.changes for m in completed_moves):
+        try:
+            said = (answer.value if answer is not None else "") or ""
+            number = (bookings.number_in(said) or bookings.number_in(confirmation or "")
+                      or bookings.number_in((final.content.text or "")[:3000]))
+            kept = bookings.BookingStore().add(
+                task.goal + (" (practice)" if on_replica(page.url) else ""), page.url,
+                list(run.facts), f"Order no {number}" if number else "")
+            log.info("booking kept as a card%s", " with a number" if kept.number else "")
+        except Exception as error:  # noqa: BLE001 - a card not kept is not a failure
+            log.info("booking not kept (%s)", type(error).__name__)
     if send:
         await connection.send("task.completed", completed)
     return completed

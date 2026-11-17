@@ -11,6 +11,7 @@ import type {
   AiSetup,
   AiStatus,
   CatalogueSite,
+  Booking,
   HandOver,
   SiteAdd,
   AnyEnvelope,
@@ -231,6 +232,10 @@ interface Store {
    */
   routines: TaughtTile[];
   teachOpen: boolean;
+  /** "My bookings" (2026-11-17): the completed ones, and whether the screen is open. */
+  bookings: Booking[];
+  bookingsOpen: boolean;
+  setBookingsOpen: (open: boolean) => void;
   /** Where "Show me once" opens, when it was offered on a website
    *  (2026-11-13): the box for the address starts with it. */
   teachAddress: string | null;
@@ -242,7 +247,7 @@ interface Store {
    * whatever the backend sends next.
    */
   handover: HandOver | null;
-  answerHandover: (action: "done" | "cancel") => void;
+  answerHandover: (action: "done" | "cancel" | "again") => void;
   /** Whether an AI provider is set up (2026-11-13), as the backend last said,
    *  and whether a setup is being checked. Null: the backend did not say,
    *  and the setup does not ask. */
@@ -536,6 +541,9 @@ export const useStore = create<Store>((set, get) => {
     tilesOpen: false,
     routines: [],
     teachOpen: false,
+    bookings: [],
+    bookingsOpen: false,
+    setBookingsOpen: (open) => set({ bookingsOpen: open }),
     teachAddress: null,
     teaching: null,
     handover: null,
@@ -642,6 +650,12 @@ export const useStore = create<Store>((set, get) => {
 
     answerHandover: (action) => {
       connection.handoverDone({ action });
+      if (action === "again") {
+        // Try again (2026-11-17): the same step, without the "Still there?".
+        set((current) => (current.handover ? { handover: { ...current.handover, idle: false } }
+                                            : {}));
+        return;
+      }
       hostBar(false);
       set({ handover: null, state: "thinking",
             ...(action === "cancel" ? { stoppedByPerson: true } : {}) });
@@ -981,6 +995,7 @@ function apply(message: AnyEnvelope, set: SetStore): void {
         const chosen = answered.chosenSite ?? current.chosenSite;
         return { history: offered.goals, tiles: offered.tiles ?? [],
                  routines: offered.routines ?? [], ai: offered.ai ?? current.ai,
+                 bookings: offered.bookings ?? [],
                  sites, genres: offered.genres ?? [], ...answered,
                  chosenSite: sites.some((site) => site.id === chosen) ? chosen : null };
       });
@@ -990,11 +1005,17 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       // How the AI setup's check went (2026-11-13).
       set({ ai: message.payload as AiStatus, aiChecking: false });
       return;
-    case "handover":
+    case "handover": {
       // The page is the person's (2026-11-13): the bar, the website below it.
-      hostBar(true);
-      set({ handover: message.payload as HandOver, step: null, state: "waiting" });
+      // With a `kind` (2026-11-17) it is the help-me step instead: only that
+      // part of the page, in a frame the overlay draws (`HelpMe.tsx`), which
+      // tells the host where it is. A repeat of the same step ("Still
+      // there?") changes only the words.
+      const bar = message.payload as HandOver;
+      if (!bar.kind) hostBar(true);
+      set({ handover: bar, step: null, state: "waiting" });
       return;
+    }
     case "goal.answered":
       // No task started. The socket stays open for the person's next choice.
       set({ reply: message.payload as GoalAnswered, task: null, state: null, asking: null });

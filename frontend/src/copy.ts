@@ -80,11 +80,9 @@ export const HOME = {
    *  cards as it is typed in, goes to an address, and takes anything else as
    *  something to do, as the box always has. Its name is still `askHeading`:
    *  what it has always been called, and what it still does. */
-  findPlaceholder: "Readings, gov.uk, or train times to Karachi",
+  findPlaceholder: "Type a website, then what to do there",
   /** On the box's button: go to the one website found, or to the address. */
   go: "Go",
-  /** The card after the last website: one that is not in the list. */
-  another: "Another website",
   /** In the empty space beside the list of websites (2026-11-16). */
   pickLeft: "Choose a website on the left, or tell me what you want.",
   /** When nothing in the list has the words typed. */
@@ -210,6 +208,26 @@ export const HANDOVER = {
   on: (site: string) => `On ${site}`,
   done: "I've finished",
   stop: "Stop, change nothing",
+} as const;
+
+/** "My bookings" (2026-11-17). */
+export const BOOKINGS = {
+  enter: "My bookings",
+  title: "My bookings",
+  back: "Back",
+  none: "Nothing yet. When I finish a booking or an order for you, it will be here.",
+  number: "Number",
+} as const;
+
+/** The help-me step (2026-11-17): only the part of the real page to use. */
+export const HELP = {
+  never: (site: string) =>
+    `On ${site}. I can't see what you type here, and neither can the AI.`,
+  done: "I've done it",
+  stop: "Stop",
+  stillThere: "Still there?",
+  stillThereDetail: "Nothing has changed for two minutes. Try again, or stop here.",
+  again: "Try again",
 } as const;
 
 /** Under a move the AI planner chose (2026-11-13, the advisor's direction):

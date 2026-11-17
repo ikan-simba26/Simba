@@ -202,8 +202,11 @@ def home(browser, overlay: str, backend: Backend, size: str, pages: list) -> Pag
 
 
 def another(page: Page, address: str = "") -> None:
-    """ "Another website": the second screen, for one that is not a card."""
-    page.get_by_test_id("another-site").click()
+    """A website that is not a card: its address typed in the one box, then Go,
+    which opens the second screen (the "Another website" button went on
+    2026-11-16: the box does that, and the button said the same thing twice)."""
+    page.get_by_test_id("ask-goal").fill(address or "gov.uk")
+    page.get_by_test_id("home-go").click()
     page.get_by_test_id("home-there").wait_for()
     if address:
         page.get_by_test_id("ask-where").fill(address)
@@ -262,9 +265,9 @@ def test_the_first_screen_asks_where_and_every_website_is_a_card_that_fits(
     assert page.get_by_test_id("site").first.is_visible()
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollWidth > innerWidth")
-    # The box, "Another website" and the settings are on screen, and the
-    # heading is clear of "Teach a task" in the corner.
-    for testid in ("another-site", "change-settings"):
+    # The box and the settings are on screen, and the heading is clear of
+    # "Teach a task" in the corner.
+    for testid in ("change-settings",):
         assert edges(page, testid)["bottom"] <= height, testid
     box = page.get_by_role("textbox", name=BOX).bounding_box()
     assert box["y"] + box["height"] <= height
@@ -606,7 +609,7 @@ def test_the_status_line_says_connected_and_covers_nothing(
     assert line.inner_text().replace("\n", " ").split() == ["Connected", "·", "Ready"]
     status = edges(page, "status-line")
     assert status["bottom"] <= SIZES[size][1]
-    for testid in ("site-grid", "another-site", "change-settings", "greeting"):
+    for testid in ("site-grid", "change-settings", "greeting"):
         assert not overlaps(status, edges(page, testid)), testid
 
 

@@ -18,15 +18,18 @@ import asyncio
 import logging
 import re
 from collections import Counter
+from urllib.parse import urlsplit
 from dataclasses import dataclass, replace
 
+from backend.orchestrator import cards as cardlib
+from backend.orchestrator import profile as profilelib
 from backend.orchestrator.llm import Action, LLMError, Provider
-from backend.orchestrator.loop import CHANGE_WORDS, Move, Task
+from backend.orchestrator.loop import CHANGE_WORDS, Move, Task, resolve
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
 from backend.perception.serializer import VIEWPORT, Element
-from shared.schema import Finding, StepField
+from shared.schema import Detail, Finding, StepAction, StepField
 
 log = logging.getLogger("simba.llm")
 
@@ -503,9 +506,42 @@ To make an account: fill in the form the same way; for every password box \
 choose "type" with value null (SIMBA can make a strong password and keep it); \
 tick a box agreeing to the website's terms when the form needs it (SIMBA asks \
 the person first); then press the button that creates the account.
+When the page offers ways to pay (cash on delivery, card, bank transfer, a \
+wallet), choose the one the goal names; if the goal names none, choose any one: \
+SIMBA asks the person which they want.
 Never type card numbers, bank details, passwords or one-time codes: a payment \
 page is handed to the person.
+When the goal does not say which option to use for a choice the website offers \
+(a bus or train time, a class, a seat type, a size, a delivery option), never \
+pick one yourself: choose action "ask" with the element_id of that dropdown, or \
+of one of its options, and reasoning a short question for the person, like: \
+Which class? SIMBA shows the website's own options and presses the one they pick.
+Never add more than one item to a cart or a booking unless the goal says so.
 """
+
+#: A goal that does something (2026-11-17): the person is asked "Which one?"
+#: before one of several matches is opened, never left to the model's pick.
+DOING_GOAL = re.compile(
+    r"\b(order|buy|purchase|book|reserve|get me|add .{0,30} to (my )?(cart|basket|bag)|"
+    r"register|apply|sign up)\b", re.IGNORECASE)
+#: A page that is the cart, a checkout or a payment is not a list of choices.
+NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|confirm)", re.IGNORECASE)
+CARD_ID_PREFIX = "card:"
+OPTION_ID_PREFIX = "opt:"
+#: The most options of one choice put in front of the person.
+MOST_OPTIONS = 10
+_OPTIONS_JS = """e => {
+  const label = r => { const l = (r.labels && r.labels[0]) ? r.labels[0] : r.closest('label');
+    return ((l ? l.innerText : '') || r.value || r.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim(); };
+  if (e.tagName === 'SELECT')
+    return [...e.options].filter(o => !o.disabled && o.value !== '' && o.text.trim())
+      .map(o => o.text.replace(/\\s+/g, ' ').trim());
+  if (e.type === 'radio' && e.name)
+    return [...document.querySelectorAll('input[type=radio]')].filter(r => r.name === e.name)
+      .map(label).filter(Boolean);
+  return [];
+}"""
+CART_GO_ID = "cart:go"
 
 #: How much of what the page says goes in the prompt. A free tier's tokens a
 #: minute are the limit that bites (8,000 on Groq; EVALUATION.md, 2026-11-12).
@@ -553,6 +589,27 @@ PERSONAL = re.compile(
 #: Theirs to choose, so asked (`voice.ASK_COOKIES` is the written plans' way).
 CONSENT_WORDS = re.compile(
     r"\b(accept|allow|agree|consent|i understand|opt in|notify me|subscribe)\b", re.IGNORECASE)
+#: A way of paying a page offers (2026-11-16). Not "pay now" or "place order":
+#: those are the press that finishes, not a way to pay.
+PAYMENT_METHOD = re.compile(
+    r"(cash on delivery|cash on delievery|\bcod\b|pay (online|by card|with card|on delivery|"
+    r"at the door|later)|credit card|debit card|card payment|bank transfer|easypaisa|"
+    r"jazz ?cash|wallet|raast|safepay)", re.IGNORECASE)
+#: Roles that are a choice among ways, not a button that finishes.
+METHOD_ROLES = {"radio", "checkbox", "option", "tab", "menuitemradio"}
+
+
+def is_payment_method(element: Element) -> bool:
+    """Whether an element is one of the ways of paying a page offers."""
+    return bool(PAYMENT_METHOD.search(element.label or "")) and (
+        element.role in METHOD_ROLES or element.role in ("button", "link"))
+
+
+def names_a_method(goal: str) -> bool:
+    """Whether the goal already says how to pay: "cash on delivery", "by card"."""
+    return bool(PAYMENT_METHOD.search(goal) or re.search(r"\b(cash|card|online)\b", goal, re.I))
+
+
 #: A floating button for a help chat (2026-11-14). Perception marks one as an
 #: overlay when it is all that is on top of a page still loading, and under
 #: "dismiss the overlay first" the model's first move on Readings, in the real
@@ -642,6 +699,50 @@ async def restate(provider: Provider, goal: str, site: str) -> str | None:
     return words
 
 
+#: Words of a goal that say what to do or are filler, not what it is about.
+GOAL_FILLER = {
+    "order", "buy", "purchase", "book", "books", "reserve", "please", "get", "for", "the", "and",
+    "with", "from", "ticket", "tickets", "online", "want", "need", "would", "like", "can", "you",
+    "that", "this", "some", "any", "one", "cash", "delivery", "card", "pay", "payment", "register",
+    "apply", "sign", "new", "find", "show", "give", "bus", "train", "flight", "seat", "seats",
+}
+
+
+def goal_words(goal: str) -> list[str]:
+    """What a goal is about: its longer words that are not filler."""
+    return [w for w in re.findall(r"[a-z0-9]{4,}", (goal or "").lower()) if w not in GOAL_FILLER]
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[^\w ]+", " ", (text or "").lower()).split())
+
+
+def _control_for(card: "cardlib.Card", elements: list[Element]) -> Element | None:
+    """The element a card is pressed by: a link or button whose words are the
+    card's control text, the nearest to where the page had it."""
+    wanted = _plain(card.link_text or card.name)
+    if not wanted:
+        return None
+    candidates = [e for e in elements if e.role in ("link", "button")
+                  and _plain(_without_icons(e.label))
+                  and (wanted in _plain(_without_icons(e.label))
+                       or _plain(_without_icons(e.label)) in wanted)]
+    if not candidates:
+        return None
+    if card.link_rect is None or len(candidates) == 1:
+        return candidates[0]
+    cx = card.link_rect[0] + card.link_rect[2] / 2
+    cy = card.link_rect[1] + card.link_rect[3] / 2
+
+    def distance(element: Element) -> float:
+        if element.rect is None:
+            return float("inf")
+        x, y, w, h = element.rect
+        return abs(x + w / 2 - cx) + abs(y + h / 2 - cy)
+
+    return min(candidates, key=distance)
+
+
 class OpenGoalPlanner(LLMPlanner):
     """The model on a goal with no plan: acts, or answers from the page.
 
@@ -685,13 +786,69 @@ class OpenGoalPlanner(LLMPlanner):
         self._chosen: Counter = Counter()
         self._opened = False
         self._was_on_top = False
+        # Which way to pay, when the page offers several (2026-11-16): asked once.
+        self._method_asked = False
+        self._method_options: dict[str, Element] = {}
+        self._method_chosen: Element | None = None
+        # "Which one?" (2026-11-17), the one-item rule and the cart check.
+        self.page = None
+        self._asked_which = False
+        self._card_options: dict[str, cardlib.Card] = {}
+        self._card_chosen: cardlib.Card | None = None
+        self._added = 0
+        self._pending_add = False
+        self._cart_asked = False
+        self._cart_ok = False
+        self._new_facts: list[Detail] = []
+        # A choice the site offers, asked of the person (2026-11-17).
+        self._site_options: dict[str, str] = {}
+        self._site_question: str = ""
+        self._site_element: Element | None = None
+        self._site_chosen: tuple[Element, str] | None = None
+
+    def attach(self, page) -> None:
+        """The page, for what only the page can say: the cards of a list and
+        what a cart holds (`cards.py`). Called by the loop."""
+        self.page = page
+
+    def take_facts(self) -> list[Detail]:
+        """What the person chose since last asked, for the final screen."""
+        facts, self._new_facts = self._new_facts, []
+        return facts
 
     def look(self, content: Content) -> None:
         """What the page says now. The loop calls this before each move."""
         self._content = content
 
     def answered(self, action_id: str, values: dict) -> None:  # noqa: ARG002
-        """The person's answer to "Is this what you wanted?"."""
+        """The person's answer to "Is this what you wanted?", or to "How do you
+        want to pay?"."""
+        if action_id in self._method_options:
+            self._method_chosen = self._method_options[action_id]
+            self._method_options = {}
+            self._new_facts.append(Detail(
+                label=voice.FACT_PAYING,
+                value=voice.short_name(_without_icons(self._method_chosen.label))
+                or self._method_chosen.label))
+            return
+        if action_id in self._card_options:
+            self._card_chosen = self._card_options[action_id]
+            self._card_options = {}
+            self._new_facts.append(Detail(label=voice.FACT_CHOSEN, value=" - ".join(
+                part for part in (self._card_chosen.name, self._card_chosen.price) if part)))
+            return
+        if action_id in self._site_options:
+            chosen = self._site_options[action_id]
+            if self._site_element is not None:
+                self._site_chosen = (self._site_element, chosen)
+                self._new_facts.append(Detail(
+                    label=voice.short_name(self._site_question.rstrip("? ")) or voice.FACT_CHOSEN,
+                    value=chosen))
+            self._site_options = {}
+            return
+        if action_id == CART_GO_ID:
+            self._cart_ok = True
+            return
         if self._proposed is None:
             return
         if action_id == voice.CONFIRM_ID:
@@ -749,11 +906,82 @@ class OpenGoalPlanner(LLMPlanner):
         elif self._stalled and not setback:
             setback = ("Your last action changed nothing, or brought you back to a page "
                        "you had already seen. Choose something different.")
+        if self._method_chosen is not None:
+            # The person chose how to pay: press that, on the page as it is now.
+            wanted, self._method_chosen = self._method_chosen, None
+            now = next((e for e in usable(elements, self._failed)
+                        if e.label == wanted.label and e.role == wanted.role), None)
+            if now is not None:
+                self._made = ("click", now.role, now.label)
+                return await self._shape(_Choice(
+                    action=Action(action="click", element_id=now.id,
+                                  reasoning="This is the way you chose to pay."),
+                    element=now))
+        if self._pending_add:
+            self._pending_add = False
+            if not setback:
+                self._added += 1
+        if self._site_chosen is not None:
+            # The person chose among the site's own options: do that.
+            wanted, text = self._site_chosen
+            self._site_chosen = None
+            now = next((e for e in usable(elements, self._failed)
+                        if (e.role, e.label) == (wanted.role, wanted.label)), None)
+            if now is not None:
+                if now.role == "radio":
+                    option = next((e for e in usable(elements, self._failed)
+                                   if e.role == "radio" and _plain(e.label) == _plain(text)), None)
+                    action = Action(action="click", element_id=(option or now).id,
+                                    reasoning="This is the one you chose.")
+                    self._made = ("click", (option or now).role, (option or now).label)
+                    return await self._shape(_Choice(action=action, element=option or now))
+                self._made = ("select", now.role, now.label)
+                return await self._shape(_Choice(
+                    action=Action(action="select", element_id=now.id, value=text,
+                                  reasoning="This is the one you chose."), element=now))
+        if self._card_chosen is not None:
+            # The person chose one of the cards: press that one, and only it.
+            wanted, self._card_chosen = self._card_chosen, None
+            now = _control_for(wanted, usable(elements, self._failed))
+            if now is not None:
+                self._made = ("click", now.role, now.label)
+                return await self._shape(_Choice(
+                    action=Action(action="click", element_id=now.id,
+                                  reasoning="This is the one you chose."),
+                    element=now))
+        which = await self._which_one(elements, on_top)
+        if which is not None:
+            return which
         choice = await self._choose(elements, history, setback)
         self._chose(choice)
         self.worked_out_by = getattr(self._provider, "label", None)
         if choice is None:
             return None
+        if choice.action.action == "ask":
+            asking = await self._ask_site(choice, elements)
+            if asking is not None:
+                return asking
+            self.stuck_reason = voice.AI_COULD_NOT
+            return None
+        checking = await self._cart_check(choice)
+        if checking is not None:
+            return checking
+        if (choice.element is not None and not self._method_asked
+                and is_payment_method(choice.element) and not names_a_method(self._task.goal)):
+            self._method_asked = True
+            ways: dict[str, Element] = {}
+            for element in usable(elements, self._failed):
+                if is_payment_method(element) and element.label not in {
+                        w.label for w in ways.values()}:
+                    ways[voice.PAY_ID_PREFIX + str(element.id)] = element
+            if len(ways) >= 2:
+                self._method_options = ways
+                actions = [StepAction(id=key, label=voice.short_name(_without_icons(e.label))
+                                      or e.label, kind="primary") for key, e in ways.items()]
+                actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+                return Move(instruction=voice.PAY_HOW, detail=voice.PAY_HOW_DETAIL,
+                            operations=[], expect=Expectation(), fields=[], actions=actions,
+                            question=True, kind="choose")
         if choice.action.action == "answer":
             said = (choice.action.value or "").strip()
             sentence = answer_sentence(said, choice.action.reasoning, self._task.goal)
@@ -772,7 +1000,91 @@ class OpenGoalPlanner(LLMPlanner):
             self.stuck_reason = voice.AI_NO_PROGRESS
             return None
         self._made = key
+        if (choice.action.action == "click"
+                and cardlib.ADD_WORDS.search(_without_icons(choice.element.label))):
+            self._pending_add = True
         return await self._shape(choice)
+
+    # --- "Which one?", one item, and the cart (2026-11-17) --------------------------
+
+    async def _which_one(self, elements: list[Element], on_top: bool) -> Move | None:
+        """Several matches on the page, and the goal does something with one of
+        them: the person chooses, as cards. Once per run, on a list page only,
+        and never after something is in the cart."""
+        if (self.page is None or self._asked_which or self._added or on_top
+                or not DOING_GOAL.search(self._task.goal)
+                or NOT_A_LIST.search(urlsplit(self.page.url).path or "")):
+            return None
+        found = await cardlib.find_cards(self.page)
+        if len(found) < 2:
+            return None
+        usable_now = usable(elements, self._failed)
+        # Only the ones about what was asked for: a shop's front page lists
+        # its own picks, which are not matches (Readings, 2026-11-17).
+        words = goal_words(self._task.goal)
+        about = [c for c in found if not words or any(w in _plain(c.name) for w in words)]
+        reachable = [c for c in about if _control_for(c, usable_now) is not None]
+        if len(reachable) < 2:
+            return None
+        self._asked_which = True
+        pictures = await cardlib.pictures(self.page, reachable)
+        options: dict[str, cardlib.Card] = {}
+        actions: list[StepAction] = []
+        for card, picture in zip(reachable, pictures):
+            key = f"{CARD_ID_PREFIX}{card.index}"
+            options[key] = card
+            actions.append(StepAction(id=key, label=card.name, kind="primary",
+                                      sub=card.price or None, picture=picture))
+        self._card_options = options
+        actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+        return Move(instruction=voice.WHICH_ONE, detail=voice.WHICH_ONE_DETAIL, operations=[],
+                    expect=Expectation(), fields=[], actions=actions, question=True,
+                    kind="choose")
+
+    async def _ask_site(self, choice: "_Choice", elements: list[Element]) -> Move | None:
+        """The model says a choice is the person's: read the site's own
+        options for it and ask, as buttons."""
+        if self.page is None or choice.element is None:
+            return None
+        try:
+            found = await resolve(self.page, elements, choice.element.id).evaluate(
+                _OPTIONS_JS, timeout=3000)
+        except Exception:  # noqa: BLE001 - nothing to ask about
+            return None
+        options = [o for o in dict.fromkeys(found or []) if o][:MOST_OPTIONS]
+        if len(options) < 2:
+            return None
+        question = (choice.action.reasoning or "").strip()
+        if not question.endswith("?"):
+            question = voice.WHICH_ONE
+        self._site_question = question
+        self._site_element = choice.element
+        self._site_options = {f"{OPTION_ID_PREFIX}{i}": text for i, text in enumerate(options)}
+        actions = [StepAction(id=key, label=text, kind="primary")
+                   for key, text in self._site_options.items()]
+        actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+        return Move(instruction=question, detail=voice.WHICH_ONE_SITE, operations=[],
+                    expect=Expectation(), fields=[], actions=actions, question=True,
+                    kind="choose")
+
+    async def _cart_check(self, choice: "_Choice") -> Move | None:
+        """About to start checking out with more in the cart than the goal
+        asked for: say so first, once."""
+        if (self.page is None or self._cart_asked or self._cart_ok or choice.element is None
+                or choice.action.action != "click"
+                or cardlib.goal_wants_many(self._task.goal)
+                or not cardlib.CHECKOUT_WORDS.search(_without_icons(choice.element.label))):
+            return None
+        cart = await cardlib.read_cart(self.page)
+        if cart is None or cart.things <= 1:
+            return None
+        self._cart_asked = True
+        self._new_facts.append(Detail(label=voice.FACT_IN_CART, value=str(cart.things)))
+        actions = voice.actions(voice.CART_GO_ON)
+        actions[0] = StepAction(id=CART_GO_ID, label=voice.CART_GO_ON, kind="primary")
+        return Move(instruction=voice.cart_has(cart.things), detail="; ".join(cart.names[:3]),
+                    operations=[], expect=Expectation(), fields=[], actions=actions,
+                    question=True, kind="confirm")
 
     # --- a move, in plain words, and whether it runs by itself --------------------
 
@@ -791,6 +1103,19 @@ class OpenGoalPlanner(LLMPlanner):
         search = kind == "fill" and not personal and _is_search(element)
         asks = kind == "fill" and (value is None or personal)
         field_id = element.name or str(element.id)
+        # The person's own details (2026-11-17): a box for a name, a CNIC, a
+        # phone, an email, an address or a city is filled from what they chose
+        # to keep on this computer, by SIMBA, and never by the model. Not kept
+        # yet: asked in its own screen, with a way to keep it.
+        detail = (profilelib.kind_of(label, element.name, element.input_type)
+                  if kind == "fill" and not element.is_password and not given else None)
+        remembered = None
+        if detail is not None and asks:
+            remembered = profilelib.ProfileVault().get(detail)
+        if remembered:
+            value, asks, search = remembered, False, False
+            self.keep_private([remembered])
+            self._new_facts.append(Detail(label=voice.short_name(label) or label, value=remembered))
         operation = Operation(kind=kind, target=Target(role=element.role, label=element.label),
                               element_id=element.id, value=value,
                               value_key=field_id if kind == "fill" else None,
@@ -808,8 +1133,23 @@ class OpenGoalPlanner(LLMPlanner):
         instruction, doing = voice.plain_move(
             kind, element.role, label, None if asks else value, search=search,
             overlay=element.overlay, password=element.is_password)
+        actions = voice.actions(voice.GO_AHEAD)
+        kinds: tuple = ()
+        if remembered:
+            said = profilelib.WORDS.get(detail, "this")
+            instruction, doing = voice.typing_detail(said), voice.typing_detail_doing(said)
+        elif asks and detail is not None:
+            kinds = ((field_id, detail),)
+            said = profilelib.WORDS.get(detail, "this")
+            instruction = voice.ask_detail(said)
+            if profilelib.ProfileVault().available:
+                actions = [actions[0], StepAction(id=voice.REMEMBER_ID,
+                                                  label=voice.REMEMBER_DETAIL, kind="primary"),
+                           *actions[1:]]
         if kind == "click":
             safe = not (CHANGE_WORDS.search(label) or CONSENT_WORDS.search(label))
+        elif remembered:
+            safe = True
         else:
             safe = bool(value) and not asks and not personal
         return Move(
@@ -821,9 +1161,10 @@ class OpenGoalPlanner(LLMPlanner):
             # reading the field back, in loop.attempt_move.
             expect=Expectation(),
             fields=fields,
-            actions=voice.actions(voice.GO_AHEAD),
+            actions=actions,
             safe=safe,
             doing=doing,
+            kinds=kinds,
         )
 
     # --- asking the model ------------------------------------------------------
@@ -871,6 +1212,15 @@ class OpenGoalPlanner(LLMPlanner):
                             "id from the list of elements, exactly as it is numbered there.")
                 continue
             chosen = valid[action.element_id]
+            if (self._added and action.action == "click"
+                    and cardlib.ADD_WORDS.search(_without_icons(chosen.label))
+                    and not cardlib.goal_wants_many(self._task.goal)):
+                # One item, unless the goal asked for more (2026-11-17): on
+                # Readings two matching books went into the cart.
+                log.info("AI choice refused: a second add to the cart")
+                feedback = ("One item is already in the cart and the goal asks for one. "
+                            "Never add another. Go on to the cart and check out.")
+                continue
             if (self._opened and action.action == "click" and chosen.overlay
                     and voice.CLOSE_WORDS.match(_without_icons(chosen.label) or "")):
                 # Its own last press opened this; closing it undoes that press.
