@@ -148,3 +148,31 @@ def test_required_boxes_still_empty_are_named_before_a_form_is_sent_on() -> None
     assert outside == []                      # a button in no form has none to check
     assert SENDS_FORM.search("Register") and SENDS_FORM.search("Place order")
     assert not SENDS_FORM.search("Open details")
+
+
+IESCO_LIKE = """<html><body><img alt="IESCO Logo" src="logo.png">
+<form><input name=ref placeholder="Enter 14-digit valid reference no">
+<div id=box><img id=captchaImage alt="CAPTCHA Image" src="c.png" width=80 height=30>
+<input id=captchaInput placeholder="Enter CAPTCHA code"></div>
+<input type=submit id=btnSearch></form></body></html>"""
+
+
+def test_a_picture_captcha_is_a_captcha_not_a_code_from_the_phone() -> None:
+    """IESCO's bill page, 2026-11-18: "Enter CAPTCHA code" was read as a code
+    the website sent to the phone."""
+    from backend.orchestrator import helpme
+
+    async def run() -> tuple[str, str]:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(IESCO_LIKE)
+            kind = await helpme.kind_of_page(page)
+            target = await helpme.find(page, "captcha")
+            box_id = await target.locator.get_attribute("id") if target.locator else ""
+            await browser.close()
+            return kind, box_id
+
+    kind, box_id = asyncio.run(run())
+    assert kind == "captcha"
+    assert box_id == "box"       # the block holding the picture and its box
