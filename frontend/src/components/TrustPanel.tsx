@@ -18,9 +18,10 @@ import { useState } from "react";
 
 import type { Highlight, PagePreview } from "@shared/schema";
 
-import { TRUST } from "../copy";
+import { FRAME, TRUST } from "../copy";
 import { EASE, MOTION } from "../design";
 import { useStore } from "../store";
+import { useFramed } from "./framed";
 import { Button, EyeIcon } from "./ui";
 
 const SLIDE = { duration: MOTION.slow, ease: EASE };
@@ -57,6 +58,9 @@ function frameFor(highlight: Highlight, whole: boolean) {
 
 export function TrustControl() {
   const { task, completed, failed, trustOpen, askWhat } = useStore();
+  // "See the real page" in the task frame (2026-11-17): the same press, the same
+  // picture, shown in the middle panel with a glowing ring on what SIMBA touches.
+  const framed = useFramed();
 
   // Only while there is something to be doing. The way *out* of the panel
   // lives inside the panel: this control sits under it and cannot be
@@ -70,7 +74,7 @@ export function TrustControl() {
     // exists to make the whole system trustworthy.
     <Button variant="secondary" size="md" wide={false} onClick={askWhat}>
       <EyeIcon />
-      {TRUST.ask}
+      {framed ? FRAME.seeReal : TRUST.ask}
     </Button>
   );
 }
@@ -126,7 +130,10 @@ export function TrustPanel() {
  * slides out from the target to the page and back, slowly, so the person
  * sees the close-up is part of the whole.
  */
-function Shot({ preview, onHide }: { preview: PagePreview; onHide: () => void }) {
+function Shot({ preview, onHide, inline = false }: {
+  preview: PagePreview; onHide: () => void; inline?: boolean;
+}) {
+  const site = useStore((state) => state.taskSite);
   const { highlight, caption, screenshot } = preview;
   const hasBox = highlight.w > 0 && highlight.h > 0;
   const [whole, setWhole] = useState(!hasBox);
@@ -146,18 +153,12 @@ function Shot({ preview, onHide }: { preview: PagePreview; onHide: () => void })
     height: `${(highlight.h / frame.h) * 100}%`,
   };
 
-  return (
-    <motion.div
-      initial={{ y: 24, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: 24, opacity: 0 }}
-      transition={SLIDE}
-      className="flex w-full max-w-[860px] flex-col items-center gap-6"
-    >
+  const picturebox = (
       <div
-        className="relative w-full overflow-hidden rounded-xl border border-line bg-sunk
-                   shadow-card"
-        style={{ aspectRatio: `${CAPTURE.width} / ${CAPTURE.height}` }}
+        className={`relative overflow-hidden rounded-xl border border-line bg-sunk shadow-card
+                    ${inline ? "max-h-full max-w-full" : "w-full"}`}
+        style={inline ? { aspectRatio: `${CAPTURE.width} / ${CAPTURE.height}`, height: "100%" }
+                      : { aspectRatio: `${CAPTURE.width} / ${CAPTURE.height}` }}
       >
         <motion.img
           src={`data:image/png;base64,${screenshot}`}
@@ -169,11 +170,12 @@ function Shot({ preview, onHide }: { preview: PagePreview; onHide: () => void })
         />
 
         {/* Dimmed, so the ring is the only thing with any brightness. */}
-        <div className="pointer-events-none absolute inset-0 bg-canvas/45" />
+        {(!inline || hasBox) && <div className="pointer-events-none absolute inset-0 bg-canvas/45" />}
 
         {hasBox && (
           <motion.div
-            className="pointer-events-none absolute rounded-[6px] ring-4 ring-accent"
+            className={`pointer-events-none absolute rounded-[6px] ${inline ? "simba-ring-glow"
+                        : "ring-4 ring-accent"}`}
             data-testid="trust-highlight"
             initial={false}
             animate={ring}
@@ -183,9 +185,9 @@ function Shot({ preview, onHide }: { preview: PagePreview; onHide: () => void })
           </motion.div>
         )}
       </div>
+  );
 
-      <p className="text-center text-title font-semibold text-ink">{caption}</p>
-
+  const buttons = (
       <div className="flex flex-wrap items-center justify-center gap-4">
         {hasBox && (
           <Button variant="secondary" size="md" wide={false} onClick={() => setWhole(!whole)}>
@@ -195,9 +197,68 @@ function Shot({ preview, onHide }: { preview: PagePreview; onHide: () => void })
         {/* A real button, not a link: this is the only way back, and it has
             to look like something that can be pressed. */}
         <Button size="md" wide={false} onClick={onHide}>
-          {TRUST.hide}
+          {inline ? FRAME.hideReal : TRUST.hide}
         </Button>
       </div>
+  );
+
+  if (inline) {
+    // In the middle panel of the task frame (screen C): a browser's bar saying
+    // it is live, the page with the ring, and the way back.
+    return (
+      <div className="flex h-full flex-col gap-3 p-5 short:gap-2 short:p-3" data-testid="live-page-centre">
+        <div className="flex shrink-0 items-center gap-3 rounded-lg bg-sunk px-4 py-2 text-small text-soft">
+          <span className="rounded-full bg-accent px-3 py-0.5 text-small font-semibold text-accent-ink">
+            {FRAME.live}
+          </span>
+          <span className="min-w-0 truncate">{site ? site.address.replace(/^https?:\/\//, "") : ""}</span>
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center">{picturebox}</div>
+        {caption && <p className="shrink-0 text-center text-lead font-semibold text-ink short:text-body">{caption}</p>}
+        <div className="shrink-0">{buttons}</div>
+        <p className="shrink-0 text-center text-small text-soft short:hidden">{FRAME.liveNote}</p>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ y: 24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: 24, opacity: 0 }}
+      transition={SLIDE}
+      className="flex w-full max-w-[860px] flex-col items-center gap-6"
+    >
+      {picturebox}
+      <p className="text-center text-title font-semibold text-ink">{caption}</p>
+      {buttons}
     </motion.div>
+  );
+}
+
+/**
+ * "See the real page" in the middle panel of the task frame (2026-11-17,
+ * screen C): the live website, as the backend last pictured it, with a
+ * glowing ring on what SIMBA is about to touch or is touching. The small live
+ * picture the backend sends while SIMBA works is shown at once, ringless,
+ * until the one asked for arrives.
+ */
+export function LivePage() {
+  const { preview, livePreview, noPicture, closeTrust } = useStore();
+  const shown: PagePreview | null = preview ?? (livePreview
+    ? { screenshot: livePreview, highlight: { x: 0, y: 0, w: 0, h: 0 }, caption: "" } : null);
+  return (
+    <div className="h-full" data-testid="trust-panel">
+      {shown ? <Shot key={preview ? "asked" : "live"} preview={shown} onHide={closeTrust} inline /> : (
+        <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center" role="status"
+             data-testid={noPicture ? "no-picture" : "live-page-waiting"}>
+          <p className="text-title font-semibold text-ink">{noPicture ? TRUST.noPicture : FRAME.waitingPicture}</p>
+          {noPicture && <p className="text-body text-soft">{TRUST.tryAgain}</p>}
+          <Button variant="secondary" size="md" wide={false} onClick={closeTrust}>
+            {noPicture ? TRUST.close : FRAME.hideReal}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

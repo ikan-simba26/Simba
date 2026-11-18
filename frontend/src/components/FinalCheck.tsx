@@ -14,6 +14,7 @@
 import type { StepPresented } from "@shared/schema";
 
 import { Button } from "./ui";
+import { useFramed } from "./framed";
 import { TopLine } from "./StepShell";
 
 export function FinalCheck({ step, answered, onAction }: {
@@ -22,18 +23,22 @@ export function FinalCheck({ step, answered, onAction }: {
   onAction: (actionId: string) => void;
 }) {
   const details = step.final ?? [];
+  // In the task frame (2026-11-17) the card on the right IS the final screen:
+  // the same details, complete, in amber. They are still here for a screen
+  // reader and as the list of record, but not drawn twice.
+  const framed = useFramed();
   return (
     <div className="flex flex-col gap-4 short:gap-3" data-testid="final-check">
       <TopLine step={step} stages full answered={answered} />
-      <h1 className="text-title font-semibold leading-[1.25] tracking-[-0.015em] text-ink
-                     short:text-lead">
+      <h1 className={`font-semibold leading-[1.25] tracking-[-0.015em] text-ink ${framed
+        ? "text-heading short:text-title" : "text-title short:text-lead"}`}>
         {step.instruction}
       </h1>
       {/* Two columns, each detail one line, its name before it: four to a
           row wrapped "17 October 2026" and a passenger's full name onto two
           lines, and put the answers past a 606px window (2026-10-16). */}
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg bg-tint px-6 py-4
-                     short:gap-y-1 short:py-3" data-testid="final-details">
+      <dl className={framed ? "sr-only" : `grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg bg-tint px-6
+                     py-4 short:gap-y-1 short:py-3`} data-testid="final-details">
         {details.map((detail) => (
           <div key={detail.label} className="flex min-w-0 items-baseline gap-3">
             <dt className="w-28 shrink-0 text-caption text-soft short:w-24">{detail.label}</dt>
@@ -43,7 +48,8 @@ export function FinalCheck({ step, answered, onAction }: {
           </div>
         ))}
       </dl>
-      {step.detail && <p className="text-body text-soft" data-testid="final-waits">{step.detail}</p>}
+      {step.detail && <p className={`text-soft ${framed ? "text-lead short:text-body" : "text-body"}`}
+                       data-testid="final-waits">{step.detail}</p>}
       {/* Two answers of equal weight, side by side: no default. */}
       <div className="flex flex-row gap-3" data-testid="final-answers">
         {step.actions.map((action) => (

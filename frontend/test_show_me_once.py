@@ -406,18 +406,17 @@ def test_a_routine_is_saved_to_a_file_and_one_is_read_in(
 def test_teach_a_task_is_on_the_home_screen_for_a_helper_and_opens_the_same_screen(
         browser, overlay: str, backend: Teacher, pages: list) -> None:  # noqa: F811
     page, _ = opened(browser, overlay, backend, pages)
-    entry = page.get_by_test_id("teach-entry")
-    assert [line for line in entry.inner_text().split("\n") if line] == [
-        "Teach a task", "For a helper, like a carer or a teacher."]
+    # A button in the first screen's top bar since 2026-11-17, saying who it is for.
+    assert page.get_by_test_id("teach-a-task").inner_text().strip() == "For helpers: teach a task"
     page.get_by_test_id("teach-a-task").click()
     page.get_by_test_id("teach-intro").wait_for(timeout=5000)
     # On the home screen and on no other (it fades, so it is waited for).
-    page.get_by_test_id("teach-entry").wait_for(state="detached", timeout=5000)
+    page.get_by_test_id("teach-a-task").wait_for(state="detached", timeout=5000)
     assert page.get_by_test_id("teach-start").is_disabled()
     # "Not now" goes home, with nothing started.
     page.get_by_test_id("teach-back").click()
     page.get_by_role("textbox", name=BOX).wait_for(timeout=5000)
-    page.get_by_test_id("teach-entry").wait_for(timeout=5000)
+    page.get_by_test_id("teach-a-task").wait_for(timeout=5000)
     assert backend.sent("teach.start") == []
     # And the entry in the settings is still there.
     to_the_intro(page)
@@ -441,7 +440,7 @@ def test_the_way_in_fits_the_fullest_home_screen_at_every_size(
     fits, measured = box_fits(page)
     assert fits, measured
     # Nor does it sit on the logo's side of the window.
-    entry = page.get_by_test_id("teach-entry").bounding_box()
+    entry = page.get_by_test_id("teach-a-task").bounding_box()
     assert entry["x"] > SIZES[size][0] / 2, entry
 
 

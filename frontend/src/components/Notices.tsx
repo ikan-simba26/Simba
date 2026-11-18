@@ -18,6 +18,7 @@ import { useEffect } from "react";
 
 import { levelNotice as noticeFor, NOTICE } from "../copy";
 import { useStore } from "../store";
+import { useFramed } from "./framed";
 import { DismissButton, InfoIcon } from "./ui";
 
 const LEVEL_MS = 8000;
@@ -51,13 +52,16 @@ export function NoticeTimers() {
 export function NoticeLine() {
   const { stepFailure, dismissLevelNotice, dismissStepFailure } = useStore();
   const said = useNotice();
+  // In the task frame's narrower middle (2026-11-17) the sentence wraps rather than
+  // being cut: a change nobody was told the whole of is a change made silently.
+  const framed = useFramed();
   if (!said) return null;
   return (
     <p role="status" data-testid="notice-line"
        className="flex min-w-0 items-center gap-3 rounded-full bg-tint py-1 pr-1 pl-4
                   text-small text-ink">
       <span className="shrink-0 text-soft" aria-hidden><InfoIcon /></span>
-      <span className="min-w-0 flex-1 truncate">{said}</span>
+      <span className={`min-w-0 flex-1 ${framed ? "break-words leading-snug" : "truncate"}`}>{said}</span>
       <DismissButton onClick={stepFailure ? dismissStepFailure : dismissLevelNotice} />
     </p>
   );

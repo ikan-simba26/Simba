@@ -83,6 +83,24 @@ export const HOME = {
   findPlaceholder: "Type a website, then what to do there",
   /** On the box's button: go to the one website found, or to the address. */
   go: "Go",
+  /** The first screen, redesigned (2026-11-17): a small greeting over the one
+   *  question, a box for the answer, then the websites as cards. */
+  hello: (hour: number, name?: string) => {
+    const word = hour >= 5 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon"
+      : "Good evening";
+    return name ? `${word}, ${name}` : word;
+  },
+  question: "What would you like to do?",
+  examplePlaceholder: "For example: book a bus from Lahore to Karachi on Friday",
+  pickSite: "Or pick a website",
+  seeAll: (n: number) => `See all ${n}`,
+  seeFewer: "Show fewer",
+  anotherSite: "Another website",
+  anotherSiteDetail: "Type any address",
+  /** On the button in the top bar, for a helper (it was a link in the corner). */
+  forHelpers: "For helpers: teach a task",
+  tasksHint: "One press each. No waiting.",
+  tasksNone: "When you keep a task, or a helper shows me one, it will be here.",
   /** In the empty space beside the list of websites (2026-11-16). */
   pickLeft: "Choose a website on the left, or tell me what you want.",
   /** When nothing in the list has the words typed. */
@@ -212,6 +230,8 @@ export const HANDOVER = {
 
 /** "My bookings" (2026-11-17). */
 export const BOOKINGS = {
+  /** On the first screen, beside the newest booking: all of them. */
+  seeAll: "See all",
   enter: "My bookings",
   title: "My bookings",
   back: "Back",
@@ -1014,3 +1034,77 @@ export const LABELS: Record<string, string> = {
   "handover.stop": HANDOVER.stop,
   "reply.showMeOnce": REPLY.showMeOnce,
 };
+
+/* ------------------------------------------------------------ task frame */
+
+/**
+ * The fixed layout every task screen has (2026-11-17, the frontend redesign):
+ * what has been done on the left, the one thing now in the middle, and the
+ * card that fills in as SIMBA learns each thing on the right. The words round
+ * it. The card's own field names are in `CARD`.
+ */
+export const FRAME = {
+  /** The left panel's heading: what is finished. */
+  soFar: "So far",
+  /** Before the one thing happening now, in the left panel. */
+  now: "Now:",
+  /** The first thing in the left panel: what the person asked for. */
+  asked: "You asked:",
+  /** The pill and the bar's colour, by whose turn it is. */
+  working: "SIMBA is working",
+  turn: "Your turn",
+  decision: "Your decision",
+  help: "Your help",
+  done: "Done",
+  /** Before what SIMBA does after this move, at the usual levels. */
+  next: "Next:",
+  /** The way to stop, when the screen has none of its own. */
+  stop: "Stop",
+  /** The left panel's "Now" when nothing more specific is known. */
+  nowWorking: "working on it",
+  /** "See the real page", and the way back from it (screen C). */
+  seeReal: "See the real page",
+  hideReal: "Hide the real page",
+  live: "Live",
+  /** Under the real page, said once. */
+  liveNote: "This is the real website, shown so you can see what I'm doing. You never have to use it.",
+  waitingPicture: "Getting a picture of the page.",
+  /** Where the simplest level has folded the side panels away (screen E). */
+  busy: "This website is busy, so I'm showing you less.",
+  lessAsked: "I'm showing you less, as you asked.",
+  showMore: "Show more",
+  /** Beside the three dots that choose how much to show. */
+  show: "Show",
+} as const;
+
+/** The card that builds (2026-11-17): the finished thing, empty, filling in. */
+export const CARD = {
+  filling: "Filling in…",
+  complete: "Complete",
+  /** A field SIMBA is waiting for the person to give. */
+  waiting: "Waiting for you",
+  /** A field not known yet, for a screen reader. */
+  notYet: "Not yet",
+  /** Passwords and the like: never shown, only that they are safe. */
+  kept: "Kept safely",
+  filled: (done: number, total: number) => `${done} of ${total} filled in`,
+  almost: "Almost ready to check",
+  ready: "Ready to check",
+  onlyOne: "Only 1, as you asked",
+  number: "Number",
+  /** The card after "do it": its number, and where it goes. */
+  saved: "Saved in My bookings",
+  ticket: {
+    title: "Your ticket",
+    from: "From", to: "To", date: "Date", ride: "Bus", seat: "Seat",
+    passenger: "Passenger", price: "Price", payment: "Payment", total: "Total",
+  },
+  receipt: {
+    title: "Your order",
+    item: "Item", price: "Price", delivery: "Delivery", payment: "Payment",
+    deliverTo: "Deliver to", total: "Total",
+  },
+  bill: { title: "Your bill", reference: "Reference", amount: "Amount", due: "Due" },
+  form: { title: "Your form", more: "More to fill in" },
+  answer: { title: "Your answer", answer: "Answer", site: "From" },
+} as const;

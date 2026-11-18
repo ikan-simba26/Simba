@@ -8,6 +8,8 @@
 import { create } from "zustand";
 
 import type {
+  Detail,
+  Finding,
   AiSetup,
   AiStatus,
   CatalogueSite,
@@ -45,6 +47,7 @@ import {
   type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
   markForgetting, saveProfile, welcomeEnabled,
 } from "./profile";
+import { type Fact, brief, chipForAnswer, factsFromAnswer } from "./journey";
 import { tracker, watch } from "./telemetry";
 
 export interface LogEntry {
@@ -76,6 +79,19 @@ interface Store {
   coming: string[];
   /** Pause has been pressed and SIMBA has not stopped yet. */
   pausing: boolean;
+  /**
+   * What the task has learned so far (2026-11-17, the frontend redesign): the
+   * facts the card that builds is filled from, the finished things the left
+   * panel lists, the final screen's details once it has been shown, and what
+   * has been found. All of it comes from messages the backend already sends
+   * (`journey.ts`); none of it is ever a secret.
+   */
+  facts: Fact[];
+  done: string[];
+  finalDetails: Detail[] | null;
+  findingsSoFar: Finding[];
+  /** The header's Stop on a screen with no question of its own to stop. */
+  stopTask: () => void;
   /**
    * The task's first screen is up and has not been answered (2026-10-14).
    * No notice is shown on it, ever: a level change there is the screen
@@ -397,6 +413,10 @@ const EMPTY = {
   checklist: [],
   coming: [],
   pausing: false,
+  facts: [],
+  done: [],
+  finalDetails: null,
+  findingsSoFar: [],
   firstScreen: false,
   help: null,
   completed: null,
@@ -840,8 +860,16 @@ export const useStore = create<Store>((set, get) => {
     respond: (actionId, values) => {
       const step = get().step;
       if (!step) return;
-      // Answered: what follows is no longer the task's first screen.
-      set({ firstScreen: false });
+      // Answered: what follows is no longer the task's first screen. And what
+      // the answer told SIMBA goes onto the card, and into the left panel.
+      const chip = chipForAnswer(step, actionId, values);
+      const learned = actionId === STOP_ID || actionId === DECLINE_ID ? []
+        : factsFromAnswer(step, actionId, values);
+      set((current) => ({
+        firstScreen: false,
+        done: chip ? [...current.done, chip] : current.done,
+        facts: [...current.facts, ...learned],
+      }));
       const response: StepResponse = {
         step_index: step.step_index,
         action_id: actionId,
@@ -874,6 +902,13 @@ export const useStore = create<Store>((set, get) => {
     },
 
     cancel: () => connection.cancelTask(),
+
+    // The person's own stop, from the header of a task screen that has no
+    // question to stop (2026-11-17): the same as a stop on a step.
+    stopTask: () => {
+      connection.cancelTask();
+      set({ stoppedByPerson: true, step: null, answered: true });
+    },
   };
 });
 
@@ -951,6 +986,11 @@ function apply(message: AnyEnvelope, set: SetStore): void {
       set((current) => ({
         step: message.payload as StepPresented,
         stageNow: (message.payload as StepPresented).stage ?? current.stageNow,
+        // What SIMBA did by itself before this question is finished now: the
+        // left panel lists it, and the card keeps the page's own words.
+        done: [...current.done, ...current.checklist.map((row) => brief(row.label, 48))],
+        finalDetails: (message.payload as StepPresented).final ?? current.finalDetails,
+        findingsSoFar: (message.payload as StepPresented).findings ?? current.findingsSoFar,
         // A step that asks ends the checklist before it.
         checklist: [],
         coming: [],

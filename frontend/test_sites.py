@@ -201,6 +201,22 @@ def home(browser, overlay: str, backend: Backend, size: str, pages: list) -> Pag
     return page
 
 
+def see_all(page: Page) -> None:
+    """Open the full list by kind (the first screen shows eight cards and "See all N")."""
+    if page.get_by_test_id("site-genre").count() == 0:
+        page.get_by_test_id("see-all").click()
+        page.get_by_test_id("site-genre").first.wait_for()
+
+
+def card(page: Page, name: str):
+    """A website's card, in the full list when it is not among the first eight."""
+    found = page.get_by_test_id("site").filter(has_text=name)
+    if found.count() == 0:
+        see_all(page)
+        found = page.get_by_test_id("site").filter(has_text=name)
+    return found.first
+
+
 def another(page: Page, address: str = "") -> None:
     """A website that is not a card: its address typed in the one box, then Go,
     which opens the second screen (the "Another website" button went on
@@ -227,51 +243,54 @@ def overlaps(a: dict, b: dict) -> bool:
 
 
 @pytest.mark.parametrize("size", list(SIZES))
-def test_the_first_screen_asks_where_and_every_website_is_a_card_that_fits(
+def test_the_first_screen_asks_what_to_do_and_every_website_is_a_card_that_fits(
         size, browser, overlay, backend, offer, pages):  # noqa: F811
-    """Redesigned 2026-11-14 (Raham: "the home screen must not look like three
-    tasks"): "Where do you want to go?", the websites by kind, one box, and
-    "Another website". The list went back down the left on 2026-11-16, the
-    advisor having asked for it."""
+    """Redesigned 2026-11-17 (the home redesign): a small greeting over "What would you
+    like to do?", the box, suggestions, then eight website cards ("Another website"
+    the last) and "See all N" for the full list by kind."""
     page = home(browser, overlay, backend, size, pages)
     width, height, _ = SIZES[size]
-    assert page.get_by_test_id("greeting").inner_text().strip().endswith(
-        "Where do you want to go?")
+    assert page.get_by_text("What would you like to do?", exact=True).is_visible()
+    assert page.get_by_test_id("another-site").is_visible()
 
-    # Every website and every kind with one is there, kind by kind in the
-    # backend's order of kinds (the list is grouped, whatever order the file is in).
+    # A few cards first, one from each kind in turn, then all of them by kind.
+    shown = page.get_by_test_id("site").count()
+    assert 0 < shown <= 7
+    see = page.get_by_test_id("see-all")
+    assert see.inner_text().strip() == f"See all {len(offer['sites'])}"
+    see_all(page)
     names = [b.get_attribute("aria-label") for b in page.get_by_test_id("site").all()]
     assert names == [site["name"] for genre in offer["genres"]
                      for site in offer["sites"] if site["genre"] == genre]
     genres = [g.get_attribute("aria-label") for g in page.get_by_test_id("site-genre").all()]
     assert genres == [g for g in offer["genres"]
                       if any(site["genre"] == g for site in offer["sites"])]
-    # Each card has its website's icon, or its first letter, and a name in
-    # type no smaller than 20px.
-    assert page.get_by_test_id("site-icon").count() == len(names)
+    # Each card has its website's icon, or its first letter, and a name in type no
+    # smaller than 20px.
+    assert page.get_by_test_id("site-grid").get_by_test_id("site-icon").count() == len(names)
     assert page.get_by_test_id("site").first.locator("span").last.evaluate(
         "e => parseFloat(getComputedStyle(e).fontSize)") >= 20
 
-    # The list is down the left (the advisor asked for it, 2026-11-16), wholly
-    # in the window, scrolling inside itself when it is long; no card sticks out
-    # sideways, the first is in view, and the page never scrolls, sideways or down.
+    # Four to a row, none sticking out sideways, the first in view, and the page never
+    # scrolls, sideways or down.
     listing = page.get_by_test_id("site-grid")
     lbox = listing.bounding_box()
-    assert lbox["x"] >= 0 and lbox["x"] < width / 3, lbox
-    assert lbox["y"] >= 0 and lbox["y"] + lbox["height"] <= height, lbox
-    for card in page.get_by_test_id("site").all():
-        box = card.bounding_box()
+    assert lbox["x"] >= 0 and lbox["x"] + lbox["width"] <= width, lbox
+    for one in page.get_by_test_id("site").all():
+        box = one.bounding_box()
         assert box["x"] >= lbox["x"] and box["x"] + box["width"] <= lbox["x"] + lbox["width"] + 1
     assert page.get_by_test_id("site").first.is_visible()
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollWidth > innerWidth")
-    # The box and the settings are on screen, and the heading is clear of
-    # "Teach a task" in the corner.
-    for testid in ("change-settings",):
-        assert edges(page, testid)["bottom"] <= height, testid
+    # The box and the settings are on screen, and nothing in the bar is over anything.
+    assert edges(page, "change-settings")["bottom"] <= height
     box = page.get_by_role("textbox", name=BOX).bounding_box()
     assert box["y"] + box["height"] <= height
-    assert not overlaps(edges(page, "greeting"), edges(page, "teach-entry"))
+    bar = ["home-logo", "status-line", "teach-a-task", "change-settings"]
+    for i, one in enumerate(bar):
+        for other in bar[i + 1:]:
+            assert not overlaps(edges(page, one), edges(page, other)), (one, other)
+        assert not overlaps(edges(page, one), edges(page, "ask-goal")), one
     # And it is not three tasks: no tile, and no built-in task named.
     assert page.get_by_test_id("tile").count() == 0
     assert page.get_by_text("Register for a course").count() == 0
@@ -284,7 +303,8 @@ def test_the_list_scrolls_inside_itself_when_it_is_long(browser, overlay, offer,
                              "tasks": [], "added": True} for n in range(30)]
     long_offer["genres"].append("Other")
     page = home(browser, overlay, Backend(long_offer), "150%", pages)
-    scroll = page.get_by_test_id("site-grid")
+    see_all(page)
+    scroll = page.get_by_test_id("site-scroll")
     assert scroll.evaluate("el => el.scrollHeight > el.clientHeight")
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")
     # The last one can be reached.
@@ -299,7 +319,7 @@ def test_the_list_scrolls_inside_itself_when_it_is_long(browser, overlay, offer,
 def test_a_website_chosen_shows_what_simba_can_do_there(
         size, browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, size, pages)
-    page.get_by_test_id("site").filter(has_text="UK bank holidays").click()
+    card(page, "UK bank holidays").click()
     panel = page.get_by_test_id("home-there")
     panel.wait_for()
     page.wait_for_timeout(800)  # past the crossfade
@@ -324,7 +344,7 @@ def test_a_website_chosen_shows_what_simba_can_do_there(
 def test_readings_offers_three_things_and_one_with_a_gap_is_finished_in_the_box(
         browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "150%", pages)
-    page.get_by_test_id("site").filter(has_text="Readings").click()
+    card(page, "Readings").click()
     tasks = page.get_by_test_id("site-task")
     assert [t.inner_text().split("\n")[0] for t in tasks.all()] == [
         "Find a book's price", "Buy a book", "Make an account"]
@@ -346,7 +366,7 @@ def test_readings_offers_three_things_and_one_with_a_gap_is_finished_in_the_box(
 
 def test_an_ai_task_is_sent_with_its_website(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "100%", pages)
-    page.get_by_test_id("site").filter(has_text="UK bank holidays").click()
+    card(page, "UK bank holidays").click()
     page.get_by_test_id("site-task").click()
     page.wait_for_timeout(500)
     start = backend.sent("task.start")[-1]
@@ -358,7 +378,7 @@ def test_an_ai_task_is_sent_with_its_website(browser, overlay, backend, pages): 
 def test_a_built_in_task_is_sent_as_its_flow_and_no_website(
         browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "100%", pages)
-    page.get_by_test_id("site").filter(has_text="Pakistan Railways").click()
+    card(page, "Pakistan Railways").click()
     task = page.get_by_test_id("site-task")
     assert "I know this one" in task.inner_text()
     task.click()
@@ -370,7 +390,7 @@ def test_a_built_in_task_is_sent_as_its_flow_and_no_website(
 
 def test_the_box_asks_about_the_chosen_website(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "125%", pages)
-    page.get_by_test_id("site").filter(has_text="Wikipedia").click()
+    card(page, "Wikipedia").click()
     page.get_by_role("textbox", name=BOX).fill("Who wrote Bano Qudsia's books?")
     page.get_by_role("button", name="Start", exact=True).click()
     page.wait_for_timeout(500)
@@ -380,7 +400,7 @@ def test_the_box_asks_about_the_chosen_website(browser, overlay, backend, pages)
 
 def test_choosing_it_again_lets_it_go(browser, overlay, backend, pages):  # noqa: F811
     page = home(browser, overlay, backend, "100%", pages)
-    page.get_by_test_id("site").filter(has_text="Wikipedia").click()
+    card(page, "Wikipedia").click()
     page.get_by_test_id("home-there").wait_for()
     page.get_by_test_id("site-not-this").click()
     # Back at the first question, with every card again.
@@ -476,6 +496,7 @@ def test_add_a_website_fits_and_adds_it(size, browser, overlay, backend, pages):
     assert "My clinic" in page.get_by_test_id("site-chosen").inner_text()
     # And among the cards, under Health.
     page.get_by_test_id("site-not-this").click()
+    see_all(page)
     health = page.locator("[data-testid=site-genre][aria-label=Health]")
     assert "My clinic" in health.inner_text()
 
@@ -556,7 +577,7 @@ def test_a_task_taught_on_a_sister_site_runs_on_the_one_chosen(
                          "routine": "r1", "taught_on": "IESCO electricity bill"})
     backend = Backend(taught)
     page = home(browser, overlay, backend, "150%", pages)
-    page.get_by_test_id("site").filter(has_text="Sui Southern Gas").click()
+    card(page, "Sui Southern Gas").click()
     task = page.get_by_test_id("site-task").filter(has_text="My bill")
     assert "A helper showed me on IESCO electricity bill" in task.inner_text()
     assert not page.evaluate("() => document.scrollingElement.scrollHeight > innerHeight")

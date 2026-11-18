@@ -26,6 +26,7 @@ import { EASE, MOTION, TYPE } from "../design";
 import { LEVELS, firstSentence, fitted, typeSize } from "../levels";
 import { useShortWindow } from "../useShortWindow";
 import type { StepRendererProps } from "./StepView";
+import { useFramed } from "./framed";
 import { CheckIcon, InfoIcon, StepKindIcon, buttonClass } from "./ui";
 
 /**
@@ -96,6 +97,9 @@ export function StepShell({
 }: StepRendererProps & { level: Level }) {
   // The same regions at every height; a short window only packs them closer.
   const spec = fitted(LEVELS[level], useShortWindow());
+  // In the task frame (2026-11-17) the way to stop is the header's, with the
+  // step's own words.
+  const framed = useFramed();
 
   const instruction =
     spec.instruction === "first-sentence" ? firstSentence(step.instruction) : step.instruction;
@@ -140,7 +144,7 @@ export function StepShell({
     onAction(saveOffer && save && id === lead?.id ? saveOffer.id : id);
 
   const [lead, ...alternatives] = orderActions(answers);
-  const stop = step.actions.find((action) => action.kind === "secondary");
+  const stop = framed ? undefined : step.actions.find((action) => action.kind === "secondary");
   const layout = answersLayout({ ...step, actions: answers });
   // A box the step asks the person to fill, still empty: the main button
   // waits for it (2026-10-15). Pressed on an empty box, "That's it" sent
@@ -170,7 +174,7 @@ export function StepShell({
         aria-hidden
         className="pointer-events-none absolute -inset-x-12 -inset-y-10 rounded-xl border
                    border-line short:-inset-y-7"
-        animate={{ opacity: spec.shell === "card" ? 1 : 0 }}
+        animate={{ opacity: spec.shell === "card" && !framed ? 1 : 0 }}
         transition={FOLD}
       />
 
@@ -378,8 +382,9 @@ export function TopLine({ step, stages, full, answered }: {
   if (notice) left = <NoticeLine />;
   else if (stages) left = <StageRow current={step?.stage} full={full} />;
   return (
-    <div className="flex min-h-10 items-center justify-between gap-4" data-testid="top-line">
-      <div className="min-w-0 flex-1">
+    <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-2"
+         data-testid="top-line">
+      <div className="min-w-0 flex-1 basis-60">
         {left}
       </div>
       {readAloud && <SpeakButton step={step && !answered ? step : null} />}

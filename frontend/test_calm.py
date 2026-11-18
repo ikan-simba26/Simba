@@ -75,6 +75,10 @@ def test_the_presence_mark_is_still_while_thinking_under_reduced_motion(
 # --- SIMBA's shape (2026-10-07) -----------------------------------------------
 
 SHAPE_POSE = "getComputedStyle(document.querySelector('.simba-shape')).transform"
+#: In the task frame (2026-11-17) the presence mark is the lion, with a halo while SIMBA
+#: works: a ring that breathes by transform and opacity alone.
+HALO_POSE = ("getComputedStyle(document.querySelector('.simba-halo'), '::before').transform"
+             " + '|' + getComputedStyle(document.querySelector('.simba-halo'), '::before').opacity")
 
 A_STEP = {
     "step_index": 1, "step_total": 3, "instruction": "Let me find the right month.",
@@ -121,17 +125,16 @@ def test_it_turns_only_while_simba_is_working(moving_page: Page, overlay: str,  
                                               backend: Backend) -> None:
     thinking(moving_page, overlay, backend)
 
-    assert moving_page.locator("[data-testid=shape]").count() == 1
+    assert moving_page.locator("[data-testid=frame-lion]").count() == 1
     assert moving_page.get_attribute("[data-presence]", "data-size") == "small"
-    assert len(set(samples(moving_page, SHAPE_POSE, count=6, every_ms=500))) > 1
+    assert len(set(samples(moving_page, HALO_POSE, count=6, every_ms=500))) > 1
 
 
 def test_it_is_still_while_working_under_reduced_motion(still_page: Page, overlay: str,  # noqa: F811
                                                         backend: Backend) -> None:
     thinking(still_page, overlay, backend)
-    seen = samples(still_page, SHAPE_POSE, count=6, every_ms=500)
+    seen = samples(still_page, HALO_POSE, count=6, every_ms=500)
     assert len(set(seen)) == 1
-    assert seen[0] != "none", "still, and still a 3D pose"
 
 
 def test_on_a_step_it_is_small_and_still(moving_page: Page, overlay: str,  # noqa: F811
@@ -145,10 +148,11 @@ def test_on_a_step_it_is_small_and_still(moving_page: Page, overlay: str,  # noq
     moving_page.wait_for_selector("[data-testid=step-shell]", timeout=15000)
     moving_page.wait_for_timeout(1200)  # the home screen's crossfade is over
 
-    assert moving_page.locator("[data-testid=shape]").count() == 1
+    assert moving_page.locator("[data-testid=frame-lion]").count() == 1
     assert moving_page.get_attribute("[data-presence]", "data-presence") == "waiting"
     assert moving_page.get_attribute("[data-presence]", "data-size") == "small"
-    assert len(set(samples(moving_page, SHAPE_POSE, count=6, every_ms=500))) == 1
+    # Your turn: the lion is still, with no halo breathing round it.
+    assert moving_page.locator(".simba-halo").count() == 0
 
 
 def test_nothing_moves_while_the_window_is_not_focused(moving_page: Page, overlay: str,  # noqa: F811
@@ -161,9 +165,9 @@ def test_nothing_moves_while_the_window_is_not_focused(moving_page: Page, overla
     moving_page.wait_for_timeout(150)
 
     play = moving_page.evaluate(
-        "getComputedStyle(document.querySelector('.simba-shape')).animationPlayState")
+        "getComputedStyle(document.querySelector('.simba-halo'), '::before').animationPlayState")
     assert play == "paused"
-    assert len(set(samples(moving_page, SHAPE_POSE, count=6, every_ms=500))) == 1
+    assert len(set(samples(moving_page, HALO_POSE, count=6, every_ms=500))) == 1
 
     moving_page.evaluate("window.dispatchEvent(new Event('focus'))")
     assert moving_page.evaluate("document.documentElement.dataset.motion") == "on"

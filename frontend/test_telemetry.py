@@ -263,12 +263,12 @@ def test_asking_what_is_happening_is_counted(
 ) -> None:
     """The loudest signal channel B has: they stopped and asked."""
     open_step(page, overlay, backend)
-    page.get_by_role("button", name="What are you doing?", exact=True).click()
+    page.get_by_role("button", name="See the real page", exact=True).click()
     page.wait_for_timeout(500)
     # Out the way the panel offers, not with Escape: the panel is a fixed
     # sheet over the whole screen and nothing dismisses it from outside —
     # deliberately, because the way out lives inside it (`TrustPanel.tsx`).
-    page.get_by_role("button", name="Hide the page", exact=True).click()
+    page.get_by_role("button", name="Hide the real page", exact=True).click()
     page.wait_for_timeout(500)
     page.get_by_role("button", name=GO_AHEAD, exact=True).click()
     page.wait_for_timeout(600)

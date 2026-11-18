@@ -47,21 +47,22 @@ export function HelpMe({ bar }: { bar: HandOver }) {
   }, [kind, bar.idle]);
 
   return (
-    <div className="flex h-full w-full flex-col items-center gap-4 bg-canvas px-8 pt-6 pb-6
-                    short:gap-2 short:pt-3 short:pb-3" data-testid="help-me" data-kind={kind}>
+    // The spotlight (2026-11-17): the real page's one part lit on a dark ground,
+    // under a bar in the spotlight colour.
+    <div className="flex h-full w-full flex-col items-center gap-4 bg-spot-ground px-8 pt-6 pb-6
+                    text-white short:gap-2 short:pt-3 short:pb-3" data-testid="help-me" data-kind={kind}>
       <div className="flex w-full max-w-[1100px] flex-col gap-1" aria-live="polite">
-        <h1 className="text-title font-semibold leading-[1.2] tracking-[-0.015em] text-ink
+        <h1 className="text-title font-semibold leading-[1.2] tracking-[-0.015em] text-white
                        short:text-lead" data-testid="handover-sentence">
           {bar.idle ? HELP.stillThere : bar.sentence}
         </h1>
-        <p className="text-small text-soft">
+        <p className="text-small text-white/80">
           {bar.idle ? HELP.stillThereDetail : HELP.never(bar.site)}
         </p>
       </div>
       {/* The frame: empty. The real page is laid over it by the host. */}
       <div ref={hole} data-testid="help-hole"
-           className="min-h-0 w-full max-w-[1100px] flex-1 rounded-xl border-2 border-accent
-                      bg-surface shadow-card" />
+           className="simba-spot-ring min-h-0 w-full max-w-[1100px] flex-1 rounded-xl bg-surface" />
       <div className="flex w-full max-w-[1100px] items-center gap-4">
         {bar.idle ? (
           <>

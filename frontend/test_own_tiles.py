@@ -139,7 +139,8 @@ def test_their_own_tiles_come_first(
     assert own_on(page) == ["My bill", "Trains to Karachi", "Trains home"]
     mine = page.get_by_test_id("own-tiles").bounding_box()
     theirs = page.get_by_test_id("tiles").bounding_box()
-    assert mine["y"] + mine["height"] <= theirs["y"]
+    # Beside them, in the column on the right (the home redesign, 2026-11-17), not over them.
+    assert mine["x"] >= theirs["x"] + theirs["width"] - 1
     assert page.get_by_test_id("can-help").is_visible()
     assert len(page.get_by_test_id("tile").all()) == 3
 

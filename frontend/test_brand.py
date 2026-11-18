@@ -528,7 +528,7 @@ def goes_to_a_step(page: Page, overlay: str, backend: Backend) -> None:  # noqa:
     page.wait_for_timeout(700)  # past the crossfade
 
 
-def test_not_on_a_step_and_the_shape_stays(
+def test_not_on_a_step_and_the_presence_mark_stays(
     browser: Browser, overlay: str, backend: Backend,  # noqa: F811
 ) -> None:
     page = kept_page(browser)
@@ -536,7 +536,9 @@ def test_not_on_a_step_and_the_shape_stays(
         goes_to_a_step(page, overlay, backend)
 
         assert page.get_by_test_id("home-logo").count() == 0
-        assert page.get_by_test_id("shape").count() >= 1
+        # The presence mark stays: since the task frame (2026-11-17) it is the lion
+        # in the header, with the same states and the same words.
+        assert page.get_by_test_id("frame-lion").count() >= 1
     finally:
         page.context.close()
 

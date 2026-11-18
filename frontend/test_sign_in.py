@@ -70,7 +70,9 @@ def test_saving_is_a_box_to_tick_not_a_button(browser, overlay: str,  # noqa: F8
             "[data-testid=step-shell] button",
             "bs => bs.filter(b => b.offsetParent && !b.closest('[data-testid=top-line]'))"
             ".map(b => b.innerText.trim())")
-        assert buttons == ["Sign in", "Stop this"], buttons
+        # "Stop this" is the task frame's header's since 2026-11-17, in the step's own words.
+        assert buttons == ["Sign in"], buttons
+        assert page.get_by_test_id("frame-stop").inner_text().strip() == "Stop this"
     finally:
         page.close()
 

@@ -58,9 +58,12 @@ export function useOverflowGuard(
       const transient = Array.from(
         document.querySelectorAll<HTMLElement>("[data-transient]"),
       ).reduce((total, node) => total + node.offsetHeight, 0);
-      const overflowing =
-        document.documentElement.scrollHeight - transient >
-        window.innerHeight + 2;
+      // In the task frame (2026-11-17) the step lives in the middle panel,
+      // which scrolls inside itself: it overflows when that panel does.
+      const panel = element.closest<HTMLElement>("[data-frame-scroll]");
+      const overflowing = panel
+        ? panel.scrollHeight > panel.clientHeight + 2
+        : document.documentElement.scrollHeight - transient > window.innerHeight + 2;
       if (!overflowing || !element.isConnected) return;
 
       if (useStore.getState().overflowHopped) {
