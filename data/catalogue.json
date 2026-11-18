@@ -8,12 +8,14 @@
     "Health",
     "Shopping",
     "Jobs",
+    "News",
     "Look things up",
     "Practice sites"
   ],
   "sites": [
     {
       "id": "pakrailways",
+      "tested": true,
       "name": "Pakistan Railways",
       "address": "https://www.pakrailways.gov.pk/train",
       "genre": "Travel",
@@ -32,6 +34,8 @@
     },
     {
       "id": "iesco-bill",
+      "look_up_only": true,
+      "notes": "Type the 14-digit reference number and press Search. The bill shows the amount and the due date. Only look; never pay.",
       "name": "IESCO electricity bill",
       "address": "https://bill.pitc.com.pk/iescobill",
       "genre": "Bills",
@@ -68,6 +72,8 @@
     },
     {
       "id": "chughtai",
+      "hidden": true,
+      "notes": "Use the search box 'Find what you need...' at the top for a test and its price. The Lab and centre pages only ask for a city (215 of them): do not use them to find a price.",
       "name": "Chughtai Lab",
       "address": "https://chughtailab.com/",
       "genre": "Health",
@@ -77,6 +83,8 @@
     },
     {
       "id": "olx",
+      "tested": true,
+      "notes": "Type in the search box at the top of the home page and press Enter (suggestions open under it; Enter still searches). The results page lists ads with their prices in Rs, so read prices there; no need to open an ad.",
       "name": "OLX Pakistan",
       "address": "https://www.olx.com.pk/",
       "genre": "Shopping",
@@ -86,6 +94,8 @@
     },
     {
       "id": "readings",
+      "tested": true,
+      "notes": "Use the search box at the top. The results page lists books with 'Our Price' in Rs. A title often has several editions: ask which one. Looking up prices needs no sign-in.",
       "name": "Readings bookshop",
       "address": "https://www.readings.com.pk/",
       "genre": "Shopping",
@@ -93,6 +103,17 @@
         {"label": "Find a book's price", "goal": "Find the price of the book …", "how": "ai"},
         {"label": "Buy a book", "goal": "Order the book … for me", "how": "ai"},
         {"label": "Make an account", "goal": "Make me an account", "how": "ai"}
+      ]
+    },
+    {
+      "id": "dawn",
+      "tested": true,
+      "notes": "The front page leads with the top story: its headline is the first large heading. Open that headline for the story.",
+      "name": "Dawn (news)",
+      "address": "https://www.dawn.com/",
+      "genre": "News",
+      "tasks": [
+        {"label": "Find the top story", "goal": "Find the top news story", "how": "ai"}
       ]
     },
     {
@@ -115,6 +136,7 @@
     },
     {
       "id": "wikipedia",
+      "notes": "Use the search box at the top. A title with several meanings opens a list of pages: ask which one. An article's infobox on the right gives author, dates and similar facts.",
       "name": "Wikipedia",
       "address": "https://en.wikipedia.org/wiki/Main_Page",
       "genre": "Look things up",
@@ -124,6 +146,8 @@
     },
     {
       "id": "fbr",
+      "hidden": true,
+      "notes": "The menu has links named 'Register...' that open pages; they are links, but SIMBA treats the word Register as a change and asks first. For information, use the search box instead.",
       "name": "FBR (tax)",
       "address": "https://www.fbr.gov.pk/",
       "genre": "Government",
@@ -187,6 +211,8 @@
     },
     {
       "id": "pia",
+      "look_up_only": true,
+      "notes": "The flight search shows a bot check that only a person can pass. Fill From, To and the date, then hand over to the person.",
       "name": "PIA flights",
       "address": "https://www.piac.com.pk/",
       "genre": "Travel",
@@ -214,6 +240,8 @@
     },
     {
       "id": "nust",
+      "hidden": true,
+      "notes": "On 18 November 2026 this website did not load at all (a Chrome error page). If it still does not open, say so.",
       "name": "NUST",
       "address": "https://nust.edu.pk/",
       "genre": "Education",
@@ -223,6 +251,8 @@
     },
     {
       "id": "pakwheels",
+      "tested": true,
+      "notes": "A page like /used-cars/suzuki-alto lists the matching ads with prices. Choose the ad from that results list; several ads fit, so the person chooses.",
       "name": "PakWheels",
       "address": "https://www.pakwheels.com/",
       "genre": "Shopping",
@@ -232,6 +262,8 @@
     },
     {
       "id": "zameen",
+      "tested": true,
+      "notes": "Choose Rent, the city and the kind of property; the results page heading says how many there are and each ad shows its price.",
       "name": "Zameen (property)",
       "address": "https://www.zameen.com/",
       "genre": "Shopping",
@@ -268,6 +300,7 @@
     },
     {
       "id": "practice-bill",
+      "tested": true,
       "name": "Electricity bill (practice copy)",
       "address": "http://127.0.0.1:5100",
       "genre": "Practice sites",

@@ -222,3 +222,30 @@ def test_a_goal_that_names_a_listed_site_is_for_that_site(goal, site_id):
 ])
 def test_a_goal_that_names_no_single_site_is_for_none(goal):
     assert shipped_store().named_in(goal) is None
+
+
+def test_a_hidden_site_is_left_off_the_list_and_the_badges_survive_a_taught_routine(tmp_path) -> None:
+    """2026-11-18: sites that failed their live runs are hidden from the home list
+    (still routable by name), and a taught routine no longer drops a site's
+    Tested badge or its "look up only" mark."""
+    import json
+    from types import SimpleNamespace
+
+    from backend.orchestrator.catalogue import CatalogueStore, offered
+
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({"genres": ["Shopping"], "sites": [
+        {"id": "shop", "name": "Shop", "address": "https://shop.example/", "genre": "Shopping",
+         "tested": True, "tasks": [{"label": "Look", "goal": "Look", "how": "ai"}]},
+        {"id": "bad", "name": "Bad", "address": "https://bad.example/", "genre": "Shopping",
+         "hidden": True, "look_up_only": True, "tasks": []},
+    ]}), encoding="utf-8")
+    store = CatalogueStore(path=path, local=tmp_path / "none.json")
+    loaded = store.load()
+    assert [s.id for s in offered(loaded)] == ["shop"]
+    routine = SimpleNamespace(start="https://shop.example/", label="My thing", id="r1")
+    listed = offered(loaded, [routine])
+    assert [s.id for s in listed] == ["shop"] and listed[0].tested
+    assert any(t.how == "taught" for t in listed[0].tasks)
+    # Hidden, but still found by name or address.
+    assert store.find("bad") is not None and store.for_address("https://bad.example/") is not None

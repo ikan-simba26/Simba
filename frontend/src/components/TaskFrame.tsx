@@ -195,8 +195,9 @@ export function TaskFrame({ children, centre }: { children: ReactNode; centre?: 
 
 /* --------------------------------------------------------------- so far */
 
-/** One finished thing, as a chip with a tick. */
-function Chip({ text, testid }: { text: string; testid?: string }) {
+/** One finished thing, as a chip with a tick, and a Change button when it was
+ *  an answer the person gave and nothing has been done on the website yet. */
+function Chip({ text, testid, onChange }: { text: string; testid?: string; onChange?: () => void }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-line bg-surface px-3 py-2.5 text-small
                    leading-snug text-ink short:py-2" data-testid={testid ?? "chip"}>
@@ -204,13 +205,22 @@ function Chip({ text, testid }: { text: string; testid?: string }) {
                                     bg-accent text-accent-ink">
         <CheckIcon size={14} />
       </span>
-      <span className="min-w-0 break-words line-clamp-3">{text}</span>
+      <span className="min-w-0 flex-1 break-words line-clamp-3">{text}</span>
+      {onChange && (
+        <button type="button" onClick={onChange} aria-label={FRAME.changeThis(text)}
+                data-testid="chip-change"
+                className="-my-1 min-h-9 shrink-0 rounded-md px-2 text-small font-semibold text-accent
+                           underline underline-offset-4 hover:bg-tint">
+          {FRAME.change}
+        </button>
+      )}
     </div>
   );
 }
 
 function SoFar() {
-  const { done, task, asking, step, checklist, answered } = useStore();
+  const { done, task, asking, step, checklist, answered, answerLog, committed, completed, declined,
+          stoppedByPerson, failed, help, handover, changeAnswer } = useStore();
   const phase = usePhase();
   const goal = task?.goal ?? asking ?? "";
   // The checklist's lines before the one being done are finished too.
@@ -220,6 +230,16 @@ function SoFar() {
     ? brief(firstLine(step.instruction), 70)
     : checklist.length > 0 ? brief(checklist[checklist.length - 1].label, 70) : FRAME.nowWorking;
   const turn = phase === "turn" || phase === "decision";
+  // "Change" is for an answer the person gave, until something is done on the
+  // website (Do it, Pay now) or the task has ended (B3).
+  const canChange = !committed && !completed && !declined && !stoppedByPerson && !failed && !help
+    && !handover;
+  const used = new Set<number>();
+  const recordOf = (text: string): number | null => {
+    const found = answerLog.findIndex((record, position) => record.chip === text && !used.has(position));
+    if (found >= 0) used.add(found);
+    return found >= 0 ? found : null;
+  };
   const end = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion() ?? false;
   useEffect(() => {
@@ -240,7 +260,11 @@ function SoFar() {
             </span>
           </div>
         )}
-        {chips.map((text, index) => <Chip key={`${index}-${text}`} text={text} />)}
+        {chips.map((text, index) => {
+          const record = recordOf(text);
+          return <Chip key={`${index}-${text}`} text={text}
+                       onChange={canChange && record !== null ? () => changeAnswer(record) : undefined} />;
+        })}
         <div ref={end} aria-hidden className="h-px shrink-0" />
       </div>
       <p className={`rounded-lg border-2 px-3 py-2.5 text-small font-semibold leading-snug

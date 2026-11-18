@@ -133,6 +133,11 @@ export interface CatalogueSite {
   genre: string;
   tasks: CatalogueTask[];
   added?: boolean;
+  /** Additive and optional (2026-11-18, B2): tried live start to finish; the
+   *  home screen gives it a small "Tested" badge. */
+  tested?: boolean;
+  /** Additive and optional (2026-11-18): SIMBA only looks things up there. */
+  look_up_only?: boolean;
 }
 
 /** How the last check of the AI provider went (2026-11-13). */
@@ -469,7 +474,21 @@ export interface ErrorPayload {
 
 // --- Frontend to backend -----------------------------------------------------
 
+/** One answer already given, kept when the person changes an earlier one
+ *  (2026-11-18, B3). Never a secret. */
+export interface KeptAnswer {
+  question: string;
+  action_label?: string;
+  input_values?: Record<string, string>;
+}
+
 export interface TaskStart {
+  /**
+   * Additive and optional (2026-11-18, B3). The answers to keep when the person
+   * changes one earlier answer: each question that matches is answered by it,
+   * not asked. Never a final screen. Absent: none.
+   */
+  keep_answers?: KeptAnswer[];
   /**
    * Additive and optional (2026-10-14). Ask before every move rather than
    * running the safe ones as a checklist. Absent: the checklist.

@@ -26,7 +26,7 @@ import logging
 import os
 import re
 import secrets
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -79,6 +79,18 @@ class Site:
     tasks: tuple[Task, ...] = ()
     #: Added in the app, not shipped.
     added: bool = False
+    #: Tried live, start to finish, on 2026-11-18 or later (BUGS.md, EVALUATION.md):
+    #: the home screen marks it with a small badge (B2).
+    tested: bool = False
+    #: What SIMBA can do there is looking things up only: nothing is ordered,
+    #: booked or sent, because the live run showed it does not work further.
+    look_up_only: bool = False
+    #: Left off the home screen's list (2026-11-18): the live runs showed it does
+    #: not work yet. It still opens when its name or address is typed.
+    hidden: bool = False
+    #: How the website works, in a few plain lines (2026-11-18): given to the AI
+    #: planner with the goal, never shown. Written from live runs.
+    notes: str = ""
 
     @property
     def host(self) -> str:
@@ -201,7 +213,11 @@ def _site(row: object, genres: list[str], added: bool) -> Site | None:
     genre = row.get("genre") if row.get("genre") in genres else OTHER
     tasks = tuple(task for task in map(_task, row.get("tasks") or []) if task is not None)
     site_id = str(row.get("id") or _slug(name))
-    return Site(id=site_id, name=name, address=address, genre=genre, tasks=tasks, added=added)
+    notes = " ".join(str(row.get("notes") or "").split())[:900]
+    return Site(id=site_id, name=name, address=address, genre=genre, tasks=tasks, added=added,
+                tested=row.get("tested") is True and not added,
+                look_up_only=row.get("look_up_only") is True,
+                hidden=row.get("hidden") is True and not added, notes=notes)
 
 
 class CatalogueStore:
@@ -314,8 +330,9 @@ def offered(catalogue: Catalogue, routines: list | None = None) -> list[Site]:
     another"): a bill taught on one electricity company's page is offered on
     another's. Run there, every move is still found by role and label and
     checked; a site laid out differently stops honestly."""
+    shown = [site for site in catalogue.sites if not site.hidden]
     if not routines:
-        return list(catalogue.sites)
+        return shown
     by_host = {site.host: site for site in catalogue.sites}
     here: dict[str, list[Task]] = {}
     elsewhere: dict[str, list[Task]] = {}
@@ -331,7 +348,7 @@ def offered(catalogue: Catalogue, routines: list | None = None) -> list[Site]:
                 elsewhere.setdefault(site.host, []).append(
                     Task(label=routine.label, goal=routine.label, how="taught",
                          routine=routine.id, taught_on=origin.name))
-    return [Site(id=site.id, name=site.name, address=site.address, genre=site.genre,
-                 tasks=site.tasks + tuple(here.get(site.host, ()))
-                 + tuple(elsewhere.get(site.host, ())), added=site.added)
-            for site in catalogue.sites]
+    # Every field is kept (the Tested badge, "look up only"), not only the first few.
+    return [replace(site, tasks=site.tasks + tuple(here.get(site.host, ()))
+                    + tuple(elsewhere.get(site.host, ())))
+            for site in shown]

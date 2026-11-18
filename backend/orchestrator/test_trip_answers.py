@@ -391,7 +391,7 @@ def test_something_that_is_not_a_day_at_all_is_not_caught() -> None:
 
 @pytest.mark.parametrize("goal, why", [
     ("trains to Sukkur on 31 February", voice.no_such_day("31 February")),
-    ("trains to Sukkur yesterday", voice.day_gone("5 October")),
+    ("trains to Sukkur yesterday", voice.day_gone("5 October 2026")),
     ("trains to Sukkur on 3 November 2027", voice.day_too_far("7 October 2027")),
 ])
 def test_a_bad_day_in_the_goal_is_said_when_the_day_is_asked(goal: str, why: str) -> None:
@@ -450,15 +450,15 @@ def test_the_journey_is_read_back_once_before_starting() -> None:
     made.question()
     made.answered(*choice(0))  # Karachi Cantt
 
-    assert asked(made) == "Lahore Cantt to Karachi Cantt, tomorrow, 7 October. Is that right?"
+    assert asked(made) == "Lahore Cantt to Karachi Cantt, tomorrow, 7 October 2026. Is that right?"
     assert labels(made) == [voice.READ_BACK_YES, voice.READ_BACK_NO, voice.STOP]
     made.answered(*choice(0))
     assert made.question() is None
 
 
 @pytest.mark.parametrize("day, words", [
-    (TODAY, "today, 6 October"),
-    (date(2026, 10, 16), "Friday 16 October"),
+    (TODAY, "today, 6 October 2026"),
+    (date(2026, 10, 16), "Friday 16 October 2026"),
     (date(2027, 1, 5), "Tuesday 5 January 2027"),
 ])
 def test_the_day_is_read_back_the_way_a_person_checks_it(day: date, words: str) -> None:
@@ -476,7 +476,7 @@ def test_no_changes_what_was_said_and_reads_it_back_again() -> None:
     assert asked(made) == voice.ASK_TO
     made.answered("confirm", {"destination": "Quetta"})
 
-    assert asked(made) == "Rawalpindi to Quetta, tomorrow, 7 October. Is that right?"
+    assert asked(made) == "Rawalpindi to Quetta, tomorrow, 7 October 2026. Is that right?"
 
 
 def test_the_plan_searches_the_stations_that_were_chosen() -> None:
@@ -809,3 +809,28 @@ def test_every_wrong_answer_is_a_note_beside_the_plain_question() -> None:
     lahore = brief(origin="Lahore")
     assert (lahore.question().note, lahore.question().instruction) == (
         None, voice.which_station("Lahore"))
+
+
+# --- B1 (2026-11-18): one exact date, with its year, never a past day ----------
+
+
+def test_the_ai_planner_keeps_the_year_the_goal_names() -> None:
+    from backend.orchestrator.llm_loop import goal_date
+
+    today = date(2026, 11, 18)
+    assert goal_date("Book a hotel from 5 January 2028", "dd-MM-yyyy", today) == "05-01-2028"
+    assert goal_date("trip on 25 Nov 2026", "dd-MM-yyyy", today) == "25-11-2026"
+    assert goal_date("stay on 2026-11-30", "dd-MM-yyyy", today) == "30-11-2026"
+    assert goal_date("November 21st 2027", "mm/dd/yyyy", today) == "11/21/2027"
+    assert goal_date("tomorrow please", "dd-MM-yyyy", today) == "19-11-2026"
+
+
+def test_a_day_without_a_year_is_the_next_time_it_comes_and_a_past_day_is_none() -> None:
+    from backend.orchestrator.llm_loop import goal_date
+
+    today = date(2026, 11, 18)
+    assert goal_date("on 10 November", "", today) == "2027-11-10"
+    assert goal_date("on 18 November", "", today) == "2026-11-18"
+    assert goal_date("on 17 November 2026", "", today) is None
+    assert goal_date("on 31 February", "", today) is None
+    assert goal_date("no date here", "", today) is None

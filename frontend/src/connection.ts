@@ -22,6 +22,7 @@ import type {
   SiteAdd,
   StepResponse,
   Telemetry,
+  KeptAnswer,
   TaskStart,
   TeachAnswer,
   TeachStart,
@@ -106,7 +107,7 @@ export class BackendConnection {
   // --- sending -------------------------------------------------------------
 
   startTask(goal: string, flow?: FlowName, confirmEach = false, startLevel?: Level,
-            tile?: string, routine?: string, site?: string): void {
+            tile?: string, routine?: string, site?: string, keepAnswers?: KeptAnswer[]): void {
     const payload: TaskStart = flow ? { goal, input_mode: "text", flow }
                                     : { goal, input_mode: "text" };
     // Only when the person asked to be asked every time (2026-10-14).
@@ -119,6 +120,8 @@ export class BackendConnection {
     if (routine) payload.routine = routine;
     // The website to do it on, listed or typed (2026-11-13).
     if (site) payload.site = site;
+    // The answers to keep when the person changed an earlier one (2026-11-18).
+    if (keepAnswers && keepAnswers.length > 0) payload.keep_answers = keepAnswers;
     this.send("task.start", payload);
   }
 

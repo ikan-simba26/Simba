@@ -302,11 +302,11 @@ FIELD_STATION = "Station"
 NOT_UNDERSTOOD = "I asked a few times and still couldn't work out what you meant."
 
 
-def day_words(day, today) -> str:
-    """A date the way a person says it: `3 October`, with the year only when
-    it is not this one."""
-    words = f"{day.day} {day.strftime('%B')}"
-    return words if day.year == today.year else f"{words} {day.year}"
+def day_words(day, today=None) -> str:
+    """A date the way a person says it, always with the year: `3 October 2026`
+    (B1, 2026-11-18: a read-back without the year let a wrong year pass for
+    the right one). `today` is kept so every caller still reads the same."""
+    return f"{day.day} {day.strftime('%B')} {day.year}"
 
 
 def which_station(place: str) -> str:
@@ -776,8 +776,7 @@ AI_THEN_TEACH = "A helper can show me once. Then I can do it on my own."
 #: `help.requested.reason` when the AI planner is going round in circles
 #: (2026-11-14): the same press again, or three moves that changed nothing.
 #: It stops rather than wander, and the stuck screen offers a helper.
-AI_NO_PROGRESS = ("I'm not getting anywhere on this website, so I've stopped. "
-                  "I didn't change anything.")
+AI_NO_PROGRESS = "I couldn't do this on this website. Nothing was changed."
 #: `task.failed.reason` when a website would not open at all (2026-11-16).
 COULD_NOT_OPEN = "I couldn't open that website. I didn't change anything."
 #: `help.requested.reason` when no AI service answered in time (2026-11-14).

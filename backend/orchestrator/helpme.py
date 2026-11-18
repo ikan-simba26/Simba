@@ -30,6 +30,12 @@ CAPTCHA_SELECTOR = ", ".join([
     ".cf-turnstile",
 ])
 #: The "it was solved" token a CAPTCHA widget writes into the page.
+#: The nearest block that holds a CAPTCHA picture and the box its letters go in.
+_LOW = "translate(%s, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')"
+IMAGE_CAPTCHA_BLOCK = (
+    "xpath=(//input[contains(" + _LOW % "@name" + ", 'captcha') or contains(" + _LOW % "@id"
+    + ", 'captcha')]/ancestor::*[.//img[contains(" + _LOW % "@id" + ", 'captcha') or contains("
+    + _LOW % "@alt" + ", 'captcha') or contains(" + _LOW % "@src" + ", 'captcha')]][1])[1]")
 SOLVED_SELECTOR = ("textarea[name='g-recaptcha-response'], textarea[name='h-captcha-response'], "
                    "input[name='cf-turnstile-response']")
 CODE_SELECTOR = ", ".join([
@@ -112,6 +118,15 @@ async def find(page: Page, kind: str) -> Target:
         fields = await payment.find_card_fields(page)
         return Target("card", card=fields or None)
     if kind == "captcha":
+        # A picture of letters with a box to type them in (IESCO's bill page,
+        # 2026-11-18): the part is the nearest block holding both, so the person
+        # sees the picture and the box. Not a widget's iframe: that is below.
+        picture = page.locator(IMAGE_CAPTCHA_BLOCK).first
+        try:
+            if await picture.count() and await picture.is_visible(timeout=500):
+                return Target("captcha", locator=picture)
+        except PlaywrightError:
+            pass
         found = page.locator(CAPTCHA_SELECTOR)
         try:
             for index in range(await found.count()):
@@ -129,8 +144,16 @@ async def find(page: Page, kind: str) -> Target:
                     kind_of = (await box.get_attribute("type", timeout=500) or "text").lower()
                     if kind_of in ("hidden", "checkbox", "radio", "submit", "button"):
                         continue
-                    if await box.is_visible(timeout=500):
-                        return Target("code", locator=box)
+                    if not await box.is_visible(timeout=500):
+                        continue
+                    # A promo, coupon or gift-card box says "code" too.
+                    said = await box.evaluate(
+                        "e => [e.name, e.id, e.placeholder, e.getAttribute('aria-label'),"
+                        " e.labels && [...e.labels].map(l => l.innerText).join(' ')]"
+                        ".filter(Boolean).join(' ')", timeout=500)
+                    if payment.DISCOUNT_WORDS.search(said or ""):
+                        continue
+                    return Target("code", locator=box)
             except PlaywrightError:
                 continue
         return Target("code")

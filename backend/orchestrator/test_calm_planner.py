@@ -221,13 +221,15 @@ def test_a_read_back_that_is_not_one_plain_sentence_is_not_used(said):
 # --- only what is the person's stops for them -----------------------------------
 
 
-def test_a_box_for_the_persons_own_details_is_theirs_to_type(shop):
+def test_a_box_for_the_persons_own_details_is_theirs_to_type(shop, monkeypatch, tmp_path):
+    # Not the details kept on this computer (it passed only on a machine with no kept name).
+    monkeypatch.setenv("SIMBA_PROFILE", str(tmp_path / "no-profile.json"))
     # The model makes a name up; it is dropped, and the person is asked.
     model = Model([("type", "Your name", "John Doe"), PRICE])
     person = go(shop.replace("index.html", "results.html"), model,
-                Person(typed={"fullname": "Amna"}))
+                Person(typed={"fullname": "Amna"}), goal="Order Atomic Habits")
     box = person.asked()[1]
-    assert box["instruction"] == "Type your name."
+    assert box["instruction"] == "Please type your name."
     assert box["fields"][0]["value"] == ""
     assert "John Doe" not in str(person.sent)
 
@@ -461,3 +463,22 @@ def test_a_dialog_its_own_press_opened_is_not_closed_by_its_next(shop):
     person = go(shop, model, goal="Make me an account")
     assert "opened this dialog" in (model.feedback[2] or "")
     assert "Closing a pop-up" not in person.lines()
+
+
+def test_a_look_up_never_types_the_persons_details(shop):
+    """Chughtai Lab, 2026-11-18: on a look-up, the person's email was typed into
+    the page's newsletter box. A look-up needs none of their details."""
+    model = Model([("type", "Your name", "John Doe"), PRICE])
+    person = go(shop.replace("index.html", "results.html"), model)
+    assert "only looks something up" in (model.feedback[1] or "")
+    assert "John Doe" not in str(person.sent)
+    assert [step["instruction"] for step in person.asked()][1:] == []
+
+
+def test_an_ask_with_nothing_to_choose_between_sends_the_model_back_to_search(shop):
+    """Readings, 2026-11-18: it asked "which edition?" on the front page, before
+    any search, and the run stopped. It is sent back to find the thing first."""
+    model = Model([("ask", "Keyword", None), ("type", "Keyword", "Atomic Habits"), PRICE])
+    person = go(shop, model)
+    assert "nothing on this page to choose between" in (model.feedback[1] or "")
+    assert [m for m in person.sent if m[0] == "help.requested"] == []

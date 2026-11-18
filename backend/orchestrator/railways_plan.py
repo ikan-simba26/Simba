@@ -345,6 +345,8 @@ class TripPlanner:
         self._done: set[str] = set()
         self._pending: str | None = None
         self._asking: tuple[str, list[str]] | None = None
+        #: Times the calendar was moved to the right month after reading it.
+        self._month_fixes = 0
 
     async def next_move(self, elements, history, setback):
         pending, self._pending = self._pending, None
@@ -496,12 +498,32 @@ class TripPlanner:
 
         if "open month" in self._done and cells:
             cell = cells[0]
-            # The calendar says which month it is showing, once, at the top.
-            # If it says another month, the day on it is another day.
+            # The calendar says which month and year it is showing, at the top.
+            # If it says another, the day on it is another day: read it and
+            # move on (or back) until it shows the month and year wanted, never
+            # a count of presses worked out from today (B1, 2026-11-18). Three
+            # corrections at most, then the person is told.
             if cell.panel and not (self.day.strftime("%B") in cell.panel
                                    and str(self.day.year) in cell.panel):
-                self.stuck_reason = voice.WRONG_MONTH
-                return None
+                from backend.orchestrator.teach import shown_month
+
+                shown = shown_month(cell.panel)
+                if shown is None or self._month_fixes >= 3:
+                    self.stuck_reason = voice.WRONG_MONTH
+                    return None
+                self._month_fixes += 1
+                apart = (self.day.year - shown[0]) * 12 + self.day.month - shown[1]
+                button = "Next Month" if apart > 0 else "Previous Month"
+                self._pending = "fix month"
+                return self._move(
+                    "Moving the calendar to the right month.",
+                    f"The calendar shows another month; I need {self.day.strftime('%B %Y')}.",
+                    "Move the calendar",
+                    operations=[Operation("click", Target("button", button))
+                                for _ in range(abs(apart))],
+                    expect=Expectation(label_present=day),
+                    kind="date", doing=voice.DOING_CALENDAR,
+                )
             self._pending = "pick day"
             return self._move(
                 "Now the day you're travelling.", f"{words}.", "Set the date",

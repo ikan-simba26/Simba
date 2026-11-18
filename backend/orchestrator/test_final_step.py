@@ -178,11 +178,12 @@ PAGE = ("data:text/html," + quote(
     "<button onclick='window.__clicked=(window.__clicked||0)+1'>Pay now</button>"))
 
 
-def test_on_a_site_that_is_not_ours_paying_is_never_pressed_by_simba() -> None:
-    """Until 2026-11-13 no change was made on a live site at all. By the
-    advisor's direction (G, F) a change there waits for its final screen, and
-    a press that pays is then handed to the person: SIMBA never presses Pay.
-    `test_handover.py` has the rest of the new rule."""
+def test_on_a_site_that_is_not_ours_a_press_that_pays_waits_for_its_final_screen() -> None:
+    """Until 2026-11-13 no change was made on a live site at all. Then a change
+    there waited for its final screen. Since 2026-11-17 a press that pays is
+    SIMBA's after "do it" (the card is the person's, typed in the help-me step,
+    and a pay screen follows): so it is never pressed before the answer, and is
+    pressed once after it. `test_handover.py` has the rest."""
     step = PlanStep(instruction="Pay.", detail="", actions=voice.actions("Pay"),
                     operations=[Operation("click", Target("button", "Pay now"))],
                     expect=Expectation(), changes=True)
@@ -190,7 +191,7 @@ def test_on_a_site_that_is_not_ours_paying_is_never_pressed_by_simba() -> None:
     done, page = drive(PAGE, [step], [("confirm", {})])
 
     assert done.of("step.presented")[-1]["final"] is not None  # asked first
-    assert page.clicked == 0
+    assert page.clicked == 1  # pressed once, after "do it"
 
 
 def test_a_detail_the_page_does_not_state_means_nothing_is_done(

@@ -41,6 +41,11 @@ from playwright.async_api import Frame, Locator, Page
 
 from backend.orchestrator.vault import REPO, VaultUnavailable, decrypt, encrypt
 
+#: A box for a promo, coupon, voucher or gift-card code is a shop's discount
+#: box, never card details or a one-time code (Readings' checkout, 2026-11-17).
+DISCOUNT_WORDS = re.compile(
+    r"(promo|coupon|voucher|gift|discount|loyalty|reward|referral)", re.IGNORECASE)
+
 DEFAULT_PATH = REPO / "data" / "card.json"
 
 #: How SIMBA treats a payment page. `card`: it may fill the card in itself, once

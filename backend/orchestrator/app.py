@@ -285,7 +285,8 @@ def past_goals(tiles: TileStore | None = None,
     # taught routine on the site it was taught on.
     listed = (catalogue or CatalogueStore()).load()
     sites = [CatalogueSite(id=site.id, name=site.name, address=site.address, genre=site.genre,
-                           added=site.added,
+                           added=site.added, tested=site.tested,
+                           look_up_only=site.look_up_only,
                            tasks=[CatalogueTask(label=t.label, goal=t.goal, how=t.how,
                                                 flow=t.flow, routine=t.routine,
                                                 taught_on=t.taught_on)
@@ -392,6 +393,12 @@ def quick_provider():
         return provider_from_env()
     except LLMError:
         return None
+
+
+def site_notes(site: str, catalogue: CatalogueStore) -> str:
+    """How the catalogue says this website works (2026-11-18), or nothing."""
+    listed = catalogue.for_address(site)
+    return listed.notes if listed is not None else ""
 
 
 def site_name(site: str, catalogue: CatalogueStore) -> str:
@@ -597,6 +604,10 @@ async def ws_endpoint(websocket: WebSocket) -> None:
                 pass
             return
         goal = (payload.get("goal") or "").strip()
+        # The answers to keep when the person changed an earlier one (2026-11-18,
+        # B3): questions that match are answered by them (`Run.kept_answer`).
+        connection.keep_answers = [a for a in (payload.get("keep_answers") or [])
+                                   if isinstance(a, dict) and a.get("question")][:40]
         chosen = payload.get("flow")
         # The checklist unless the person asked to be asked every time.
         auto = not bool(payload.get("confirm_each"))
@@ -692,7 +703,8 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # checklist; every move checked; a helper offered if it cannot be
         # done. Asked to confirm every move, every move is asked, as before.
         brief = OpenGoalBrief(open_provider, goal, site_name(site, catalogue),
-                              steps=OPEN_GOAL_STEPS, auto=auto, reader=quick_provider())
+                              steps=OPEN_GOAL_STEPS, auto=auto, reader=quick_provider(),
+                              notes=site_notes(site, catalogue))
         log.info("open goal on %s, with %s%s", host_of(site),
                  getattr(open_provider, "label", "the model"),
                  "" if auto else ", every move asked")

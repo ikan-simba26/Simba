@@ -47,8 +47,28 @@ import {
   type Profile, NEW_PROFILE, clearProfile, doneForgetting, forgetting, loadProfile,
   markForgetting, saveProfile, welcomeEnabled,
 } from "./profile";
-import { type Fact, brief, chipForAnswer, factsFromAnswer } from "./journey";
+import { type Fact, brief, chipForAnswer, factsFromAnswer, isSecret } from "./journey";
 import { tracker, watch } from "./telemetry";
+
+/**
+ * One question the person answered, kept so that "Change" can start the task
+ * again and keep the other answers (2026-11-18, B3). Never a secret: a step
+ * with a password or code box is not recorded, and a final screen never is.
+ */
+export interface AnswerRecord {
+  question: string;
+  /** The button pressed, by its words. */
+  label: string;
+  values: Record<string, string>;
+  /** The chip it made in "So far". */
+  chip: string;
+}
+
+/** Answers to keep when a task is started again, and where the new one goes. */
+export interface KeptRun {
+  log: AnswerRecord[];
+  redo: { question: string; before: string | null };
+}
 
 export interface LogEntry {
   seq: number;
@@ -88,6 +108,12 @@ interface Store {
    */
   facts: Fact[];
   done: string[];
+  /** Every question answered, for "Change" (2026-11-18, B3). */
+  answerLog: AnswerRecord[];
+  /** Something was done on the website (Do it, Pay now): no more "Change". */
+  committed: boolean;
+  /** The question being asked again after "Change", and where its chip goes. */
+  redo: { question: string; before: string | null } | null;
   finalDetails: Detail[] | null;
   findingsSoFar: Finding[];
   /** The header's Stop on a screen with no question of its own to stop. */
@@ -343,7 +369,13 @@ interface Store {
    * runs exactly that and does not guess again.
    */
   startTask: (goal: string, flow?: FlowName, tile?: string, routine?: string,
-              site?: string) => void;
+              site?: string, kept?: KeptRun) => void;
+  /**
+   * Change one finished answer (2026-11-18, B3): the task starts again on the
+   * same website with every other answer kept, and that question asked again.
+   * Not once something has been done on the website (Do it, Pay now).
+   */
+  changeAnswer: (index: number) => void;
   respond: (actionId: string, values: Record<string, string>) => void;
   cancel: () => void;
 }
@@ -415,6 +447,9 @@ const EMPTY = {
   pausing: false,
   facts: [],
   done: [],
+  answerLog: [],
+  committed: false,
+  redo: null,
   finalDetails: null,
   findingsSoFar: [],
   firstScreen: false,
@@ -479,6 +514,10 @@ declare global {
 }
 
 window.__simbaStarted = false;
+
+/** How the task on screen was started, so "Change" can start it again. */
+let lastStart: { goal: string; flow?: FlowName; tile?: string; routine?: string; site?: string } | null =
+  null;
 
 export const useStore = create<Store>((set, get) => {
   const append = (entry: LogEntry) =>
@@ -825,9 +864,14 @@ export const useStore = create<Store>((set, get) => {
       connection.connect(url ?? get().wsUrl);
     },
 
-    startTask: (goal, flow, tile, routine, site) => {
+    startTask: (goal, flow, tile, routine, site, kept) => {
       window.__simbaStarted = true;
+      lastStart = { goal, flow, tile, routine, site };
       set({ ...EMPTY, asking: goal, taskSite: siteOfTask(get(), flow, routine, site) });
+      // Started again after "Change": the other answers are shown at once, and
+      // the backend answers the same questions by them (`task.start.keep_answers`).
+      if (kept) set({ answerLog: kept.log, done: kept.log.map((record) => record.chip),
+                      redo: kept.redo });
       // A dead socket is the usual state when the backend was started after
       // the window, and after every completed task, since the backend closes
       // the socket when it is done. Reconnect and let the send queue behind it.
@@ -851,7 +895,41 @@ export const useStore = create<Store>((set, get) => {
       // backend's rules start from it and come back to it after calm steps.
       const start = get().profile.level;
       if (start && !levelLocked) set({ level: start, chosenLevel: start });
-      connection.startTask(goal, flow, get().askEachTime, start, tile, routine, site);
+      connection.startTask(goal, flow, get().askEachTime, start, tile, routine, site,
+                           kept?.log.map((record) => ({
+                             question: record.question, action_label: record.label,
+                             input_values: record.values })));
+    },
+
+    changeAnswer: (index) => {
+      const { answerLog, committed, startTask } = get();
+      const target = answerLog[index];
+      const started = lastStart;
+      if (!target || committed || !started) return;
+      const log = answerLog.filter((_, position) => position !== index);
+      const kept: KeptRun = {
+        log,
+        redo: { question: target.question, before: answerLog[index + 1]?.chip ?? null },
+      };
+      // End the task on screen, and start it again once its socket has closed
+      // (the backend closes it after every task), so the new one is not sent
+      // down the old one.
+      // A question on screen is ended by answering it with Stop (the backend
+      // acts on nothing else while it waits, `loop.is_answer`); otherwise the
+      // task is cancelled.
+      const open = get().step;
+      if (open && !get().answered && !open.final) {
+        connection.respondToStep({ step_index: open.step_index, action_id: STOP_ID, input_values: {} });
+      } else {
+        connection.cancelTask();
+      }
+      let waited = 0;
+      const timer = setInterval(() => {
+        waited += 100;
+        if (connection.isOpen && waited < 3000) return;
+        clearInterval(timer);
+        startTask(started.goal, started.flow, started.tile, started.routine, started.site, kept);
+      }, 100);
     },
 
     watchTelemetry: () => watch(tracker, (sample) => connection.sendTelemetry(sample)),
@@ -865,11 +943,41 @@ export const useStore = create<Store>((set, get) => {
       const chip = chipForAnswer(step, actionId, values);
       const learned = actionId === STOP_ID || actionId === DECLINE_ID ? []
         : factsFromAnswer(step, actionId, values);
-      set((current) => ({
-        firstScreen: false,
-        done: chip ? [...current.done, chip] : current.done,
-        facts: [...current.facts, ...learned],
-      }));
+      // Kept for "Change" (2026-11-18, B3): a question answered with a button
+      // of its own, never a final screen, a read-back, or a secret.
+      const action = step.actions.find((candidate) => candidate.id === actionId);
+      const secret = step.fields.some((field) => isSecret(field.label) || field.type === "password");
+      const record: AnswerRecord | null =
+        chip && action && action.kind !== "secondary" && !step.final && !secret
+          && step.step_kind !== "confirm" && actionId !== STOP_ID && actionId !== DECLINE_ID
+          ? { question: step.instruction, label: action.label, values, chip } : null;
+      set((current) => {
+        let done = chip ? [...current.done, chip] : current.done;
+        let answerLog = record ? [...current.answerLog, record] : current.answerLog;
+        let redo = current.redo;
+        // The question asked again after "Change": its new chip goes back where
+        // the old one was, before the first answer that came after it.
+        if (record && chip && redo && redo.question === step.instruction) {
+          const base = current.done;
+          const at = redo.before ? base.indexOf(redo.before) : -1;
+          done = at >= 0 ? [...base.slice(0, at), chip, ...base.slice(at)] : [...base, chip];
+          const logAt = redo.before ? current.answerLog.findIndex((r) => r.chip === redo!.before) : -1;
+          answerLog = logAt >= 0
+            ? [...current.answerLog.slice(0, logAt), record, ...current.answerLog.slice(logAt)]
+            : [...current.answerLog, record];
+          redo = null;
+        }
+        return {
+          firstScreen: false,
+          done,
+          answerLog,
+          redo,
+          // Something is about to be done on the website: nothing can be
+          // changed after that (Do it, Pay now).
+          committed: current.committed || (!!step.final && actionId !== DECLINE_ID && actionId !== STOP_ID),
+          facts: [...current.facts, ...learned],
+        };
+      });
       const response: StepResponse = {
         step_index: step.step_index,
         action_id: actionId,

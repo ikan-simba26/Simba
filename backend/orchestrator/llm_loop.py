@@ -24,7 +24,7 @@ from dataclasses import dataclass, replace
 from backend.orchestrator import cards as cardlib
 from backend.orchestrator import profile as profilelib
 from backend.orchestrator.llm import Action, LLMError, Provider
-from backend.orchestrator.loop import CHANGE_WORDS, Move, Task, resolve
+from backend.orchestrator.loop import CHANGE_WORDS, Move, Task, is_stepping, resolve
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
@@ -545,6 +545,7 @@ pick one yourself: choose action "ask" with the element_id of that dropdown, or 
 of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
+When a search or list shows several results that fit the goal, never take the first one because it is first: SIMBA shows the matches and the person chooses. Read the whole page before choosing anything on it.
 Before you press the button that sends a form, make sure every box and every drop-down list in it has been filled or chosen, the lists too (a city, a title). If a message on the page says something is missing, do that, not the message.
 When the website says you must be signed in (a "session has expired", "please log in again", a "Re-login" or "Log in" button), do that first, with its own Log in button, before anything else: the person gives their details and password in SIMBA's own screens. Booking and buying sites usually need it, so sign in before you search.
 If the form or button the goal needs (a search for a journey, a booking form, \
@@ -557,8 +558,10 @@ newsletter, a complaints form).
 #: A goal that does something (2026-11-17): the person is asked "Which one?"
 #: before one of several matches is opened, never left to the model's pick.
 DOING_GOAL = re.compile(
-    r"\b(order|buy|purchase|book|reserve|get me|add .{0,30} to (my )?(cart|basket|bag)|"
-    r"register|apply|sign up)\b", re.IGNORECASE)
+    r"\b(order|buy|purchase|reserve|get me|add .{0,30} to (my )?(cart|basket|bag)|"
+    r"register|apply|sign up)\b|^\s*(please\s+)?book\b|"
+    r"\bbook (me|us|a|an|my|the) (bus|train|flight|room|ticket|seat|table|hotel|doctor|"
+    r"appointment|trip|car|taxi|slot)\b", re.IGNORECASE)
 #: A page that is the cart, a checkout or a payment is not a list of choices.
 NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|confirm)", re.IGNORECASE)
 #: A link or button that is the way into a booking or search the page hides.
@@ -749,6 +752,8 @@ GOAL_FILLER = {
     "with", "from", "ticket", "tickets", "online", "want", "need", "would", "like", "can", "you",
     "that", "this", "some", "any", "one", "cash", "delivery", "card", "pay", "payment", "register",
     "apply", "sign", "new", "find", "show", "give", "bus", "train", "flight", "seat", "seats",
+    "shop", "store", "bookshop", "bookstore", "website", "site", "page", "them", "your", "into",
+    "just", "tell", "make", "also", "have", "will", "when", "what", "which",
 }
 
 
@@ -761,28 +766,23 @@ MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augus
           "september", "october", "november", "december"]
 
 
-def goal_date(goal: str, shape: str = "") -> str | None:
-    """The date a goal names ("21 November", "November 21"), written the way a
-    box shows it (`shape` like "dd-MM-yyyy"), else as 2026-11-21. None when the
-    goal names no date. The year is this year, or next if the day has passed."""
+def goal_date(goal: str, shape: str = "", today=None) -> str | None:
+    """The one exact date a goal names, written the way a box shows it (`shape`
+    like "dd-MM-yyyy"), else as 2026-11-21. None when the goal names no date,
+    or names one that has passed or is not in the calendar.
+
+    One reader for every date (`details.find_day`): "21 November", "November
+    21st 2027", "21 Nov", "tomorrow", "next Friday", "21/11", "2026-11-21".
+    A year in the goal is kept (B1, 2026-11-18: "5 January 2028" was typed as
+    2027); with no year it is the next time that day comes. Worked out from
+    today's date before anything is typed, and never a day that has gone."""
     import datetime
 
-    text = (goal or "").lower()
-    pattern = "(" + "|".join(MONTHS) + ")"
-    found = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + pattern + r"\b", text)
-    if found:
-        day, month = int(found.group(1)), MONTHS.index(found.group(2)) + 1
-    else:
-        found = re.search(pattern + r"\s+(\d{1,2})\b", text)
-        if not found:
-            return None
-        month, day = MONTHS.index(found.group(1)) + 1, int(found.group(2))
-    today = datetime.date.today()
-    try:
-        when = datetime.date(today.year, month, day)
-        if when < today:
-            when = datetime.date(today.year + 1, month, day)
-    except ValueError:
+    from backend.orchestrator.details import find_day
+
+    today = today or datetime.date.today()
+    when, _ = find_day(goal or "", today)
+    if when is None or when < today:
         return None
     sep = next((c for c in shape if c in "-/."), "-")
     lowered = shape.lower()
@@ -790,7 +790,20 @@ def goal_date(goal: str, shape: str = "") -> str | None:
         return f"{when.day:02d}{sep}{when.month:02d}{sep}{when.year}"
     if lowered.startswith("mm"):
         return f"{when.month:02d}{sep}{when.day:02d}{sep}{when.year}"
+    if lowered.startswith("yy"):
+        return f"{when.year}{sep}{when.month:02d}{sep}{when.day:02d}"
     return when.isoformat()
+
+
+def cards_about(cards: "list[cardlib.Card]", goal: str, site_words: set[str]
+                ) -> "list[cardlib.Card]":
+    """The cards that are about what the goal asks for, the ones that say the
+    most of its words first. The website's own name is no topic (B5): "an
+    alchemist book on Readings" is about "alchemist", and "(Readings Classics)"
+    says nothing about it. No topic word in the goal means no card is about it."""
+    words = [w for w in goal_words(goal) if w not in site_words]
+    about = [c for c in cards if words and any(w in _plain(c.name) for w in words)]
+    return sorted(about, key=lambda c: -sum(w in _plain(c.name) for w in words))
 
 
 def _plain(text: str) -> str:
@@ -823,6 +836,43 @@ def _control_for(card: "cardlib.Card", elements: list[Element]) -> Element | Non
     return min(candidates, key=distance)
 
 
+#: A press that sends a form on, by its words (B4, 2026-11-18).
+SENDS_FORM = re.compile(
+    r"\b(submit|register|sign ?up|create( an| my)? account|continue|next|place order|send|apply|"
+    r"confirm|checkout|check out|proceed|save)\b", re.IGNORECASE)
+
+#: The required boxes of a button's form that are still empty, by their labels.
+_EMPTY_REQUIRED_JS = """e => {
+  const form = e.closest('form');
+  if (!form) return [];
+  const seen = x => { const r = x.getBoundingClientRect(), s = getComputedStyle(x);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const name = x => ((x.labels && x.labels[0] ? x.labels[0].innerText : '')
+    || x.getAttribute('aria-label') || x.placeholder || x.name || x.type || '')
+    .replace(/\\s+/g, ' ').trim().slice(0, 40);
+  const out = [];
+  for (const x of form.querySelectorAll('input, select, textarea')) {
+    if (['hidden', 'submit', 'button', 'image', 'reset'].includes(x.type) || x.disabled) continue;
+    if (!(x.required || x.getAttribute('aria-required') === 'true') || !seen(x)) continue;
+    let empty;
+    if (x.type === 'checkbox') empty = !x.checked;
+    else if (x.type === 'radio') empty = !form.querySelector('input[type=radio][name="' + CSS.escape(x.name) + '"]:checked');
+    else empty = !(x.value || '').trim();
+    if (empty) out.push(name(x));
+  }
+  return [...new Set(out)].slice(0, 8);
+}"""
+
+
+async def empty_required_boxes(locator) -> list[str]:
+    """The required boxes still empty in the form this button belongs to, by
+    their labels; empty when it is in no form, or all are filled (B4)."""
+    try:
+        return list(await locator.evaluate(_EMPTY_REQUIRED_JS, timeout=3000) or [])
+    except Exception:  # noqa: BLE001 - a page that will not say: the page's own check decides
+        return []
+
+
 class OpenGoalPlanner(LLMPlanner):
     """The model on a goal with no plan: acts, or answers from the page.
 
@@ -843,9 +893,13 @@ class OpenGoalPlanner(LLMPlanner):
     #: helper, as when the planner notices it is going nowhere.
     no_progress = voice.AI_NO_PROGRESS
 
-    def __init__(self, provider: Provider, task: Task, ask_answer: bool = True) -> None:
+    def __init__(self, provider: Provider, task: Task, ask_answer: bool = True,
+                 notes: str = "") -> None:
         super().__init__(provider, task)
         self._ask_answer = ask_answer
+        #: How this website works, in a few plain lines (`data/catalogue.json`,
+        #: 2026-11-18): written from live runs, given to the model with the goal.
+        self.notes = notes
         self._content: Content | None = None
         self._proposed: str | None = None
         self._proposed_sentence: str | None = None
@@ -873,6 +927,12 @@ class OpenGoalPlanner(LLMPlanner):
         # "Which one?" (2026-11-17), the one-item rule and the cart check.
         self.page = None
         self._asked_which = False
+        #: The address whose page was scrolled to load all of it (B4).
+        self._scrolled_page = ""
+        #: Times a form was held back for an empty required box (B4).
+        self._form_checks = 0
+        #: Times an ask with nothing to choose between was sent back (2026-11-18).
+        self._ask_retries = 0
         self._card_options: dict[str, cardlib.Card] = {}
         self._card_chosen: cardlib.Card | None = None
         self._added = 0
@@ -1011,6 +1071,15 @@ class OpenGoalPlanner(LLMPlanner):
             # The person chose among the site's own options: do that.
             wanted, text = self._site_chosen
             self._site_chosen = None
+            if wanted.role == "option":
+                option = next((e for e in usable(elements, self._failed)
+                               if e.role == "option"
+                               and _plain(_without_icons(e.label)) == _plain(text)), None)
+                if option is not None:
+                    self._made = ("click", option.role, option.label)
+                    return await self._shape(_Choice(
+                        action=Action(action="click", element_id=option.id,
+                                      reasoning="This is the one you chose."), element=option))
             now = next((e for e in usable(elements, self._failed)
                         if (e.role, e.label) == (wanted.role, wanted.label)), None)
             if now is not None:
@@ -1053,6 +1122,43 @@ class OpenGoalPlanner(LLMPlanner):
             asking = await self._ask_site(choice, elements)
             if asking is not None:
                 return asking
+            # An open list of suggestions or matches (Wikipedia's "The Alchemist" has a
+            # novel, a play and a film): its own options, asked as buttons, and the
+            # one chosen is pressed (2026-11-18).
+            open_list = [e for e in usable(elements, self._failed)
+                         if e.role == "option" and _without_icons(e.label).strip()]
+            labels = list(dict.fromkeys(_without_icons(e.label).strip() for e in open_list))
+            if len(labels) >= 2:
+                labels = labels[:MOST_OPTIONS]
+                question = (choice.action.reasoning or "").strip()
+                if not question.endswith("?"):
+                    question = voice.WHICH_ONE
+                self._site_question = question
+                self._site_element = open_list[0]
+                self._site_options = {f"{OPTION_ID_PREFIX}{i}": text for i, text in enumerate(labels)}
+                actions = [StepAction(id=key, label=text, kind="primary")
+                           for key, text in self._site_options.items()]
+                actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+                return Move(instruction=question, detail=voice.WHICH_ONE_SITE, operations=[],
+                            expect=Expectation(), fields=[], actions=actions, question=True,
+                            kind="choose")
+            # Several results the model cannot choose among (a list of ads, not a
+            # drop-down): shown as "Which one?" cards, for a look-up too (PakWheels,
+            # 2026-11-18: "Find a used Suzuki Alto" stopped with "I couldn't work out").
+            listed = await self._which_one(elements, any(e.overlay for e in elements), force=True)
+            if listed is not None:
+                return listed
+            # Nothing on this page to choose between yet (Readings, 2026-11-18: it
+            # asked "which edition?" on the front page, before any search): the
+            # model is sent back to find it, twice at most, before giving up.
+            if self._ask_retries < 2:
+                self._ask_retries += 1
+                self._last = None   # the box it asked about is not "failed": it may be typed in next
+                log.info("AI choice refused: an ask with nothing to choose between")
+                return await self.next_move(
+                    elements, history,
+                    "There is nothing on this page to choose between yet. Do not ask: search "
+                    "for what the goal names, or open the page that lists it, first.")
             self.stuck_reason = voice.AI_COULD_NOT
             return None
         checking = await self._cart_check(choice)
@@ -1099,25 +1205,44 @@ class OpenGoalPlanner(LLMPlanner):
 
     # --- "Which one?", one item, and the cart (2026-11-17) --------------------------
 
-    async def _which_one(self, elements: list[Element], on_top: bool) -> Move | None:
+    async def _site_words(self) -> set[str]:
+        """The words that name this website (its address and the start of its
+        title): they say where, never what, so they never pick a card."""
+        host = urlsplit(self.page.url).netloc.lower() if self.page is not None else ""
+        words = set(re.findall(r"[a-z0-9]{4,}", host))
+        try:
+            title = (await self.page.title()).lower().split(" - ")[0].split(" | ")[0]
+        except Exception:  # noqa: BLE001 - a page with no title: the address is enough
+            title = ""
+        return words | set(re.findall(r"[a-z0-9]{4,}", title))
+
+    async def _which_one(self, elements: list[Element], on_top: bool,
+                         force: bool = False) -> Move | None:
         """Several matches on the page, and the goal does something with one of
         them: the person chooses, as cards. Once per run, on a list page only,
         and never after something is in the cart."""
         if (self.page is None or self._asked_which or self._added or on_top
-                or not DOING_GOAL.search(self._task.goal)
+                or not (force or DOING_GOAL.search(self._task.goal))
                 or NOT_A_LIST.search(urlsplit(self.page.url).path or "")):
             return None
+        # The whole page is read first (lazy tiles load as it scrolls), and every
+        # tile is looked at before the goal's words choose among them (B4).
+        if self._scrolled_page != self.page.url:
+            self._scrolled_page = self.page.url
+            await cardlib.read_whole_page(self.page)
         found = await cardlib.find_cards(self.page)
         if len(found) < 2:
             return None
         usable_now = usable(elements, self._failed)
         # Only the ones about what was asked for: a shop's front page lists
-        # its own picks, which are not matches (Readings, 2026-11-17).
-        words = goal_words(self._task.goal)
-        about = [c for c in found if not words or any(w in _plain(c.name) for w in words)]
+        # its own picks, which are not matches (Readings, 2026-11-17). The
+        # website's own name is not a topic: "alchemist book on Readings" must
+        # not match "(Readings Classics)" (B5, 2026-11-18).
+        about = cards_about(found, self._task.goal, await self._site_words())
         reachable = [c for c in about if _control_for(c, usable_now) is not None]
         if len(reachable) < 2:
             return None
+        reachable = reachable[:cardlib.SHOW_CARDS]
         self._asked_which = True
         pictures = await cardlib.pictures(self.page, reachable)
         options: dict[str, cardlib.Card] = {}
@@ -1294,7 +1419,10 @@ class OpenGoalPlanner(LLMPlanner):
         action, element = choice.action, choice.element
         kind = "fill" if action.action == "type" else action.action
         label = _without_icons(element.label)
-        personal = bool(PERSONAL.search(" ".join(filter(None, [label, element.name]))))
+        # A search box is for the goal's words, whatever else its label says: OLX's own is
+        # "Find Cars, Mobile Phones and more", which is no request for a phone number.
+        personal = (bool(PERSONAL.search(" ".join(filter(None, [label, element.name]))))
+                    and not _is_search(element))
         value = action.value if kind in ("fill", "select") else None
         # The person's own details are theirs to give: a value the model made
         # up for one is dropped, and one the goal gave is shown in the box for
@@ -1310,7 +1438,8 @@ class OpenGoalPlanner(LLMPlanner):
         # to keep on this computer, by SIMBA, and never by the model. Not kept
         # yet: asked in its own screen, with a way to keep it.
         detail = (profilelib.kind_of(label, element.name, element.input_type)
-                  if kind == "fill" and not element.is_password and not given else None)
+                  if kind == "fill" and not element.is_password and not given
+                  and not _is_search(element) else None)
         remembered = None
         if detail is not None and asks:
             remembered = profilelib.ProfileVault().get(detail)
@@ -1349,7 +1478,10 @@ class OpenGoalPlanner(LLMPlanner):
                                                   label=voice.REMEMBER_DETAIL, kind="primary"),
                            *actions[1:]]
         if kind == "click":
-            safe = not (CHANGE_WORDS.search(label) or CONSENT_WORDS.search(label))
+            # A press that only moves a purchase on is a checklist line; the
+            # loop still checks the page before believing it (`only_moves_on`).
+            safe = not ((CHANGE_WORDS.search(label) and not is_stepping(label))
+                        or CONSENT_WORDS.search(label))
         elif remembered:
             safe = True
         else:
@@ -1381,6 +1513,14 @@ class OpenGoalPlanner(LLMPlanner):
         except asyncio.TimeoutError as error:
             raise LLMError("no AI service answered in time") from error
 
+    def _site_notes(self) -> str:
+        """The catalogue's notes on this website, as the end of the prompt. The
+        page itself always wins over them: a website changes."""
+        if not self.notes:
+            return ""
+        return ("\n\nWhat is known about this website, from earlier tries (the page in front of "
+                "you wins if it differs):\n" + self.notes)
+
     async def _choose(self, elements: list[Element], history: list[str],
                       setback: str | None) -> _Choice | None:
         """One action, retried once with the error fed back; an answer only
@@ -1393,7 +1533,7 @@ class OpenGoalPlanner(LLMPlanner):
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._decide(OPEN_GOAL_SYSTEM + OPEN_GOAL_RULES, page,
+                action = await self._decide(OPEN_GOAL_SYSTEM + OPEN_GOAL_RULES + self._site_notes(), page,
                                             feedback, history)
             except LLMError as error:
                 unanswered += 1
@@ -1421,6 +1561,17 @@ class OpenGoalPlanner(LLMPlanner):
                                  "or a booking page first: " + "; ".join(ways) + ".")
                 continue
             chosen = valid[action.element_id]
+            if (action.action == "type" and not DOING_GOAL.search(self._task.goal)
+                    and not _is_search(chosen) and not chosen.is_password
+                    and profilelib.kind_of(_without_icons(chosen.label), chosen.name,
+                                           chosen.input_type) is not None):
+                # A look-up needs none of the person's details (Chughtai Lab,
+                # 2026-11-18: their email was typed into the page's newsletter box).
+                log.info("AI choice refused: a look-up typing the person's details")
+                feedback = ("The goal only looks something up. Never type the person's name, "
+                            "email, phone or address into a box (a newsletter box, a contact "
+                            "form). Use the website's search box or its links to find it.")
+                continue
             if (self._added and action.action == "click"
                     and cardlib.ADD_WORDS.search(_without_icons(chosen.label))
                     and not cardlib.goal_wants_many(self._task.goal)):
@@ -1438,6 +1589,19 @@ class OpenGoalPlanner(LLMPlanner):
                 feedback = ("Your own last action opened this dialog. Closing it would undo "
                             "that. Use what is in it: fill in its boxes or press its buttons.")
                 continue
+            if (action.action == "click" and self.page is not None and self._form_checks < 3
+                    and SENDS_FORM.search(_without_icons(chosen.label) or "")):
+                # Every required box is filled before a form is sent on (B4,
+                # 2026-11-18); a box left empty is the model's to fill, not the page's
+                # message to scold. Three checks a run, then the page decides.
+                empty = await empty_required_boxes(resolve(self.page, elements, chosen.id))
+                if empty:
+                    self._form_checks += 1
+                    log.info("AI choice refused: %d required boxes empty", len(empty))
+                    feedback = ("This form still has required boxes that are empty: "
+                                + ", ".join(empty) + ". Fill them in or choose them first, "
+                                "then press this.")
+                    continue
             return _Choice(action=action, element=chosen)
         self.stuck_reason = voice.AI_TOO_SLOW if unanswered == 2 else voice.AI_COULD_NOT
         return None
@@ -1455,8 +1619,10 @@ class OpenGoalBrief:
     gave_up: str | None = None
 
     def __init__(self, provider: Provider, goal: str, site_name: str, *,
-                 steps: int, auto: bool = True, reader: Provider | None = None) -> None:
+                 steps: int, auto: bool = True, reader: Provider | None = None,
+                 notes: str = "") -> None:
         self.goal = goal
+        self._notes = notes
         self.estimated_steps = steps
         self._provider = provider
         self._reader = reader
@@ -1487,5 +1653,6 @@ class OpenGoalBrief:
                     about=About())
         # Asked to confirm every move: the answer is asked about too, as it
         # was until 2026-11-14.
-        self.planner = OpenGoalPlanner(self._provider, task, ask_answer=not self._auto)
+        self.planner = OpenGoalPlanner(self._provider, task, ask_answer=not self._auto,
+                                       notes=self._notes)
         return self.planner, task

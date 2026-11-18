@@ -155,7 +155,9 @@ function Where() {
   // The few shown before "See all": their favourites, then one from each kind in turn,
   // so the first screen shows what SIMBA covers rather than the first kind's websites.
   const shown: CatalogueSite[] = favourites.filter(matches).slice(0, SHOWN_SITES);
-  const queues = genres.map((genre) => found.filter((site) => site.genre === genre));
+  // Within each kind, the tested ones come first (B2).
+  const queues = genres.map((genre) => found.filter((site) => site.genre === genre)
+    .sort((a, b) => Number(b.tested ?? false) - Number(a.tested ?? false)));
   for (let round = 0; shown.length < SHOWN_SITES && round < found.length; round++) {
     for (const queue of queues) {
       const next = queue[round];
@@ -259,9 +261,16 @@ function Where() {
         <section className="simba-scroll flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pb-1 pr-1
                             short:gap-2" aria-label={HOME.pickSite} data-testid="site-scroll">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-lead font-semibold text-ink short:text-body">{HOME.pickSite}</h2>
+            {/* One line (2026-11-18, B2): any address works, the listed ones are tried, and how many. */}
+            <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-4 text-lead font-semibold text-ink
+                           short:text-body" data-testid="works-anywhere">
+              <span>{HOME.worksAnywhere}</span>
+              <span className="text-small font-normal text-soft" data-testid="site-count">
+                {HOME.siteCount(sites.length, sites.filter((site) => site.tested).length)}
+              </span>
+            </h2>
             <button type="button" onClick={() => setAll(!all)} data-testid="see-all"
-                    className="text-small font-medium text-accent underline underline-offset-4">
+                    className="shrink-0 text-small font-medium text-accent underline underline-offset-4">
               {all ? HOME.seeFewer : HOME.seeAll(sites.length)}
             </button>
           </div>
@@ -310,7 +319,15 @@ function SiteCard({ site }: { site: CatalogueSite }) {
         <span className="line-clamp-2 text-small font-semibold leading-tight text-ink">
           {site.name.replace(/\s*\([^)]*\)\s*$/, "")}
         </span>
-        <span className="line-clamp-1 text-small text-soft">{site.genre}</span>
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="line-clamp-1 text-small text-soft">{site.genre}</span>
+          {(site.tested || site.look_up_only) && (
+            <strong data-testid={site.look_up_only ? "badge-lookup" : "badge-tested"}
+                  className="rounded-full bg-tint px-2 text-small font-semibold text-accent">
+              {site.look_up_only ? HOME.lookUpOnlyBadge : HOME.testedBadge}
+            </strong>
+          )}
+        </span>
       </span>
     </button>
   );
