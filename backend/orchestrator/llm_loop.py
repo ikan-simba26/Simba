@@ -558,8 +558,10 @@ newsletter, a complaints form).
 #: A goal that does something (2026-11-17): the person is asked "Which one?"
 #: before one of several matches is opened, never left to the model's pick.
 DOING_GOAL = re.compile(
-    r"\b(order|buy|purchase|book|reserve|get me|add .{0,30} to (my )?(cart|basket|bag)|"
-    r"register|apply|sign up)\b", re.IGNORECASE)
+    r"\b(order|buy|purchase|reserve|get me|add .{0,30} to (my )?(cart|basket|bag)|"
+    r"register|apply|sign up)\b|^\s*(please\s+)?book\b|"
+    r"\bbook (me|us|a|an|my|the) (bus|train|flight|room|ticket|seat|table|hotel|doctor|"
+    r"appointment|trip|car|taxi|slot)\b", re.IGNORECASE)
 #: A page that is the cart, a checkout or a payment is not a list of choices.
 NOT_A_LIST = re.compile(r"(cart|basket|bag|checkout|payment|order|pay|thank|confirm)", re.IGNORECASE)
 #: A link or button that is the way into a booking or search the page hides.
@@ -854,9 +856,13 @@ class OpenGoalPlanner(LLMPlanner):
     #: helper, as when the planner notices it is going nowhere.
     no_progress = voice.AI_NO_PROGRESS
 
-    def __init__(self, provider: Provider, task: Task, ask_answer: bool = True) -> None:
+    def __init__(self, provider: Provider, task: Task, ask_answer: bool = True,
+                 notes: str = "") -> None:
         super().__init__(provider, task)
         self._ask_answer = ask_answer
+        #: How this website works, in a few plain lines (`data/catalogue.json`,
+        #: 2026-11-18): written from live runs, given to the model with the goal.
+        self.notes = notes
         self._content: Content | None = None
         self._proposed: str | None = None
         self._proposed_sentence: str | None = None
@@ -1325,7 +1331,10 @@ class OpenGoalPlanner(LLMPlanner):
         action, element = choice.action, choice.element
         kind = "fill" if action.action == "type" else action.action
         label = _without_icons(element.label)
-        personal = bool(PERSONAL.search(" ".join(filter(None, [label, element.name]))))
+        # A search box is for the goal's words, whatever else its label says: OLX's own is
+        # "Find Cars, Mobile Phones and more", which is no request for a phone number.
+        personal = (bool(PERSONAL.search(" ".join(filter(None, [label, element.name]))))
+                    and not _is_search(element))
         value = action.value if kind in ("fill", "select") else None
         # The person's own details are theirs to give: a value the model made
         # up for one is dropped, and one the goal gave is shown in the box for
@@ -1341,7 +1350,8 @@ class OpenGoalPlanner(LLMPlanner):
         # to keep on this computer, by SIMBA, and never by the model. Not kept
         # yet: asked in its own screen, with a way to keep it.
         detail = (profilelib.kind_of(label, element.name, element.input_type)
-                  if kind == "fill" and not element.is_password and not given else None)
+                  if kind == "fill" and not element.is_password and not given
+                  and not _is_search(element) else None)
         remembered = None
         if detail is not None and asks:
             remembered = profilelib.ProfileVault().get(detail)
@@ -1415,6 +1425,14 @@ class OpenGoalPlanner(LLMPlanner):
         except asyncio.TimeoutError as error:
             raise LLMError("no AI service answered in time") from error
 
+    def _site_notes(self) -> str:
+        """The catalogue's notes on this website, as the end of the prompt. The
+        page itself always wins over them: a website changes."""
+        if not self.notes:
+            return ""
+        return ("\n\nWhat is known about this website, from earlier tries (the page in front of "
+                "you wins if it differs):\n" + self.notes)
+
     async def _choose(self, elements: list[Element], history: list[str],
                       setback: str | None) -> _Choice | None:
         """One action, retried once with the error fed back; an answer only
@@ -1427,7 +1445,7 @@ class OpenGoalPlanner(LLMPlanner):
         for _ in range(2):
             self.calls_made += 1
             try:
-                action = await self._decide(OPEN_GOAL_SYSTEM + OPEN_GOAL_RULES, page,
+                action = await self._decide(OPEN_GOAL_SYSTEM + OPEN_GOAL_RULES + self._site_notes(), page,
                                             feedback, history)
             except LLMError as error:
                 unanswered += 1
@@ -1489,8 +1507,10 @@ class OpenGoalBrief:
     gave_up: str | None = None
 
     def __init__(self, provider: Provider, goal: str, site_name: str, *,
-                 steps: int, auto: bool = True, reader: Provider | None = None) -> None:
+                 steps: int, auto: bool = True, reader: Provider | None = None,
+                 notes: str = "") -> None:
         self.goal = goal
+        self._notes = notes
         self.estimated_steps = steps
         self._provider = provider
         self._reader = reader
@@ -1521,5 +1541,6 @@ class OpenGoalBrief:
                     about=About())
         # Asked to confirm every move: the answer is asked about too, as it
         # was until 2026-11-14.
-        self.planner = OpenGoalPlanner(self._provider, task, ask_answer=not self._auto)
+        self.planner = OpenGoalPlanner(self._provider, task, ask_answer=not self._auto,
+                                       notes=self._notes)
         return self.planner, task

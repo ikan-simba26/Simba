@@ -395,6 +395,12 @@ def quick_provider():
         return None
 
 
+def site_notes(site: str, catalogue: CatalogueStore) -> str:
+    """How the catalogue says this website works (2026-11-18), or nothing."""
+    listed = catalogue.for_address(site)
+    return listed.notes if listed is not None else ""
+
+
 def site_name(site: str, catalogue: CatalogueStore) -> str:
     """A website by the name the person knows it: the catalogue's, or its
     address without the `www.`."""
@@ -697,7 +703,8 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         # checklist; every move checked; a helper offered if it cannot be
         # done. Asked to confirm every move, every move is asked, as before.
         brief = OpenGoalBrief(open_provider, goal, site_name(site, catalogue),
-                              steps=OPEN_GOAL_STEPS, auto=auto, reader=quick_provider())
+                              steps=OPEN_GOAL_STEPS, auto=auto, reader=quick_provider(),
+                              notes=site_notes(site, catalogue))
         log.info("open goal on %s, with %s%s", host_of(site),
                  getattr(open_provider, "label", "the model"),
                  "" if auto else ", every move asked")

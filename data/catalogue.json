@@ -8,6 +8,7 @@
     "Health",
     "Shopping",
     "Jobs",
+    "News",
     "Look things up",
     "Practice sites"
   ],
@@ -95,6 +96,15 @@
         {"label": "Find a book's price", "goal": "Find the price of the book …", "how": "ai"},
         {"label": "Buy a book", "goal": "Order the book … for me", "how": "ai"},
         {"label": "Make an account", "goal": "Make me an account", "how": "ai"}
+      ]
+    },
+    {
+      "id": "dawn",
+      "name": "Dawn (news)",
+      "address": "https://www.dawn.com/",
+      "genre": "News",
+      "tasks": [
+        {"label": "Find the top story", "goal": "Find the top news story", "how": "ai"}
       ]
     },
     {

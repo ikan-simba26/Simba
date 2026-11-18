@@ -73,3 +73,40 @@ def test_lazy_tiles_are_loaded_and_all_of_them_are_read() -> None:
     before, after = asyncio.run(run())
     assert before == 10          # only what the first screen loaded
     assert after > 10            # the scroll loaded the rest, and none was cut at 6
+
+
+def test_book_the_noun_is_not_book_the_verb() -> None:
+    from backend.orchestrator.llm_loop import DOING_GOAL
+
+    # A look-up about a book is not a booking (Readings, 2026-11-18).
+    assert not DOING_GOAL.search("Find the price of the book The Alchemist on Readings")
+    assert not DOING_GOAL.search("Is the book Atomic Habits in stock")
+    for doing in ("Order me an alchemist book on Readings", "Book a bus from Lahore to Karachi",
+                  "I want to book a train to Multan", "please book me a seat", "Buy a book",
+                  "Register for CS-401", "Add Atomic Habits to my cart"):
+        assert DOING_GOAL.search(doing), doing
+
+
+def test_a_search_box_that_says_mobile_phones_is_searched_not_asked_for_a_phone_number() -> None:
+    """OLX, 2026-11-18: "Find Cars, Mobile Phones and more..." was taken for the
+    person's phone number, so the planner asked instead of searching, and never
+    pressed Enter."""
+    from backend.orchestrator.llm import Action
+    from backend.orchestrator.llm_loop import OpenGoalPlanner, _Choice
+    from backend.orchestrator.loop import Task
+    from backend.orchestrator.plan import About
+    from backend.perception.serializer import Element
+
+    task = Task(goal="Find the price of a used laptop on OLX", estimated_steps=6, success=None,
+                about=About())
+    planner = OpenGoalPlanner(None, task)  # type: ignore[arg-type]
+    box = Element(id=8, role="textbox", label="Find Cars, Mobile Phones and more...",
+                  type="textbox", tag="input", input_type="search")
+    choice = _Choice(action=Action(action="type", element_id=8, value="used laptop",
+                                   reasoning="search"), element=box)
+
+    move = asyncio.run(planner._shape(choice))
+
+    assert [op.kind for op in move.operations] == ["fill", "press"]
+    assert move.operations[0].value == "used laptop" and move.operations[1].value == "Enter"
+    assert move.fields == []          # nothing is asked of the person
