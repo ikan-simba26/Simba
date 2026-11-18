@@ -256,7 +256,8 @@ def test_the_sentence_names_the_station_that_was_chosen(railways: str) -> None:
 
 
 def test_the_day_is_written_the_way_a_person_says_it() -> None:
-    assert day_words(date(2026, 10, 3), date(2026, 9, 30)) == "3 October"
+    # Always with the year (B1, 2026-11-18).
+    assert day_words(date(2026, 10, 3), date(2026, 9, 30)) == "3 October 2026"
     # The year only when it is not this one.
     assert day_words(date(2027, 1, 3), date(2026, 9, 30)) == "3 January 2027"
 
@@ -404,17 +405,55 @@ def test_a_disabled_option_is_not_offered_as_an_answer() -> None:
     assert chosen.operations[0].target.label == "LAHORE JN"
 
 
-def test_a_calendar_showing_another_month_is_not_trusted() -> None:
+def test_a_calendar_showing_another_month_is_moved_to_the_right_one() -> None:
     """A day cell says "3"; which 3 it is comes from the panel's own heading.
-    Without that check the run would pick the third of whatever is on screen."""
+    The planner never picks the third of whatever is on screen: it reads the
+    month and year shown and moves the calendar until they match (B1)."""
     planner = TripPlanner("Rawalpindi", "Multan", date(2026, 10, 3), TODAY)
     planner.stations = {"origin": "RAWALPINDI", "destination": "MULTAN CANTT"}
     planner._done = {"choose origin", "choose destination", "open month"}
 
-    wrong = move_for(planner, [option("3", panel="2026 September")])
+    fix = move_for(planner, [option("3", panel="2026 September")])
 
-    assert wrong is None
+    assert fix is not None and planner.stuck_reason is None
+    assert [(o.kind, o.target.label) for o in fix.operations] == [("click", "Next Month")]
+
+
+def test_a_calendar_a_year_off_is_moved_by_the_difference_and_back() -> None:
+    planner = TripPlanner("Rawalpindi", "Multan", date(2027, 1, 3), TODAY)
+    planner.stations = {"origin": "RAWALPINDI", "destination": "MULTAN CANTT"}
+    planner._done = {"choose origin", "choose destination", "open month"}
+
+    fix = move_for(planner, [option("3", panel="2026 September")])
+    assert [o.target.label for o in fix.operations] == ["Next Month"] * 4
+
+    back = TripPlanner("Rawalpindi", "Multan", date(2026, 10, 3), TODAY)
+    back.stations = planner.stations
+    back._done = {"choose origin", "choose destination", "open month"}
+    fix = move_for(back, [option("3", panel="2027 January")])
+    assert [o.target.label for o in fix.operations] == ["Previous Month"] * 3
+
+
+def test_a_calendar_that_will_not_move_is_given_up_on_after_three_tries() -> None:
+    planner = TripPlanner("Rawalpindi", "Multan", date(2026, 10, 3), TODAY)
+    planner.stations = {"origin": "RAWALPINDI", "destination": "MULTAN CANTT"}
+    planner._done = {"choose origin", "choose destination", "open month"}
+
+    for _ in range(3):
+        assert move_for(planner, [option("3", panel="2026 September")]) is not None
+    assert move_for(planner, [option("3", panel="2026 September")]) is None
     assert planner.stuck_reason is not None
+
+
+def test_the_right_month_and_year_picks_the_day() -> None:
+    planner = TripPlanner("Rawalpindi", "Multan", date(2027, 1, 3), TODAY)
+    planner.stations = {"origin": "RAWALPINDI", "destination": "MULTAN CANTT"}
+    planner._done = {"choose origin", "choose destination", "open month"}
+
+    pick = move_for(planner, [option("3", panel="2027 January")])
+
+    assert pick is not None and pick.kind == "date"
+    assert [o.target.label for o in pick.operations] == ["3"]
 
 
 def test_a_form_that_no_longer_holds_the_journey_is_not_searched() -> None:

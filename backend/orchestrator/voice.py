@@ -302,11 +302,11 @@ FIELD_STATION = "Station"
 NOT_UNDERSTOOD = "I asked a few times and still couldn't work out what you meant."
 
 
-def day_words(day, today) -> str:
-    """A date the way a person says it: `3 October`, with the year only when
-    it is not this one."""
-    words = f"{day.day} {day.strftime('%B')}"
-    return words if day.year == today.year else f"{words} {day.year}"
+def day_words(day, today=None) -> str:
+    """A date the way a person says it, always with the year: `3 October 2026`
+    (B1, 2026-11-18: a read-back without the year let a wrong year pass for
+    the right one). `today` is kept so every caller still reads the same."""
+    return f"{day.day} {day.strftime('%B')} {day.year}"
 
 
 def which_station(place: str) -> str:

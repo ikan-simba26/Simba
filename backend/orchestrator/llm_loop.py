@@ -761,28 +761,23 @@ MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augus
           "september", "october", "november", "december"]
 
 
-def goal_date(goal: str, shape: str = "") -> str | None:
-    """The date a goal names ("21 November", "November 21"), written the way a
-    box shows it (`shape` like "dd-MM-yyyy"), else as 2026-11-21. None when the
-    goal names no date. The year is this year, or next if the day has passed."""
+def goal_date(goal: str, shape: str = "", today=None) -> str | None:
+    """The one exact date a goal names, written the way a box shows it (`shape`
+    like "dd-MM-yyyy"), else as 2026-11-21. None when the goal names no date,
+    or names one that has passed or is not in the calendar.
+
+    One reader for every date (`details.find_day`): "21 November", "November
+    21st 2027", "21 Nov", "tomorrow", "next Friday", "21/11", "2026-11-21".
+    A year in the goal is kept (B1, 2026-11-18: "5 January 2028" was typed as
+    2027); with no year it is the next time that day comes. Worked out from
+    today's date before anything is typed, and never a day that has gone."""
     import datetime
 
-    text = (goal or "").lower()
-    pattern = "(" + "|".join(MONTHS) + ")"
-    found = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + pattern + r"\b", text)
-    if found:
-        day, month = int(found.group(1)), MONTHS.index(found.group(2)) + 1
-    else:
-        found = re.search(pattern + r"\s+(\d{1,2})\b", text)
-        if not found:
-            return None
-        month, day = MONTHS.index(found.group(1)) + 1, int(found.group(2))
-    today = datetime.date.today()
-    try:
-        when = datetime.date(today.year, month, day)
-        if when < today:
-            when = datetime.date(today.year + 1, month, day)
-    except ValueError:
+    from backend.orchestrator.details import find_day
+
+    today = today or datetime.date.today()
+    when, _ = find_day(goal or "", today)
+    if when is None or when < today:
         return None
     sep = next((c for c in shape if c in "-/."), "-")
     lowered = shape.lower()
@@ -790,6 +785,8 @@ def goal_date(goal: str, shape: str = "") -> str | None:
         return f"{when.day:02d}{sep}{when.month:02d}{sep}{when.year}"
     if lowered.startswith("mm"):
         return f"{when.month:02d}{sep}{when.day:02d}{sep}{when.year}"
+    if lowered.startswith("yy"):
+        return f"{when.year}{sep}{when.month:02d}{sep}{when.day:02d}"
     return when.isoformat()
 
 
