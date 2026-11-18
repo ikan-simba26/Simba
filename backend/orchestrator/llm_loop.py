@@ -1548,6 +1548,17 @@ class OpenGoalPlanner(LLMPlanner):
                                  "or a booking page first: " + "; ".join(ways) + ".")
                 continue
             chosen = valid[action.element_id]
+            if (action.action == "type" and not DOING_GOAL.search(self._task.goal)
+                    and not _is_search(chosen) and not chosen.is_password
+                    and profilelib.kind_of(_without_icons(chosen.label), chosen.name,
+                                           chosen.input_type) is not None):
+                # A look-up needs none of the person's details (Chughtai Lab,
+                # 2026-11-18: their email was typed into the page's newsletter box).
+                log.info("AI choice refused: a look-up typing the person's details")
+                feedback = ("The goal only looks something up. Never type the person's name, "
+                            "email, phone or address into a box (a newsletter box, a contact "
+                            "form). Use the website's search box or its links to find it.")
+                continue
             if (self._added and action.action == "click"
                     and cardlib.ADD_WORDS.search(_without_icons(chosen.label))
                     and not cardlib.goal_wants_many(self._task.goal)):
