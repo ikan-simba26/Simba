@@ -176,3 +176,39 @@ def test_a_picture_captcha_is_a_captcha_not_a_code_from_the_phone() -> None:
     kind, box_id = asyncio.run(run())
     assert kind == "captcha"
     assert box_id == "box"       # the block holding the picture and its box
+
+
+PAYMENT = """<html><body>
+<label id=chosen><input type=radio name=pay value=cod checked> Cash On Delivery Rs.465</label>
+<label id=other><input type=radio name=pay value=card> Card</label>
+<div id=card1><input type=radio name=ship value=a checked> Standard</div>
+<div id=group><input type=radio name=g value=1 checked><input type=radio name=g value=2></div>
+<button id=btn>Pay</button></body></html>"""
+
+
+def test_a_press_on_a_choice_already_made_is_not_a_failure() -> None:
+    """Readings' checkout, 2026-11-18: a second press on the chosen Cash On
+    Delivery changed nothing, was called a failed move, and the run went round."""
+    from backend.orchestrator.loop import already_chosen
+    from backend.perception.serializer import Element
+
+    async def run() -> list[bool]:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(PAYMENT)
+            # `resolve` needs a real reading of the page; the element ids come from it.
+            from backend.orchestrator.loop import perceive
+            elements, _, _ = await perceive(page)
+            found = {e.label: e.id for e in elements}
+            out = []
+            for label in ("Cash On Delivery Rs.465", "Card", "Pay"):
+                key = next((k for k in found if label in k), None)
+                out.append(bool(key) and await already_chosen(page, elements, found[key]))
+            await browser.close()
+            return out
+
+    chosen, other, button = asyncio.run(run())
+    assert chosen is True        # already selected: nothing to press
+    assert other is False        # a different choice still gets pressed
+    assert button is False       # a plain button is never "already chosen"

@@ -3084,6 +3084,27 @@ async def follow_override(
     await adapt(rules.override(override.level, override.locked, override.by))
 
 
+#: Whether a press is on a radio button (or its label, or a card holding exactly
+#: one) that is already chosen.
+_CHOSEN_JS = """e => {
+  const own = e.matches('input[type=radio]') ? [e]
+    : e.control ? [e.control] : [...e.querySelectorAll('input[type=radio]')];
+  return own.length === 1 && own[0].type === 'radio' && own[0].checked;
+}"""
+
+
+async def already_chosen(page: Page, elements: list[Element], element_id: int) -> bool:
+    """A press on a choice that is already made changes nothing on the page, so
+    the check "did the page change" would call it a failure. Readings' checkout
+    (2026-11-18): Cash On Delivery was chosen by the first press; the second
+    "did not change at all", the planner took that for a failed choice and went
+    round again until it stopped."""
+    try:
+        return bool(await resolve(page, elements, element_id).evaluate(_CHOSEN_JS, timeout=1500))
+    except Exception:  # noqa: BLE001 - cannot tell: press it as before
+        return False
+
+
 async def attempt_move(
     page: Page, move: Move, input_values: dict[str, str], strategy: int, before: Snapshot,
     ready: Callable[[], Awaitable[None]] | None = None,
@@ -3109,6 +3130,11 @@ async def attempt_move(
         value, refusal = resolve_value(element, operation, input_values)
         if refusal is not None:
             return refusal
+
+        if (operation.kind == "click" and len(move.operations) == 1
+                and await already_chosen(page, elements, element_id)):
+            log.info("choice already made: nothing to press")
+            return None
 
         covered = await covering(page, element)
         if covered is not None:
