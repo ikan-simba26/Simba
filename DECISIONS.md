@@ -7318,3 +7318,23 @@ each thing I do". `HomeFrame.tsx` is new and `Home.tsx` is rebuilt.
 is empty; the ticket shows it as it is. (2) The newest booking's ticket shows its title, not a route,
 since a booking keeps only the goal's words. (3) Which eight websites show is my choice (favourites,
 then round-robin by kind); the advisor may want a fixed first eight.
+
+
+## 2026-11-18 — bugs B1 to B5, "Change", the tested badge, live sites (`fix/bugs-b1-b5`)
+
+Raham's direction of 18 November (approved by the advisor and the team): a working SIMBA with no bugs on its real tasks. What was settled that the task did not specify:
+
+1. **One merge, not three.** `feat/frontend-home-redesign` already held the other two (the session-expired commit and `feat/frontend-builds-as-you-go`), so one merge commit was made; `main` was tagged `demo-safe-2026-11-18` first.
+2. **Raham's uncommitted work was committed as it was** (promo boxes, stepping presses, three documents) before the fixes, after its 53 tests passed, so the fixes could be separate commits.
+3. **A date is read once, by one reader** (`details.find_day`), for every planner, and every read-back says the year. "next Friday" still means the coming Friday (unchanged).
+4. **"Change" restarts the task** on the same website with the other answers kept; it does not step back inside a live page. Contract, additive and optional: `task.start.keep_answers` (`KeptAnswer`). Matched by the question's words and the button's words, never by position; never a final screen, a read-back or a secret. Not offered once something was done on the website (Do it, Pay now), the task has ended or a help-me step is open. At the simplest level the panel is folded, so Change is behind "Show more".
+5. **The catalogue gained `tested`, `look_up_only`, `hidden` and `notes`** (`tested` and `look_up_only` are additive and optional in the contract; `notes` and `hidden` stay in the backend). `tested` means three runs in the real window ended with an answer. Hidden: NUST (does not load), Chughtai Lab (wanders to Book), FBR (a "Register…" link counts as a change); they still open by name or address. Look up only: PIA and the live IESCO bill (they stop at a check only a person can pass). Dawn was added (new genre "News").
+6. **"Which one?" shows at most 12 cards**, read from up to 60 tiles after the page was scrolled once; it is also used for a look-up when the model asks which result, and an open list of suggestions is asked as buttons.
+7. **A look-up never types the person's details**, and a search box is never a request for them.
+8. **FBR's "Register…" link stays a change** (default deny, `loop.would_change`): it costs one extra question and a miss could change something. Flagged below.
+
+**Flagged for review.**
+- Railways first-step failure in a long-running window (BUGS.md W1): cause unknown; restart before a demo.
+- Should a plain same-site link on a live site ever be a change (FBR)? Recommendation: no, but only with an `only_opens`-style check of the link's address; it touches the final-step rule, so not done here.
+- Two tests still fail on main (`test_copy`, `test_first_screen`).
+- Wikipedia 1 of 3; Readings' "Which one?" appears for a price look-up (12 editions).

@@ -8,6 +8,8 @@ named person or external thing acts.** Something nobody has done yet is
 *open*, not blocked. Until 2026-09-17 this file mixed the two, and several
 items sat under "blocked on quota" for eight days after the quota had reset.
 
+**2026-11-18, bugs and live sites** (`fix/bugs-b1-b5`): B1 date (exact date, year always said, calendar moved by reading it), B2 "Works on any website. These are tested." with a count and a badge, B3 "Change" in So far (the other answers kept), B4/B5 whole page read, Which one? from the right page; per-site notes given to the AI planner; twelve live sites tried (BUGS.md). Three runs each: bill, OLX, PakWheels, Zameen, Dawn 3/3; Railways and Readings 3/3 after a fresh restart (Railways 0/3 in a long-running window, cause unknown); Wikipedia 1/3. Hidden: NUST, Chughtai, FBR. Not done: the real Readings order and Teach on Readings with Raham (Step 4a, 4c). EVALUATION.md, DECISIONS.md, BUGS.md, 2026-11-18.
+
 **Last updated:** 2026-11-14 · **SIMBA makes accounts** (`feat/orchestrator-sign-up`: terms asked, password made and kept, the email step; sign-ups 3 of 3 with the real model, EVALUATION.md, 2026-11-14b). **The AI planner now carries tasks out** (`feat/orchestrator-live-doing`): it may press order/book/pay behind the final screen, ends with the page's confirmation, reads plain page text, and never sends what the person typed to a model. With the real model on pages served here: orders 3 of 3, payments 2 of 2 through the handover (EVALUATION.md, 2026-11-14a). **Waiting on Raham**: the real payment run on Readings (a book ≤ Rs 350 + Rs 150 shipping), with his own Readings account and him at the keyboard. Yesterday: the installer, OpenRouter, the shorter list, the answer check, phase 5 runs A-E (2026-11-13a-j).
 
 

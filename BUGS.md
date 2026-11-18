@@ -62,10 +62,40 @@ Status: **open** · **reproduced** (seen live, not fixed) · **fixed** (proved l
 - **Steps:** open the home screen.
 - **Expected:** a booking card has a real title.
 - **Actual:** the first card reads "g" (a stored test booking in `data/bookings.json`).
-- **Status:** open (data, not code: to be checked)
+- **Status:** not reproduced after restart (the card is a stored test booking in `data/bookings.json`, which is not committed; Raham flagged it himself on 17 Nov).
+
+### B7 — Three tests fail on main, independent of this work
+- `test_calm_planner::test_a_box_for_the_persons_own_details_is_theirs_to_type` passed only on a machine with no kept name (it read the real `data/profile.json`) and pinned old wording. **Fixed** (isolated with `SIMBA_PROFILE`, wording updated).
+- `test_copy::test_nothing_in_the_backend_writes_its_own_way_to_stop`: `loop.py` and `llm_loop.py` write `kind="secondary"` outside `voice.py`. Same count on main. **Open.**
+- `test_first_screen::test_an_empty_box_looks_ready_to_type_in` (border 1px, expected 2px). Not checked on main. **Open.**
 
 ---
 
-## Live-site runs (Step 3)
+## Live-site runs (Step 3) — 18 November, real window, one realistic task each
 
-*(filled in as each site is tried)*
+| Site | Task | Result | Bug found |
+|---|---|---|---|
+| Pakistan Railways | trains Lahore to Karachi, 25 Nov 2026 | works (1 train, 26 h 20 min) | W1 |
+| Readings | price of "The Alchemist" | works: searches, "Which one?" with 12 editions | W2 |
+| OLX | price of a used laptop | works after fix: "Rs 33,000" | O1, O2 |
+| PakWheels | find a used Suzuki Alto | works after fix | P1 |
+| Zameen | house to rent in Lahore | works: "6,673 houses for rent" | — |
+| Dawn (news, added) | top story | works | — |
+| Wikipedia | who wrote The Alchemist | answers "Paulo Coelho" in some runs; stops on the disambiguation page in others | K1 |
+| IESCO bill (live) | look up a bill | stops at an image CAPTCHA, handed to the person (correct); wording was wrong, fixed | I1 |
+| PIA flights | Lahore to Karachi | stops at a bot check for the person (correct) | — |
+| Chughtai Lab | price of a CBC test | wanders to "Book a Test", stopped by the final screen; nothing changed | C1 |
+| FBR | how to get a tax number | a menu link named "Register…" counts as a change (final screen), or it stalls | F1 |
+| NUST | admission requirements | the website does not load (Chrome error page) | N1 |
+
+- **W1 (Railways, serious).** In a batch of three runs the first station-typing step was marked "not done" within 2 s and SIMBA stopped ("The site didn't offer me any stations"), for Lahore Jn. and Lahore Cantt alike, after four earlier passes. By hand the live list opens. After a fresh restart of the window and backend it passed again. Cause not found; the failures began after hours of one window. Treat a long-running window as suspect. **Open (see EVALUATION.md for the re-runs).**
+- **W2 (Readings).** The model "asked" which edition on the front page before searching, and the run stopped. **Fixed in code** (sent back to search twice before giving up), re-run numbers in EVALUATION.md.
+- **O1 (OLX).** The search box label "Find Cars, Mobile Phones and more" was read as a request for the person's phone number: it asked instead of searching and never pressed Enter. **Fixed**, test added.
+- **O2 (OLX).** After searching, a drop-down with many options asked "Which one? one". **Open** (it still finishes the look-up).
+- **P1 (PakWheels).** The model asked which ad; there was no drop-down, so the run stopped. **Fixed:** a list of ads or open suggestions becomes "Which one?" cards or buttons.
+- **K1 (Wikipedia).** On a disambiguation page the choices are links, not options, so there is nothing to show. **Open.**
+- **I1 (IESCO).** "Enter CAPTCHA code" was shown as "Type the code the website sent to your phone." **Fixed:** a picture CAPTCHA is its own kind, shown with its picture and box.
+- **C1 (Chughtai).** (a) The planner typed the person's saved email into a newsletter box on a look-up and queued "Book a Test"; the final screen stopped it and nothing was sent. **Fixed:** a look-up never types the person's details. (b) It still wanders to Book buttons. **Open.**
+- **F1 (FBR).** The default-deny rule treats any press with "register" as a change. Left as it is; flagged for review.
+- **N1 (NUST).** Not our bug: the page does not load. Hidden/marked in the catalogue.
+- **Harness note.** A minimised window makes SIMBA wait ("I waited while the window was closed"); my runner restores it.

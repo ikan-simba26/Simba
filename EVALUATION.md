@@ -9479,3 +9479,42 @@ untouched build of `b926d7b` (before the task-screen redesign, which left these 
 - **In the real window** (`.\run.ps1`, pictures by the debug port): the new first screen at 1266×632 and
   1280×800, the full list, a chosen website, "Another website". Not seen: the first screen at 125%
   in the real window (the tests cover it), dark theme, a first screen with no bookings or tasks.
+
+
+## 2026-11-18 — bugs B1 to B5, twelve live sites, three runs each (`fix/bugs-b1-b5`)
+
+All runs in the real window (`run.ps1`, driven over the debug port by `.scratch/live/site.py`; the window's own page only, never the desktop), AI planner on OpenRouter (`anthropic/claude-haiku-5.5`), one realistic task per site, nothing pressed past a final screen. The runner presses only the read-back ("Yes, go ahead"), "Yes, do that" and cookie Yes; never Do it or Pay.
+
+**Twelve sites, one run each (before the fixes of the day's second half).**
+Works: Pakistan Railways (1 train, 26 h 20 min), Zameen (6,673 houses for rent), Dawn (top story), Readings ("Which one?" with 12 editions). Failed, then fixed and works: OLX (search box read as a phone number), PakWheels (an "ask" about ads), Wikipedia (an "ask" about suggestions, 1 of 3 afterwards). Stops for a person, correctly: PIA (bot check), IESCO live bill (image CAPTCHA). Does not work: Chughtai Lab (wanders to Book buttons; typed the person's email into a newsletter box before the look-up rule), FBR (a "Register…" link is a change), NUST (the page does not load).
+
+**Three runs each, first batch** (backend restarted at 09:46, after hours of one window):
+
+| Task | Passed | Seconds |
+|---|---|---|
+| Practice bill (test gateway site) | 3 of 3 | 22, 23, 23 |
+| OLX, price of a used laptop | 3 of 3 | 61, 66, 63 |
+| PakWheels, a used Suzuki Alto | 3 of 3 | 191, 166, 166 |
+| Zameen, a house to rent in Lahore | 3 of 3 | 83, 141, 203 |
+| Dawn, the top story | 3 of 3 | 49, 45, 97 (run 1 was marked FAIL by my own pattern, which wanted "top news story"; the answer said "top story" and was right) |
+| Pakistan Railways | 0 of 3 | 37, 38, 31 |
+| Readings, price of The Alchemist | 0 of 3 | 44, 121, 47 |
+| Wikipedia, who wrote The Alchemist | 0 of 3 | 50, 57, 60 |
+
+**Second batch after the fixes and a fresh restart of the window and backend** (`evalbatch2.sh`):
+
+| Task | Passed | Seconds |
+|---|---|---|
+| Pakistan Railways, Lahore Jn. to Karachi City, 25 Nov 2026 | 3 of 3 | 63, 74, 71 |
+| Readings | 3 of 3 | 168, 194, 183 |
+| Wikipedia | 1 of 3 | 73 (pass), 95, 87 (stopped by the 3-move rule with "I couldn't do this on this website. Nothing was changed." and the Show-me-once offer) |
+
+Step 4b, "Find trains from Lahore to Karachi next Wednesday" (today Wed 18 Nov): read back as "Wednesday 25 November 2026", the site held `25-11-2026`, 1 train, 63 s.
+
+**What the numbers say, and do not.**
+- Railways failed 0 of 3 in the first batch after passing four times that morning and 3 of 3 after a fresh restart. The failing move was the first station-typing step ("move place not done in 1.5 to 1.9 s", then the one-attempt rule for a list stops the run). By hand the site's list opens with both `fill` and real keystrokes. **The cause was not found.** What was observed: all failures came after about two hours of one window, the passes after a restart. Not proved, not fixed; see BUGS.md W1.
+- Readings 0 of 3 then 3 of 3: the first three stopped on an "ask which edition" before any search; sent back to search (`_ask_retries`), it passed.
+- Wikipedia: 1 of 3 is not a pass, and the site carries no Tested badge.
+- Passes are by my text checks on the final screen (a train count, "Rs", a name), read afterwards; they say the run ended with an answer, not that every answer is right.
+
+**Tests.** Changed files only (the full suite runs tonight): `test_trip` and `test_trip_answers` 158 passed with the year changes; `test_which_one` 10, `test_keep_answers` 8, `test_catalogue` 41, `test_calm_planner` 37, `test_llm_loop`/`test_open_goal`/`test_asking`/`test_live_doing` 113; frontend `test_change_answer` 4, `test_sites` 41, `test_home` 17, plus `test_build_card`, `test_checklist`, `test_own_tiles`, `test_reset`, `test_closing` (205 passed in one run). Still failing, not caused here: `test_copy` (the backend writes `kind="secondary"` outside `voice.py`, same count on main) and `test_first_screen::test_an_empty_box_looks_ready_to_type_in`.
