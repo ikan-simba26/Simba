@@ -9363,3 +9363,119 @@ beyond the log: the Readings run took about 3 minutes to the final screen, mostl
 and the person's presses.
 **Tests:** `test_do_whole_task.py` 6 passed; see the report for the handover/gateway files. The full
 suite was not run, as asked.
+
+## 2026-11-17 (later) — Readings, cash on delivery, to its final screen (real window, live, one run each)
+
+Gemini 2.5 Flash through OpenRouter, `.\run.ps1`, `tools/evaluation/drive.py`. Goal: "Order me an alchemist
+book, pay cash on delivery". Nothing was ordered: the run stops at the final screen, which is the
+person's press. Cart emptied by hand before each run (it held a leftover from earlier tests).
+
+| Run | Final screens shown | What stopped it |
+|---|---|---|
+| 1 (before the fix) | Buy Now, got one | I declined it; a hidden "Place Order" button on the product page made my guard refuse |
+| 2 | none | backend crash: unhandled `Locator.input_value` timeout after the search moved the page |
+| 3 | none | handed over for a one-time code: "Promo Code"/"Gift Card Code" boxes read as card and code |
+| 3b | the right one, Place Order | amount shown was the first three prices on the page (list price, you save), not the total; declined |
+| 4 | **1: Place Order**, Total Rs 4195, Subtotal Rs 4045, Shipping Rs 150 | waiting for the person's press |
+
+Steps in run 4: search, "Which one?" cards (person chose), Buy Now and Checkout as checklist lines, COD
+radio reported not done (already chosen), final screen. About 5 min from the goal, mostly the person's
+presses and model calls of 1.5-2.5 s. **Tests:** `test_stepping_press.py` 36, `test_promo_boxes.py` 8,
+`test_final_step.py` and `test_handover.py` pass; the payment suite and the whole suite were not
+confirmed. Pakistan Railways was not run: one task at a time in the window, and it needs the person's
+sign-in. DECISIONS.md, 2026-11-17 (later).
+
+## 2026-11-17 (evening) — the frontend redesign, measured (`feat/frontend-builds-as-you-go`)
+
+What was measured, and against what. Frontend tests are Playwright against the built overlay; "HEAD" is
+the same files on an untouched build of `b926d7b` (a scratch worktree, removed after).
+
+**New: `frontend/test_build_card.py`, 22 tests, 22 pass.** The card starts empty and fills from the goal
+(3 of 7), a choice fills it (5 of 7), the field waiting for the person is amber, the field just filled is
+washed; the final screen is the card, complete, with two equal buttons; a typed password and the text
+typed in it never reach the card ("Kept safely", once); the three panels have identical x, y, width and
+height on a checklist line, a question and the final screen; bar 6px and pill by whose turn it is; the
+halo while SIMBA works; one Stop, in the header, in the step's own words; the fold (centre over 1100px,
+three tiles of at least 190px, "Show more" brings the sides back); a final screen is never folded; and
+**every task screen fits with no scroll at 1280x800, 1280x734 and 1266x632** (working, choose, seat,
+final: 12 cases). Receipt ("Only 1, as you asked", "Items in cart: 1" is not the item), address then city,
+bill and answer shapes, the flight into My bookings (number and "Saved in My bookings" shown, takes no
+presses, gone in under 6s, none under reduced motion), the real page in the middle with what was typed
+kept, and a final with no details does not claim "Complete".
+
+**The old suite, against HEAD.** 26 files re-run on the final build (home-area files on the earlier
+build, which did not change them). Same failures as HEAD, so not from this work: `test_brand` 16 of 47
+(the home screen no longer draws the shape), `test_home` 8, `test_own_tiles` 4, `test_pictures` 4,
+`test_show_me_once` 6, `test_sites` 4, `test_first_screen::empty_box` 1, `test_calm::home` 1,
+`test_copy::backend_way_to_stop` 1 (the uncommitted `loop.py` and `llm_loop.py`),
+`test_after_the_guard` 1 (a real-backend case that differs between runs). Passing: checklist 27, levels 8,
+questions 19, first_screen 35 of 36, reveal 7, final_check 31, telemetry 6, speak 11, sign_in 11,
+contrast 25 (two new pairs for the state colours), closing 42, overflow_guard 4, step_icons 11, press_guard
+4, welcome 12, replies 18, reset 3, setup 11, forget_run 2, window_started 1, terminal_states 239 (every
+ending at 100%, 125%, 150%: 407s). **Not run to completion, on either build:** `test_window_fit` (900s)
+and `test_new_tab_links` (600s) both time out here.
+
+**Old tests changed because they pinned the old look, not a behaviour.** `test_checklist` (the dots, the
+path between them and the grow-in dot are gone; the move being done is large with the lion haloed, the
+list is kept for a screen reader; two buttons now, Pause and See the real page); `test_calm` (the presence
+mark on a task screen is the lion's halo: it moves only while SIMBA works, still under reduced motion,
+paused when the window is not focused, same budget); `test_levels` (a short step is up to 40px taller at
+level 1 than level 2, since the middle panel is 486px of text); `test_reveal`, `test_telemetry`,
+`test_final_check` (the real-page button is "See the real page", its way back "Hide the real page");
+`test_sign_in` ("Stop this" is the header's); `test_speak` (the header holds the lion and the task's name);
+`test_brand` (the lion is the presence mark on a step); `test_after_the_guard` (at 150%, 606px the course
+question now fits at level 3, so there is no second hop).
+
+**What failed and why, along the way.**
+- First layout: at 1266x632 the first question did not fit at level 2 (4px over) and at 1266x606 was 22px
+  over, so the guard dropped a level with a notice. Fixed with 24px from the header, outer and panel
+  padding in a short window, the status line moved into the left column.
+- The guard measured the whole page; the step now scrolls inside the middle panel, so it measures that.
+- `\b` typed in a script became two backspace characters in `journey.ts`; "Items in cart: 1" filled the
+  receipt's item with "1". Found by a new test; fixed.
+- The card's flight did not show: a fixed element inside the screen that is arriving (a transform) is
+  fixed to it. Drawn on the page itself (`createPortal`).
+- A cutting notice: "I've made this sma…" in the narrower middle. It wraps in the frame now.
+- A first halo animated a shadow; a ring moved by transform and opacity does the same for nothing.
+- The spotlight's 9999px scrim dimmed its own sentence; removed.
+- Pictures: Playwright's own screenshot hung on the unfocused Electron window, so the pictures are the
+  overlay page by the debug port (`Page.captureScreenshot`), never the desktop.
+
+**In the real window.** `.\run.ps1 railways-local`: a real train task, goal read, From, To, Date filled on
+the card from the goal, the train cards, the final screen as the card in amber; the estimator folded the
+screen by itself on a later screen ("This website is busy, so I'm showing you less."). A scripted
+backend drove one bus journey, one order, one folded screen and one help-me step in the real window for
+the before and after pictures (`.scratch/compare/`). One real run gave a card marked "Complete" on a
+final screen with no details; fixed afterwards and tested, not seen again in the real window. The
+real page's glowing ring was not seen on a real preview (the backend's preview in that run had no ring).
+
+## 2026-11-17 (night) — the home screen redesign, measured (`feat/frontend-home-redesign`)
+
+Frontend tests against the built overlay; the HEAD comparison is the earlier run of the same files on an
+untouched build of `b926d7b` (before the task-screen redesign, which left these files alone).
+
+- **Nothing overlaps, at 100%, 125%, 150% and 150% at 632px.** `test_home.box_fits` now holds every part
+  of the first screen (logo, status pill, teach button, settings, box, Start, chips, the grid, the
+  bookings panel, Your tasks) wholly in the window and none over another, with no history and with
+  three of the longest goals: 8 cases, all pass. It failed outright before, as reported: "Teach a task"
+  and "My bookings" were drawn over the heading at 150%.
+- **Passing:** `test_home` 17, `test_sites` 40, `test_pictures` 18, `test_own_tiles` 9,
+  `test_show_me_once` 34, `test_setup` 11, `test_welcome` 12, `test_replies` 18, `test_reset` 3,
+  `test_contrast` 25, `test_build_card` 22. Five of those files failed in part on HEAD
+  (`test_home` 8, `test_own_tiles` 4, `test_pictures` 4, `test_show_me_once` 6, `test_sites` 4): they
+  pinned the layout from 2026-11-16 and were already out of date.
+- **Same as HEAD, not from this work:** `test_brand` 16 of 47 (its "logo touches nothing" cases look
+  for a presence shape the first screen no longer draws), `test_copy` 1 (the uncommitted backend).
+- **Tests changed because they pinned the old layout:** the greeting words (`test_home`,
+  `test_welcome`, `test_reset`, `test_replies`); "Teach a task" is a button in the bar
+  (`test_show_me_once`); own tasks sit beside the three known tasks, not over them (`test_own_tiles`);
+  the first screen shows eight cards and "See all N" opens the full list by kind (`test_sites`,
+  `test_setup`); the placeholder text.
+- **Found along the way:** my first aside (three bookings and the setting) was taller than the window at
+  100% and scrolled; the setting moved to the foot of the main column and the second older booking is
+  hidden in a short window. "Another website" wrapping to three lines made the grid scroll at 100%;
+  it is one line. The "See all" list first scrolled the whole column, card included; only the list
+  scrolls now.
+- **In the real window** (`.\run.ps1`, pictures by the debug port): the new first screen at 1266×632 and
+  1280×800, the full list, a chosen website, "Another website". Not seen: the first screen at 125%
+  in the real window (the tests cover it), dark theme, a first screen with no bookings or tasks.

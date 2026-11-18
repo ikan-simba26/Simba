@@ -24,7 +24,7 @@ from dataclasses import dataclass, replace
 from backend.orchestrator import cards as cardlib
 from backend.orchestrator import profile as profilelib
 from backend.orchestrator.llm import Action, LLMError, Provider
-from backend.orchestrator.loop import CHANGE_WORDS, Move, Task, resolve
+from backend.orchestrator.loop import CHANGE_WORDS, Move, Task, is_stepping, resolve
 from backend.orchestrator import voice
 from backend.orchestrator.plan import About, Expectation, Operation, Target
 from backend.perception.content import Content
@@ -1349,7 +1349,10 @@ class OpenGoalPlanner(LLMPlanner):
                                                   label=voice.REMEMBER_DETAIL, kind="primary"),
                            *actions[1:]]
         if kind == "click":
-            safe = not (CHANGE_WORDS.search(label) or CONSENT_WORDS.search(label))
+            # A press that only moves a purchase on is a checklist line; the
+            # loop still checks the page before believing it (`only_moves_on`).
+            safe = not ((CHANGE_WORDS.search(label) and not is_stepping(label))
+                        or CONSENT_WORDS.search(label))
         elif remembered:
             safe = True
         else:

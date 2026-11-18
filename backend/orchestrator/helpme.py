@@ -129,8 +129,16 @@ async def find(page: Page, kind: str) -> Target:
                     kind_of = (await box.get_attribute("type", timeout=500) or "text").lower()
                     if kind_of in ("hidden", "checkbox", "radio", "submit", "button"):
                         continue
-                    if await box.is_visible(timeout=500):
-                        return Target("code", locator=box)
+                    if not await box.is_visible(timeout=500):
+                        continue
+                    # A promo, coupon or gift-card box says "code" too.
+                    said = await box.evaluate(
+                        "e => [e.name, e.id, e.placeholder, e.getAttribute('aria-label'),"
+                        " e.labels && [...e.labels].map(l => l.innerText).join(' ')]"
+                        ".filter(Boolean).join(' ')", timeout=500)
+                    if payment.DISCOUNT_WORDS.search(said or ""):
+                        continue
+                    return Target("code", locator=box)
             except PlaywrightError:
                 continue
         return Target("code")

@@ -7195,3 +7195,126 @@ is not built: a routine needs the final answer's label and the cards' choice kep
 could be tested without a completed live task, which needs the person's own account. Seat-map redrawing
 (5.1) is built only as far as options and cards; Daewoo's seat map was not seen because its booking form
 is behind a sign-in.
+
+## 2026-11-17 (later) — Only the press that orders gets a final screen
+
+**Direction** (Raham): cut the extra final screens so that only the real last press has one.
+
+- **A stepping press runs as a checklist line.** A press whose whole label is "Buy Now", "Checkout",
+  "Proceed/Continue/Go to checkout|cart|payment|shipping|delivery|next", or "View cart"
+  (`loop.is_stepping`) no longer gets a final screen of its own when `loop.only_moves_on` believes it:
+  every operation a click with such a label; no committing word in it (place, confirm, complete, submit,
+  pay, book, register, send, apply, order...); the page asks for no card or bank details; and nothing
+  *visible* on the page is a one-click or order-now offer (1-click, express checkout, Apple/Google
+  Pay, PayPal button, "Place order", "Pay now"). Anything else keeps its final screen: default deny.
+  On a live site this is believed on words and the visible page alone, since nothing can be undone after.
+- **"Buy Now" is the weak point.** On a shop whose Buy Now orders at once without any of those signs, it
+  would be pressed without a final screen. Recommendation: keep it (Readings' Buy Now opens the cart);
+  if the advisor wants it stricter, drop `buy now` from `STEPPING_WORDS`, one line.
+- **The final screen's amounts lead with the total** (`amounts_on_page`): a Total, then what makes it
+  up (shipping, tax), and a label on the line above an amount counts. Before, it showed the first
+  three amounts on the page: Readings showed list price, "You Save" and the price, not Rs 4195.
+- **A promo, coupon, voucher or gift-card box is not card details nor a one-time code**
+  (`payment.DISCOUNT_WORDS`): Readings' checkout made the run hand over to the person for a "code".
+- **A typed value read back after the page moved on** no longer crashes the session (it was an
+  unhandled timeout in `verify_typed`, ending the run with no message).
+- One older test (`test_final_step`) pinned the earlier "SIMBA never presses Pay" rule and was brought
+  in line with 2026-11-17's.
+
+**Flagged.** (1) The checkout asked for no delivery address in the run: the AI planner never filled
+"Add New Address". Readings may refuse the order, or hold an address; not seen. (2) The final screen
+lists the list price (Rs 4495) as "You chose" beside a total of Rs 4195 (the site's 10% discount); both
+are the page's words. (3) Pressing a radio already chosen (Cash On Delivery) is reported "not done" and
+the run carries on. (4) A press on a card right after the list scrolls can be ignored (known, Aly).
+
+## 2026-11-17 (evening) — The frontend redesign: one fixed layout, and a card that builds
+
+**Direction** (Raham, from the design canvas "Concept 2 · It builds as you go", screens A to F).
+Branch `feat/frontend-builds-as-you-go`. Only how the screens look changed; every behaviour is kept.
+
+- **One layout on every task screen** (`TaskFrame.tsx`): "So far" on the left (each finished thing as a
+  chip, the thing now highlighted at the foot), the one thing now in the middle, the card on the right.
+  The three panels are the same size and in the same place on every screen (`test_build_card.py`).
+  Task screens are the working screen, the checklist and every question, including the final screen.
+- **The card that builds** (`journey.ts`, `TheCard.tsx`): a ticket (travel), a receipt (shopping), a bill,
+  a copy of the form (sign-ups) or an answer card (look-ups), empty when the task starts and filled the
+  moment each thing is known, with a short wash on the field just filled and "3 of 7 filled in". A field
+  waiting for the person is amber, "Waiting for you". The final screen is the card, complete, with an
+  amber border; its two buttons are in the middle. After "do it" the card gets its number and moves into
+  My bookings with one calm movement (`BookedFlight`, not under reduced motion).
+- **State colours** (`index.css`, `usePhase`): a 6px bar and a pill, teal and a soft halo round the lion
+  while SIMBA works, amber for "Your turn" and "Your decision", the spotlight (a lit panel on a dark
+  ground) for the help-me step, green for done.
+- **The fold** (screen E): at the simplest level the side panels fold away, the choices become very large
+  tiles, and one line says "This website is busy, so I'm showing you less." with "Show more".
+- **"See the real page"** (screen C) opens the live website in the middle panel with a glowing ring on
+  what SIMBA is touching; the same press and the same picture as "What are you doing?", drawn there.
+
+**Decisions made that were not asked for.**
+1. **No contract change.** The card is built in the frontend from messages the backend already sends: the
+   goal, each answer, the final screen's details, the findings (`journey.ts`). It never guesses: a field
+   whose fact was not seen stays empty. The exact version would be an additive optional `facts` list on
+   `step.presented` (the backend already keeps one, `run.facts`); recommended, not done, because it
+   touches `loop.py`, which had uncommitted work in it, and the contract needs Nahail and Aly.
+2. **Lexend was not added.** The canvas draws Lexend; the app uses Atkinson Hyperlegible Next, bundled.
+   Lexend needs a new dependency, and the project does not add one without asking. Atkinson stays.
+3. **The way to stop is the header's, with the step's own words** ("Stop this", "No, stop"), and the
+   step no longer draws a second one. On the working and checklist screens, which had none, the header's
+   "Stop" is new: it is the person's own stop (the stop screen, not a failure).
+4. **Final-step rule kept to the letter.** The canvas draws "Book it" filled and "Don't book" outlined;
+   the rule says two equal buttons and no default, so they are two equal buttons.
+5. **The stages row and the level dots moved.** The left panel replaces the stages row on task screens;
+   the three dots are in the header, with "Show" before them.
+6. **A secret never reaches the card.** A box whose name says password, code, card or PIN is dropped
+   before anything is stored; a password the person typed shows as "Kept safely" with no value.
+7. **A final screen is never folded**, whatever the level: what is about to happen is on it.
+8. **Closing screens are as they were** (answer, done, stopped, not done, stuck), with the state colour
+   as a bar across the top. So the answer card and the bill card, which only fill from findings, fill
+   only as far as the task shows findings before it ends. See the flags.
+9. **New tokens** in `index.css`: `--turn*`, `--done*`, `--spot`, `--spot-ground`, `--halo`, each with a
+   dark-theme value. Text on a tint uses the colour's `-ink`.
+10. **Old tests that pinned the old look** were updated, not the behaviour (listed in STATUS.md).
+
+**Flagged for review.** (1) Lexend (above). (2) The exact card needs `facts` in the contract: Nahail and
+Aly to agree. (3) Should the closing screens join the frame, so a look-up's answer card is the result?
+It means rebuilding `Completed` and its fit-to-window code; recommended after the demo. (4) The 20px
+minimum holds in everything new; older parts (notices, the old closing screens) still use 18px captions.
+
+## 2026-11-17 (night) — The home screen redesign (`feat/frontend-home-redesign`)
+
+**Direction** (Raham, from screen 1 of the design canvas, in the style of Concept 2). Behaviour is kept:
+the catalogue, typing any address, Your tasks, My bookings, Teach a task, the settings, "Ask me before
+each thing I do". `HomeFrame.tsx` is new and `Home.tsx` is rebuilt.
+
+- **A top bar** (`HomeFrame.tsx`): the logo and "simba" on the left, the status pill in the middle
+  ("Connected · Ready", the same words and the same `status-line`), "For helpers: teach a task" as an
+  outlined button and a settings gear on the right. The two corner links, which at 150% were drawn over
+  the heading, are gone: the bar is one row of three columns, so no part can reach another.
+- **The centre** is a white card: "Good evening, Raham" small, "What would you like to do?" large, the
+  goal box with a strong teal Start, and three suggestion chips (the first task of the first three kinds
+  of website). Start was faint when the box was empty and read as switched off; it is full colour now,
+  `aria-disabled` while empty, and pressed then it takes the person to the box.
+- **Under it**, "Or pick a website": eight cards, four to a row (their favourites first, then one from
+  each kind in turn; the eighth is "Another website", dashed), each a coloured square with the letter
+  or the website's own icon, the name, and its kind in a word. "See all 30" opens the full list by kind
+  (the list stays in its own scroll under the card; the card never scrolls away).
+- **On the right**, "My bookings" (the newest as a teal ticket, up to two older ones as cards, "See
+  all" opens the full screen as before) and, only when there are some, "Your tasks" as one-press
+  buttons with their pictures.
+
+**Decisions made that were not asked for.**
+1. "Another website" is a card again. It went on 2026-11-16 ("the button said the same thing twice");
+   the design draws it, so it is back, beside the box that still takes an address.
+2. "Your tasks" is still hidden when there are none (2026-10-18's rule), not shown empty; its buttons
+   keep their pictures (2026-11-10), which the canvas does not draw.
+3. The three tasks SIMBA knows by heart still stand in as cards when no website list is offered.
+4. Lexend is not used (a new dependency), as on the task screens. Type is 20px or more throughout.
+5. The second screen (a website chosen) is the same white card, with the same strong Start.
+6. The greeting's copy changed: "Good evening, Raham" and "What would you like to do?" replace "Good
+   evening, Raham. Where do you want to go?" (`greetingAt` is left in `copy.ts`, unused).
+7. "My bookings" in the old corner is gone; its button is "See all" in the panel.
+
+**Flagged.** (1) The bookings on this computer include a test booking whose title is "g" and whose site
+is empty; the ticket shows it as it is. (2) The newest booking's ticket shows its title, not a route,
+since a booking keeps only the goal's words. (3) Which eight websites show is my choice (favourites,
+then round-robin by kind); the advisor may want a fixed first eight.

@@ -750,7 +750,7 @@ async def asks_for_payment(page: Page, elements: list[Element], move: "Move") ->
         words = " ".join(filter(None, [operation.target.label,
                                        element.label if element else "",
                                        element.name if element else ""]))
-        if PAYMENT_WORDS.search(words):
+        if PAYMENT_WORDS.search(words) and not payment.DISCOUNT_WORDS.search(words):
             return True
         if element is not None:
             try:
@@ -810,7 +810,7 @@ async def page_asks_for_payment(page: Page, elements: "list[Element]") -> bool:
     for element in elements:
         if element.type == "fill" or element.role in ("textbox", "spinbutton", "combobox"):
             words = " ".join(filter(None, [element.label, element.name]))
-            if PAYMENT_WORDS.search(words):
+            if PAYMENT_WORDS.search(words) and not payment.DISCOUNT_WORDS.search(words):
                 return True
     try:
         if await page.evaluate(
@@ -824,22 +824,53 @@ async def page_asks_for_payment(page: Page, elements: "list[Element]") -> bool:
     return bool(await payment.find_card_fields(page))
 
 
+#: The words of an amount that is what the person pays, shown first.
+TOTAL_WORDS = re.compile(r"\b(grand total|total|amount (due|payable)|payable|you pay|to pay)\b",
+                         re.IGNORECASE)
+#: And those of what makes it up.
+PART_WORDS = re.compile(r"\b(shipping|delivery (charges?|fee)|postage|subtotal|tax|fee|charges)\b",
+                        re.IGNORECASE)
+
+
 async def amounts_on_page(page: Page, most: int = 3) -> list[Detail]:
     """The page's own amounts, as it states them, for a final screen no plan
     wrote: "Total: Rs 450" is Total, Rs 450. Read from the page's text, never
-    from a box anyone typed in."""
+    from a box anyone typed in. A total, then what makes it up (shipping, tax),
+    come before the rest, and a label on the line above an amount counts
+    (Readings' checkout, 2026-11-17: "Total" over "Rs.4195"); with none of
+    those, the first amounts on the page."""
     try:
         text = await page.evaluate("() => document.body ? document.body.innerText : ''")
     except PlaywrightError:
         return []
-    details: list[Detail] = []
+    found: list[Detail] = []
+    before = ""
     for line in (text or "").splitlines():
         line = line.strip()
-        found = MONEY.search(line)
-        if not found or len(line) > 80:
+        if not line:
             continue
-        label = line[:found.start()].strip(" :-") or voice.ON_THE_PAGE
-        details.append(Detail(label=label[:40], value=found.group(0).strip()))
+        match = MONEY.search(line)
+        if match and len(line) <= 80:
+            label = line[:match.start()].strip(" :-")
+            if not label and before and len(before) <= 40 and not MONEY.search(before):
+                label = before.strip(" :-")
+            found.append(Detail(label=(label or voice.ON_THE_PAGE)[:40],
+                                value=match.group(0).strip()))
+        before = line
+    totals = [d for d in found if TOTAL_WORDS.search(d.label)]
+    # Only with a total to lead are its parts brought forward.
+    ranked = (totals + [d for d in found if PART_WORDS.search(d.label)
+                        and not TOTAL_WORDS.search(d.label)]
+              + [d for d in found if not TOTAL_WORDS.search(d.label)
+                 and not PART_WORDS.search(d.label)]) if totals else found
+    seen: set[tuple[str, str]] = set()
+    details: list[Detail] = []
+    for detail in ranked:
+        key = (detail.label, detail.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        details.append(detail)
         if len(details) >= most:
             break
     return details
@@ -918,6 +949,77 @@ async def only_opens(page: Page, elements: list[Element], move: "Move") -> bool:
                 or (goes.path, goes.query) == (here.path, here.query):
             return False
     return True
+
+
+# --- a press that only moves a purchase on (2026-11-17) ---------------------------
+#
+# A shop has three presses on the way to one order: "Buy Now" (the product's
+# page), "Proceed to checkout" (the cart), and "Place order" (the last). Only
+# the last one orders. Giving each a final screen asked the person to say yes
+# three times to one order, so the first two, which only open the next page,
+# run as checklist lines. Deny by default: the words must be exactly a
+# stepping press's, no committing word may be in them, and the page must not
+# say it would order at once.
+
+#: The whole label of a press that only moves on to the next page of a
+#: purchase, an icon's name in front of it ignored.
+STEPPING_WORDS = re.compile(
+    r"^(?:buy now|check ?out|view (?:the )?(?:cart|basket|bag)|"
+    r"(?:go|proceed|continue) to (?:the )?(?:check ?out|cart|basket|bag|payment|shipping|"
+    r"delivery|billing|next step|next))$", re.IGNORECASE)
+
+#: Words that say a press does the thing, whatever else it says.
+COMMITTING_WORDS = re.compile(
+    r"\b(place|confirm|complete|submit|pay|book|register|send|apply|subscribe|donate|delete|"
+    r"transfer|sign up|signup|create|order)\b", re.IGNORECASE)
+
+#: A page that would order at once, or offers a quicker way to: not a page a
+#: press is believed to only move on from.
+ONE_CLICK_WORDS = re.compile(
+    r"(1[- ]?click|one[- ]?click|express checkout|buy with|pay with|apple pay|google pay|"
+    r"paypal|saved card|place order|confirm order|complete order|complete purchase|pay now)",
+    re.IGNORECASE)
+#: In a page's running text, only a promise of ordering at once counts: a
+#: footer that lists the ways to pay is not one.
+ONE_CLICK_TEXT = re.compile(r"(1[- ]?click|one[- ]?click|express checkout)", re.IGNORECASE)
+
+
+def is_stepping(label: str) -> bool:
+    """Whether a button's words are those of a press that only moves a
+    purchase on, by its words alone."""
+    plain = re.sub(r"^(?:cart|bag|basket|search|menu|user|home|heart|arrow|chevron|close)\s+"
+                   r"(?=[A-Za-z])", "", (label or "").strip())
+    plain = re.sub(r"\s+", " ", plain).strip(" .!")
+    return bool(plain) and bool(STEPPING_WORDS.match(plain)) and not COMMITTING_WORDS.search(plain)
+
+
+async def only_moves_on(page: Page, elements: list[Element], move: "Move") -> bool:
+    """Whether a press whose words say it would change something only moves a
+    purchase on, so it gets no final screen of its own and the press that does
+    order gets the only one (2026-11-17).
+
+    Believed only when every operation is a click with a stepping label, the
+    page asks for no card or bank details, and nothing on it (its buttons,
+    its text) is a one-click or an order-now offer. Anything else keeps its
+    final screen."""
+    if move.changes or not move.operations:
+        return False
+    if not all(o.kind == "click" and is_stepping(o.target.label or "") for o in move.operations):
+        return False
+    if await page_asks_for_payment(page, elements):
+        return False
+    # What is shown, not what the page keeps hidden: Readings holds a
+    # "Place Order" button in a drawer that its Buy Now opens (2026-11-17).
+    say = [e.label or "" for e in elements]
+    try:
+        say.extend(await page.evaluate(
+            "() => [...document.querySelectorAll('button,a,input[type=submit],[role=button]')]"
+            ".filter(e => e.getClientRects().length > 0)"
+            ".map(e => (e.innerText || e.value || e.getAttribute('aria-label') || '').trim())"))
+        text = await page.evaluate("() => document.body ? document.body.innerText : ''")
+    except PlaywrightError:
+        return False
+    return not (any(ONE_CLICK_WORDS.search(t) for t in say) or ONE_CLICK_TEXT.search(text or ""))
 
 
 def pressed(move: "Move") -> str:
@@ -2456,7 +2558,8 @@ async def carry_out(run: _Run, planner: Planner, task: Task,
         # live site is then handed to the person: SIMBA never presses it.
         # Whichever planner asked.
         paying = False
-        if would_change(move, planner) and not await only_opens(page, elements, move):
+        if (would_change(move, planner) and not await only_opens(page, elements, move)
+                and not await only_moves_on(page, elements, move)):
             live = not on_replica(page.url)
             paying = live and bool(PAY_WORDS.search(pressed(move)))
             screen = final_screen(move, before.content)
@@ -3273,9 +3376,16 @@ async def verify_typed(
 ) -> str | None:
     """A typed value is verified by reading it back, not by assuming."""
     elements, _, _ = await perceive(page)
-    if not any(e.id == element_id for e in elements):
-        return None  # the page moved on; the page-level check will judge that
-    actual = await resolve(page, elements, element_id).input_value()
+    # The same number on a page that moved on names something else (Readings:
+    # a search's results put a "View All" link where the box was, 2026-11-17):
+    # the page-level check will judge that.
+    if not any(e.id == element_id and e.role == element.role and e.label == element.label
+               for e in elements):
+        return None
+    try:
+        actual = await resolve(page, elements, element_id).input_value(timeout=5000)
+    except PlaywrightError as error:
+        return f"could not read back what was typed: {str(error).splitlines()[0]}"
     if actual == expected:
         return None
     if element.is_password:
