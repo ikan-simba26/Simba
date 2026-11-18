@@ -931,6 +931,8 @@ class OpenGoalPlanner(LLMPlanner):
         self._scrolled_page = ""
         #: Times a form was held back for an empty required box (B4).
         self._form_checks = 0
+        #: Times an ask with nothing to choose between was sent back (2026-11-18).
+        self._ask_retries = 0
         self._card_options: dict[str, cardlib.Card] = {}
         self._card_chosen: cardlib.Card | None = None
         self._added = 0
@@ -1146,6 +1148,17 @@ class OpenGoalPlanner(LLMPlanner):
             listed = await self._which_one(elements, any(e.overlay for e in elements), force=True)
             if listed is not None:
                 return listed
+            # Nothing on this page to choose between yet (Readings, 2026-11-18: it
+            # asked "which edition?" on the front page, before any search): the
+            # model is sent back to find it, twice at most, before giving up.
+            if self._ask_retries < 2:
+                self._ask_retries += 1
+                self._last = None   # the box it asked about is not "failed": it may be typed in next
+                log.info("AI choice refused: an ask with nothing to choose between")
+                return await self.next_move(
+                    elements, history,
+                    "There is nothing on this page to choose between yet. Do not ask: search "
+                    "for what the goal names, or open the page that lists it, first.")
             self.stuck_reason = voice.AI_COULD_NOT
             return None
         checking = await self._cart_check(choice)

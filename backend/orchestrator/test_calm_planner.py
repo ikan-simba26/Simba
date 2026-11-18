@@ -473,3 +473,12 @@ def test_a_look_up_never_types_the_persons_details(shop):
     assert "only looks something up" in (model.feedback[1] or "")
     assert "John Doe" not in str(person.sent)
     assert [step["instruction"] for step in person.asked()][1:] == []
+
+
+def test_an_ask_with_nothing_to_choose_between_sends_the_model_back_to_search(shop):
+    """Readings, 2026-11-18: it asked "which edition?" on the front page, before
+    any search, and the run stopped. It is sent back to find the thing first."""
+    model = Model([("ask", "Keyword", None), ("type", "Keyword", "Atomic Habits"), PRICE])
+    person = go(shop, model)
+    assert "nothing on this page to choose between" in (model.feedback[1] or "")
+    assert [m for m in person.sent if m[0] == "help.requested"] == []
