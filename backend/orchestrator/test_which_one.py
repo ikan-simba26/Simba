@@ -110,3 +110,41 @@ def test_a_search_box_that_says_mobile_phones_is_searched_not_asked_for_a_phone_
     assert [op.kind for op in move.operations] == ["fill", "press"]
     assert move.operations[0].value == "used laptop" and move.operations[1].value == "Enter"
     assert move.fields == []          # nothing is asked of the person
+
+
+FORM = """<html><body><form onsubmit="return false">
+  <label for=n>Full name</label><input id=n name=n required>
+  <label for=e>Email</label><input id=e name=e type=email required>
+  <input id=opt name=opt placeholder="Nickname">
+  <select id=c required><option value="">Choose</option><option>Lahore</option></select>
+  <label><input type=checkbox id=t required> I agree</label>
+  <input type=hidden required value="">
+  <button id=send type=submit>Register</button></form>
+  <button id=loose>Send</button></body></html>"""
+
+
+def test_required_boxes_still_empty_are_named_before_a_form_is_sent_on() -> None:
+    from backend.orchestrator.llm_loop import SENDS_FORM, empty_required_boxes
+
+    async def run() -> tuple[list[str], list[str], list[str]]:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(FORM)
+            empty = await empty_required_boxes(page.locator("#send"))
+            await page.fill("#n", "Amna")
+            await page.fill("#e", "a@b.pk")
+            await page.select_option("#c", "Lahore")
+            await page.check("#t")
+            filled = await empty_required_boxes(page.locator("#send"))
+            outside = await empty_required_boxes(page.locator("#loose"))
+            await browser.close()
+            return empty, filled, outside
+
+    empty, filled, outside = asyncio.run(run())
+    assert empty == ["Full name", "Email", "c", "I agree"] or set(empty) >= {"Full name", "Email"}
+    assert "Nickname" not in empty            # not required: left alone
+    assert filled == []                       # everything required is filled
+    assert outside == []                      # a button in no form has none to check
+    assert SENDS_FORM.search("Register") and SENDS_FORM.search("Place order")
+    assert not SENDS_FORM.search("Open details")

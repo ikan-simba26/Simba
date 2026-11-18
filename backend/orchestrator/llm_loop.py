@@ -836,6 +836,43 @@ def _control_for(card: "cardlib.Card", elements: list[Element]) -> Element | Non
     return min(candidates, key=distance)
 
 
+#: A press that sends a form on, by its words (B4, 2026-11-18).
+SENDS_FORM = re.compile(
+    r"\b(submit|register|sign ?up|create( an| my)? account|continue|next|place order|send|apply|"
+    r"confirm|checkout|check out|proceed|save)\b", re.IGNORECASE)
+
+#: The required boxes of a button's form that are still empty, by their labels.
+_EMPTY_REQUIRED_JS = """e => {
+  const form = e.closest('form');
+  if (!form) return [];
+  const seen = x => { const r = x.getBoundingClientRect(), s = getComputedStyle(x);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const name = x => ((x.labels && x.labels[0] ? x.labels[0].innerText : '')
+    || x.getAttribute('aria-label') || x.placeholder || x.name || x.type || '')
+    .replace(/\\s+/g, ' ').trim().slice(0, 40);
+  const out = [];
+  for (const x of form.querySelectorAll('input, select, textarea')) {
+    if (['hidden', 'submit', 'button', 'image', 'reset'].includes(x.type) || x.disabled) continue;
+    if (!(x.required || x.getAttribute('aria-required') === 'true') || !seen(x)) continue;
+    let empty;
+    if (x.type === 'checkbox') empty = !x.checked;
+    else if (x.type === 'radio') empty = !form.querySelector('input[type=radio][name="' + CSS.escape(x.name) + '"]:checked');
+    else empty = !(x.value || '').trim();
+    if (empty) out.push(name(x));
+  }
+  return [...new Set(out)].slice(0, 8);
+}"""
+
+
+async def empty_required_boxes(locator) -> list[str]:
+    """The required boxes still empty in the form this button belongs to, by
+    their labels; empty when it is in no form, or all are filled (B4)."""
+    try:
+        return list(await locator.evaluate(_EMPTY_REQUIRED_JS, timeout=3000) or [])
+    except Exception:  # noqa: BLE001 - a page that will not say: the page's own check decides
+        return []
+
+
 class OpenGoalPlanner(LLMPlanner):
     """The model on a goal with no plan: acts, or answers from the page.
 
@@ -892,6 +929,8 @@ class OpenGoalPlanner(LLMPlanner):
         self._asked_which = False
         #: The address whose page was scrolled to load all of it (B4).
         self._scrolled_page = ""
+        #: Times a form was held back for an empty required box (B4).
+        self._form_checks = 0
         self._card_options: dict[str, cardlib.Card] = {}
         self._card_chosen: cardlib.Card | None = None
         self._added = 0
@@ -1030,6 +1069,15 @@ class OpenGoalPlanner(LLMPlanner):
             # The person chose among the site's own options: do that.
             wanted, text = self._site_chosen
             self._site_chosen = None
+            if wanted.role == "option":
+                option = next((e for e in usable(elements, self._failed)
+                               if e.role == "option"
+                               and _plain(_without_icons(e.label)) == _plain(text)), None)
+                if option is not None:
+                    self._made = ("click", option.role, option.label)
+                    return await self._shape(_Choice(
+                        action=Action(action="click", element_id=option.id,
+                                      reasoning="This is the one you chose."), element=option))
             now = next((e for e in usable(elements, self._failed)
                         if (e.role, e.label) == (wanted.role, wanted.label)), None)
             if now is not None:
@@ -1072,6 +1120,32 @@ class OpenGoalPlanner(LLMPlanner):
             asking = await self._ask_site(choice, elements)
             if asking is not None:
                 return asking
+            # An open list of suggestions or matches (Wikipedia's "The Alchemist" has a
+            # novel, a play and a film): its own options, asked as buttons, and the
+            # one chosen is pressed (2026-11-18).
+            open_list = [e for e in usable(elements, self._failed)
+                         if e.role == "option" and _without_icons(e.label).strip()]
+            labels = list(dict.fromkeys(_without_icons(e.label).strip() for e in open_list))
+            if len(labels) >= 2:
+                labels = labels[:MOST_OPTIONS]
+                question = (choice.action.reasoning or "").strip()
+                if not question.endswith("?"):
+                    question = voice.WHICH_ONE
+                self._site_question = question
+                self._site_element = open_list[0]
+                self._site_options = {f"{OPTION_ID_PREFIX}{i}": text for i, text in enumerate(labels)}
+                actions = [StepAction(id=key, label=text, kind="primary")
+                           for key, text in self._site_options.items()]
+                actions.append(StepAction(id=voice.CANCEL_ID, label=voice.STOP, kind="secondary"))
+                return Move(instruction=question, detail=voice.WHICH_ONE_SITE, operations=[],
+                            expect=Expectation(), fields=[], actions=actions, question=True,
+                            kind="choose")
+            # Several results the model cannot choose among (a list of ads, not a
+            # drop-down): shown as "Which one?" cards, for a look-up too (PakWheels,
+            # 2026-11-18: "Find a used Suzuki Alto" stopped with "I couldn't work out").
+            listed = await self._which_one(elements, any(e.overlay for e in elements), force=True)
+            if listed is not None:
+                return listed
             self.stuck_reason = voice.AI_COULD_NOT
             return None
         checking = await self._cart_check(choice)
@@ -1129,12 +1203,13 @@ class OpenGoalPlanner(LLMPlanner):
             title = ""
         return words | set(re.findall(r"[a-z0-9]{4,}", title))
 
-    async def _which_one(self, elements: list[Element], on_top: bool) -> Move | None:
+    async def _which_one(self, elements: list[Element], on_top: bool,
+                         force: bool = False) -> Move | None:
         """Several matches on the page, and the goal does something with one of
         them: the person chooses, as cards. Once per run, on a list page only,
         and never after something is in the cart."""
         if (self.page is None or self._asked_which or self._added or on_top
-                or not DOING_GOAL.search(self._task.goal)
+                or not (force or DOING_GOAL.search(self._task.goal))
                 or NOT_A_LIST.search(urlsplit(self.page.url).path or "")):
             return None
         # The whole page is read first (lazy tiles load as it scrolls), and every
@@ -1490,6 +1565,19 @@ class OpenGoalPlanner(LLMPlanner):
                 feedback = ("Your own last action opened this dialog. Closing it would undo "
                             "that. Use what is in it: fill in its boxes or press its buttons.")
                 continue
+            if (action.action == "click" and self.page is not None and self._form_checks < 3
+                    and SENDS_FORM.search(_without_icons(chosen.label) or "")):
+                # Every required box is filled before a form is sent on (B4,
+                # 2026-11-18); a box left empty is the model's to fill, not the page's
+                # message to scold. Three checks a run, then the page decides.
+                empty = await empty_required_boxes(resolve(self.page, elements, chosen.id))
+                if empty:
+                    self._form_checks += 1
+                    log.info("AI choice refused: %d required boxes empty", len(empty))
+                    feedback = ("This form still has required boxes that are empty: "
+                                + ", ".join(empty) + ". Fill them in or choose them first, "
+                                "then press this.")
+                    continue
             return _Choice(action=action, element=chosen)
         self.stuck_reason = voice.AI_TOO_SLOW if unanswered == 2 else voice.AI_COULD_NOT
         return None
