@@ -9518,3 +9518,16 @@ Step 4b, "Find trains from Lahore to Karachi next Wednesday" (today Wed 18 Nov):
 - Passes are by my text checks on the final screen (a train count, "Rs", a name), read afterwards; they say the run ended with an answer, not that every answer is right.
 
 **Tests.** Changed files only (the full suite runs tonight): `test_trip` and `test_trip_answers` 158 passed with the year changes; `test_which_one` 10, `test_keep_answers` 8, `test_catalogue` 41, `test_calm_planner` 37, `test_llm_loop`/`test_open_goal`/`test_asking`/`test_live_doing` 113; frontend `test_change_answer` 4, `test_sites` 41, `test_home` 17, plus `test_build_card`, `test_checklist`, `test_own_tiles`, `test_reset`, `test_closing` (205 passed in one run). Still failing, not caused here: `test_copy` (the backend writes `kind="secondary"` outside `voice.py`, same count on main) and `test_first_screen::test_an_empty_box_looks_ready_to_type_in`.
+
+
+## 2026-11-18 (later) — Step 4a: a real Readings order, cash on delivery, placed by Raham
+
+"Order me Gitanjali Song Offerings on Readings, cash on delivery", in the real window, Raham at the keyboard. **Readings said: "Thank you for your Order. Your Order No. is 329308."** One final screen, one "Do it" (pressed by Raham), 7 model calls, 6 steps, 168 s; the booking was kept as a card.
+
+It took four attempts that day and each stopped somewhere different; every one was a defect, found only by a real account:
+1. **Sign-in.** After Checkout and Cash On Delivery the sign-in panel opened; SIMBA typed the email and password (20 and 8 characters), pressed Login twice and "the page did not change at all". Not seen to completion; the next attempts did not need it.
+2. **Cash On Delivery pressed twice.** The first press worked (the radio was checked and the payment box read "Cash On Delivery Rs.465 – Change"). The second changed nothing, was called a failed move, and the AI then pressed the site's own "Change" link and went round until it stopped. **Fixed** (`loop.already_chosen`): a press on a radio already chosen is done. Fired live in the order that worked ("choice already made: nothing to press").
+3. **No delivery address on the account.** Place Order pressed three times with no effect; the AI then tried to type an address. Raham saved an address in the checkout; the next run placed the order. **Open:** SIMBA should say "Readings needs a delivery address first" and stop, instead of pressing Place Order again.
+4. **Cart.** Earlier runs had left copies in the cart; the AI lowered the quantity and moved another book to the wishlist, which is a change to the account made without a final screen. **Flagged:** a cart edit by the AI should be asked first.
+
+Not verified by me: that the order holds one copy at the expected total (Raham saw the final screen); it is for him to check in "My orders". Nothing else was bought.
