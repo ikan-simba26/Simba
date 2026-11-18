@@ -14,6 +14,7 @@
   "sites": [
     {
       "id": "pakrailways",
+      "tested": true,
       "name": "Pakistan Railways",
       "address": "https://www.pakrailways.gov.pk/train",
       "genre": "Travel",
@@ -86,6 +87,7 @@
     },
     {
       "id": "readings",
+      "tested": true,
       "name": "Readings bookshop",
       "address": "https://www.readings.com.pk/",
       "genre": "Shopping",
@@ -268,6 +270,7 @@
     },
     {
       "id": "practice-bill",
+      "tested": true,
       "name": "Electricity bill (practice copy)",
       "address": "http://127.0.0.1:5100",
       "genre": "Practice sites",

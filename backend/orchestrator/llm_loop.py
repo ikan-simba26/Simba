@@ -545,6 +545,7 @@ pick one yourself: choose action "ask" with the element_id of that dropdown, or 
 of one of its options, and reasoning a short question for the person, like: \
 Which class? SIMBA shows the website's own options and presses the one they pick.
 Never add more than one item to a cart or a booking unless the goal says so.
+When a search or list shows several results that fit the goal, never take the first one because it is first: SIMBA shows the matches and the person chooses. Read the whole page before choosing anything on it.
 Before you press the button that sends a form, make sure every box and every drop-down list in it has been filled or chosen, the lists too (a city, a title). If a message on the page says something is missing, do that, not the message.
 When the website says you must be signed in (a "session has expired", "please log in again", a "Re-login" or "Log in" button), do that first, with its own Log in button, before anything else: the person gives their details and password in SIMBA's own screens. Booking and buying sites usually need it, so sign in before you search.
 If the form or button the goal needs (a search for a journey, a booking form, \
@@ -749,6 +750,8 @@ GOAL_FILLER = {
     "with", "from", "ticket", "tickets", "online", "want", "need", "would", "like", "can", "you",
     "that", "this", "some", "any", "one", "cash", "delivery", "card", "pay", "payment", "register",
     "apply", "sign", "new", "find", "show", "give", "bus", "train", "flight", "seat", "seats",
+    "shop", "store", "bookshop", "bookstore", "website", "site", "page", "them", "your", "into",
+    "just", "tell", "make", "also", "have", "will", "when", "what", "which",
 }
 
 
@@ -788,6 +791,17 @@ def goal_date(goal: str, shape: str = "", today=None) -> str | None:
     if lowered.startswith("yy"):
         return f"{when.year}{sep}{when.month:02d}{sep}{when.day:02d}"
     return when.isoformat()
+
+
+def cards_about(cards: "list[cardlib.Card]", goal: str, site_words: set[str]
+                ) -> "list[cardlib.Card]":
+    """The cards that are about what the goal asks for, the ones that say the
+    most of its words first. The website's own name is no topic (B5): "an
+    alchemist book on Readings" is about "alchemist", and "(Readings Classics)"
+    says nothing about it. No topic word in the goal means no card is about it."""
+    words = [w for w in goal_words(goal) if w not in site_words]
+    about = [c for c in cards if words and any(w in _plain(c.name) for w in words)]
+    return sorted(about, key=lambda c: -sum(w in _plain(c.name) for w in words))
 
 
 def _plain(text: str) -> str:
@@ -870,6 +884,8 @@ class OpenGoalPlanner(LLMPlanner):
         # "Which one?" (2026-11-17), the one-item rule and the cart check.
         self.page = None
         self._asked_which = False
+        #: The address whose page was scrolled to load all of it (B4).
+        self._scrolled_page = ""
         self._card_options: dict[str, cardlib.Card] = {}
         self._card_chosen: cardlib.Card | None = None
         self._added = 0
@@ -1096,6 +1112,17 @@ class OpenGoalPlanner(LLMPlanner):
 
     # --- "Which one?", one item, and the cart (2026-11-17) --------------------------
 
+    async def _site_words(self) -> set[str]:
+        """The words that name this website (its address and the start of its
+        title): they say where, never what, so they never pick a card."""
+        host = urlsplit(self.page.url).netloc.lower() if self.page is not None else ""
+        words = set(re.findall(r"[a-z0-9]{4,}", host))
+        try:
+            title = (await self.page.title()).lower().split(" - ")[0].split(" | ")[0]
+        except Exception:  # noqa: BLE001 - a page with no title: the address is enough
+            title = ""
+        return words | set(re.findall(r"[a-z0-9]{4,}", title))
+
     async def _which_one(self, elements: list[Element], on_top: bool) -> Move | None:
         """Several matches on the page, and the goal does something with one of
         them: the person chooses, as cards. Once per run, on a list page only,
@@ -1104,17 +1131,24 @@ class OpenGoalPlanner(LLMPlanner):
                 or not DOING_GOAL.search(self._task.goal)
                 or NOT_A_LIST.search(urlsplit(self.page.url).path or "")):
             return None
+        # The whole page is read first (lazy tiles load as it scrolls), and every
+        # tile is looked at before the goal's words choose among them (B4).
+        if self._scrolled_page != self.page.url:
+            self._scrolled_page = self.page.url
+            await cardlib.read_whole_page(self.page)
         found = await cardlib.find_cards(self.page)
         if len(found) < 2:
             return None
         usable_now = usable(elements, self._failed)
         # Only the ones about what was asked for: a shop's front page lists
-        # its own picks, which are not matches (Readings, 2026-11-17).
-        words = goal_words(self._task.goal)
-        about = [c for c in found if not words or any(w in _plain(c.name) for w in words)]
+        # its own picks, which are not matches (Readings, 2026-11-17). The
+        # website's own name is not a topic: "alchemist book on Readings" must
+        # not match "(Readings Classics)" (B5, 2026-11-18).
+        about = cards_about(found, self._task.goal, await self._site_words())
         reachable = [c for c in about if _control_for(c, usable_now) is not None]
         if len(reachable) < 2:
             return None
+        reachable = reachable[:cardlib.SHOW_CARDS]
         self._asked_which = True
         pictures = await cardlib.pictures(self.page, reachable)
         options: dict[str, cardlib.Card] = {}

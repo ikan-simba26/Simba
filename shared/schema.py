@@ -146,6 +146,12 @@ class CatalogueSite(BaseModel):
     genre: str
     tasks: List[CatalogueTask]
     added: bool = False
+    # Additive and optional (2026-11-18, B2). Tried live start to finish: the
+    # home screen gives it a small "Tested" badge. Absent: not marked.
+    tested: bool = False
+    # Additive and optional (2026-11-18). SIMBA only looks things up there:
+    # nothing is ordered, booked or sent. Absent: not limited.
+    look_up_only: bool = False
 
 
 AiCheck = Literal["ok", "key", "limit", "network", "other", "provider", "address", "model",
@@ -567,6 +573,16 @@ class ErrorPayload(BaseModel):
 # --- Frontend to backend -----------------------------------------------------
 
 
+class KeptAnswer(BaseModel):
+    """One answer the person already gave (2026-11-18, "Change" in "So far"):
+    the question as it was asked, the button pressed by its words, and what
+    was typed. Never a secret: the overlay does not keep those."""
+
+    question: str
+    action_label: Optional[str] = None
+    input_values: Dict[str, str] = {}
+
+
 class TaskStart(BaseModel):
     goal: str
     input_mode: InputMode
@@ -596,6 +612,12 @@ class TaskStart(BaseModel):
     # there — by a built-in plan if the goal is one and the site is its site,
     # otherwise by the AI planner. Absent: the goal is routed as before.
     site: Optional[str] = None
+    # Additive and optional (2026-11-18, B3). The answers to keep when the
+    # person changes one earlier answer: the task is started again on the same
+    # website and each question that matches one of these is answered by it,
+    # not asked. Never a final screen, never the read-back of a journey. The
+    # changed question is simply left out, so it is asked again. Absent: none.
+    keep_answers: Optional[List[KeptAnswer]] = None
 
 
 class TeachStart(BaseModel):

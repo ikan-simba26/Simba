@@ -2004,6 +2004,35 @@ class _Run:
                  urlsplit(start_url).netloc, estimated_steps, time.monotonic() - opening)
         return True
 
+    def kept_answer(self, move: "Move", index: int, final: list[Detail] | None) -> dict | None:
+        """The person's earlier answer to this very question, when they changed
+        another one (2026-11-18, B3): the task was started again with the
+        answers to keep (`task.start.keep_answers`), and a question that matches
+        one is answered by it instead of being asked. Each is used once.
+
+        Never a final screen, never a read-back (`kind == "confirm"`): what
+        will be done is always asked in full, with what it now says. A button
+        is found by its words, so a changed list of choices never presses a
+        different one by position; no such button, and the question is asked."""
+        kept = getattr(self.connection, "keep_answers", None)
+        if not kept or final is not None or not move.question or kind_of(move) == "confirm":
+            return None
+        for answer in kept:
+            if answer.get("question") != move.instruction:
+                continue
+            wanted = (answer.get("action_label") or "").strip().casefold()
+            action = next((a for a in move.actions if wanted and a.label.strip().casefold() == wanted),
+                          None)
+            if action is None and not wanted and move.fields:
+                action = next((a for a in move.actions if a.kind == "primary"), None)
+            if action is None:
+                return None
+            kept.remove(answer)
+            log.info("step %d answered by an earlier answer, not asked", index)
+            return {"step_index": index, "action_id": action.id,
+                    "input_values": dict(answer.get("input_values") or {})}
+        return None
+
     async def present(
         self, move: "Move", *, goal: str, findings: list[Finding], view: PageView,
         final: list[Detail] | None = None,
@@ -2016,6 +2045,9 @@ class _Run:
         """
         self.shown += 1
         index = self.shown
+        kept = self.kept_answer(move, index, final)
+        if kept is not None:
+            return kept
         await self.set_state("waiting")
         features = features_of(view)
         # What the page was like at the moment this step went on screen, kept

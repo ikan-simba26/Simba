@@ -660,3 +660,23 @@ def test_a_backend_that_cannot_be_reached_is_said_and_tried_again(
     assert "I can't reach SIMBA's helper. Trying again." in line.inner_text()
     page.wait_for_timeout(4500)
     assert len(attempts) >= 2  # tried again by itself
+
+
+def test_the_home_says_any_website_works_counts_the_list_and_badges_the_tested_ones(
+        browser, overlay, backend, offer, pages):  # noqa: F811
+    """B2 (2026-11-18): "Works on any website. These are tested.", the count, and a
+    small badge on each website tried live from start to finish."""
+    page = home(browser, overlay, backend, next(iter(SIZES)), pages)
+    line = page.get_by_test_id("works-anywhere").inner_text()
+    assert "Works on any website. These are tested." in line
+    tested = [site for site in offer["sites"] if site.get("tested")]
+    assert tested, "the shipped list names at least one tested website"
+    assert page.get_by_test_id("site-count").inner_text().strip() == (
+        f"{len(offer['sites'])} websites listed · {len(tested)} tested")
+    see_all(page)
+    assert page.get_by_test_id("badge-tested").count() == len(tested)
+    # A website that was not tried carries no badge.
+    untried = [site["name"] for site in offer["sites"] if not site.get("tested")][0]
+    card = page.get_by_test_id("site").filter(has=page.locator(f"[aria-label='{untried}']")) \
+        if False else page.locator(f"[data-testid=site][aria-label='{untried}']")
+    assert card.get_by_test_id("badge-tested").count() == 0

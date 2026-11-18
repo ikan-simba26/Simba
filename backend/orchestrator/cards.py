@@ -25,8 +25,37 @@ from playwright.async_api import Page
 
 log = logging.getLogger("simba.cards")
 
-#: The most cards put in front of the person.
-MOST_CARDS = 6
+#: The most tiles read off a page (B4, 2026-11-18: it was the first 6 in page
+#: order, cut before the goal's words were looked at, so a match further down
+#: the page never reached the person).
+MOST_CARDS = 60
+#: The most cards put in front of the person as "Which one?".
+SHOW_CARDS = 12
+
+#: Scrolls a page down in steps so lazy content loads, then back to the top.
+_SCROLL_JS = """async (steps) => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const start = window.scrollY;
+  let last = -1;
+  for (let i = 0; i < steps; i++) {
+    window.scrollBy(0, Math.max(400, window.innerHeight * 0.9));
+    await wait(250);
+    const h = document.documentElement.scrollHeight;
+    if (window.scrollY + window.innerHeight >= h - 4) { if (h === last) break; last = h; }
+  }
+  window.scrollTo(0, start);
+  await wait(100);
+  return document.documentElement.scrollHeight;
+}"""
+
+
+async def read_whole_page(page: Page, steps: int = 12) -> None:
+    """Scroll to the bottom and back so lazy-loaded tiles exist before anything
+    is chosen from the page (B4). Reads and scrolls only; nothing is pressed."""
+    try:
+        await asyncio.wait_for(page.evaluate(_SCROLL_JS, steps), timeout=8)
+    except (PlaywrightError, asyncio.TimeoutError):
+        pass
 
 _FIND_JS = r"""(most) => {
   const PRICE = /(?:\brs\.?|\bpkr|₨|\busd|\bus\$|\$|£|€)\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:\brs\.?|\bpkr)\b/i;

@@ -93,6 +93,15 @@ export const HOME = {
   question: "What would you like to do?",
   examplePlaceholder: "For example: book a bus from Lahore to Karachi on Friday",
   pickSite: "Or pick a website",
+  /** Under the heading (2026-11-18, B2): any address works; the listed ones are tried. */
+  worksAnywhere: "Works on any website. These are tested.",
+  /** The count, so nobody has to guess how many websites SIMBA covers. */
+  siteCount: (listed: number, tested: number) =>
+    `${listed} websites listed · ${tested} tested`,
+  /** The small badge on a website that was tried live from start to finish. */
+  testedBadge: "Tested",
+  /** On one where SIMBA only looks things up. */
+  lookUpOnlyBadge: "Look up only",
   seeAll: (n: number) => `See all ${n}`,
   seeFewer: "Show fewer",
   anotherSite: "Another website",
@@ -1046,6 +1055,10 @@ export const LABELS: Record<string, string> = {
 export const FRAME = {
   /** The left panel's heading: what is finished. */
   soFar: "So far",
+  /** Beside a finished answer in the left panel: go back and answer it again. */
+  change: "Change",
+  /** What a screen reader hears for one: "Change: Karachi City". */
+  changeThis: (answer: string) => `Change: ${answer}`,
   /** Before the one thing happening now, in the left panel. */
   now: "Now:",
   /** The first thing in the left panel: what the person asked for. */
